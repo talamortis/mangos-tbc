@@ -116,5 +116,8 @@ class SRP6
         BigNumber b, B;
         BigNumber K;
         BigNumber M;
+
+        const char* v_hex;
+        const char* s_hex;
 };
 #endif

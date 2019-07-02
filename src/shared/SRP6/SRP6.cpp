@@ -91,16 +91,7 @@ bool SRP6::CalculateSessionKey(uint8* lp_A, int l)
 
 void SRP6::CalculateVerifier(const std::string& rI)
 {
-    BigNumber salt;
-    salt.SetRand(s_BYTE_SIZE * 8);
-    const char* _salt = salt.AsHexStr();
-    CalculateVerifier(rI, _salt);
-    OPENSSL_free((void*)_salt);
-}
-
-void SRP6::CalculateVerifier(const std::string& rI, const char* salt)
-{
-    s.SetHexStr(salt);
+    s.SetRand(s_BYTE_SIZE * 8);
 
     BigNumber I;
     I.SetHexStr(rI.c_str());
@@ -160,21 +151,6 @@ bool SRP6::Proof(uint8* lp_M, int l)
         return false;
 
     return true;
-}
-
-bool SRP6::ProofVerifier(std::string vC)
-{
-    const char* vC_hex = vC.c_str();
-    const char* v_hex = v.AsHexStr();
-
-    if (memcmp(vC_hex, v_hex, strlen(vC_hex)) == 0)
-    {
-        OPENSSL_free((void*)v_hex);
-        return true;
-    }
-
-    OPENSSL_free((void*)v_hex);
-    return false;
 }
 
 void SRP6::Finalize(Sha1Hash& sha)

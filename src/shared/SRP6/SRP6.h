@@ -59,17 +59,15 @@ class SRP6
         //! calculates the password verifier (v)
         /*!
           \param rI a sha1 hash of USERNAME:PASSWORD
-          \return true on success otherwise false if s is faulty
         */
-        bool CalculateVerifier(const std::string& rI);
+        void CalculateVerifier(const std::string& rI);
 
         //! calculates the password verifier (v) based on a predefined salt (s)
         /*!
           \param rI a sha1 hash of USERNAME:PASSWORD
           \param salt a predefined salt (s)
-          \return true on success otherwise false if s is faulty
         */
-        bool CalculateVerifier(const std::string& rI, const char* salt);
+        void CalculateVerifier(const std::string& rI, const char* salt);
 
         //! generates a strong session key (K) of session key (S)
         void HashSessionKey(void);
@@ -108,9 +106,9 @@ class SRP6
         BigNumber GetStrongSessionKey(void) { return K; };
         BigNumber GetVerifier(void) { return v; };
 
-        bool SetSalt(const char* new_s);
+        void SetSalt(const char* new_s) { s.SetHexStr(new_s); };
         void SetStrongSessionKey(const char* new_K) { K.SetHexStr(new_K); };
-        bool SetVerifier(const char* new_v);
+        void SetVerifier(const char* new_v) { v.SetHexStr(new_v); };
 
     private:
         BigNumber A, u, S;

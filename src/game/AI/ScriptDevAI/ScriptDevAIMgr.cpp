@@ -19,6 +19,35 @@
 
 INSTANTIATE_SINGLETON_1(ScriptDevAIMgr);
 
+// Utility macros to refer to the script registry.
+#define SCR_REG_MAP(T) ScriptRegistry<T>::ScriptMap
+#define SCR_REG_LST(T) ScriptRegistry<T>::ScriptPointerList
+
+// Utility macros for looping over scripts.
+#define FOR_SCRIPTS(T,C,E) \
+    if (SCR_REG_LST(T).empty()) \
+        return; \
+    for (SCR_REG_MAP(T)::iterator C = SCR_REG_LST(T).begin(); \
+        C != SCR_REG_LST(T).end(); ++C)
+#define FOR_SCRIPTS_RET(T,C,E,R) \
+    if (SCR_REG_LST(T).empty()) \
+        return R; \
+    for (SCR_REG_MAP(T)::iterator C = SCR_REG_LST(T).begin(); \
+        C != SCR_REG_LST(T).end(); ++C)
+#define FOREACH_SCRIPT(T) \
+    FOR_SCRIPTS(T, itr, end) \
+    itr->second
+
+// Utility macros for finding specific scripts.
+#define GET_SCRIPT(T,I,V) \
+    T* V = ScriptRegistry<T>::GetScriptById(I); \
+    if (!V) \
+        return;
+#define GET_SCRIPT_RET(T,I,V,R) \
+    T* V = ScriptRegistry<T>::GetScriptById(I); \
+    if (!V) \
+        return R;
+
 void FillSpellSummary();
 
 void LoadDatabase()
@@ -136,317 +165,23 @@ void Script::RegisterSelf(bool bReportError)
 
 //********************************
 //*** Functions to be Exported ***
-
-bool ScriptDevAIMgr::OnGossipHello(Player* pPlayer, Creature* pCreature)
-{
-    Script* pTempScript = GetScript(pCreature->GetScriptId());
-
-    if (!pTempScript || !pTempScript->pGossipHello)
-        return false;
-
-    pPlayer->PlayerTalkClass->ClearMenus();
-
-    return pTempScript->pGossipHello(pPlayer, pCreature);
-}
-
-bool ScriptDevAIMgr::OnGossipHello(Player* pPlayer, GameObject* pGo)
-{
-    Script* pTempScript = GetScript(pGo->GetGOInfo()->ScriptId);
-
-    if (!pTempScript || !pTempScript->pGossipHelloGO)
-        return false;
-
-    pPlayer->PlayerTalkClass->ClearMenus();
-
-    return pTempScript->pGossipHelloGO(pPlayer, pGo);
-}
-
-bool ScriptDevAIMgr::OnGossipSelect(Player* pPlayer, Creature* pCreature, uint32 uiSender, uint32 uiAction, const char* code)
-{
-    debug_log("SD2: Gossip selection, sender: %u, action: %u", uiSender, uiAction);
-
-    Script* pTempScript = GetScript(pCreature->GetScriptId());
-
-    if (!pTempScript)
-        return false;
-
-    if (code)
-    {
-        if (!pTempScript->pGossipSelectWithCode)
-            return false;
-
-        pPlayer->PlayerTalkClass->ClearMenus();
-        return pTempScript->pGossipSelectWithCode(pPlayer, pCreature, uiSender, uiAction, code);
-    }
-
-    if (!pTempScript->pGossipSelect)
-        return false;
-
-    pPlayer->PlayerTalkClass->ClearMenus();
-    return pTempScript->pGossipSelect(pPlayer, pCreature, uiSender, uiAction);
-}
-
-bool ScriptDevAIMgr::OnGossipSelect(Player* pPlayer, GameObject* pGo, uint32 uiSender, uint32 uiAction, const char* code)
-{
-    debug_log("SD2: GO Gossip selection, sender: %u, action: %u", uiSender, uiAction);
-
-    Script* pTempScript = GetScript(pGo->GetGOInfo()->ScriptId);
-
-    if (!pTempScript)
-        return false;
-
-    if (code)
-    {
-        if (!pTempScript->pGossipSelectGOWithCode)
-            return false;
-
-        pPlayer->PlayerTalkClass->ClearMenus();
-        return pTempScript->pGossipSelectGOWithCode(pPlayer, pGo, uiSender, uiAction, code);
-    }
-
-    if (!pTempScript->pGossipSelectGO)
-        return false;
-
-    pPlayer->PlayerTalkClass->ClearMenus();
-    return pTempScript->pGossipSelectGO(pPlayer, pGo, uiSender, uiAction);
-}
-
-uint32 ScriptDevAIMgr::GetDialogStatus(const Player* pPlayer, const Creature* pCreature) const
-{
-    Script* pTempScript = GetScript(pCreature->GetScriptId());
-
-    if (!pTempScript || !pTempScript->pDialogStatusNPC)
-        return DIALOG_STATUS_UNDEFINED;
-
-    pPlayer->PlayerTalkClass->ClearMenus();
-
-    return pTempScript->pDialogStatusNPC(pPlayer, pCreature);
-}
-
-uint32 ScriptDevAIMgr::GetDialogStatus(const Player* pPlayer, const GameObject* pGo) const
-{
-    Script* pTempScript = GetScript(pGo->GetGOInfo()->ScriptId);
-
-    if (!pTempScript || !pTempScript->pDialogStatusGO)
-        return DIALOG_STATUS_UNDEFINED;
-
-    pPlayer->PlayerTalkClass->ClearMenus();
-
-    return pTempScript->pDialogStatusGO(pPlayer, pGo);
-}
-
-bool ScriptDevAIMgr::OnQuestAccept(Player* pPlayer, Creature* pCreature, const Quest* pQuest)
-{
-    Script* pTempScript = GetScript(pCreature->GetScriptId());
-
-    if (!pTempScript || !pTempScript->pQuestAcceptNPC)
-        return false;
-
-    pPlayer->PlayerTalkClass->ClearMenus();
-
-    return pTempScript->pQuestAcceptNPC(pPlayer, pCreature, pQuest);
-}
-
-bool ScriptDevAIMgr::OnQuestAccept(Player* pPlayer, GameObject* pGo, const Quest* pQuest)
-{
-    Script* pTempScript = GetScript(pGo->GetGOInfo()->ScriptId);
-
-    if (!pTempScript || !pTempScript->pQuestAcceptGO)
-        return false;
-
-    pPlayer->PlayerTalkClass->ClearMenus();
-
-    return pTempScript->pQuestAcceptGO(pPlayer, pGo, pQuest);
-}
-
-bool ScriptDevAIMgr::OnQuestAccept(Player* pPlayer, Item* pItem, Quest const* pQuest)
-{
-    Script* pTempScript = GetScript(pItem->GetProto()->ScriptId);
-
-    if (!pTempScript || !pTempScript->pQuestAcceptItem)
-        return false;
-
-    pPlayer->PlayerTalkClass->ClearMenus();
-
-    return pTempScript->pQuestAcceptItem(pPlayer, pItem, pQuest);
-}
-
-bool ScriptDevAIMgr::OnGameObjectUse(Player* pPlayer, GameObject* pGo)
-{
-    Script* pTempScript = GetScript(pGo->GetGOInfo()->ScriptId);
-
-    if (!pTempScript || !pTempScript->pGOUse)
-        return false;
-
-    return pTempScript->pGOUse(pPlayer, pGo);
-}
-
-std::function<bool(Unit*)>* ScriptDevAIMgr::OnTrapSearch(GameObject* go)
-{
-    Script* pTempScript = GetScript(go->GetGOInfo()->ScriptId);
-
-    if (!pTempScript)
-        return nullptr;
-
-    return pTempScript->pTrapSearching;
-}
-
-bool ScriptDevAIMgr::OnQuestRewarded(Player* pPlayer, Creature* pCreature, Quest const* pQuest)
-{
-    Script* pTempScript = GetScript(pCreature->GetScriptId());
-
-    if (!pTempScript || !pTempScript->pQuestRewardedNPC)
-        return false;
-
-    pPlayer->PlayerTalkClass->ClearMenus();
-
-    return pTempScript->pQuestRewardedNPC(pPlayer, pCreature, pQuest);
-}
-
-bool ScriptDevAIMgr::OnQuestRewarded(Player* pPlayer, GameObject* pGo, Quest const* pQuest)
-{
-    Script* pTempScript = GetScript(pGo->GetGOInfo()->ScriptId);
-
-    if (!pTempScript || !pTempScript->pQuestRewardedGO)
-        return false;
-
-    pPlayer->PlayerTalkClass->ClearMenus();
-
-    return pTempScript->pQuestRewardedGO(pPlayer, pGo, pQuest);
-}
-
-bool ScriptDevAIMgr::OnAreaTrigger(Player* pPlayer, AreaTriggerEntry const* atEntry)
-{
-    Script* pTempScript = GetScript(GetAreaTriggerScriptId(atEntry->id));
-
-    if (!pTempScript || !pTempScript->pAreaTrigger)
-        return false;
-
-    return pTempScript->pAreaTrigger(pPlayer, atEntry);
-}
-
-bool ScriptDevAIMgr::OnProcessEvent(uint32 uiEventId, Object* pSource, Object* pTarget, bool bIsStart)
-{
-    Script* pTempScript = GetScript(GetEventIdScriptId(uiEventId));
-
-    if (!pTempScript || !pTempScript->pProcessEventId)
-        return false;
-
-    // bIsStart may be false, when event is from taxi node events (arrival=false, departure=true)
-    return pTempScript->pProcessEventId(uiEventId, pSource, pTarget, bIsStart);
-}
-
-UnitAI* ScriptDevAIMgr::GetCreatureAI(Creature* pCreature) const
-{
-    Script* pTempScript = GetScript(pCreature->GetScriptId());
-
-    if (!pTempScript || !pTempScript->GetAI)
-        return nullptr;
-
-    return pTempScript->GetAI(pCreature);
-}
-
-GameObjectAI* ScriptDevAIMgr::GetGameObjectAI(GameObject* gameobject) const
-{
-    Script* pTempScript = GetScript(gameobject->GetScriptId());
-
-    if (!pTempScript || !pTempScript->GetGameObjectAI)
-        return nullptr;
-
-    return pTempScript->GetGameObjectAI(gameobject);
-}
-
-bool ScriptDevAIMgr::OnItemUse(Player* pPlayer, Item* pItem, SpellCastTargets const& targets)
-{
-    Script* pTempScript = GetScript(pItem->GetProto()->ScriptId);
-
-    if (!pTempScript || !pTempScript->pItemUse)
-        return false;
-
-    return pTempScript->pItemUse(pPlayer, pItem, targets);
-}
-
-bool ScriptDevAIMgr::OnItemLoot(Player* pPlayer, Item* pItem, bool apply)
-{
-    Script* pTempScript = GetScript(pItem->GetProto()->ScriptId);
-
-    if (!pTempScript || !pTempScript->pItemLoot)
-        return false;
-
-    return pTempScript->pItemLoot(pPlayer, pItem, apply);
-}
-
-bool ScriptDevAIMgr::OnEffectDummy(Unit* pCaster, uint32 spellId, SpellEffectIndex effIndex, Creature* pTarget, ObjectGuid originalCasterGuid)
-{
-    Script* pTempScript = GetScript(pTarget->GetScriptId());
-
-    if (!pTempScript || !pTempScript->pEffectDummyNPC)
-        return false;
-
-    return pTempScript->pEffectDummyNPC(pCaster, spellId, effIndex, pTarget, originalCasterGuid);
-}
-
-bool ScriptDevAIMgr::OnEffectDummy(Unit* pCaster, uint32 spellId, SpellEffectIndex effIndex, GameObject* pTarget, ObjectGuid originalCasterGuid)
-{
-    Script* pTempScript = GetScript(pTarget->GetGOInfo()->ScriptId);
-
-    if (!pTempScript || !pTempScript->pEffectDummyGO)
-        return false;
-
-    return pTempScript->pEffectDummyGO(pCaster, spellId, effIndex, pTarget, originalCasterGuid);
-}
-
-bool ScriptDevAIMgr::OnEffectDummy(Unit* pCaster, uint32 spellId, SpellEffectIndex effIndex, Item* pTarget, ObjectGuid originalCasterGuid)
-{
-    Script* pTempScript = GetScript(pTarget->GetProto()->ScriptId);
-
-    if (!pTempScript || !pTempScript->pEffectDummyItem)
-        return false;
-
-    return pTempScript->pEffectDummyItem(pCaster, spellId, effIndex, pTarget, originalCasterGuid);
-}
-
-bool ScriptDevAIMgr::OnEffectScriptEffect(Unit* pCaster, uint32 spellId, SpellEffectIndex effIndex, Creature* pTarget, ObjectGuid originalCasterGuid)
-{
-    Script* pTempScript = GetScript(pTarget->GetScriptId());
-
-    if (!pTempScript || !pTempScript->pEffectScriptEffectNPC)
-        return false;
-
-    return pTempScript->pEffectScriptEffectNPC(pCaster, spellId, effIndex, pTarget, originalCasterGuid);
-}
-
-bool ScriptDevAIMgr::OnAuraDummy(Aura const* pAura, bool bApply)
-{
-    Script* pTempScript = GetScript(((Creature*)pAura->GetTarget())->GetScriptId());
-
-    if (!pTempScript || !pTempScript->pEffectAuraDummy)
-        return false;
-
-    return pTempScript->pEffectAuraDummy(pAura, bApply);
-}
-
-InstanceData* ScriptDevAIMgr::CreateInstanceData(Map* pMap)
-{
-    Script* pTempScript = GetScript(pMap->GetScriptId());
-
-    if (!pTempScript || !pTempScript->GetInstanceData)
-        return nullptr;
-
-    return pTempScript->GetInstanceData(pMap);
-}
-
 ScriptDevAIMgr::~ScriptDevAIMgr()
 {
-    // Free resources before library unload
-    for (SDScriptVec::const_iterator itr = m_scripts.begin(); itr != m_scripts.end(); ++itr)
-        delete *itr;
+#define SCR_CLEAR(T) \
+        FOR_SCRIPTS(T, itr, end) \
+            delete itr->second; \
+        SCR_REG_LST(T).clear();
 
-    m_scripts.clear();
+    SCR_CLEAR(PlayerScript);
+    SCR_CLEAR(ItemScript);
+    SCR_CLEAR(GameObjectScript);
+    SCR_CLEAR(CreatureScript);
+    SCR_CLEAR(AreaTriggerScript);
+    SCR_CLEAR(InstanceMapScript);
+    SCR_CLEAR(SpellAuraScript);
+    SCR_CLEAR(ObjectScript);
 
-    num_sc_scripts = 0;
-
-    setScriptLibraryErrorFile(nullptr, nullptr);
+#undef SCR_CLEAR
 }
 
 void ScriptDevAIMgr::AddScript(uint32 id, Script* script)
@@ -677,3 +412,447 @@ uint32 ScriptDevAIMgr::GetEventIdScriptId(uint32 eventId) const
 
     return 0;
 }
+
+template<class TScript>
+void ScriptDevAIMgr::ScriptRegistry<TScript>::AddScript(TScript* const script)
+{
+    MANGOS_ASSERT(script);
+
+    // See if the script is using the same memory as another script. If this happens, it means that
+    // someone forgot to allocate new memory for a script.
+    typedef typename ScriptMap::iterator ScriptMapIterator;
+    for (ScriptMapIterator it = ScriptPointerList.begin(); it != ScriptPointerList.end(); ++it)
+    {
+        if (it->second == script)
+        {
+            sLog.outError("Script '%s' forgot to allocate memory, so this script and/or the script before that can't work.",
+                script->ToString());
+
+            return;
+        }
+    }
+    // Get an ID for the script. An ID only exists if it's a script that is assigned in the database
+    // through a script name (or similar).
+    uint32 id = sScriptDevAIMgr.GetScriptId(script->ToString());
+    if (id)
+    {
+        // Try to find an existing script.
+        bool existing = false;
+        typedef typename ScriptMap::iterator ScriptMapIterator;
+        for (ScriptMapIterator it = ScriptPointerList.begin(); it != ScriptPointerList.end(); ++it)
+        {
+            // If the script names match...
+            if (it->second->GetName() == script->GetName())
+            {
+                // ... It exists.
+                existing = true;
+                break;
+            }
+        }
+
+        // If the script isn't assigned -> assign it!
+        if (!existing)
+        {
+            ScriptPointerList[id] = script;
+        }
+        else
+        {
+            // If the script is already assigned -> delete it!
+            sLog.outError("Script '%s' already assigned with the same script name, so the script can't work.",
+                script->ToString());
+
+            delete script;
+        }
+    }
+    else if (script->IsDatabaseBound())
+    {
+        // The script uses a script name from database, but isn't assigned to anything.
+        if (script->GetName().find("example") == std::string::npos)
+            sLog.outErrorDb("Script named '%s' does not have a script name assigned in database.",
+                script->ToString());
+
+        delete script;
+    }
+    else
+    {
+        // We're dealing with a code-only script; just add it.
+        ScriptPointerList[_scriptIdCounter++] = script;
+    }
+}
+
+/*#################################################
+#                 GameObjectScript
+#
+###################################################*/
+GameObjectScript::GameObjectScript(const char* name)
+    : ScriptObject(name)
+{
+    ScriptDevAIMgr::ScriptRegistry<GameObjectScript>::AddScript(this);
+}
+
+bool ScriptDevAIMgr::OnEffectDummy(Unit* pCaster, uint32 spellId, SpellEffectIndex effIndex, GameObject* pTarget, ObjectGuid originalCasterGuid)
+{
+    MANGOS_ASSERT(pCaster);
+    MANGOS_ASSERT(pTarget);
+
+    GET_SCRIPT_RET(GameObjectScript, pTarget->GetScriptId(), tmpscript, false);
+    return tmpscript->OnEffectDummy(pCaster, spellId, effIndex, pTarget, originalCasterGuid);
+}
+
+std::function<bool(Unit*)>* ScriptDevAIMgr::OnTrapSearch(GameObject* go)
+{
+    MANGOS_ASSERT(go);
+
+    GET_SCRIPT_RET(GameObjectScript, go->GetScriptId(), tmpscript, nullptr);
+    return tmpscript->OnTrapSearch(go);
+}
+
+GameObjectAI* ScriptDevAIMgr::GetGameObjectAI(GameObject* gameobject) const
+{
+    MANGOS_ASSERT(gameobject);
+
+    GET_SCRIPT_RET(GameObjectScript, gameobject->GetScriptId(), tmpscript, NULL);
+    return tmpscript->GetGameObjectAI(gameobject);
+}
+
+bool ScriptDevAIMgr::OnGameObjectUse(Player* pPlayer, GameObject* pGo)
+{
+    MANGOS_ASSERT(pPlayer);
+    MANGOS_ASSERT(pGo);
+
+    GET_SCRIPT_RET(GameObjectScript, pGo->GetScriptId(), tmpscript, false);
+    return tmpscript->OnGameObjectUse(pPlayer, pGo);
+}
+
+bool ScriptDevAIMgr::OnQuestRewarded(Player* pPlayer, GameObject* pGo, Quest const* pQuest)
+{
+    MANGOS_ASSERT(pPlayer);
+    MANGOS_ASSERT(pGo);
+    MANGOS_ASSERT(pQuest);
+
+    GET_SCRIPT_RET(GameObjectScript, pGo->GetScriptId(), tmpscript, false);
+    pPlayer->PlayerTalkClass->ClearMenus();
+    return tmpscript->OnQuestReward(pPlayer, pGo, pQuest);
+}
+
+bool ScriptDevAIMgr::OnQuestAccept(Player* player, GameObject* go, Quest const* quest)
+{
+    MANGOS_ASSERT(player);
+    MANGOS_ASSERT(go);
+    MANGOS_ASSERT(quest);
+
+    GET_SCRIPT_RET(GameObjectScript, go->GetScriptId(), tmpscript, false);
+    player->PlayerTalkClass->ClearMenus();
+    return tmpscript->OnQuestAccept(player, go, quest);
+}
+
+bool ScriptDevAIMgr::OnGossipHello(Player* pPlayer, GameObject* pGo)
+{
+    MANGOS_ASSERT(pPlayer);
+    MANGOS_ASSERT(pGo);
+
+    GET_SCRIPT_RET(GameObjectScript, pGo->GetScriptId(), tmpscript, false);
+    pPlayer->PlayerTalkClass->ClearMenus();
+    return tmpscript->OnGossipHello(pPlayer, pGo);
+}
+
+bool ScriptDevAIMgr::OnGossipSelect(Player* player, GameObject* go, uint32 sender, uint32 action)
+{
+    MANGOS_ASSERT(player);
+    MANGOS_ASSERT(go);
+
+    GET_SCRIPT_RET(GameObjectScript, go->GetScriptId(), tmpscript, false);
+    player->PlayerTalkClass->ClearMenus();
+    return tmpscript->OnGossipSelect(player, go, sender, action);
+}
+
+bool ScriptDevAIMgr::OnGossipSelectCode(Player* player, GameObject* go, uint32 sender, uint32 action, const char* code)
+{
+    MANGOS_ASSERT(player);
+    MANGOS_ASSERT(go);
+    MANGOS_ASSERT(code);
+
+    GET_SCRIPT_RET(GameObjectScript, go->GetScriptId(), tmpscript, false);
+    player->PlayerTalkClass->ClearMenus();
+    return tmpscript->OnGossipSelectCode(player, go, sender, action, code);
+}
+
+uint32 ScriptDevAIMgr::GetDialogStatus(const Player* player, const GameObject* go) const
+{
+    MANGOS_ASSERT(player);
+    MANGOS_ASSERT(go);
+    GET_SCRIPT_RET(GameObjectScript, go->GetScriptId(), tmpscript, 100);
+
+    if (!tmpscript)
+        return DIALOG_STATUS_UNDEFINED;
+
+    player->PlayerTalkClass->ClearMenus();
+    return tmpscript->OnDialogStatus(player, go);
+}
+
+/*#################################################
+#                 CreatureScript
+#
+###################################################*/
+CreatureScript::CreatureScript(const char* name)
+    : ScriptObject(name)
+{
+    ScriptDevAIMgr::ScriptRegistry<CreatureScript>::AddScript(this);
+}
+
+bool ScriptDevAIMgr::OnEffectScriptEffect(Unit* pCaster, uint32 spellId, SpellEffectIndex effIndex, Creature* pTarget, ObjectGuid originalCasterGuid)
+{
+    MANGOS_ASSERT(pTarget);
+    MANGOS_ASSERT(pCaster);
+
+    GET_SCRIPT_RET(CreatureScript, pTarget->GetScriptId(), tmpscript, false);
+    return tmpscript->OnEffectScriptEffect(pCaster, spellId, effIndex, pTarget, originalCasterGuid);
+}
+
+bool ScriptDevAIMgr::OnEffectDummy(Unit* pCaster, uint32 spellId, SpellEffectIndex effIndex, Creature* pTarget, ObjectGuid originalCasterGuid)
+{
+    MANGOS_ASSERT(pCaster);
+    MANGOS_ASSERT(pTarget);
+
+    GET_SCRIPT_RET(CreatureScript, pTarget->GetScriptId(), tmpscript, false);
+    return tmpscript->OnEffectDummy(pCaster, spellId, effIndex, pTarget, originalCasterGuid);
+}
+
+UnitAI* ScriptDevAIMgr::GetCreatureAI(Creature* pCreature) const
+{
+    MANGOS_ASSERT(pCreature);
+
+    GET_SCRIPT_RET(CreatureScript, pCreature->GetScriptId(), tmpscript, NULL);
+    return tmpscript->GetAI(pCreature);
+}
+
+bool ScriptDevAIMgr::OnQuestRewarded(Player* pPlayer, Creature* pCreature, Quest const* pQuest)
+{
+    MANGOS_ASSERT(pPlayer);
+    MANGOS_ASSERT(pCreature);
+    MANGOS_ASSERT(pQuest);
+
+    GET_SCRIPT_RET(CreatureScript, pCreature->GetScriptId(), tmpscript, false);
+    pPlayer->PlayerTalkClass->ClearMenus();
+    return tmpscript->OnQuestReward(pPlayer, pCreature, pQuest);
+}
+
+bool ScriptDevAIMgr::OnGossipSelect(Player* player, Creature* creature, uint32 sender, uint32 action)
+{
+    MANGOS_ASSERT(player);
+    MANGOS_ASSERT(creature);
+    GET_SCRIPT_RET(CreatureScript, creature->GetScriptId(), tmpscript, false);
+    player->PlayerTalkClass->ClearMenus();
+    return tmpscript->OnGossipSelect(player, creature, sender, action);
+}
+
+bool ScriptDevAIMgr::OnGossipSelectCode(Player* player, Creature* creature, uint32 sender, uint32 action, const char* code)
+{
+    MANGOS_ASSERT(player);
+    MANGOS_ASSERT(creature);
+    MANGOS_ASSERT(code);
+
+    GET_SCRIPT_RET(CreatureScript, creature->GetScriptId(), tmpscript, false);
+    player->PlayerTalkClass->ClearMenus();
+    return tmpscript->OnGossipSelectCode(player, creature, sender, action, code);
+}
+
+bool ScriptDevAIMgr::OnGossipHello(Player* pPlayer, Creature* pCreature)
+{
+    MANGOS_ASSERT(pPlayer);
+    MANGOS_ASSERT(pCreature);
+
+    GET_SCRIPT_RET(CreatureScript, pCreature->GetScriptId(), tempscript, false);
+    pPlayer->PlayerTalkClass->ClearMenus();
+
+    return tempscript->OnGossipHello(pPlayer, pCreature);
+}
+
+uint32 ScriptDevAIMgr::GetDialogStatus(const Player* pPlayer, const Creature* pCreature) const
+{
+    MANGOS_ASSERT(pPlayer);
+    MANGOS_ASSERT(pCreature);
+
+    // TODO: 100 is a funny magic number to have hanging around here...
+    GET_SCRIPT_RET(CreatureScript, pCreature->GetScriptId(), tmpscript, DIALOG_STATUS_UNDEFINED);
+    pPlayer->PlayerTalkClass->ClearMenus();
+    return tmpscript->OnDialogStatus(pPlayer, pCreature);
+}
+
+bool ScriptDevAIMgr::OnQuestAccept(Player* pPlayer, Creature* pCreature, const Quest* pQuest)
+{
+    MANGOS_ASSERT(pPlayer);
+    MANGOS_ASSERT(pCreature);
+    MANGOS_ASSERT(pQuest);
+
+    GET_SCRIPT_RET(CreatureScript, pCreature->GetScriptId(), tmpscript, false);
+    pPlayer->PlayerTalkClass->ClearMenus();
+    return tmpscript->OnQuestAccept(pPlayer, pCreature, pQuest);
+}
+
+/*#################################################
+#                  PlayerScript
+#
+###################################################*/
+
+PlayerScript::PlayerScript(const char* name)
+    : ScriptObject(name)
+{
+    ScriptDevAIMgr::ScriptRegistry<PlayerScript>::AddScript(this);
+}
+
+void ScriptDevAIMgr::OnGivePlayerXP(Player* player, uint32& amount, Unit* victim)
+{
+    FOREACH_SCRIPT(PlayerScript)->OnGiveXP(player, amount, victim);
+}
+
+/*#################################################
+#                  ItemScript
+#
+###################################################*/
+ItemScript::ItemScript(const char* name)
+    : ScriptObject(name)
+{
+    ScriptDevAIMgr::ScriptRegistry<ItemScript>::AddScript(this);
+}
+
+bool ScriptDevAIMgr::OnEffectDummy(Unit* pCaster, uint32 spellId, SpellEffectIndex effIndex, Item* pTarget, ObjectGuid originalCasterGuid)
+{
+    MANGOS_ASSERT(pTarget);
+    MANGOS_ASSERT(pCaster);
+
+    GET_SCRIPT_RET(ItemScript, pTarget->GetProto()->ScriptId, tmpscript, false);
+    return tmpscript->OnEffectDummy(pCaster, spellId, effIndex, pTarget, originalCasterGuid);
+}
+
+bool ScriptDevAIMgr::OnQuestAccept(Player* pPlayer, Item* pItem, Quest const* pQuest)
+{
+    MANGOS_ASSERT(pPlayer);
+    MANGOS_ASSERT(pItem);
+    MANGOS_ASSERT(pQuest);
+
+    GET_SCRIPT_RET(ItemScript, pItem->GetProto()->ScriptId, tmpscript, false);
+    pPlayer->PlayerTalkClass->ClearMenus();
+    return tmpscript->OnQuestAccept(pPlayer, pItem, pQuest);
+}
+
+bool ScriptDevAIMgr::OnItemUse(Player* pPlayer, Item* pItem, SpellCastTargets const& targets)
+{
+    MANGOS_ASSERT(pPlayer);
+    MANGOS_ASSERT(pItem);
+
+    GET_SCRIPT_RET(ItemScript, pItem->GetProto()->ScriptId, tmpscript, false);
+    return tmpscript->OnItemUse(pPlayer, pItem, targets);
+}
+
+bool ScriptDevAIMgr::OnItemLoot(Player* pPlayer, Item* pItem, bool apply)
+{
+    MANGOS_ASSERT(pPlayer);
+    MANGOS_ASSERT(pItem);
+
+    GET_SCRIPT_RET(ItemScript, pItem->GetProto()->ScriptId, tmpscript, false);
+    return tmpscript->OnItemLoot(pPlayer, pItem, apply);
+}
+
+/*#################################################
+#               AreaTriggerScript
+#
+###################################################*/
+
+AreaTriggerScript::AreaTriggerScript(const char* name)
+    : ScriptObject(name)
+{
+    ScriptDevAIMgr::ScriptRegistry<AreaTriggerScript>::AddScript(this);
+}
+
+bool ScriptDevAIMgr::OnAreaTrigger(Player* pPlayer, AreaTriggerEntry const* atEntry)
+{
+    MANGOS_ASSERT(pPlayer);
+    MANGOS_ASSERT(atEntry);
+
+    GET_SCRIPT_RET(AreaTriggerScript, sScriptDevAIMgr.GetAreaTriggerScriptId(atEntry->id), tmpscript, false);
+    return tmpscript->OnTrigger(pPlayer, atEntry);
+}
+
+/*#################################################
+#               InstanceMapScript
+#
+###################################################*/
+InstanceMapScript::InstanceMapScript(const char* name, uint32 mapId)
+    : ScriptObject(name), MapScript(mapId)
+{
+    if (GetEntry() && !GetEntry()->IsDungeon())
+        sLog.outError("InstanceMapScript for map %u is invalid.", mapId);
+
+    ScriptDevAIMgr::ScriptRegistry<InstanceMapScript>::AddScript(this);
+}
+
+InstanceData* ScriptDevAIMgr::CreateInstanceData(Map* pMap)
+{
+    MANGOS_ASSERT(pMap);
+    GET_SCRIPT_RET(InstanceMapScript, pMap->GetScriptId(), tmpscript, NULL);
+    return tmpscript->GetInstanceScript(pMap);
+}
+
+/*#################################################
+#               SpellAuraScripts
+#
+###################################################*/
+SpellAuraScript::SpellAuraScript(const char* name)
+    : ScriptObject(name)
+{
+    ScriptDevAIMgr::ScriptRegistry<SpellAuraScript>::AddScript(this);
+}
+
+bool ScriptDevAIMgr::OnAuraDummy(Aura const* pAura, bool bApply)
+{
+    MANGOS_ASSERT(pAura);
+
+    GET_SCRIPT_RET(SpellAuraScript, ((Creature*)pAura->GetTarget())->GetScriptId(), tmpscript, false);
+    return tmpscript->OnAuraDummy(pAura, bApply);
+}
+
+/*#################################################
+#                 ObjectScript
+#
+###################################################*/
+ObjectScript::ObjectScript(const char* name)
+    : ScriptObject(name)
+{
+    ScriptDevAIMgr::ScriptRegistry<ObjectScript>::AddScript(this);
+}
+
+bool ScriptDevAIMgr::OnProcessEvent(uint32 uiEventId, Object* pSource, Object* pTarget, bool bIsStart)
+{
+    /*Script* pTempScript = GetScript(GetEventIdScriptId(uiEventId));
+
+    if (!pTempScript || !pTempScript->pProcessEventId)
+        return false; */
+
+    //GET_SCRIPT_RET(ObjectScript, sScriptDevAI.GetScript(GetEventIdScriptId(uiEventId)), tmpscript, false);
+    GET_SCRIPT_RET(ObjectScript, ((uint32)(GetScript(GetEventIdScriptId(uiEventId)))), tmpscript, false);
+    // bIsStart may be false, when event is from taxi node events (arrival=false, departure=true)
+    return tmpscript->OnProcessEvent(uiEventId, pSource, pTarget, bIsStart);
+}
+
+// Instantiate static members of ScriptMgr::ScriptRegistry.
+template<class TScript> std::map<uint32, TScript*> ScriptDevAIMgr::ScriptRegistry<TScript>::ScriptPointerList;
+template<class TScript> uint32 ScriptDevAIMgr::ScriptRegistry<TScript>::_scriptIdCounter;
+
+template class ScriptDevAIMgr::ScriptRegistry<PlayerScript>;
+template class ScriptDevAIMgr::ScriptRegistry<CreatureScript>;
+template class ScriptDevAIMgr::ScriptRegistry<GameObjectScript>;
+template class ScriptDevAIMgr::ScriptRegistry<ItemScript>;
+template class ScriptDevAIMgr::ScriptRegistry<AreaTriggerScript>;
+template class ScriptDevAIMgr::ScriptRegistry<InstanceMapScript>;
+template class ScriptDevAIMgr::ScriptRegistry<ObjectScript>;
+template class ScriptDevAIMgr::ScriptRegistry<SpellAuraScript>;
+
+// Undefine utility macros.
+#undef GET_SCRIPT_RET
+#undef GET_SCRIPT
+#undef FOREACH_SCRIPT
+#undef FOR_SCRIPTS_RET
+#undef FOR_SCRIPTS
+#undef SCR_REG_LST
+#undef SCR_REG_MAP

@@ -80,55 +80,113 @@ InstanceData* GetNewInstanceScript(Map* map)
     return new T(map);
 }
 
+class ScriptObject
+{
+    friend class ScriptMgr;
+
+public:
+
+    // Called when the script is initialized. Use it to initialize any properties of the script.
+    virtual void OnInitialize() { }
+
+    // Called when the script is deleted. Use it to free memory, etc.
+    virtual void OnTeardown() { }
+
+    // Do not override this in scripts; it should be overridden by the various script type classes. It indicates
+    // whether or not this script type must be assigned in the database.
+    virtual bool IsDatabaseBound() const { return false; }
+
+    const std::string& GetName() const { return _name; }
+
+    const char* ToString() const { return _name.c_str(); }
+
+protected:
+
+    ScriptObject(const char* name)
+        : _name(std::string(name))
+    {
+        // Allow the script to do startup routines.
+        OnInitialize();
+    }
+
+    virtual ~ScriptObject()
+    {
+        // Allow the script to do cleanup routines.
+        OnTeardown();
+    }
+
+private:
+
+    const std::string _name;
+};
+
+template<class TObject> class UpdatableScript
+{
+protected:
+
+    UpdatableScript()
+    {
+    }
+
+public:
+
+    virtual void OnUpdate(TObject* obj, uint32 diff) { }
+};
+
+template<class TMap> class MapScript : public UpdatableScript<TMap>
+{
+    MapEntry const* _mapEntry;
+
+protected:
+
+    MapScript(uint32 mapId)
+        : _mapEntry(sMapStore.LookupEntry(mapId))
+    {
+        if (!_mapEntry)
+            sLog.outError("Invalid MapScript for %u; no such map ID.", mapId);
+    }
+
+public:
+
+    // Gets the MapEntry structure associated with this script. Can return NULL.
+    MapEntry const* GetEntry() { return _mapEntry; }
+
+    // Called when the map is created.
+    virtual void OnCreate(TMap* map) { }
+
+    // Called just before the map is destroyed.
+    virtual void OnDestroy(TMap* map) { }
+
+    // Called when a grid map is loaded.
+    virtual void OnLoadGridMap(TMap* map, uint32 gx, uint32 gy) { }
+
+    // Called when a grid map is unloaded.
+    virtual void OnUnloadGridMap(TMap* map, uint32 gx, uint32 gy) { }
+
+    // Called when a player enters the map.
+    virtual void OnPlayerEnter(TMap* map, Player* player) { }
+
+    // Called when a player leaves the map.
+    virtual void OnPlayerLeave(TMap* map, Player* player) { }
+
+    // Called on every map update tick.
+    virtual void OnUpdate(TMap* map, uint32 diff) { }
+};
+
 struct Script
 {
-    Script() :
-        pGossipHello(nullptr), pGossipHelloGO(nullptr), pGossipSelect(nullptr), pGossipSelectGO(nullptr),
-        pGossipSelectWithCode(nullptr), pGossipSelectGOWithCode(nullptr),
-        pDialogStatusNPC(nullptr), pDialogStatusGO(nullptr),
-        pQuestAcceptNPC(nullptr), pQuestAcceptGO(nullptr), pQuestAcceptItem(nullptr),
-        pQuestRewardedNPC(nullptr), pQuestRewardedGO(nullptr),
-        pGOUse(nullptr), pItemUse(nullptr), pItemLoot(nullptr), pAreaTrigger(nullptr), pProcessEventId(nullptr),
-        pEffectDummyNPC(nullptr), pEffectDummyGO(nullptr), pEffectDummyItem(nullptr), pEffectScriptEffectNPC(nullptr),
-        pEffectAuraDummy(nullptr), pTrapSearching(nullptr), GetGameObjectAI(nullptr), GetAI(nullptr), GetInstanceData(nullptr)
-    {}
+    Script(){}
 
     std::string Name;
-
-    bool (*pGossipHello)(Player*, Creature*);
-    bool (*pGossipHelloGO)(Player*, GameObject*);
-    bool (*pGossipSelect)(Player*, Creature*, uint32, uint32);
-    bool (*pGossipSelectGO)(Player*, GameObject*, uint32, uint32);
-    bool (*pGossipSelectWithCode)(Player*, Creature*, uint32, uint32, const char*);
-    bool (*pGossipSelectGOWithCode)(Player*, GameObject*, uint32, uint32, const char*);
-    uint32(*pDialogStatusNPC)(const Player*, const Creature*);
-    uint32(*pDialogStatusGO)(const Player*, const GameObject*);
-    bool (*pQuestAcceptNPC)(Player*, Creature*, Quest const*);
-    bool (*pQuestAcceptGO)(Player*, GameObject*, Quest const*);
-    bool (*pQuestAcceptItem)(Player*, Item*, Quest const*);
-    bool (*pQuestRewardedNPC)(Player*, Creature*, Quest const*);
-    bool (*pQuestRewardedGO)(Player*, GameObject*, Quest const*);
-    bool (*pGOUse)(Player*, GameObject*);
-    bool (*pItemUse)(Player*, Item*, SpellCastTargets const&);
-    bool (*pItemLoot)(Player*, Item*, bool);
-    bool (*pAreaTrigger)(Player*, AreaTriggerEntry const*);
-    bool (*pProcessEventId)(uint32, Object*, Object*, bool);
-    bool (*pEffectDummyNPC)(Unit*, uint32, SpellEffectIndex, Creature*, ObjectGuid);
-    bool (*pEffectDummyGO)(Unit*, uint32, SpellEffectIndex, GameObject*, ObjectGuid);
-    bool (*pEffectDummyItem)(Unit*, uint32, SpellEffectIndex, Item*, ObjectGuid);
-    bool (*pEffectScriptEffectNPC)(Unit*, uint32, SpellEffectIndex, Creature*, ObjectGuid);
-    bool (*pEffectAuraDummy)(const Aura*, bool);
-    std::function<bool(Unit*)>* pTrapSearching;
-
-    GameObjectAI* (*GetGameObjectAI)(GameObject*);
-    UnitAI* (*GetAI)(Creature*);
-    InstanceData* (*GetInstanceData)(Map*);
 
     void RegisterSelf(bool bReportError = true);
 };
 
+
 class ScriptDevAIMgr
 {
+    friend class MaNGOS::Singleton<ScriptDevAIMgr>;
+
     public:
         ScriptDevAIMgr() : num_sc_scripts(0) {}
         ~ScriptDevAIMgr();
@@ -138,41 +196,89 @@ class ScriptDevAIMgr
         void LoadAreaTriggerScripts();
         void LoadEventIdScripts();
 
-        bool OnGossipHello(Player* pPlayer, Creature* pCreature);
-        bool OnGossipHello(Player* pPlayer, GameObject* pGo);
-        bool OnGossipSelect(Player* pPlayer, Creature* pCreature, uint32 uiSender, uint32 uiAction, const char* code);
-        bool OnGossipSelect(Player* pPlayer, GameObject* pGo, uint32 uiSender, uint32 uiAction, const char* code);
-        bool OnQuestAccept(Player* pPlayer, Creature* pCreature, Quest const* pQuest);
-        bool OnQuestAccept(Player* pPlayer, GameObject* pGo, Quest const* pQuest);
-        bool OnQuestAccept(Player* pPlayer, Item* pItem, Quest const* pQuest);
-        bool OnQuestRewarded(Player* pPlayer, Creature* pCreature, Quest const* pQuest);
-        bool OnQuestRewarded(Player* pPlayer, GameObject* pGo, Quest const* pQuest);
-        uint32 GetDialogStatus(const Player* pPlayer, const Creature* pCreature) const;
-        uint32 GetDialogStatus(const Player* pPlayer, const GameObject* pGo) const;
-        bool OnGameObjectUse(Player* pPlayer, GameObject* pGo);
-        std::function<bool(Unit*)>* OnTrapSearch(GameObject* go);
-        bool OnItemUse(Player* pPlayer, Item* pItem, SpellCastTargets const& targets);
-        bool OnItemLoot(Player* pPlayer, Item* pItem, bool apply);
-        bool OnAreaTrigger(Player* pPlayer, AreaTriggerEntry const* atEntry);
-        bool OnProcessEvent(uint32 uiEventId, Object* pSource, Object* pTarget, bool bIsStart);
-        bool OnEffectDummy(Unit* pCaster, uint32 spellId, SpellEffectIndex effIndex, Creature* pTarget, ObjectGuid originalCasterGuid);
-        bool OnEffectDummy(Unit* pCaster, uint32 spellId, SpellEffectIndex effIndex, GameObject* pTarget, ObjectGuid originalCasterGuid);
-        bool OnEffectDummy(Unit* pCaster, uint32 spellId, SpellEffectIndex effIndex, Item* pTarget, ObjectGuid originalCasterGuid);
-        bool OnEffectScriptEffect(Unit* pCaster, uint32 spellId, SpellEffectIndex effIndex, Creature* pTarget, ObjectGuid originalCasterGuid);
-        bool OnAuraDummy(Aura const* pAura, bool bApply);
-
         void AddScript(uint32 id, Script* script);
         Script* GetScript(uint32 id) const;
         const char* GetScriptName(uint32 id) const { return id < m_scriptNames.size() ? m_scriptNames[id].c_str() : ""; }
         uint32 GetScriptId(const char* name) const;
         uint32 GetScriptIdsCount() const { return m_scriptNames.size(); }
 
-        UnitAI* GetCreatureAI(Creature* pCreature) const;
-        GameObjectAI* GetGameObjectAI(GameObject* gameobject) const;
-
-        InstanceData* CreateInstanceData(Map* pMap);
+        
         uint32 GetAreaTriggerScriptId(uint32 triggerId) const;
         uint32 GetEventIdScriptId(uint32 eventId) const;
+
+public: /* PlayerScript*/
+    void OnGivePlayerXP(Player* player, uint32& amount, Unit* victim);
+
+public: /* CreatureScript */
+    bool OnGossipHello(Player* pPlayer, Creature* pCreature);
+    uint32 GetDialogStatus(const Player* player, const Creature* creature) const;
+    bool OnGossipSelect(Player* player, Creature* creature, uint32 sender, uint32 action);
+    bool OnGossipSelectCode(Player* player, Creature* creature, uint32 sender, uint32 action, const char* code);
+    bool OnQuestAccept(Player* pPlayer, Creature* pCreature, const Quest* pQuest);
+    bool OnQuestRewarded(Player* pPlayer, Creature* pCreature, Quest const* pQuest);
+    UnitAI* GetCreatureAI(Creature* pCreature) const;
+    bool OnEffectDummy(Unit* pCaster, uint32 spellId, SpellEffectIndex effIndex, Creature* pTarget, ObjectGuid originalCasterGuid);
+    bool OnEffectScriptEffect(Unit* pCaster, uint32 spellId, SpellEffectIndex effIndex, Creature* pTarget, ObjectGuid originalCasterGuid);
+
+public: /* GameObjectScript */
+    bool OnGossipHello(Player* pPlayer, GameObject* pGo);
+    bool OnGossipSelect(Player* player, GameObject* pGo, uint32 sender, uint32 action);
+    bool OnGossipSelectCode(Player* player, GameObject* pGo, uint32 sender, uint32 action, const char* code);
+    uint32 GetDialogStatus(const Player* pPlayer, const GameObject* pGo) const;
+    bool OnQuestAccept(Player* pPlayer, GameObject* pGo, Quest const* pQuest);
+    bool OnQuestRewarded(Player* pPlayer, GameObject* pGo, Quest const* pQuest);
+    bool OnGameObjectUse(Player* pPlayer, GameObject* pGo);
+    GameObjectAI* GetGameObjectAI(GameObject* gameobject) const;
+    std::function<bool(Unit*)>* OnTrapSearch(GameObject* go);
+    bool OnEffectDummy(Unit* pCaster, uint32 spellId, SpellEffectIndex effIndex, GameObject* pTarget, ObjectGuid originalCasterGuid);
+
+public: /* ItemScript */
+    bool OnQuestAccept(Player* pPlayer, Item* pItem, Quest const* pQuest);
+    bool OnItemUse(Player* pPlayer, Item* pItem, SpellCastTargets const& targets);
+    bool OnItemLoot(Player* pPlayer, Item* pItem, bool apply);
+    bool OnEffectDummy(Unit* pCaster, uint32 spellId, SpellEffectIndex effIndex, Item* pTarget, ObjectGuid originalCasterGuid);
+
+public: /* AreaTriggerScript */
+    bool OnAreaTrigger(Player* pPlayer, AreaTriggerEntry const* atEntry);
+
+public: /* InstaceMapScript */
+    InstanceData* ScriptDevAIMgr::CreateInstanceData(Map* pMap);
+
+public: /* SpellAuraScript */
+    bool OnAuraDummy(Aura const* pAura, bool bApply);
+
+public: /* ObjectScript */
+    bool OnProcessEvent(uint32 uiEventId, Object* pSource, Object* pTarget, bool bIsStart);
+
+public:/* ScriptRegistry */
+
+      // This is the global static registry of scripts.
+    template<class TScript> class ScriptRegistry
+    {
+        // Counter used for code-only scripts.
+        static uint32 _scriptIdCounter;
+
+    public:
+
+        typedef std::map<uint32, TScript*> ScriptMap;
+        typedef typename ScriptMap::iterator ScriptMapIterator;
+        // The actual list of scripts. This will be accessed concurrently, so it must not be modified
+        // after server startup.
+        static ScriptMap ScriptPointerList;
+
+        // Gets a script by its ID (assigned by ObjectMgr).
+        static TScript* GetScriptById(uint32 id)
+        {
+            for (ScriptMapIterator it = ScriptPointerList.begin(); it != ScriptPointerList.end(); ++it)
+                if (it->first == id)
+                    return it->second;
+
+            return NULL;
+        }
+
+        // Attempts to add a new script to the list.
+        static void AddScript(TScript* const script);
+    };
 
     private:
         typedef std::vector<Script*> SDScriptVec;
@@ -187,6 +293,150 @@ class ScriptDevAIMgr
         EventIdScriptMap        m_EventIdScripts;
 
         ScriptNameMap           m_scriptNames;
+};
+
+class InstanceMapScript : public ScriptObject, public MapScript<DungeonMap>
+{
+protected:
+    InstanceMapScript(const char* name, uint32 mapId = 0);
+
+public:
+    bool IsDatabaseBound() const { return true; }
+
+    // Gets an InstanceData object for this instance.
+    virtual InstanceData* GetInstanceScript(Map* map) const { return NULL; }
+};
+
+class SpellAuraScript : public ScriptObject
+{
+protected:
+    SpellAuraScript(char const* name);
+public:
+    virtual bool OnAuraDummy(Aura const* pAura, bool bApply) { return false; }
+};
+
+class ObjectScript : public ScriptObject
+{
+protected:
+    ObjectScript(char const* name);
+public:
+    virtual bool OnProcessEvent(uint32 uiEventId, Object* pSource, Object* pTarget, bool bIsStart) { return false; }
+};
+
+class PlayerScript : public ScriptObject
+{
+protected:
+    PlayerScript(char const* name);
+public:
+
+    // Called when a player gains XP (before anything is given)
+    virtual void OnGiveXP(Player* /*player*/, uint32& /*amount*/, Unit* /*victim*/) { }
+};
+
+class CreatureScript : public ScriptObject, public UpdatableScript<Creature>
+{
+protected:
+
+    CreatureScript(const char* name);
+
+public:
+    bool IsDatabaseBound() const { return true; }
+
+    // Called when a player opens a gossip dialog with the creature.
+    virtual bool OnGossipHello(Player* player, Creature* creature) { return false; }
+
+    // Called when a player selects a gossip item in the creature's gossip menu.
+    virtual bool OnGossipSelect(Player* player, Creature* creature, uint32 sender, uint32 action) { return false; }
+
+    // Called when a player selects a gossip with a code in the Creature's gossip menu.
+    virtual bool OnGossipSelectCode(Player* player, Creature* creature, uint32 sender, uint32 action, const char* code) { return false; }
+
+    // Called when the dialog status between a player and the creature is requested.
+    virtual uint32 OnDialogStatus(const Player* player, const Creature* creature) { return 0; }
+
+    // Called when a player accepts a quest from the creature.
+    virtual bool OnQuestAccept(Player* player, Creature* creature, Quest const* quest) { return false; }
+
+    // Called when a player selects a quest reward.
+    virtual bool OnQuestReward(Player* player, Creature* creature, Quest const* quest) { return false; }
+
+    // Called when a CreatureAI object is needed for the creature.
+    virtual UnitAI* GetAI(Creature* creature) const { return NULL; }
+
+    // Called when a dummy spell effect is triggered on the creature.
+    virtual bool OnEffectDummy(Unit* pCaster, uint32 spellId, SpellEffectIndex effIndex, Creature* pTarget, ObjectGuid originalCasterGuid) { return false; }
+
+    virtual bool OnEffectScriptEffect(Unit* pCaster, uint32 spellId, SpellEffectIndex effIndex, Creature* pTarget, ObjectGuid originalCasterGuid) { return false; }
+
+};
+
+class GameObjectScript : public ScriptObject, public UpdatableScript<GameObject>
+{
+protected:
+    
+    GameObjectScript(const char* name);
+public:
+    bool IsDatabaseBound() const { return true; }
+
+    // Called when a player opens a gossip dialog with the gameobject.
+    virtual bool OnGossipHello(Player* player, GameObject* go) { return false; }
+
+    // Called when a player selects a gossip item in the gameobject's gossip menu.
+    virtual bool OnGossipSelect(Player* player, GameObject* pGo, uint32 sender, uint32 action) { return false; }
+
+    // Called when a player selects a gossip with a code in the gameobject's gossip menu.
+    virtual bool OnGossipSelectCode(Player* player, GameObject* pGo, uint32 sender, uint32 action, const char* code) { return false; }
+
+    // Called when the dialog status between a player and the gameobject is requested.
+    virtual uint32 OnDialogStatus(const Player* player, const GameObject* pGo) { return 0; }
+
+    // Called when a player accepts a quest from the gameobject.
+    virtual bool OnQuestAccept(Player* player, GameObject* go, Quest const* quest) { return false; }
+
+    // Called when a player selects a quest reward.
+    virtual bool OnQuestReward(Player* player, GameObject* pGo, Quest const* quest) { return false; }
+
+    // Called when Gameobject has been used.
+    virtual bool OnGameObjectUse(Player* pPlayer, GameObject* pGo) { return false; }
+
+    // Called when GameObjectAI is needed.
+    virtual GameObjectAI* GetGameObjectAI(GameObject* gameobject) const { return NULL; };
+
+    std::function<bool(Unit*)>* OnTrapSearch(GameObject* go) { return nullptr; }
+
+    // Called when a dummy spell effect is triggered on the Gameobject.
+    virtual bool OnEffectDummy(Unit* pCaster, uint32 spellId, SpellEffectIndex effIndex, GameObject* pTarget, ObjectGuid originalCasterGuid) { return false; }
+};
+
+class ItemScript : public ScriptObject
+{
+protected:
+    ItemScript(const char* name);
+public:
+    bool IsDatabaseBound() const { return true; }
+
+    // Called when a player accepts a quest from the item.
+    virtual bool OnQuestAccept(Player* pPlayer, Item* pItem, Quest const* pQuest) { return false; }
+
+    // Called when an item has been used.
+    virtual bool OnItemUse(Player* pPlayer, Item* pItem, SpellCastTargets const& targets) { return false; }
+
+    // Called when an item has been looted.
+    virtual bool OnItemLoot(Player* pPlayer, Item* pItem, bool apply) { return false; }
+
+    // Called when a dummy spell effect is triggered on the Item.
+    virtual bool OnEffectDummy(Unit* pCaster, uint32 spellId, SpellEffectIndex effIndex, Item* pTarget, ObjectGuid originalCasterGuid) { return false; }
+};
+
+class AreaTriggerScript : public ScriptObject
+{
+protected:
+    AreaTriggerScript(const char* name);
+public:
+    bool IsDatabaseBound() const { return true; }
+
+    // Called when the area trigger is activated by a player.
+    virtual bool OnTrigger(Player* player, AreaTriggerEntry const* trigger) { return false; }
 };
 
 // *********************************************************

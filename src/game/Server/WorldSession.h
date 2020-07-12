@@ -801,6 +801,8 @@ class WorldSession
 
         // Movement
         void SynchronizeMovement(MovementInfo &movementInfo);
+
+        Player* _player;
     private:
         // Additional private opcode handlers
         void HandleComplainMail(WorldPacket& recv_data);
@@ -818,7 +820,6 @@ class WorldSession
         void LogUnexpectedOpcode(WorldPacket const& packet, const char* reason) const;
         void LogUnprocessedTail(WorldPacket const& packet) const;
 
-        Player* _player;
         std::shared_ptr<WorldSocket> m_Socket;              // socket pointer is owned by the network thread which created it
         std::shared_ptr<WorldSocket> m_requestSocket;       // a new socket for this session is requested (double connection)
         WorldSessionState m_sessionState;                   // this session state

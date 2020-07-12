@@ -352,7 +352,7 @@ void WorldSession::HandleGossipSelectOptionOpcode(WorldPacket& recv_data)
             return;
         }
 
-        if (!sScriptDevAIMgr.OnGossipSelect(_player, pCreature, sender, action, code.empty() ? nullptr : code.c_str()))
+        if (!sScriptDevAIMgr.OnGossipSelect(_player, pCreature, sender, action) || !sScriptDevAIMgr.OnGossipSelectCode(_player, pCreature, sender, action, code.empty() ? nullptr : code.c_str()))
             _player->OnGossipSelect(pCreature, gossipListId, menuId);
     }
     else if (guid.IsGameObject())
@@ -365,7 +365,7 @@ void WorldSession::HandleGossipSelectOptionOpcode(WorldPacket& recv_data)
             return;
         }
 
-        if (!sScriptDevAIMgr.OnGossipSelect(_player, pGo, sender, action, code.empty() ? nullptr : code.c_str()))
+        if (!sScriptDevAIMgr.OnGossipSelect(_player, pGo, sender, action) || !sScriptDevAIMgr.OnGossipSelectCode(_player, pGo, sender, action, code.empty() ? nullptr : code.c_str()))
             _player->OnGossipSelect(pGo, gossipListId, menuId);
     }
 }

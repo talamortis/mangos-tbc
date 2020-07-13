@@ -100,7 +100,8 @@ static const DialogueEntry aIntroDialogue[] =
 /*######
 ## boss_brutallus
 ######*/
-class boss_brutallus : public CreatureScript
+
+class boss_brutallus : public CreatureScript
 {
 public:
     boss_brutallus() : CreatureScript("boss_brutallus") { }
@@ -471,10 +472,11 @@ public:
 /*######
 ## spell_aura_dummy_npc_brutallus_cloud
 ######*/
-class spell_dummy_npc_brutallus_cloud : public UnknownScript
+
+class spell_dummy_npc_brutallus_cloud : public CreatureScript
 {
 public:
-    spell_dummy_npc_brutallus_cloud() : UnknownScript("spell_dummy_npc_brutallus_cloud") { }
+    spell_dummy_npc_brutallus_cloud() : CreatureScript("spell_dummy_npc_brutallus_cloud") { }
 
     bool OnAuraDummy(const Aura* pAura, bool bApply) override
     {
@@ -506,7 +508,8 @@ public:
 /*######
 ## at_madrigosa
 ######*/
-class at_madrigosa : public AreaTriggerScript
+
+class at_madrigosa : public AreaTriggerScript
 {
 public:
     at_madrigosa() : AreaTriggerScript("at_madrigosa") { }

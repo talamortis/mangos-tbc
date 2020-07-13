@@ -884,10 +884,10 @@ public:
 
 
 };
-class event_spell_altar_emberseer : public UnknownScript
+class event_spell_altar_emberseer : public ObjectScript
 {
 public:
-    event_spell_altar_emberseer() : UnknownScript("event_spell_altar_emberseer") { }
+    event_spell_altar_emberseer() : ObjectScript("event_spell_altar_emberseer") { }
 
     bool OnProcessEvent(uint32 /*uiEventId*/, Object* pSource, Object* /*pTarget*/, bool bIsStart) override
     {

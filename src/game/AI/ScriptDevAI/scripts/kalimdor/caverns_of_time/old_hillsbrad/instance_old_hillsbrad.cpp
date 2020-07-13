@@ -328,7 +328,8 @@ void instance_old_hillsbrad::Update(uint32 uiDiff)
             m_uiThrallResetTimer -= uiDiff;
     }
 }
-class instance_old_hillsbrad : public InstanceMapScript
+
+class instance_old_hillsbrad : public InstanceMapScript
 {
 public:
     instance_old_hillsbrad() : InstanceMapScript("instance_old_hillsbrad") { }
@@ -342,10 +343,11 @@ public:
 
 
 };
-class event_go_barrel_old_hillsbrad : public UnknownScript
+
+class event_go_barrel_old_hillsbrad : public ObjectScript
 {
 public:
-    event_go_barrel_old_hillsbrad() : UnknownScript("event_go_barrel_old_hillsbrad") { }
+    event_go_barrel_old_hillsbrad() : ObjectScript("event_go_barrel_old_hillsbrad") { }
 
     bool OnProcessEvent(uint32 /*uiEventId*/, Object* pSource, Object* pTarget, bool bIsStart) override
     {

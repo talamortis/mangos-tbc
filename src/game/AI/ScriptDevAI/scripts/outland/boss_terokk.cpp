@@ -86,7 +86,8 @@ enum TerokkActions
     TEROKK_ACTION_ATTACK,
     TEROKK_ACTION_ACE_CAST,
 };
-class boss_terokk : public CreatureScript
+
+class boss_terokk : public CreatureScript
 {
 public:
     boss_terokk() : CreatureScript("boss_terokk") { }
@@ -339,10 +340,11 @@ public:
 
 };
 
-class event_summon_terokk : public UnknownScript
+
+class event_summon_terokk : public ObjectScript
 {
 public:
-    event_summon_terokk() : UnknownScript("event_summon_terokk") { }
+    event_summon_terokk() : ObjectScript("event_summon_terokk") { }
 
     bool OnProcessEvent(uint32 /*eventId*/, Object* source, Object* /*pTarget*/, bool /*isStart*/) override
     {

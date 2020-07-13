@@ -122,7 +122,8 @@ enum
 
     SOUND_ID_FROG               = 8353,
 };
-class npc_forest_frog : public CreatureScript
+
+class npc_forest_frog : public CreatureScript
 {
 public:
     npc_forest_frog() : CreatureScript("npc_forest_frog") { }
@@ -398,7 +399,8 @@ enum
 
     ENTRY_HARRISON_WITH_HAT = 24375,
 };
-class npc_harrison_jones_za : public CreatureScript
+
+class npc_harrison_jones_za : public CreatureScript
 {
 public:
     npc_harrison_jones_za() : CreatureScript("npc_harrison_jones_za") { }
@@ -592,10 +594,11 @@ public:
 /*######
 ## event_ritual_of_power
 ######*/
-class event_ritual_of_power : public UnknownScript
+
+class event_ritual_of_power : public ObjectScript
 {
 public:
-    event_ritual_of_power() : UnknownScript("event_ritual_of_power") { }
+    event_ritual_of_power() : ObjectScript("event_ritual_of_power") { }
 
     bool OnProcessEvent(uint32 /*eventId*/, Object* source, Object* /*target*/, bool isStart) override
     {
@@ -626,7 +629,8 @@ enum
 {
     SAY_GAUNTLET_START = -1568088
 };
-class npc_amanishi_lookout : public CreatureScript
+
+class npc_amanishi_lookout : public CreatureScript
 {
 public:
     npc_amanishi_lookout() : CreatureScript("npc_amanishi_lookout") { }
@@ -690,7 +694,8 @@ enum
     SPELL_SUMMON_WARRIOR    = 43486,
     SPELL_SUMMON_EAGLE      = 43487,
 };
-class npc_amanishi_tempest : public CreatureScript
+
+class npc_amanishi_tempest : public CreatureScript
 {
 public:
     npc_amanishi_tempest() : CreatureScript("npc_amanishi_tempest") { }
@@ -806,7 +811,8 @@ enum
     SOUND_ID_CHEER              = 2725,
     SOUND_ID_APPLAUD            = 6113,
 };
-class npc_harkor : public CreatureScript
+
+class npc_harkor : public CreatureScript
 {
 public:
     npc_harkor() : CreatureScript("npc_harkor") { }
@@ -1207,7 +1213,8 @@ enum
 
     EQUIP_ID_BONE_HAMMERS       = 1117,
 };
-class npc_tanzar : public CreatureScript
+
+class npc_tanzar : public CreatureScript
 {
 public:
     npc_tanzar() : CreatureScript("npc_tanzar") { }
@@ -1551,7 +1558,8 @@ enum
     SAY_KRAZ_EVENT_3            = -1568110,
     SAY_KRAZ_EVENT_4            = -1568111,
 };
-class npc_kraz : public CreatureScript
+
+class npc_kraz : public CreatureScript
 {
 public:
     npc_kraz() : CreatureScript("npc_kraz") { }
@@ -1835,7 +1843,8 @@ enum
     SOUND_ID_APPLAUD_ASHLI      = 2847,
     SOUND_ID_APPLAUD_ASHLI2     = 6122,
 };
-class npc_ashli : public CreatureScript
+
+class npc_ashli : public CreatureScript
 {
 public:
     npc_ashli() : CreatureScript("npc_ashli") { }
@@ -2199,7 +2208,8 @@ enum
 
     SAY_ALARM                       = -1568120,
 };
-class npc_amanishi_scout : public CreatureScript
+
+class npc_amanishi_scout : public CreatureScript
 {
 public:
     npc_amanishi_scout() : CreatureScript("npc_amanishi_scout") { }
@@ -2337,7 +2347,8 @@ public:
 /*######
 ## go_wooden_door
 ######*/
-class go_wooden_door : public GameObjectScript
+
+class go_wooden_door : public GameObjectScript
 {
 public:
     go_wooden_door() : GameObjectScript("go_wooden_door") { }

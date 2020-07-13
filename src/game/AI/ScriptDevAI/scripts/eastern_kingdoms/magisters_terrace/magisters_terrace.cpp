@@ -46,7 +46,8 @@ enum
 static const float afKaelLandPoint[4] = {200.36f, -270.77f, -8.73f, 0.01f};
 
 // This is friendly keal that appear after used Orb.
-// If we assume DB handle summon, summon appear somewhere outside the platform where Orb isclass npc_kalecgos : public CreatureScript
+// If we assume DB handle summon, summon appear somewhere outside the platform where Orb is
+class npc_kalecgos : public CreatureScript
 {
 public:
     npc_kalecgos() : CreatureScript("npc_kalecgos") { }
@@ -120,10 +121,11 @@ public:
 
 };
 
-class event_go_scrying_orb : public UnknownScript
+
+class event_go_scrying_orb : public ObjectScript
 {
 public:
-    event_go_scrying_orb() : UnknownScript("event_go_scrying_orb") { }
+    event_go_scrying_orb() : ObjectScript("event_go_scrying_orb") { }
 
     bool OnProcessEvent(uint32 /*uiEventId*/, Object* pSource, Object* /*pTarget*/, bool bIsStart) override
     {

@@ -255,10 +255,11 @@ void instance_sethekk_halls::Update(uint32 diff)
         else m_anzuTimer -= diff;
     }
 }
-class event_spell_summon_raven_god : public UnknownScript
+
+class event_spell_summon_raven_god : public ObjectScript
 {
 public:
-    event_spell_summon_raven_god() : UnknownScript("event_spell_summon_raven_god") { }
+    event_spell_summon_raven_god() : ObjectScript("event_spell_summon_raven_god") { }
 
     bool OnProcessEvent(uint32 /*uiEventId*/, Object* source, Object* /*pTarget*/, bool bIsStart) override
     {
@@ -284,7 +285,8 @@ public:
 
 
 };
-class instance_sethekk_halls : public InstanceMapScript
+
+class instance_sethekk_halls : public InstanceMapScript
 {
 public:
     instance_sethekk_halls() : InstanceMapScript("instance_sethekk_halls") { }

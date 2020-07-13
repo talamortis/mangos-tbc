@@ -40,7 +40,8 @@ enum
 {
     SPELL_LIGHTNING_BOLT    = 9532,
 };
-class npc_cooshcoosh : public CreatureScript
+
+class npc_cooshcoosh : public CreatureScript
 {
 public:
     npc_cooshcoosh() : CreatureScript("npc_cooshcoosh") { }
@@ -109,7 +110,8 @@ enum
     QUEST_ESCAPE_FROM       = 9752,
     NPC_SLAVEBINDER         = 18042
 };
-class npc_kayra_longmane : public CreatureScript
+
+class npc_kayra_longmane : public CreatureScript
 {
 public:
     npc_kayra_longmane() : CreatureScript("npc_kayra_longmane") { }
@@ -205,10 +207,11 @@ enum
     QUEST_AS_THE_CROW_FLIES = 9718,
     EVENT_ID_STORMCROW      = 11225,
 };
-class event_taxi_stormcrow : public UnknownScript
+
+class event_taxi_stormcrow : public ObjectScript
 {
 public:
-    event_taxi_stormcrow() : UnknownScript("event_taxi_stormcrow") { }
+    event_taxi_stormcrow() : ObjectScript("event_taxi_stormcrow") { }
 
     bool OnProcessEvent(uint32 uiEventId, Object* pSource, Object* /*pTarget*/, bool bIsStart) override
     {
@@ -249,7 +252,8 @@ enum
 
     QUEST_ID_FHWOOR_SMASH       = 9729,
 };
-class npc_fhwoor : public CreatureScript
+
+class npc_fhwoor : public CreatureScript
 {
 public:
     npc_fhwoor() : CreatureScript("npc_fhwoor") { }
@@ -405,7 +409,8 @@ enum
     SPELL_FROST_RING_BEHIND = 34746,
     SPELL_FREEZING_CIRCLE = 34779
 };
-class npc_frostbite : public CreatureScript
+
+class npc_frostbite : public CreatureScript
 {
 public:
     npc_frostbite() : CreatureScript("npc_frostbite") { }

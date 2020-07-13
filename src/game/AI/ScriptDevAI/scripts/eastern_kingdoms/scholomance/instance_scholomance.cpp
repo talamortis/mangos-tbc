@@ -465,7 +465,8 @@ void instance_scholomance::HandleDawnGambitEvent()
         DoScriptText(YELL_VECTUS_GAMBIT, pVectus);
     }
 }
-class instance_scholomance : public InstanceMapScript
+
+class instance_scholomance : public InstanceMapScript
 {
 public:
     instance_scholomance() : InstanceMapScript("instance_scholomance") { }
@@ -479,10 +480,11 @@ public:
 
 
 };
-class event_spell_gandling_shadow_portal : public UnknownScript
+
+class event_spell_gandling_shadow_portal : public ObjectScript
 {
 public:
-    event_spell_gandling_shadow_portal() : UnknownScript("event_spell_gandling_shadow_portal") { }
+    event_spell_gandling_shadow_portal() : ObjectScript("event_spell_gandling_shadow_portal") { }
 
     bool OnProcessEvent(uint32 uiEventId, Object* pSource, Object* /*pTarget*/, bool /*bIsStart*/) override
     {
@@ -509,10 +511,11 @@ public:
 
 
 };
-class event_dawn_gambit : public UnknownScript
+
+class event_dawn_gambit : public ObjectScript
 {
 public:
-    event_dawn_gambit() : UnknownScript("event_dawn_gambit") { }
+    event_dawn_gambit() : ObjectScript("event_dawn_gambit") { }
 
     bool OnProcessEvent(uint32 uiEventId, Object* pSource, Object* /*pTarget*/, bool /*bIsStart*/) override
     {

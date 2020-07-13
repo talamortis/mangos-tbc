@@ -40,10 +40,11 @@ enum
 
     SOUND_ZEPPELIN_HORN = 11804,
 };
-class event_transports : public UnknownScript
+
+class event_transports : public ObjectScript
 {
 public:
-    event_transports() : UnknownScript("event_transports") { }
+    event_transports() : ObjectScript("event_transports") { }
 
     bool OnProcessEvent(uint32 uiEventId, Object* pSource, Object* /*pTarget*/, bool /*bIsStart*/) override
     {

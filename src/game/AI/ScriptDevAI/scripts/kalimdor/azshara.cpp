@@ -73,7 +73,8 @@ enum
 };
 
 #define GOSSIP_ITEM_MOONSTONE   "Hand over the Southfury moonstone and I'll let you go."
-class npc_rizzle_sprysprocket : public CreatureScript
+
+class npc_rizzle_sprysprocket : public CreatureScript
 {
 public:
     npc_rizzle_sprysprocket() : CreatureScript("npc_rizzle_sprysprocket") { }
@@ -226,7 +227,8 @@ public:
 
 
 
-class npc_depth_charge : public CreatureScript
+
+class npc_depth_charge : public CreatureScript
 {
 public:
     npc_depth_charge() : CreatureScript("npc_depth_charge") { }
@@ -262,7 +264,8 @@ public:
 /*######
 ## go_southfury_moonstone
 ######*/
-class go_southfury_moonstone : public GameObjectScript
+
+class go_southfury_moonstone : public GameObjectScript
 {
 public:
     go_southfury_moonstone() : GameObjectScript("go_southfury_moonstone") { }
@@ -331,7 +334,8 @@ static SpitelashAbilityStruct m_aSpitelashAbility[8] =
     {NPC_SPITELASH_SIREN,       SPELL_FROST_NOVA,   TARGET_TYPE_SELF,       10000, 15000},
     {NPC_SPITELASH_MYRMIDON,    SPELL_STRIKE,       TARGET_TYPE_VICTIM,     3000,  7000}
 };
-class mobs_spitelashes : public CreatureScript
+
+class mobs_spitelashes : public CreatureScript
 {
 public:
     mobs_spitelashes() : CreatureScript("mobs_spitelashes") { }
@@ -454,7 +458,8 @@ public:
 /*######
 ## npc_loramus_thalipedes
 ######*/
-class npc_loramus_thalipedes : public CreatureScript
+
+class npc_loramus_thalipedes : public CreatureScript
 {
 public:
     npc_loramus_thalipedes() : CreatureScript("npc_loramus_thalipedes") { }
@@ -536,7 +541,8 @@ enum
 };
 
 static const uint32 aGOList[] = {GO_AZSHARITE_1, GO_AZSHARITE_2, GO_AZSHARITE_3, GO_AZSHARITE_4};
-class npc_felhound_tracker : public CreatureScript
+
+class npc_felhound_tracker : public CreatureScript
 {
 public:
     npc_felhound_tracker() : CreatureScript("npc_felhound_tracker") { }
@@ -671,10 +677,11 @@ struct SummonLocation
 };
 
 static const SummonLocation aMawsSpawn = { 3561.73f, -6647.2f, -7.5f };
-class event_arcanite_buoy : public UnknownScript
+
+class event_arcanite_buoy : public ObjectScript
 {
 public:
-    event_arcanite_buoy() : UnknownScript("event_arcanite_buoy") { }
+    event_arcanite_buoy() : ObjectScript("event_arcanite_buoy") { }
 
     bool OnProcessEvent(uint32 uiEventId, Object* pSource, Object* /*pTarget*/, bool /*bIsStart*/) override
     {
@@ -737,7 +744,8 @@ struct go_ai_lightning : public GameObjectAI
             m_uilightningTimer -= uiDiff;
     }
 };
-class go_lightning : public CreatureScript
+
+class go_lightning : public CreatureScript
 {
 public:
     go_lightning() : CreatureScript("go_lightning") { }
@@ -764,7 +772,8 @@ enum
     EMOTE_GENERIC_FRENZY_KILL   = -1000001,
     EMOTE_MAWS_KILL             = -1010000      // World emote that was removed in WotLK patch 3.2
 };
-class boss_maws : public CreatureScript
+
+class boss_maws : public CreatureScript
 {
 public:
     boss_maws() : CreatureScript("boss_maws") { }

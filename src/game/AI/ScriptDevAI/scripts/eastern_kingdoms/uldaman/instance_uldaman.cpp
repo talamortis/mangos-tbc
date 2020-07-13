@@ -295,7 +295,8 @@ void instance_uldaman::Update(uint32 uiDiff)
     else
         m_uiKeeperCooldown -= uiDiff;
 }
-class instance_uldaman : public InstanceMapScript
+
+class instance_uldaman : public InstanceMapScript
 {
 public:
     instance_uldaman() : InstanceMapScript("instance_uldaman") { }
@@ -309,10 +310,11 @@ public:
 
 
 };
-class event_spell_altar_boss_aggro : public UnknownScript
+
+class event_spell_altar_boss_aggro : public ObjectScript
 {
 public:
-    event_spell_altar_boss_aggro() : UnknownScript("event_spell_altar_boss_aggro") { }
+    event_spell_altar_boss_aggro() : ObjectScript("event_spell_altar_boss_aggro") { }
 
     bool OnProcessEvent(uint32 uiEventId, Object* pSource, Object* /*pTarget*/, bool bIsStart) override
     {

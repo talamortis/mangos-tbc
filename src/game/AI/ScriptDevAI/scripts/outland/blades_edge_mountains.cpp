@@ -2308,10 +2308,10 @@ enum
     SAY_SKULLOC_SOULGRINDER = -1015016,
     SAY_FAIL_QUEST          = -1015017,
 };
-class event_into_the_soulgrinder : public UnknownScript
+class event_into_the_soulgrinder : public ObjectScript
 {
 public:
-    event_into_the_soulgrinder() : UnknownScript("event_into_the_soulgrinder") { }
+    event_into_the_soulgrinder() : ObjectScript("event_into_the_soulgrinder") { }
 
     bool OnProcessEvent(uint32 /*uiEventId*/, Object* pSource, Object* /*pTarget*/, bool /*bIsStart*/) override
     {

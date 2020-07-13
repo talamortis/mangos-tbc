@@ -784,10 +784,10 @@ public:
 /*###################################################
 ## Chromaggus' breaths and Nefarian tunnels selection
 ####################################################*/
-class event_weekly_chromatic_selection : public UnknownScript
+class event_weekly_chromatic_selection : public ObjectScript
 {
 public:
-    event_weekly_chromatic_selection() : UnknownScript("event_weekly_chromatic_selection") { }
+    event_weekly_chromatic_selection() : ObjectScript("event_weekly_chromatic_selection") { }
 
     bool OnProcessEvent(uint32 uiEventId, Object* pSource, Object* /*pTarget*/, bool /*bIsStart*/) override
     {

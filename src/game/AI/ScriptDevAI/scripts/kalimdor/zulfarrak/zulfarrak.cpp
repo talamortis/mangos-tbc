@@ -33,10 +33,10 @@ EndContentData */
 /*######
 ## event_go_zulfarrak_gong
 ######*/
-class event_go_zulfarrak_gong : public UnknownScript
+class event_go_zulfarrak_gong : public ObjectScript
 {
 public:
-    event_go_zulfarrak_gong() : UnknownScript("event_go_zulfarrak_gong") { }
+    event_go_zulfarrak_gong() : ObjectScript("event_go_zulfarrak_gong") { }
 
     bool OnProcessEvent(uint32 /*uiEventId*/, Object* pSource, Object* /*pTarget*/, bool bIsStart) override
     {
@@ -63,10 +63,10 @@ public:
 /*######
 ## event_spell_unlocking
 ######*/
-class event_spell_unlocking : public UnknownScript
+class event_spell_unlocking : public ObjectScript
 {
 public:
-    event_spell_unlocking() : UnknownScript("event_spell_unlocking") { }
+    event_spell_unlocking() : ObjectScript("event_spell_unlocking") { }
 
     bool OnProcessEvent(uint32 /*uiEventId*/, Object* pSource, Object* /*pTarget*/, bool bIsStart) override
     {

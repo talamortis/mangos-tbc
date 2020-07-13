@@ -75,7 +75,8 @@ enum
     NPC_LILADRIS                = 11219                     // attackers entries unknown
 };
 
-// TODO: make concept similar as "ringo" -escort. Find a way to run the scripted attacks, _if_ player are choosing road.class npc_kerlonian : public CreatureScript
+// TODO: make concept similar as "ringo" -escort. Find a way to run the scripted attacks, _if_ player are choosing road.
+class npc_kerlonian : public CreatureScript
 {
 public:
     npc_kerlonian() : CreatureScript("npc_kerlonian") { }
@@ -255,7 +256,8 @@ enum
     NPC_GRAVEL_BONE             = 2159,
     NPC_GRAVEL_GEO              = 2160
 };
-class npc_prospector_remtravel : public CreatureScript
+
+class npc_prospector_remtravel : public CreatureScript
 {
 public:
     npc_prospector_remtravel() : CreatureScript("npc_prospector_remtravel") { }
@@ -387,7 +389,8 @@ enum
 
     GOSSIP_ITEM_TURN_KEY    = -3000112,
 };
-class npc_threshwackonator : public CreatureScript
+
+class npc_threshwackonator : public CreatureScript
 {
 public:
     npc_threshwackonator() : CreatureScript("npc_threshwackonator") { }
@@ -512,7 +515,8 @@ static const SummonLocation aVolcorSpawnLocs[] =
     {4747.8f, 152.8f, 54.6f, 2.4f},
     {4711.7f, 109.1f, 53.5f, 2.4f},
 };
-class npc_volcor : public CreatureScript
+
+class npc_volcor : public CreatureScript
 {
 public:
     npc_volcor() : CreatureScript("npc_volcor") { }
@@ -661,7 +665,8 @@ enum
 
     QUEST_ID_THERYLUNE_ESCAPE        = 945,
 };
-class npc_therylune : public CreatureScript
+
+class npc_therylune : public CreatureScript
 {
 public:
     npc_therylune() : CreatureScript("npc_therylune") { }
@@ -741,7 +746,8 @@ enum
     SPELL_RABIES                    = 3150,                 // Spell used in comabt
     SPELL_BEAR_CAPTURED             = 9439
 };
-class npc_rabid_bear : public CreatureScript
+
+class npc_rabid_bear : public CreatureScript
 {
 public:
     npc_rabid_bear() : CreatureScript("npc_rabid_bear") { }
@@ -963,7 +969,8 @@ struct npc_corrupted_furbolgAI : public ScriptedAI
 /*######
 ## npc_blackwood_warrior
 ######*/
-class npc_blackwood_warrior : public CreatureScript
+
+class npc_blackwood_warrior : public CreatureScript
 {
 public:
     npc_blackwood_warrior() : CreatureScript("npc_blackwood_warrior") { }
@@ -1015,7 +1022,8 @@ public:
 /*######
 ## npc_blackwood_totemic
 ######*/
-class npc_blackwood_totemic : public CreatureScript
+
+class npc_blackwood_totemic : public CreatureScript
 {
 public:
     npc_blackwood_totemic() : CreatureScript("npc_blackwood_totemic") { }
@@ -1062,10 +1070,11 @@ public:
 /*######
 ## EventId_event_purify_food
 ######*/
-class event_purify_food : public UnknownScript
+
+class event_purify_food : public ObjectScript
 {
 public:
-    event_purify_food() : UnknownScript("event_purify_food") { }
+    event_purify_food() : ObjectScript("event_purify_food") { }
 
     bool OnProcessEvent(uint32 /*eventId*/, Object* source, Object* target, bool /*isStart*/) override
     {
@@ -1113,7 +1122,8 @@ public:
 /*######
 ## go_furbolg_food
 ######*/
-class go_furbolg_food : public GameObjectScript
+
+class go_furbolg_food : public GameObjectScript
 {
 public:
     go_furbolg_food() : GameObjectScript("go_furbolg_food") { }

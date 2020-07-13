@@ -38,7 +38,8 @@ enum
     QUEST_THE_CHARGE_OF_DRAGONFLIGHTS = 8555,
     QUEST_ERANIKUS_TYRANT_OF_DREAMS   = 8733
 };
-class at_shade_of_eranikus : public AreaTriggerScript
+
+class at_shade_of_eranikus : public AreaTriggerScript
 {
 public:
     at_shade_of_eranikus() : AreaTriggerScript("at_shade_of_eranikus") { }
@@ -80,7 +81,8 @@ enum
 
     MAX_MALFURION_TEMPLE_SPEECHES = 6
 };
-class npc_malfurion_stormrage : public CreatureScript
+
+class npc_malfurion_stormrage : public CreatureScript
 {
 public:
     npc_malfurion_stormrage() : CreatureScript("npc_malfurion_stormrage") { }
@@ -168,10 +170,11 @@ public:
 /*######
 ## event_antalarion_statues
 ######*/
-class event_antalarion_statue_activation : public UnknownScript
+
+class event_antalarion_statue_activation : public ObjectScript
 {
 public:
-    event_antalarion_statue_activation() : UnknownScript("event_antalarion_statue_activation") { }
+    event_antalarion_statue_activation() : ObjectScript("event_antalarion_statue_activation") { }
 
     bool OnProcessEvent(uint32 uiEventId, Object* pSource, Object* pTarget, bool /*bIsStart*/) override
     {
@@ -214,10 +217,11 @@ public:
 
 /*######
 ## event_avatar_of_hakkar
-######*/class event_avatar_of_hakkar : public UnknownScript
+######*/
+class event_avatar_of_hakkar : public ObjectScript
 {
 public:
-    event_avatar_of_hakkar() : UnknownScript("event_avatar_of_hakkar") { }
+    event_avatar_of_hakkar() : ObjectScript("event_avatar_of_hakkar") { }
 
     bool OnProcessEvent(uint32 /*uiEventId*/, Object* pSource, Object* /*pTarget*/, bool /*bIsStart*/) override
     {
@@ -243,7 +247,8 @@ public:
 
 /*######
 ## go_eternal_flame
-######*/class go_eternal_flame : public GameObjectScript
+######*/
+class go_eternal_flame : public GameObjectScript
 {
 public:
     go_eternal_flame() : GameObjectScript("go_eternal_flame") { }
@@ -271,7 +276,8 @@ public:
 
 /*######
 ## effectDummy_summon_hakkar
-######*/class npc_shade_of_hakkar : public CreatureScript
+######*/
+class npc_shade_of_hakkar : public CreatureScript
 {
 public:
     npc_shade_of_hakkar() : CreatureScript("npc_shade_of_hakkar") { }

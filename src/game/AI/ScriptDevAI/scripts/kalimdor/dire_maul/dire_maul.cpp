@@ -39,10 +39,11 @@ enum
     EVENT_ID_SUMMON_JEEVEES     = 8420,
     EVENT_ID_SUMMON_DREADSTEED  = 8428,
 };
-class event_spells_warlock_dreadsteed : public UnknownScript
+
+class event_spells_warlock_dreadsteed : public ObjectScript
 {
 public:
-    event_spells_warlock_dreadsteed() : UnknownScript("event_spells_warlock_dreadsteed") { }
+    event_spells_warlock_dreadsteed() : ObjectScript("event_spells_warlock_dreadsteed") { }
 
     bool OnProcessEvent(uint32 uiEventId, Object* pSource, Object* /*pTarget*/, bool bIsStart) override
     {

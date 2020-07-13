@@ -96,7 +96,8 @@ static const DialogueEntry aIntroDialogue[] =
     {OPERA_EVENT_ROMULO_AND_JUL, 0,  0},
     {0, 0, 0},
 };
-class npc_barnes : public CreatureScript
+
+class npc_barnes : public CreatureScript
 {
 public:
     npc_barnes() : CreatureScript("npc_barnes") { }
@@ -370,7 +371,8 @@ static const DialogueEntry aMedivhDialogue[] =
     {SAY_MEDIVH_8,          NPC_IMAGE_OF_MEDIVH,    0},
     {0, 0, 0},
 };
-class npc_image_of_medivh : public CreatureScript
+
+class npc_image_of_medivh : public CreatureScript
 {
 public:
     npc_image_of_medivh() : CreatureScript("npc_image_of_medivh") { }
@@ -480,7 +482,8 @@ public:
 /*######
 # npc_image_arcanagos
 ######*/
-class npc_image_arcanagos : public CreatureScript
+
+class npc_image_arcanagos : public CreatureScript
 {
 public:
     npc_image_arcanagos() : CreatureScript("npc_image_arcanagos") { }
@@ -525,10 +528,11 @@ public:
 /*######
 # event_spell_medivh_journal
 ######*/
-class event_spell_medivh_journal : public UnknownScript
+
+class event_spell_medivh_journal : public ObjectScript
 {
 public:
-    event_spell_medivh_journal() : UnknownScript("event_spell_medivh_journal") { }
+    event_spell_medivh_journal() : ObjectScript("event_spell_medivh_journal") { }
 
     bool OnProcessEvent(uint32 /*uiEventId*/, Object* pSource, Object* /*pTarget*/, bool bIsStart) override
     {

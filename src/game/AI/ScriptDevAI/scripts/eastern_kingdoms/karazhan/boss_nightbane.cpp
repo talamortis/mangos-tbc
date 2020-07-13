@@ -76,7 +76,8 @@ enum NightbaneActions
     NIGHTBANE_ACTION_MAX,
     NIGHTBANE_ATTACK_DELAY,
 };
-class boss_nightbane : public CreatureScript
+
+class boss_nightbane : public CreatureScript
 {
 public:
     boss_nightbane() : CreatureScript("boss_nightbane") { }
@@ -412,10 +413,11 @@ public:
 
 
 };
-class event_spell_summon_nightbane : public UnknownScript
+
+class event_spell_summon_nightbane : public ObjectScript
 {
 public:
-    event_spell_summon_nightbane() : UnknownScript("event_spell_summon_nightbane") { }
+    event_spell_summon_nightbane() : ObjectScript("event_spell_summon_nightbane") { }
 
     bool OnProcessEvent(uint32 /*eventId*/, Object* source, Object* /*target*/, bool bIsStart) override
     {

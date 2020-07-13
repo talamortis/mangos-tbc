@@ -171,7 +171,8 @@ void instance_razorfen_downs::DoSpawnWaveIfCan(GameObject* pGo)
     SetData(TYPE_TUTEN_KASH, IN_PROGRESS);
     pGo->SetFlag(GAMEOBJECT_FLAGS, GO_FLAG_NO_INTERACT);
 }
-class instance_razorfen_downs : public InstanceMapScript
+
+class instance_razorfen_downs : public InstanceMapScript
 {
 public:
     instance_razorfen_downs() : InstanceMapScript("instance_razorfen_downs") { }
@@ -185,10 +186,11 @@ public:
 
 
 };
-class event_go_tutenkash_gong : public UnknownScript
+
+class event_go_tutenkash_gong : public ObjectScript
 {
 public:
-    event_go_tutenkash_gong() : UnknownScript("event_go_tutenkash_gong") { }
+    event_go_tutenkash_gong() : ObjectScript("event_go_tutenkash_gong") { }
 
     bool OnProcessEvent(uint32 /*uiEventId*/, Object* pSource, Object* pTarget, bool /*bIsStart*/) override
     {

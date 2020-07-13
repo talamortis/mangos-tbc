@@ -228,10 +228,10 @@ public:
 
 
 };
-class event_razorgore_possess : public UnknownScript
+class event_razorgore_possess : public ObjectScript
 {
 public:
-    event_razorgore_possess() : UnknownScript("event_razorgore_possess") { }
+    event_razorgore_possess() : ObjectScript("event_razorgore_possess") { }
 
     bool OnProcessEvent(uint32 /*eventId*/, Object* source, Object* /*target*/, bool /*isStart*/) override
     {

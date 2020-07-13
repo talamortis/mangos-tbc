@@ -205,21 +205,22 @@ float bashirCustomSpawnPositions[][4] =
     { 4015.183f, 5891.058f, 267.9485f, 1.32645f   }, // 23245
     // {,,,},
 };
-class world_map_outland : public UnknownScript
+
+class world_map_outland : public InstanceMapScript
 {
 public:
-    world_map_outland() : UnknownScript("world_map_outland") { }
+    world_map_outland() : InstanceMapScript("world_map_outland") { }
 
     InstanceData* GetInstanceScript(Map* map) const override
     {
-        return new world_map_outland(map);
+        return new world_map_outlandAI(map);
     }
 
 
 
-    struct world_map_outland : public ScriptedMap, public TimerManager
+    struct world_map_outlandAI : public ScriptedMap, public TimerManager
     {
-        world_map_outland(Map* pMap) : ScriptedMap(pMap) { Initialize(); }
+        world_map_outlandAI(Map* pMap) : ScriptedMap(pMap) { Initialize(); }
 
         uint8 m_uiEmissaryOfHate_KilledAddCount;
         uint8 m_uiRazaan_KilledAddCount;

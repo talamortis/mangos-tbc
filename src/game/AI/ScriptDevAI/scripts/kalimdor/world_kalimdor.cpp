@@ -31,21 +31,22 @@ struct GhostOPlasmEvent
     uint8 phaseCounter;
     std::vector<ObjectGuid> summonedMagrami;
 };
-class world_map_kalimdor : public UnknownScript
+
+class world_map_kalimdor : public InstanceMapScript
 {
 public:
-    world_map_kalimdor() : UnknownScript("world_map_kalimdor") { }
+    world_map_kalimdor() : InstanceMapScript("world_map_kalimdor") { }
 
     InstanceData* GetInstanceScript(Map* pMap) const override
     {
-        return new world_map_kalimdor(pMap);
+        return new world_map_kalimdorAI(pMap);
     }
 
 
 
-    struct world_map_kalimdor : public ScriptedMap
+    struct world_map_kalimdorAI : public ScriptedMap
     {
-        world_map_kalimdor(Map* pMap) : ScriptedMap(pMap) { Initialize(); }
+        world_map_kalimdorAI(Map* pMap) : ScriptedMap(pMap) { Initialize(); }
 
         uint8 m_uiMurkdeepAdds_KilledAddCount;
         std::vector<GhostOPlasmEvent> m_vGOEvents;

@@ -20,21 +20,22 @@
 
 /* *********************************************************
  *                  EASTERN KINGDOMS
- */class world_map_eastern_kingdoms : public UnknownScript
+ */
+class world_map_eastern_kingdoms : public InstanceMapScript
 {
 public:
-    world_map_eastern_kingdoms() : UnknownScript("world_map_eastern_kingdoms") { }
+    world_map_eastern_kingdoms() : InstanceMapScript("world_map_eastern_kingdoms") { }
 
     InstanceData* GetInstanceScript(Map* pMap) const override
     {
-        return new world_map_eastern_kingdoms(pMap);
+        return new world_map_eastern_kingdomsAI(pMap);
     }
 
 
 
-    struct world_map_eastern_kingdoms : public ScriptedMap
+    struct world_map_eastern_kingdomsAI : public ScriptedMap
     {
-        world_map_eastern_kingdoms(Map* pMap) : ScriptedMap(pMap) {}
+        world_map_eastern_kingdomsAI(Map* pMap) : ScriptedMap(pMap) {}
 
         void OnCreatureCreate(Creature* pCreature) override
         {

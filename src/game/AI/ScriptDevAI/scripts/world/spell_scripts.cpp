@@ -51,10 +51,10 @@ enum
     ITEM_RED_SNAPPER            = 23614,
     // SPELL_SUMMON_TEST           = 49214                  // ! Just wrong spell name? It summon correct creature (17102)but does not appear to be used.
 };
-class spell_dummy_go : public UnknownScript
+class spell_dummy_go : public GameObjectScript
 {
 public:
-    spell_dummy_go() : UnknownScript("spell_dummy_go") { }
+    spell_dummy_go() : GameObjectScript("spell_dummy_go") { }
 
     bool OnEffectDummy(Unit* pCaster, uint32 uiSpellId, SpellEffectIndex uiEffIndex, GameObject* pGOTarget, ObjectGuid /*originalCasterGuid*/) override
     {
@@ -168,10 +168,10 @@ enum
     NPC_DEEPRUN_RAT                     = 13016,
     NPC_ENTHRALLED_DEEPRUN_RAT          = 13017,
 };
-class spell_dummy_npc : public UnknownScript
+class spell_dummy_npc : public CreatureScript, public SpellAuraScript
 {
 public:
-    spell_dummy_npc() : UnknownScript("spell_dummy_npc") { }
+    spell_dummy_npc() : CreatureScript("spell_dummy_npc"), SpellAuraScript("spell_dummy_npc") { }
 
     bool OnAuraDummy(const Aura* pAura, bool bApply) override
     {

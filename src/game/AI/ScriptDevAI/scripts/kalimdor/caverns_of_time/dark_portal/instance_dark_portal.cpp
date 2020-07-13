@@ -562,35 +562,46 @@ bool instance_dark_portal::CheckConditionCriteriaMeet(Player const* pPlayer, uin
     return false;
 }
 
-
-InstanceData* GetInstanceData_instance_dark_portal(Map* pMap)
+class instance_dark_portal : public InstanceMapScript
 {
-    return new instance_dark_portal(pMap);
-}
+public:
+    instance_dark_portal() : InstanceMapScript("instance_dark_portal") { }
 
-bool AreaTrigger_at_dark_portal(Player* pPlayer, AreaTriggerEntry const* pAt)
-{
-    if (pAt->id == AREATRIGGER_MEDIVH || pAt->id == AREATRIGGER_ENTER)
+    InstanceData* GetInstanceScript(Map* pMap) const override
     {
-        if (pPlayer->isGameMaster() || pPlayer->IsDead())
-            return false;
-
-        if (instance_dark_portal* pInstance = (instance_dark_portal*)pPlayer->GetInstanceData())
-            pInstance->DoHandleAreaTrigger(pAt->id);
+        return new instance_dark_portal(pMap);
     }
 
-    return false;
-}
+
+
+
+};
+class at_dark_portal : public AreaTriggerScript
+{
+public:
+    at_dark_portal() : AreaTriggerScript("at_dark_portal") { }
+
+    bool OnTrigger(Player* pPlayer, AreaTriggerEntry const* pAt) override
+    {
+        if (pAt->id == AREATRIGGER_MEDIVH || pAt->id == AREATRIGGER_ENTER)
+        {
+            if (pPlayer->isGameMaster() || pPlayer->IsDead())
+                return false;
+
+            if (instance_dark_portal* pInstance = (instance_dark_portal*)pPlayer->GetInstanceData())
+                pInstance->DoHandleAreaTrigger(pAt->id);
+        }
+
+        return false;
+    }
+
+
+
+};
 
 void AddSC_instance_dark_portal()
 {
-    Script* pNewScript = new Script;
-    pNewScript->Name = "instance_dark_portal";
-    pNewScript->GetInstanceData = &GetInstanceData_instance_dark_portal;
-    pNewScript->RegisterSelf();
+    new instance_dark_portal();
+    new at_dark_portal();
 
-    pNewScript = new Script;
-    pNewScript->Name = "at_dark_portal";
-    pNewScript->pAreaTrigger = &AreaTrigger_at_dark_portal;
-    pNewScript->RegisterSelf();
 }

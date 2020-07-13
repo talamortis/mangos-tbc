@@ -49,112 +49,121 @@ enum ChromaggusActions
     CHROMAGGUS_FRENZY,
     CHROMAGGUS_ACTION_MAX,
 };
-
-struct boss_chromaggusAI : public CombatAI
+class boss_chromaggus : public CreatureScript
 {
-    boss_chromaggusAI(Creature* creature) : CombatAI(creature, CHROMAGGUS_ACTION_MAX), m_instance(static_cast<ScriptedInstance*>(creature->GetInstanceData()))
+public:
+    boss_chromaggus() : CreatureScript("boss_chromaggus") { }
+
+    UnitAI* GetAI(Creature* creature)
     {
-        // Select the 2 different breaths that we are going to use until despawned
-        DoCastSpellIfCan(nullptr, SPELL_BREATH_SELECTION);
-        if (m_instance)
+        return new boss_chromaggusAI(creature);
+    }
+
+
+
+    struct boss_chromaggusAI : public CombatAI
+    {
+        boss_chromaggusAI(Creature* creature) : CombatAI(creature, CHROMAGGUS_ACTION_MAX), m_instance(static_cast<ScriptedInstance*>(creature->GetInstanceData()))
         {
-            m_breathLeftSpell = m_instance->GetData(TYPE_CHROMA_LBREATH);    // Spell for left breath, stored in instance data
-            m_breathRightSpell = m_instance->GetData(TYPE_CHROMA_RBREATH);   // Spell for right breath, stored in instance data
+            // Select the 2 different breaths that we are going to use until despawned
+            DoCastSpellIfCan(nullptr, SPELL_BREATH_SELECTION);
+            if (m_instance)
+            {
+                m_breathLeftSpell = m_instance->GetData(TYPE_CHROMA_LBREATH);    // Spell for left breath, stored in instance data
+                m_breathRightSpell = m_instance->GetData(TYPE_CHROMA_RBREATH);   // Spell for right breath, stored in instance data
+            }
+            AddTimerlessCombatAction(CHROMAGGUS_ENRAGE, true);
+            AddCombatAction(CHROMAGGUS_ELEMENTAL_SHIELD, 0u);
+            AddCombatAction(CHROMAGGUS_BREATH_LEFT, 30000u);
+            AddCombatAction(CHROMAGGUS_BREATH_RIGHT, 60000u);
+            AddCombatAction(CHROMAGGUS_BROOD_AFFLICTION, uint32(7 * IN_MILLISECONDS));
+            AddCombatAction(CHROMAGGUS_FRENZY, 15000u);
         }
-        AddTimerlessCombatAction(CHROMAGGUS_ENRAGE, true);
-        AddCombatAction(CHROMAGGUS_ELEMENTAL_SHIELD, 0u);
-        AddCombatAction(CHROMAGGUS_BREATH_LEFT, 30000u);
-        AddCombatAction(CHROMAGGUS_BREATH_RIGHT, 60000u);
-        AddCombatAction(CHROMAGGUS_BROOD_AFFLICTION, uint32(7 * IN_MILLISECONDS));
-        AddCombatAction(CHROMAGGUS_FRENZY, 15000u);
-    }
 
-    ScriptedInstance* m_instance;
+        ScriptedInstance* m_instance;
 
-    uint32 m_breathLeftSpell;
-    uint32 m_breathRightSpell;
+        uint32 m_breathLeftSpell;
+        uint32 m_breathRightSpell;
 
-    void Aggro(Unit* /*who*/) override
-    {
-        if (m_instance)
-            m_instance->SetData(TYPE_CHROMAGGUS, IN_PROGRESS);
-    }
-
-    void JustDied(Unit* /*killer*/) override
-    {
-        if (m_instance)
-            m_instance->SetData(TYPE_CHROMAGGUS, DONE);
-    }
-
-    void JustReachedHome() override
-    {
-        if (m_instance)
-            m_instance->SetData(TYPE_CHROMAGGUS, FAIL);
-    }
-
-    void ExecuteAction(uint32 action) override
-    {
-        switch (action)
+        void Aggro(Unit* /*who*/) override
         {
-            case CHROMAGGUS_ENRAGE:
+            if (m_instance)
+                m_instance->SetData(TYPE_CHROMAGGUS, IN_PROGRESS);
+        }
+
+        void JustDied(Unit* /*killer*/) override
+        {
+            if (m_instance)
+                m_instance->SetData(TYPE_CHROMAGGUS, DONE);
+        }
+
+        void JustReachedHome() override
+        {
+            if (m_instance)
+                m_instance->SetData(TYPE_CHROMAGGUS, FAIL);
+        }
+
+        void ExecuteAction(uint32 action) override
+        {
+            switch (action)
             {
-                if (m_creature->GetHealthPercent() < 20.0f)
+                case CHROMAGGUS_ENRAGE:
                 {
-                    DoCastSpellIfCan(nullptr, SPELL_ENRAGE);
-                    DoScriptText(EMOTE_GENERIC_FRENZY, m_creature);
-                    SetActionReadyStatus(action, false);
+                    if (m_creature->GetHealthPercent() < 20.0f)
+                    {
+                        DoCastSpellIfCan(nullptr, SPELL_ENRAGE);
+                        DoScriptText(EMOTE_GENERIC_FRENZY, m_creature);
+                        SetActionReadyStatus(action, false);
+                    }
+                    break;
                 }
-                break;
-            }
-            case CHROMAGGUS_ELEMENTAL_SHIELD:
-            {
-                if (DoCastSpellIfCan(nullptr, SPELL_ELEMENTAL_SHIELD_BWL) == CAST_OK)
+                case CHROMAGGUS_ELEMENTAL_SHIELD:
                 {
-                    DoScriptText(EMOTE_SHIMMER, m_creature);
-                    ResetCombatAction(action, 45000);
+                    if (DoCastSpellIfCan(nullptr, SPELL_ELEMENTAL_SHIELD_BWL) == CAST_OK)
+                    {
+                        DoScriptText(EMOTE_SHIMMER, m_creature);
+                        ResetCombatAction(action, 45000);
+                    }
+                    break;
                 }
-                break;
-            }
-            case CHROMAGGUS_BREATH_LEFT:
-            {
-                if (DoCastSpellIfCan(nullptr, m_breathLeftSpell) == CAST_OK)
-                    ResetCombatAction(action, 60000);
-                break;
-            }
-            case CHROMAGGUS_BREATH_RIGHT:
-            {
-                if (DoCastSpellIfCan(nullptr, m_breathRightSpell) == CAST_OK)
-                    ResetCombatAction(action, 60000);
-                break;
-            }
-            case CHROMAGGUS_BROOD_AFFLICTION:
-            {
-                if (DoCastSpellIfCan(nullptr, SPELL_BROOD_AFFLICTION) == CAST_OK)
-                    ResetCombatAction(action, 7 * IN_MILLISECONDS);
-                break;
-            }
-            case CHROMAGGUS_FRENZY:
-            {
-                if (DoCastSpellIfCan(nullptr, SPELL_FRENZY) == CAST_OK)
+                case CHROMAGGUS_BREATH_LEFT:
                 {
-                    DoScriptText(EMOTE_GENERIC_FRENZY_KILL, m_creature);
-                    ResetCombatAction(action, 15 * IN_MILLISECONDS);
+                    if (DoCastSpellIfCan(nullptr, m_breathLeftSpell) == CAST_OK)
+                        ResetCombatAction(action, 60000);
+                    break;
                 }
-                break;
+                case CHROMAGGUS_BREATH_RIGHT:
+                {
+                    if (DoCastSpellIfCan(nullptr, m_breathRightSpell) == CAST_OK)
+                        ResetCombatAction(action, 60000);
+                    break;
+                }
+                case CHROMAGGUS_BROOD_AFFLICTION:
+                {
+                    if (DoCastSpellIfCan(nullptr, SPELL_BROOD_AFFLICTION) == CAST_OK)
+                        ResetCombatAction(action, 7 * IN_MILLISECONDS);
+                    break;
+                }
+                case CHROMAGGUS_FRENZY:
+                {
+                    if (DoCastSpellIfCan(nullptr, SPELL_FRENZY) == CAST_OK)
+                    {
+                        DoScriptText(EMOTE_GENERIC_FRENZY_KILL, m_creature);
+                        ResetCombatAction(action, 15 * IN_MILLISECONDS);
+                    }
+                    break;
+                }
             }
         }
-    }
+    };
+
+
+
 };
 
-UnitAI* GetAI_boss_chromaggus(Creature* creature)
-{
-    return new boss_chromaggusAI(creature);
-}
 
 void AddSC_boss_chromaggus()
 {
-    Script* pNewScript = new Script;
-    pNewScript->Name = "boss_chromaggus";
-    pNewScript->GetAI = &GetAI_boss_chromaggus;
-    pNewScript->RegisterSelf();
+    new boss_chromaggus();
+
 }

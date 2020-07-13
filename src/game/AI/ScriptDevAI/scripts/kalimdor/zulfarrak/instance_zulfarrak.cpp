@@ -240,16 +240,23 @@ void instance_zulfarrak::Update(uint32 uiDiff)
             m_uiPyramidEventTimer -= uiDiff;
     }
 }
-
-InstanceData* GetInstanceData_instance_zulfarrak(Map* pMap)
+class instance_zulfarrak : public InstanceMapScript
 {
-    return new instance_zulfarrak(pMap);
-}
+public:
+    instance_zulfarrak() : InstanceMapScript("instance_zulfarrak") { }
+
+    InstanceData* GetInstanceScript(Map* pMap) const override
+    {
+        return new instance_zulfarrak(pMap);
+    }
+
+
+
+
+};
 
 void AddSC_instance_zulfarrak()
 {
-    Script* pNewScript = new Script;
-    pNewScript->Name = "instance_zulfarrak";
-    pNewScript->GetInstanceData = &GetInstanceData_instance_zulfarrak;
-    pNewScript->RegisterSelf();
+    new instance_zulfarrak();
+
 }

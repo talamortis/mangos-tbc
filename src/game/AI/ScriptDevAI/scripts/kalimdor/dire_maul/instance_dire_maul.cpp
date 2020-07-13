@@ -577,11 +577,20 @@ void instance_dire_maul::Update(uint32 uiDiff)
             m_uiDreadsteedEventTimer -= uiDiff;
     }
 }
-
-InstanceData* GetInstanceData_instance_dire_maul(Map* pMap)
+class instance_dire_maul : public InstanceMapScript
 {
-    return new instance_dire_maul(pMap);
-}
+public:
+    instance_dire_maul() : InstanceMapScript("instance_dire_maul") { }
+
+    InstanceData* GetInstanceScript(Map* pMap) const override
+    {
+        return new instance_dire_maul(pMap);
+    }
+
+
+
+
+};
 
 /*###############
 ## go_fixed_trap
@@ -611,45 +620,51 @@ struct go_ai_fixed_trap : public GameObjectAI
         }
     }
 };
-
-GameObjectAI* GetAI_go_fixed_trap(GameObject* go)
+class go_fixed_trap : public CreatureScript
 {
-    return new go_ai_fixed_trap(go);
-}
+public:
+    go_fixed_trap() : CreatureScript("go_fixed_trap") { }
+
+    GameObjectAI* GetAI(GameObject* go)
+    {
+        return new go_ai_fixed_trap(go);
+    }
+
+
+
+};
 
 /*####################################
 ## Guard Slip'kik Trigger dummy effect
 ####################################*/
-
-bool EffectDummyCreature_spell_guard_slip_kik(Unit* pCaster, uint32 uiSpellId, SpellEffectIndex /* uiEffIndex */, Creature* /* pCreatureTarget */, ObjectGuid /*originalCasterGuid*/)
+class npc_mizzle_crafty : public CreatureScript
 {
-    if (uiSpellId == SPELL_GUARD_SLIPKIK_TRIGGER)
+public:
+    npc_mizzle_crafty() : CreatureScript("npc_mizzle_crafty") { }
+
+    bool OnEffectDummy(Unit* pCaster, uint32 uiSpellId, SpellEffectIndex /* uiEffIndex */, Creature* /* pCreatureTarget */, ObjectGuid /*originalCasterGuid*/) override
     {
-        instance_dire_maul* pInstance = (instance_dire_maul*)pCaster->GetInstanceData();
-        if (pInstance)
+        if (uiSpellId == SPELL_GUARD_SLIPKIK_TRIGGER)
         {
-            if (Creature* slipkik = pInstance->GetSingleCreatureFromStorage(NPC_GUARD_SLIPKIK))
-                slipkik->setFaction(FACTION_OGRE);
-            return true;
+            instance_dire_maul* pInstance = (instance_dire_maul*)pCaster->GetInstanceData();
+            if (pInstance)
+            {
+                if (Creature* slipkik = pInstance->GetSingleCreatureFromStorage(NPC_GUARD_SLIPKIK))
+                    slipkik->setFaction(FACTION_OGRE);
+                return true;
+            }
         }
+        return false;
     }
-    return false;
-}
+
+
+
+};
 
 void AddSC_instance_dire_maul()
 {
-    Script* pNewScript = new Script;
-    pNewScript->Name = "instance_dire_maul";
-    pNewScript->GetInstanceData = &GetInstanceData_instance_dire_maul;
-    pNewScript->RegisterSelf();
+    new instance_dire_maul();
+    new go_fixed_trap();
+    new npc_mizzle_crafty();
 
-    pNewScript = new Script;
-    pNewScript->Name = "go_fixed_trap";
-    pNewScript->GetGameObjectAI = &GetAI_go_fixed_trap;
-    pNewScript->RegisterSelf();
-
-    pNewScript = new Script;
-    pNewScript->Name = "npc_mizzle_crafty";
-    pNewScript->pEffectDummyNPC = &EffectDummyCreature_spell_guard_slip_kik;
-    pNewScript->RegisterSelf();
 }

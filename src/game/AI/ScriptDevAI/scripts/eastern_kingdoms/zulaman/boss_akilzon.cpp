@@ -81,285 +81,307 @@ static Position eagleSummonPositions[] =
     {385.948f,  1430.281f, 92.62734f, 3.174874f}, // PATH_ID_EAGLE_4
     {381.914f,  1433.974f, 91.65897f, 6.053235f},
 };
-
-struct boss_akilzonAI : public CombatAI
+class boss_akilzon : public CreatureScript
 {
-    boss_akilzonAI(Creature* creature) : CombatAI(creature, AKILZON_ACTION_MAX), m_instance(static_cast<instance_zulaman*>(creature->GetInstanceData())), m_eagles(MAX_EAGLE_COUNT)
+public:
+    boss_akilzon() : CreatureScript("boss_akilzon") { }
+
+    UnitAI* GetAI(Creature* creature)
     {
-        AddCombatAction(AKILZON_ACTION_BERSERK, uint32(10 * MINUTE * IN_MILLISECONDS));
-        AddCombatAction(AKILZON_ACTION_STATIC_DISRUPT, 7000, 14000);
-        AddCombatAction(AKILZON_ACTION_CALL_LIGHTNING, 15000, 25000);
-        AddCombatAction(AKILZON_ACTION_GUST_OF_WIND, 20000, 30000);
-        AddCombatAction(AKILZON_ACTION_STORM_WEATHER, 48000u);
-        AddCombatAction(AKILZON_ACTION_STORM, true);
-        AddCombatAction(AKILZON_ACTION_SUMMON_EAGLE, 62000u);
-        AddCustomAction(AKILZON_WIND_WALL_DELAY, true, [&]()
+        return new boss_akilzonAI(creature);
+    }
+
+
+
+    struct boss_akilzonAI : public CombatAI
+    {
+        boss_akilzonAI(Creature* creature) : CombatAI(creature, AKILZON_ACTION_MAX), m_instance(static_cast<instance_zulaman*>(creature->GetInstanceData())), m_eagles(MAX_EAGLE_COUNT)
         {
-            if (m_creature->IsInCombat())
-                m_instance->DoUseDoorOrButton(GO_WIND_DOOR);
-        });
-    }
-
-    instance_zulaman* m_instance;
-    GuidVector m_eagles;
-
-    void Reset() override
-    {
-        CombatAI::Reset();
-        DespawnGuids(m_eagles);
-        m_eagles.resize(MAX_EAGLE_COUNT);
-    }
-
-    void Aggro(Unit* /*who*/) override
-    {
-        DoScriptText(SAY_AGGRO, m_creature);
-
-        if (m_instance)
-            m_instance->SetData(TYPE_AKILZON, IN_PROGRESS);
-
-        ResetTimer(AKILZON_WIND_WALL_DELAY, 5000);
-    }
-
-    void KilledUnit(Unit* /*victim*/) override
-    {
-        DoScriptText(urand(0, 1) ? SAY_SLAY1 : SAY_SLAY2, m_creature);
-    }
-
-    void JustDied(Unit* /*killer*/) override
-    {
-        DoScriptText(SAY_DEATH, m_creature);
-
-        if (!m_instance)
-            return;
-
-        m_instance->SetData(TYPE_AKILZON, DONE);
-    }
-
-    void JustReachedHome() override
-    {
-        if (m_instance)
-            m_instance->SetData(TYPE_AKILZON, FAIL);
-    }
-
-    void JustSummoned(Creature* summoned) override
-    {
-        if (summoned->GetEntry() == NPC_SOARING_EAGLE)
-        {
-            summoned->SetLevitate(true);
-            summoned->SetInCombatWithZone();
+            AddCombatAction(AKILZON_ACTION_BERSERK, uint32(10 * MINUTE * IN_MILLISECONDS));
+            AddCombatAction(AKILZON_ACTION_STATIC_DISRUPT, 7000, 14000);
+            AddCombatAction(AKILZON_ACTION_CALL_LIGHTNING, 15000, 25000);
+            AddCombatAction(AKILZON_ACTION_GUST_OF_WIND, 20000, 30000);
+            AddCombatAction(AKILZON_ACTION_STORM_WEATHER, 48000u);
+            AddCombatAction(AKILZON_ACTION_STORM, true);
+            AddCombatAction(AKILZON_ACTION_SUMMON_EAGLE, 62000u);
+            AddCustomAction(AKILZON_WIND_WALL_DELAY, true, [&]()
+            {
+                if (m_creature->IsInCombat())
+                    m_instance->DoUseDoorOrButton(GO_WIND_DOOR);
+            });
         }
-    }
 
-    void ReceiveAIEvent(AIEventType eventType, Unit* /*sender*/, Unit* /*invoker*/, uint32 /*miscValue*/) override
-    {
-        if (eventType == AI_EVENT_CUSTOM_A && m_instance)
-            m_instance->ChangeWeather(false);
-    }
+        instance_zulaman* m_instance;
+        GuidVector m_eagles;
 
-    void DoSummonEagles()
-    {
-        for (uint32 i = 0; i < MAX_EAGLE_COUNT; ++i)
+        void Reset() override
         {
-            if (!m_eagles[i].IsEmpty())
-                continue;
-            Creature* eagle = m_creature->SummonCreature(NPC_SOARING_EAGLE, eagleSummonPositions[i].x, eagleSummonPositions[i].y, eagleSummonPositions[i].z, eagleSummonPositions[i].o, TEMPSPAWN_DEAD_DESPAWN, 0, false, true);
-            m_eagles[i] = eagle->GetObjectGuid();
-            SendAIEvent(AI_EVENT_CUSTOM_A, eagle, eagle, i);
+            CombatAI::Reset();
+            DespawnGuids(m_eagles);
+            m_eagles.resize(MAX_EAGLE_COUNT);
         }
-    }
 
-    void SummonedCreatureJustDied(Creature* summoned) override
-    {
-        if (summoned->GetEntry() == NPC_SOARING_EAGLE)
+        void Aggro(Unit* /*who*/) override
+        {
+            DoScriptText(SAY_AGGRO, m_creature);
+
+            if (m_instance)
+                m_instance->SetData(TYPE_AKILZON, IN_PROGRESS);
+
+            ResetTimer(AKILZON_WIND_WALL_DELAY, 5000);
+        }
+
+        void KilledUnit(Unit* /*victim*/) override
+        {
+            DoScriptText(urand(0, 1) ? SAY_SLAY1 : SAY_SLAY2, m_creature);
+        }
+
+        void JustDied(Unit* /*killer*/) override
+        {
+            DoScriptText(SAY_DEATH, m_creature);
+
+            if (!m_instance)
+                return;
+
+            m_instance->SetData(TYPE_AKILZON, DONE);
+        }
+
+        void JustReachedHome() override
+        {
+            if (m_instance)
+                m_instance->SetData(TYPE_AKILZON, FAIL);
+        }
+
+        void JustSummoned(Creature* summoned) override
+        {
+            if (summoned->GetEntry() == NPC_SOARING_EAGLE)
+            {
+                summoned->SetLevitate(true);
+                summoned->SetInCombatWithZone();
+            }
+        }
+
+        void ReceiveAIEvent(AIEventType eventType, Unit* /*sender*/, Unit* /*invoker*/, uint32 /*miscValue*/) override
+        {
+            if (eventType == AI_EVENT_CUSTOM_A && m_instance)
+                m_instance->ChangeWeather(false);
+        }
+
+        void DoSummonEagles()
         {
             for (uint32 i = 0; i < MAX_EAGLE_COUNT; ++i)
             {
-                if (m_eagles[i] == summoned->GetObjectGuid())
+                if (!m_eagles[i].IsEmpty())
+                    continue;
+                Creature* eagle = m_creature->SummonCreature(NPC_SOARING_EAGLE, eagleSummonPositions[i].x, eagleSummonPositions[i].y, eagleSummonPositions[i].z, eagleSummonPositions[i].o, TEMPSPAWN_DEAD_DESPAWN, 0, false, true);
+                m_eagles[i] = eagle->GetObjectGuid();
+                SendAIEvent(AI_EVENT_CUSTOM_A, eagle, eagle, i);
+            }
+        }
+
+        void SummonedCreatureJustDied(Creature* summoned) override
+        {
+            if (summoned->GetEntry() == NPC_SOARING_EAGLE)
+            {
+                for (uint32 i = 0; i < MAX_EAGLE_COUNT; ++i)
                 {
-                    m_eagles[i] = ObjectGuid();
-                    if (i % 2 == 0)
+                    if (m_eagles[i] == summoned->GetObjectGuid())
                     {
-                        if (!m_eagles[i + 1].IsEmpty())
-                            if (Creature * creature = m_creature->GetMap()->GetCreature(m_eagles[i + 1]))
-                                SendAIEvent(AI_EVENT_CUSTOM_B, creature, creature, i);
-                    }
-                    else
-                    {
-                        if (!m_eagles[i - 1].IsEmpty())
-                            if (Creature * creature = m_creature->GetMap()->GetCreature(m_eagles[i - 1]))
-                                SendAIEvent(AI_EVENT_CUSTOM_B, creature, creature, i);
+                        m_eagles[i] = ObjectGuid();
+                        if (i % 2 == 0)
+                        {
+                            if (!m_eagles[i + 1].IsEmpty())
+                                if (Creature * creature = m_creature->GetMap()->GetCreature(m_eagles[i + 1]))
+                                    SendAIEvent(AI_EVENT_CUSTOM_B, creature, creature, i);
+                        }
+                        else
+                        {
+                            if (!m_eagles[i - 1].IsEmpty())
+                                if (Creature * creature = m_creature->GetMap()->GetCreature(m_eagles[i - 1]))
+                                    SendAIEvent(AI_EVENT_CUSTOM_B, creature, creature, i);
+                        }
                     }
                 }
             }
         }
-    }
 
-    void ExecuteAction(uint32 action) override
-    {
-        switch (action)
+        void ExecuteAction(uint32 action) override
         {
-            case AKILZON_ACTION_BERSERK:
+            switch (action)
             {
-                if (DoCastSpellIfCan(nullptr, SPELL_BERSERK) == CAST_OK)
+                case AKILZON_ACTION_BERSERK:
                 {
-                    DoScriptText(SAY_ENRAGE, m_creature);
-                    DisableCombatAction(action);
-                }
-                break;
-            }
-            case AKILZON_ACTION_STATIC_DISRUPT:
-            {
-                if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 1, nullptr, SELECT_FLAG_PLAYER))
-                {
-                    if (DoCastSpellIfCan(target, SPELL_STATIC_DISRUPTION) == CAST_OK)
-                        ResetCombatAction(action, urand(7000, 14000));
-                }
-                break;
-            }
-            case AKILZON_ACTION_CALL_LIGHTNING:
-            {
-                if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_CALL_LIGHTNING) == CAST_OK)
-                    ResetCombatAction(action, urand(15000, 25000));
-                break;
-            }
-            case AKILZON_ACTION_GUST_OF_WIND:
-            {
-                if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 1, nullptr, SELECT_FLAG_PLAYER))
-                {
-                    if (DoCastSpellIfCan(target, SPELL_GUST_OF_WIND) == CAST_OK)
-                        ResetCombatAction(action, urand(20000, 30000));
-                }
-                break;
-            }
-            case AKILZON_ACTION_STORM_WEATHER:
-            {
-                // change weather 8.5 seconds prior to storm
-                if (m_instance)
-                    m_instance->ChangeWeather(true);
-                ResetCombatAction(action, urand(50000, 55000));
-                ResetCombatAction(AKILZON_ACTION_STORM, 8500);
-                break;
-            }
-            case AKILZON_ACTION_STORM:
-            {
-                if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, nullptr, SELECT_FLAG_PLAYER))
-                {
-                    if (DoCastSpellIfCan(target, SPELL_ELECTRICAL_STORM) == CAST_OK)
+                    if (DoCastSpellIfCan(nullptr, SPELL_BERSERK) == CAST_OK)
                     {
-                        DoScriptText(EMOTE_STORM, m_creature);
+                        DoScriptText(SAY_ENRAGE, m_creature);
                         DisableCombatAction(action);
                     }
+                    break;
                 }
-                break;
-            }
-            case AKILZON_ACTION_SUMMON_EAGLE:
-            {
-                DoScriptText(urand(0, 1) ? SAY_SUMMON : SAY_SUMMON_ALT, m_creature);
-                DoSummonEagles();
-                ResetCombatAction(action, 60000);
-                break;
+                case AKILZON_ACTION_STATIC_DISRUPT:
+                {
+                    if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 1, nullptr, SELECT_FLAG_PLAYER))
+                    {
+                        if (DoCastSpellIfCan(target, SPELL_STATIC_DISRUPTION) == CAST_OK)
+                            ResetCombatAction(action, urand(7000, 14000));
+                    }
+                    break;
+                }
+                case AKILZON_ACTION_CALL_LIGHTNING:
+                {
+                    if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_CALL_LIGHTNING) == CAST_OK)
+                        ResetCombatAction(action, urand(15000, 25000));
+                    break;
+                }
+                case AKILZON_ACTION_GUST_OF_WIND:
+                {
+                    if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 1, nullptr, SELECT_FLAG_PLAYER))
+                    {
+                        if (DoCastSpellIfCan(target, SPELL_GUST_OF_WIND) == CAST_OK)
+                            ResetCombatAction(action, urand(20000, 30000));
+                    }
+                    break;
+                }
+                case AKILZON_ACTION_STORM_WEATHER:
+                {
+                    // change weather 8.5 seconds prior to storm
+                    if (m_instance)
+                        m_instance->ChangeWeather(true);
+                    ResetCombatAction(action, urand(50000, 55000));
+                    ResetCombatAction(AKILZON_ACTION_STORM, 8500);
+                    break;
+                }
+                case AKILZON_ACTION_STORM:
+                {
+                    if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, nullptr, SELECT_FLAG_PLAYER))
+                    {
+                        if (DoCastSpellIfCan(target, SPELL_ELECTRICAL_STORM) == CAST_OK)
+                        {
+                            DoScriptText(EMOTE_STORM, m_creature);
+                            DisableCombatAction(action);
+                        }
+                    }
+                    break;
+                }
+                case AKILZON_ACTION_SUMMON_EAGLE:
+                {
+                    DoScriptText(urand(0, 1) ? SAY_SUMMON : SAY_SUMMON_ALT, m_creature);
+                    DoSummonEagles();
+                    ResetCombatAction(action, 60000);
+                    break;
+                }
             }
         }
-    }
 
-    void UpdateAI(const uint32 diff) override
-    {
-        CombatAI::UpdateAI(diff);
-        if (m_creature->IsInCombat())
-            EnterEvadeIfOutOfCombatArea(diff);
-    }
+        void UpdateAI(const uint32 diff) override
+        {
+            CombatAI::UpdateAI(diff);
+            if (m_creature->IsInCombat())
+                EnterEvadeIfOutOfCombatArea(diff);
+        }
+    };
+
+
+
 };
 
-UnitAI* GetAI_boss_akilzon(Creature* creature)
+class mob_soaring_eagle : public CreatureScript
 {
-    return new boss_akilzonAI(creature);
-}
+public:
+    mob_soaring_eagle() : CreatureScript("mob_soaring_eagle") { }
 
-struct mob_soaring_eagleAI : public ScriptedAI
-{
-    mob_soaring_eagleAI(Creature* creature) : ScriptedAI(creature), m_instance(static_cast<ScriptedInstance*>(creature->GetInstanceData()))
+    UnitAI* GetAI(Creature* creature)
     {
-        SetReactState(REACT_PASSIVE);
-        SetCombatMovement(false);
-        SetMeleeEnabled(false);
-        Reset();
+        return new mob_soaring_eagleAI(creature);
     }
 
-    ScriptedInstance* m_instance;
 
-    uint32 m_uiEagleSwoopTimer;
 
-    void Reset() override
+    struct mob_soaring_eagleAI : public ScriptedAI
     {
-        m_uiEagleSwoopTimer = urand(4000, 12000);
-    }
-
-    void JustRespawned() override
-    {
-        m_creature->SetInCombatWithZone();
-    }
-
-    void MovementInform(uint32 type, uint32 pointId) override
-    {
-        if (type != EFFECT_MOTION_TYPE || pointId != SPELL_EAGLE_SWOOP)
-            return;
-
-        m_uiEagleSwoopTimer = urand(2000, 12000);
-    }
-
-    void ReceiveAIEvent(AIEventType eventType, Unit* sender, Unit* /*invoker*/, uint32 miscValue) override
-    {
-        if (eventType == AI_EVENT_CUSTOM_A)
+        mob_soaring_eagleAI(Creature* creature) : ScriptedAI(creature), m_instance(static_cast<ScriptedInstance*>(creature->GetInstanceData()))
         {
-            boss_akilzonAI* ai = static_cast<boss_akilzonAI*>(sender->AI());
-            if (miscValue % 2 == 0) // main mob
+            SetReactState(REACT_PASSIVE);
+            SetCombatMovement(false);
+            SetMeleeEnabled(false);
+            Reset();
+        }
+
+        ScriptedInstance* m_instance;
+
+        uint32 m_uiEagleSwoopTimer;
+
+        void Reset() override
+        {
+            m_uiEagleSwoopTimer = urand(4000, 12000);
+        }
+
+        void JustRespawned() override
+        {
+            m_creature->SetInCombatWithZone();
+        }
+
+        void MovementInform(uint32 type, uint32 pointId) override
+        {
+            if (type != EFFECT_MOTION_TYPE || pointId != SPELL_EAGLE_SWOOP)
+                return;
+
+            m_uiEagleSwoopTimer = urand(2000, 12000);
+        }
+
+        void ReceiveAIEvent(AIEventType eventType, Unit* sender, Unit* /*invoker*/, uint32 miscValue) override
+        {
+            if (eventType == AI_EVENT_CUSTOM_A)
             {
-                m_creature->GetMotionMaster()->Clear(false, true);
-                m_creature->GetMotionMaster()->MoveWaypoint((miscValue + 2) / 2);
-                if (!ai->m_eagles[miscValue + 1].IsEmpty())
-                    if (Creature * creature = m_creature->GetMap()->GetCreature(ai->m_eagles[miscValue + 1]))
-                        creature->GetMotionMaster()->MoveFollow(m_creature, 5.f, M_PI_F, true);
+                boss_akilzonAI* ai = static_cast<boss_akilzonAI*>(sender->AI());
+                if (miscValue % 2 == 0) // main mob
+                {
+                    m_creature->GetMotionMaster()->Clear(false, true);
+                    m_creature->GetMotionMaster()->MoveWaypoint((miscValue + 2) / 2);
+                    if (!ai->m_eagles[miscValue + 1].IsEmpty())
+                        if (Creature * creature = m_creature->GetMap()->GetCreature(ai->m_eagles[miscValue + 1]))
+                            creature->GetMotionMaster()->MoveFollow(m_creature, 5.f, M_PI_F, true);
+                }
+                else // follower
+                {
+                    if (Creature * creature = m_creature->GetMap()->GetCreature(ai->m_eagles[miscValue - 1]))
+                        m_creature->GetMotionMaster()->MoveFollow(creature, 5.f, M_PI_F, true);
+                }
             }
-            else // follower
+            else if (eventType == AI_EVENT_CUSTOM_B) // if follower - move on WPs
             {
-                if (Creature * creature = m_creature->GetMap()->GetCreature(ai->m_eagles[miscValue - 1]))
-                    m_creature->GetMotionMaster()->MoveFollow(creature, 5.f, M_PI_F, true);
+                boss_akilzonAI* ai = static_cast<boss_akilzonAI*>(sender->AI());
+                if (miscValue % 2 == 0)
+                {
+                    m_creature->GetMotionMaster()->Clear(false, true);
+                    m_creature->GetMotionMaster()->MoveWaypoint((miscValue + 2) / 2);
+                }
             }
         }
-        else if (eventType == AI_EVENT_CUSTOM_B) // if follower - move on WPs
+
+        void UpdateAI(const uint32 diff) override
         {
-            boss_akilzonAI* ai = static_cast<boss_akilzonAI*>(sender->AI());
-            if (miscValue % 2 == 0)
+            if (!m_creature->SelectHostileTarget())
+                return;
+
+            if (m_uiEagleSwoopTimer)
             {
-                m_creature->GetMotionMaster()->Clear(false, true);
-                m_creature->GetMotionMaster()->MoveWaypoint((miscValue + 2) / 2);
+                if (m_uiEagleSwoopTimer <= diff)
+                {
+                    if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, nullptr, SELECT_FLAG_PLAYER))
+                        if (DoCastSpellIfCan(target, SPELL_EAGLE_SWOOP) == CAST_OK)
+                            m_uiEagleSwoopTimer = 0;
+                }
+                else
+                    m_uiEagleSwoopTimer -= diff;
             }
         }
-    }
+    };
 
-    void UpdateAI(const uint32 diff) override
-    {
-        if (!m_creature->SelectHostileTarget())
-            return;
 
-        if (m_uiEagleSwoopTimer)
-        {
-            if (m_uiEagleSwoopTimer <= diff)
-            {
-                if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, nullptr, SELECT_FLAG_PLAYER))
-                    if (DoCastSpellIfCan(target, SPELL_EAGLE_SWOOP) == CAST_OK)
-                        m_uiEagleSwoopTimer = 0;
-            }
-            else
-                m_uiEagleSwoopTimer -= diff;
-        }
-    }
+
 };
 
-UnitAI* GetAI_mob_soaring_eagle(Creature* creature)
-{
-    return new mob_soaring_eagleAI(creature);
-}
 
 struct TeleportSelf : public SpellScript
 {
@@ -371,15 +393,8 @@ struct TeleportSelf : public SpellScript
 
 void AddSC_boss_akilzon()
 {
-    Script* pNewScript = new Script;
-    pNewScript->Name = "boss_akilzon";
-    pNewScript->GetAI = &GetAI_boss_akilzon;
-    pNewScript->RegisterSelf();
-
-    pNewScript = new Script;
-    pNewScript->Name = "mob_soaring_eagle";
-    pNewScript->GetAI = &GetAI_mob_soaring_eagle;
-    pNewScript->RegisterSelf();
+    new boss_akilzon();
+    new mob_soaring_eagle();
 
     RegisterSpellScript<TeleportSelf>("spell_teleport_self_akilzon");
 }

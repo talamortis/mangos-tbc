@@ -40,45 +40,51 @@ enum
 
     SOUND_ZEPPELIN_HORN = 11804,
 };
-
-bool ProcessEventTransports(uint32 uiEventId, Object* pSource, Object* /*pTarget*/, bool /*bIsStart*/)
+class event_transports : public UnknownScript
 {
-    sWorldState.HandleConditionStateChange(pSource->GetEntry(), uiEventId);
+public:
+    event_transports() : UnknownScript("event_transports") { }
 
-    WorldObject* transport = (WorldObject*)pSource;
-    uint32 entry = 0;
-    switch (uiEventId)
+    bool OnProcessEvent(uint32 uiEventId, Object* pSource, Object* /*pTarget*/, bool /*bIsStart*/) override
     {
-        case EVENT_UC_FROM_GROMGOL_ARRIVAL: // UC arrival from gromgol
-            entry = NPC_HINDENBURG;
-            break;
-        case EVENT_GROMGOL_FROM_UC_ARRIVAL: // gromgol arrival from UC
-            entry = NPC_SQUIBBY_OVERSPECK;
-            break;
-        case EVENT_OG_FROM_UC_ARRIVAL:      // OG arrival from UC
-            entry = NPC_FREZZA;
-            break;
-        case EVENT_UC_FROM_OG_ARRIVAL:      // UC arrival from OG
-            entry = NPC_ZAPETTA;
-            break;
-        case EVENT_OG_FROM_GROMGOL_ARRIVAL: // OG arrival from gromgol
-            entry = NPC_SNURK_BUCKSQUICK;
-            break;
-        case EVENT_GROMGOL_FROM_OG_ARRIVAL: // gromgol arrival from OG
-            entry = NPC_NEZRAZ;
-            break;
-    }
-    if (entry)
-        if (Creature* zeppelinMaster = ((ScriptedInstance*)transport->GetMap()->GetInstanceData())->GetSingleCreatureFromStorage(entry))
-            zeppelinMaster->PlayDistanceSound(SOUND_ZEPPELIN_HORN);
+        sWorldState.HandleConditionStateChange(pSource->GetEntry(), uiEventId);
 
-    return true;
-}
+        WorldObject* transport = (WorldObject*)pSource;
+        uint32 entry = 0;
+        switch (uiEventId)
+        {
+            case EVENT_UC_FROM_GROMGOL_ARRIVAL: // UC arrival from gromgol
+                entry = NPC_HINDENBURG;
+                break;
+            case EVENT_GROMGOL_FROM_UC_ARRIVAL: // gromgol arrival from UC
+                entry = NPC_SQUIBBY_OVERSPECK;
+                break;
+            case EVENT_OG_FROM_UC_ARRIVAL:      // OG arrival from UC
+                entry = NPC_FREZZA;
+                break;
+            case EVENT_UC_FROM_OG_ARRIVAL:      // UC arrival from OG
+                entry = NPC_ZAPETTA;
+                break;
+            case EVENT_OG_FROM_GROMGOL_ARRIVAL: // OG arrival from gromgol
+                entry = NPC_SNURK_BUCKSQUICK;
+                break;
+            case EVENT_GROMGOL_FROM_OG_ARRIVAL: // gromgol arrival from OG
+                entry = NPC_NEZRAZ;
+                break;
+        }
+        if (entry)
+            if (Creature* zeppelinMaster = ((ScriptedInstance*)transport->GetMap()->GetInstanceData())->GetSingleCreatureFromStorage(entry))
+                zeppelinMaster->PlayDistanceSound(SOUND_ZEPPELIN_HORN);
+
+        return true;
+    }
+
+
+
+};
 
 void AddSC_world_map_scripts()
 {
-    Script* pNewScript = new Script;
-    pNewScript->Name = "event_transports";
-    pNewScript->pProcessEventId = &ProcessEventTransports;
-    pNewScript->RegisterSelf();
+    new event_transports();
+
 }

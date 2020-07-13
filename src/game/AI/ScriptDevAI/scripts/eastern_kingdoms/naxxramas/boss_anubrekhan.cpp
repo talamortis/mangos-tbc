@@ -233,13 +233,5 @@ bool GOUse_go_anub_door(Player* /*pPlayer*/, GameObject* go)
 
 void AddSC_boss_anubrekhan()
 {
-    Script* newScript = new Script;
-    newScript->Name = "boss_anubrekhan";
-    newScript->GetAI = &GetAI_boss_anubrekhan;
-    newScript->RegisterSelf();
 
-    newScript = new Script;
-    newScript->Name = "go_anub_door";
-    newScript->pGOUse = &GOUse_go_anub_door;
-    newScript->RegisterSelf();
 }

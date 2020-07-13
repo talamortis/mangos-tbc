@@ -31,108 +31,117 @@ enum
 
     NPC_BURNING_SPIRIT          = 9178,
 };
-
-struct boss_ambassador_flamelashAI : public ScriptedAI
+class boss_ambassador_flamelash : public CreatureScript
 {
-    boss_ambassador_flamelashAI(Creature* pCreature) : ScriptedAI(pCreature)
+public:
+    boss_ambassador_flamelash() : CreatureScript("boss_ambassador_flamelash") { }
+
+    UnitAI* GetAI(Creature* pCreature)
     {
-        m_pInstance = (ScriptedInstance*)pCreature->GetInstanceData();
-        Reset();
+        return new boss_ambassador_flamelashAI(pCreature);
     }
 
-    ScriptedInstance* m_pInstance;
 
-    uint32 m_uiSpiritTimer[MAX_DWARF_RUNES];
 
-    GuidSet m_sSpiritsGuidsSet;
-
-    void Reset() override
+    struct boss_ambassador_flamelashAI : public ScriptedAI
     {
-        for (unsigned int& i : m_uiSpiritTimer)
-            i = urand(0, 1000);
-
-        m_sSpiritsGuidsSet.clear();
-    }
-
-    // function that will summon spirits periodically
-    void DoSummonSpirit(uint8 uiIndex)
-    {
-        if (!m_pInstance)
-            return;
-
-        if (GameObject* pRune = m_pInstance->GetSingleGameObjectFromStorage(GO_DWARFRUNE_A01 + uiIndex))
-            m_creature->SummonCreature(NPC_BURNING_SPIRIT, pRune->GetPositionX(), pRune->GetPositionY(), pRune->GetPositionZ(), pRune->GetAngle(m_creature), TEMPSPAWN_TIMED_OOC_OR_DEAD_DESPAWN, 60000);
-    }
-
-    void MoveInLineOfSight(Unit* pWho) override
-    {
-        ScriptedAI::MoveInLineOfSight(pWho);
-
-        if (pWho->GetEntry() == NPC_BURNING_SPIRIT && pWho->IsAlive() && m_sSpiritsGuidsSet.find(pWho->GetObjectGuid()) != m_sSpiritsGuidsSet.end() &&
-            pWho->IsWithinDistInMap(m_creature, 2 * CONTACT_DISTANCE))
+        boss_ambassador_flamelashAI(Creature* pCreature) : ScriptedAI(pCreature)
         {
-            pWho->CastSpell(m_creature, SPELL_BURNING_SPIRIT, TRIGGERED_OLD_TRIGGERED);
-            m_sSpiritsGuidsSet.erase(pWho->GetObjectGuid());
+            m_pInstance = (ScriptedInstance*)pCreature->GetInstanceData();
+            Reset();
         }
-    }
 
-    void Aggro(Unit* /*pWho*/) override
-    {
-        DoCastSpellIfCan(m_creature, SPELL_FIREBLAST);
+        ScriptedInstance* m_pInstance;
 
-        if (m_pInstance)
-            m_pInstance->SetData(TYPE_FLAMELASH, IN_PROGRESS);
-    }
+        uint32 m_uiSpiritTimer[MAX_DWARF_RUNES];
 
-    void JustDied(Unit* /*pKiller*/) override
-    {
-        if (m_pInstance)
-            m_pInstance->SetData(TYPE_FLAMELASH, DONE);
-    }
+        GuidSet m_sSpiritsGuidsSet;
 
-    void JustReachedHome() override
-    {
-        if (m_pInstance)
-            m_pInstance->SetData(TYPE_FLAMELASH, FAIL);
-    }
-
-    void JustSummoned(Creature* pSummoned) override
-    {
-        pSummoned->GetMotionMaster()->MoveFollow(m_creature, 0, 0);
-        m_sSpiritsGuidsSet.insert(pSummoned->GetObjectGuid());
-    }
-
-    void UpdateAI(const uint32 uiDiff) override
-    {
-        // Return since we have no target
-        if (!m_creature->SelectHostileTarget() || !m_creature->GetVictim())
-            return;
-
-        // m_uiSpiritTimer
-        for (uint8 i = 0; i < MAX_DWARF_RUNES; ++i)
+        void Reset() override
         {
-            if (m_uiSpiritTimer[i] < uiDiff)
+            for (unsigned int& i : m_uiSpiritTimer)
+                i = urand(0, 1000);
+
+            m_sSpiritsGuidsSet.clear();
+        }
+
+        // function that will summon spirits periodically
+        void DoSummonSpirit(uint8 uiIndex)
+        {
+            if (!m_pInstance)
+                return;
+
+            if (GameObject* pRune = m_pInstance->GetSingleGameObjectFromStorage(GO_DWARFRUNE_A01 + uiIndex))
+                m_creature->SummonCreature(NPC_BURNING_SPIRIT, pRune->GetPositionX(), pRune->GetPositionY(), pRune->GetPositionZ(), pRune->GetAngle(m_creature), TEMPSPAWN_TIMED_OOC_OR_DEAD_DESPAWN, 60000);
+        }
+
+        void MoveInLineOfSight(Unit* pWho) override
+        {
+            ScriptedAI::MoveInLineOfSight(pWho);
+
+            if (pWho->GetEntry() == NPC_BURNING_SPIRIT && pWho->IsAlive() && m_sSpiritsGuidsSet.find(pWho->GetObjectGuid()) != m_sSpiritsGuidsSet.end() &&
+                pWho->IsWithinDistInMap(m_creature, 2 * CONTACT_DISTANCE))
             {
-                DoSummonSpirit(i);
-                m_uiSpiritTimer[i] = urand(15000, 30000);
+                pWho->CastSpell(m_creature, SPELL_BURNING_SPIRIT, TRIGGERED_OLD_TRIGGERED);
+                m_sSpiritsGuidsSet.erase(pWho->GetObjectGuid());
             }
-            else
-                m_uiSpiritTimer[i] -= uiDiff;
         }
 
-        DoMeleeAttackIfReady();
-    }
+        void Aggro(Unit* /*pWho*/) override
+        {
+            DoCastSpellIfCan(m_creature, SPELL_FIREBLAST);
+
+            if (m_pInstance)
+                m_pInstance->SetData(TYPE_FLAMELASH, IN_PROGRESS);
+        }
+
+        void JustDied(Unit* /*pKiller*/) override
+        {
+            if (m_pInstance)
+                m_pInstance->SetData(TYPE_FLAMELASH, DONE);
+        }
+
+        void JustReachedHome() override
+        {
+            if (m_pInstance)
+                m_pInstance->SetData(TYPE_FLAMELASH, FAIL);
+        }
+
+        void JustSummoned(Creature* pSummoned) override
+        {
+            pSummoned->GetMotionMaster()->MoveFollow(m_creature, 0, 0);
+            m_sSpiritsGuidsSet.insert(pSummoned->GetObjectGuid());
+        }
+
+        void UpdateAI(const uint32 uiDiff) override
+        {
+            // Return since we have no target
+            if (!m_creature->SelectHostileTarget() || !m_creature->GetVictim())
+                return;
+
+            // m_uiSpiritTimer
+            for (uint8 i = 0; i < MAX_DWARF_RUNES; ++i)
+            {
+                if (m_uiSpiritTimer[i] < uiDiff)
+                {
+                    DoSummonSpirit(i);
+                    m_uiSpiritTimer[i] = urand(15000, 30000);
+                }
+                else
+                    m_uiSpiritTimer[i] -= uiDiff;
+            }
+
+            DoMeleeAttackIfReady();
+        }
+    };
+
+
+
 };
 
-UnitAI* GetAI_boss_ambassador_flamelash(Creature* pCreature)
-{
-    return new boss_ambassador_flamelashAI(pCreature);
-}
 
 void AddSC_boss_ambassador_flamelash()
 {
-    Script* pNewScript = new Script;
-    pNewScript->Name = "boss_ambassador_flamelash";
-    pNewScript->GetAI = &GetAI_boss_ambassador_flamelash;
-    pNewScript->RegisterSelf();
+    new boss_ambassador_flamelash();
+
 }

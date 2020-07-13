@@ -43,87 +43,96 @@ enum GeddonActions
     GEDDON_LIVING_BOMB,
     GEDDON_ACTION_MAX,
 };
-
-struct boss_baron_geddonAI : public CombatAI
+class boss_baron_geddon : public CreatureScript
 {
-    boss_baron_geddonAI(Creature* creature) : CombatAI(creature, GEDDON_ACTION_MAX), m_instance(static_cast<ScriptedInstance*>(creature->GetInstanceData()))
+public:
+    boss_baron_geddon() : CreatureScript("boss_baron_geddon") { }
+
+    UnitAI* GetAI(Creature* creature)
     {
-        AddTimerlessCombatAction(GEDDON_ARMAGEDDON, true);
-        AddCombatAction(GEDDON_INFERNO, 45000u);
-        AddCombatAction(GEDDON_IGNITE_MANA, 30000u);
-        AddCombatAction(GEDDON_LIVING_BOMB, 35000u);
-        Reset();
+        return new boss_baron_geddonAI(creature);
     }
 
-    ScriptedInstance* m_instance;
 
-    void Aggro(Unit* /*who*/) override
-    {
-        if (m_instance)
-            m_instance->SetData(TYPE_GEDDON, IN_PROGRESS);
-    }
 
-    void JustDied(Unit* /*killer*/) override
+    struct boss_baron_geddonAI : public CombatAI
     {
-        if (m_instance)
-            m_instance->SetData(TYPE_GEDDON, DONE);
-    }
-
-    void JustReachedHome() override
-    {
-        if (m_instance)
-            m_instance->SetData(TYPE_GEDDON, NOT_STARTED);
-    }
-
-    void ExecuteAction(uint32 action)
-    {
-        switch (action)
+        boss_baron_geddonAI(Creature* creature) : CombatAI(creature, GEDDON_ACTION_MAX), m_instance(static_cast<ScriptedInstance*>(creature->GetInstanceData()))
         {
-            case GEDDON_ARMAGEDDON:
+            AddTimerlessCombatAction(GEDDON_ARMAGEDDON, true);
+            AddCombatAction(GEDDON_INFERNO, 45000u);
+            AddCombatAction(GEDDON_IGNITE_MANA, 30000u);
+            AddCombatAction(GEDDON_LIVING_BOMB, 35000u);
+            Reset();
+        }
+
+        ScriptedInstance* m_instance;
+
+        void Aggro(Unit* /*who*/) override
+        {
+            if (m_instance)
+                m_instance->SetData(TYPE_GEDDON, IN_PROGRESS);
+        }
+
+        void JustDied(Unit* /*killer*/) override
+        {
+            if (m_instance)
+                m_instance->SetData(TYPE_GEDDON, DONE);
+        }
+
+        void JustReachedHome() override
+        {
+            if (m_instance)
+                m_instance->SetData(TYPE_GEDDON, NOT_STARTED);
+        }
+
+        void ExecuteAction(uint32 action)
+        {
+            switch (action)
             {
-                if (m_creature->GetHealthPercent() <= 2.0f)
+                case GEDDON_ARMAGEDDON:
                 {
-                    if (DoCastSpellIfCan(nullptr, SPELL_ARMAGEDDON) == CAST_OK)
+                    if (m_creature->GetHealthPercent() <= 2.0f)
                     {
-                        DoScriptText(EMOTE_SERVICE, m_creature);
-                        SetActionReadyStatus(action, false);
-                        return;
+                        if (DoCastSpellIfCan(nullptr, SPELL_ARMAGEDDON) == CAST_OK)
+                        {
+                            DoScriptText(EMOTE_SERVICE, m_creature);
+                            SetActionReadyStatus(action, false);
+                            return;
+                        }
                     }
+                    break;
                 }
-                break;
-            }
-            case GEDDON_INFERNO:
-            {
-                if (DoCastSpellIfCan(nullptr, SPELL_INFERNO) == CAST_OK)
-                    ResetCombatAction(action, 45000);
-                break;
-            }
-            case GEDDON_IGNITE_MANA:
-            {
-                if (DoCastSpellIfCan(nullptr, SPELL_IGNITE_MANA) == CAST_OK)
-                    ResetCombatAction(action, 30000);
-                break;
-            }
-            case GEDDON_LIVING_BOMB:
-            {
-                if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, SPELL_LIVING_BOMB, SELECT_FLAG_PLAYER))
-                    if (DoCastSpellIfCan(target, SPELL_LIVING_BOMB) == CAST_OK)
-                        ResetCombatAction(action, 35000);
-                break;
+                case GEDDON_INFERNO:
+                {
+                    if (DoCastSpellIfCan(nullptr, SPELL_INFERNO) == CAST_OK)
+                        ResetCombatAction(action, 45000);
+                    break;
+                }
+                case GEDDON_IGNITE_MANA:
+                {
+                    if (DoCastSpellIfCan(nullptr, SPELL_IGNITE_MANA) == CAST_OK)
+                        ResetCombatAction(action, 30000);
+                    break;
+                }
+                case GEDDON_LIVING_BOMB:
+                {
+                    if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, SPELL_LIVING_BOMB, SELECT_FLAG_PLAYER))
+                        if (DoCastSpellIfCan(target, SPELL_LIVING_BOMB) == CAST_OK)
+                            ResetCombatAction(action, 35000);
+                    break;
+                }
             }
         }
-    }
+    };
+
+
+
 };
 
-UnitAI* GetAI_boss_baron_geddon(Creature* creature)
-{
-    return new boss_baron_geddonAI(creature);
-}
 
 void AddSC_boss_baron_geddon()
 {
-    Script* pNewScript = new Script;
-    pNewScript->Name = "boss_baron_geddon";
-    pNewScript->GetAI = &GetAI_boss_baron_geddon;
-    pNewScript->RegisterSelf();
+    new boss_baron_geddon();
+
 }

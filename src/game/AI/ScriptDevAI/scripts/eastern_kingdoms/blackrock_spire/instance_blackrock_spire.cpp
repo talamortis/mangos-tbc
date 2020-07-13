@@ -782,77 +782,65 @@ void instance_blackrock_spire::StartflamewreathEventIfCan()
     m_uiFlamewreathEventTimer = 1;
     m_uiFlamewreathWaveCount = 0;
 }
-
-InstanceData* GetInstanceData_instance_blackrock_spire(Map* pMap)
+class instance_blackrock_spire : public InstanceMapScript
 {
-    return new instance_blackrock_spire(pMap);
-}
+public:
+    instance_blackrock_spire() : InstanceMapScript("instance_blackrock_spire") { }
 
-bool AreaTrigger_at_blackrock_spire(Player* pPlayer, AreaTriggerEntry const* pAt)
-{
-    if (!pPlayer->IsAlive() || pPlayer->isGameMaster())
-        return false;
-
-    switch (pAt->id)
+    InstanceData* GetInstanceScript(Map* pMap) const override
     {
-        case AREATRIGGER_ENTER_UBRS:
-            if (instance_blackrock_spire* pInstance = (instance_blackrock_spire*) pPlayer->GetInstanceData())
-            {
-                pInstance->DoOpenUpperDoorIfCan(pPlayer);
-                pInstance->DoSortRoomEventMobs();
-            }
-            break;
-        case AREATRIGGER_STADIUM:
-            if (instance_blackrock_spire* pInstance = (instance_blackrock_spire*) pPlayer->GetInstanceData())
-            {
-                if (pInstance->GetData(TYPE_STADIUM) == IN_PROGRESS || pInstance->GetData(TYPE_STADIUM) == DONE)
-                    return false;
+        return new instance_blackrock_spire(pMap);
+    }
 
-                // Summon Nefarius and Rend for the dialogue event
-                // Note: Nefarius and Rend need to be hostile and not attackable
-                if (Creature* pNefarius = pPlayer->SummonCreature(NPC_LORD_VICTOR_NEFARIUS, aStadiumLocs[3].m_fX, aStadiumLocs[3].m_fY, aStadiumLocs[3].m_fZ, aStadiumLocs[3].m_fO, TEMPSPAWN_CORPSE_DESPAWN, 0))
-                    pNefarius->SetFactionTemporary(FACTION_BLACK_DRAGON, TEMPFACTION_NONE);
-                if (Creature* pRend = pPlayer->SummonCreature(NPC_REND_BLACKHAND, aStadiumLocs[4].m_fX, aStadiumLocs[4].m_fY, aStadiumLocs[4].m_fZ, aStadiumLocs[4].m_fO, TEMPSPAWN_CORPSE_DESPAWN, 0))
-                    pRend->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_PLAYER);
 
-                pInstance->SetData(TYPE_STADIUM, IN_PROGRESS);
-            }
-            break;
 
-        // Intro event when players enter The Furnace: three Blackhand Elite are spawned, flee from the Beast and are "killed" by it
-        // The Blackhand Elite scripts are handled in database by waypoints movement
-        case AREATRIGGER_BEAST_INTRO:
-            if (instance_blackrock_spire* pInstance = (instance_blackrock_spire*) pPlayer->GetInstanceData())
-            {
-                if (pInstance->m_bBeastIntroDone)
-                    return false;
 
-                if (Creature* pBeast = pInstance->GetSingleCreatureFromStorage(NPC_THE_BEAST))
+};
+class at_blackrock_spire : public AreaTriggerScript
+{
+public:
+    at_blackrock_spire() : AreaTriggerScript("at_blackrock_spire") { }
+
+    bool OnTrigger(Player* pPlayer, AreaTriggerEntry const* pAt) override
+    {
+        if (!pPlayer->IsAlive() || pPlayer->isGameMaster())
+            return false;
+
+        switch (pAt->id)
+        {
+            case AREATRIGGER_ENTER_UBRS:
+                if (instance_blackrock_spire* pInstance = (instance_blackrock_spire*) pPlayer->GetInstanceData())
                 {
-                    for (uint8 i = 0; i < 3; i++)
-                    {
-                        if (Creature* pTemp = pBeast->SummonCreature(NPC_BLACKHAND_ELITE, aBeastLocs[i].m_fX, aBeastLocs[i].m_fY, aBeastLocs[i].m_fZ, aBeastLocs[i].m_fO, TEMPSPAWN_DEAD_DESPAWN, 0))
-                            pTemp->GetMotionMaster()->MoveWaypoint(i);
-                    }
-                    pInstance->m_bBeastIntroDone = true;
+                    pInstance->DoOpenUpperDoorIfCan(pPlayer);
+                    pInstance->DoSortRoomEventMobs();
                 }
-            }
-            break;
-
-        // Make the Beast move around the room unless it finds some target.
-        case AREATRIGGER_BEAST_AGGRO:
-            if (instance_blackrock_spire* pInstance = (instance_blackrock_spire*) pPlayer->GetInstanceData())
-            {
-                if (pInstance->m_bBeastOutOfLair)
-                    return false;
-
-                if (Creature* pBeast = pInstance->GetSingleCreatureFromStorage(NPC_THE_BEAST))
+                break;
+            case AREATRIGGER_STADIUM:
+                if (instance_blackrock_spire* pInstance = (instance_blackrock_spire*) pPlayer->GetInstanceData())
                 {
-                    pBeast->GetMotionMaster()->MoveWaypoint(0);
-                    pInstance->m_bBeastOutOfLair = true;
+                    if (pInstance->GetData(TYPE_STADIUM) == IN_PROGRESS || pInstance->GetData(TYPE_STADIUM) == DONE)
+                        return false;
 
-                    // Play the intro if not already done
-                    if (!pInstance->m_bBeastIntroDone)
+                    // Summon Nefarius and Rend for the dialogue event
+                    // Note: Nefarius and Rend need to be hostile and not attackable
+                    if (Creature* pNefarius = pPlayer->SummonCreature(NPC_LORD_VICTOR_NEFARIUS, aStadiumLocs[3].m_fX, aStadiumLocs[3].m_fY, aStadiumLocs[3].m_fZ, aStadiumLocs[3].m_fO, TEMPSPAWN_CORPSE_DESPAWN, 0))
+                        pNefarius->SetFactionTemporary(FACTION_BLACK_DRAGON, TEMPFACTION_NONE);
+                    if (Creature* pRend = pPlayer->SummonCreature(NPC_REND_BLACKHAND, aStadiumLocs[4].m_fX, aStadiumLocs[4].m_fY, aStadiumLocs[4].m_fZ, aStadiumLocs[4].m_fO, TEMPSPAWN_CORPSE_DESPAWN, 0))
+                        pRend->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_PLAYER);
+
+                    pInstance->SetData(TYPE_STADIUM, IN_PROGRESS);
+                }
+                break;
+
+            // Intro event when players enter The Furnace: three Blackhand Elite are spawned, flee from the Beast and are "killed" by it
+            // The Blackhand Elite scripts are handled in database by waypoints movement
+            case AREATRIGGER_BEAST_INTRO:
+                if (instance_blackrock_spire* pInstance = (instance_blackrock_spire*) pPlayer->GetInstanceData())
+                {
+                    if (pInstance->m_bBeastIntroDone)
+                        return false;
+
+                    if (Creature* pBeast = pInstance->GetSingleCreatureFromStorage(NPC_THE_BEAST))
                     {
                         for (uint8 i = 0; i < 3; i++)
                         {
@@ -862,32 +850,77 @@ bool AreaTrigger_at_blackrock_spire(Player* pPlayer, AreaTriggerEntry const* pAt
                         pInstance->m_bBeastIntroDone = true;
                     }
                 }
-            }
-            break;
-    }
-    return false;
-}
+                break;
 
-bool ProcessEventId_event_spell_altar_emberseer(uint32 /*uiEventId*/, Object* pSource, Object* /*pTarget*/, bool bIsStart)
-{
-    if (bIsStart && pSource->GetTypeId() == TYPEID_PLAYER)
-    {
-        if (instance_blackrock_spire* pInstance = (instance_blackrock_spire*)((Player*)pSource)->GetInstanceData())
-        {
-            pInstance->DoProcessEmberseerEvent();
-            return true;
+            // Make the Beast move around the room unless it finds some target.
+            case AREATRIGGER_BEAST_AGGRO:
+                if (instance_blackrock_spire* pInstance = (instance_blackrock_spire*) pPlayer->GetInstanceData())
+                {
+                    if (pInstance->m_bBeastOutOfLair)
+                        return false;
+
+                    if (Creature* pBeast = pInstance->GetSingleCreatureFromStorage(NPC_THE_BEAST))
+                    {
+                        pBeast->GetMotionMaster()->MoveWaypoint(0);
+                        pInstance->m_bBeastOutOfLair = true;
+
+                        // Play the intro if not already done
+                        if (!pInstance->m_bBeastIntroDone)
+                        {
+                            for (uint8 i = 0; i < 3; i++)
+                            {
+                                if (Creature* pTemp = pBeast->SummonCreature(NPC_BLACKHAND_ELITE, aBeastLocs[i].m_fX, aBeastLocs[i].m_fY, aBeastLocs[i].m_fZ, aBeastLocs[i].m_fO, TEMPSPAWN_DEAD_DESPAWN, 0))
+                                    pTemp->GetMotionMaster()->MoveWaypoint(i);
+                            }
+                            pInstance->m_bBeastIntroDone = true;
+                        }
+                    }
+                }
+                break;
         }
+        return false;
     }
-    return false;
-}
 
-bool GOUse_go_father_flame(Player* /*pPlayer*/, GameObject* pGo)
+
+
+};
+class event_spell_altar_emberseer : public UnknownScript
 {
-    if (instance_blackrock_spire* pInstance = (instance_blackrock_spire*)pGo->GetInstanceData())
-        pInstance->StartflamewreathEventIfCan();
+public:
+    event_spell_altar_emberseer() : UnknownScript("event_spell_altar_emberseer") { }
 
-    return true;
-}
+    bool OnProcessEvent(uint32 /*uiEventId*/, Object* pSource, Object* /*pTarget*/, bool bIsStart) override
+    {
+        if (bIsStart && pSource->GetTypeId() == TYPEID_PLAYER)
+        {
+            if (instance_blackrock_spire* pInstance = (instance_blackrock_spire*)((Player*)pSource)->GetInstanceData())
+            {
+                pInstance->DoProcessEmberseerEvent();
+                return true;
+            }
+        }
+        return false;
+    }
+
+
+
+};
+class go_father_flame : public GameObjectScript
+{
+public:
+    go_father_flame() : GameObjectScript("go_father_flame") { }
+
+    bool OnGameObjectUse(Player* /*pPlayer*/, GameObject* pGo) override
+    {
+        if (instance_blackrock_spire* pInstance = (instance_blackrock_spire*)pGo->GetInstanceData())
+            pInstance->StartflamewreathEventIfCan();
+
+        return true;
+    }
+
+
+
+};
 
 enum
 {
@@ -895,156 +928,149 @@ enum
     SPELL_SUNDER_ARMOR      = 15572,
     SPELL_DISTURB_EGGS      = 15746,
 };
-
-struct npc_rookery_hatcherAI : public ScriptedAI
+class npc_rookery_hatcher : public CreatureScript
 {
-    npc_rookery_hatcherAI(Creature* pCreature) : ScriptedAI(pCreature)
+public:
+    npc_rookery_hatcher() : CreatureScript("npc_rookery_hatcher") { }
+
+    UnitAI* GetAI(Creature* pCreature)
     {
-        m_pInstance = (instance_blackrock_spire*) pCreature->GetInstanceData();
-        Reset();
+        return new npc_rookery_hatcherAI(pCreature);
     }
 
-    instance_blackrock_spire* m_pInstance;
 
-    uint32 uiStrikeTimer;
-    uint32 uiSunderArmorTimer;
-    uint32 uiDisturbEggsTimer;
-    uint32 uiWaitTimer;
 
-    bool m_bIsMovementActive;
-
-    void Reset() override
+    struct npc_rookery_hatcherAI : public ScriptedAI
     {
-        uiStrikeTimer           = urand(5000, 7000);
-        uiSunderArmorTimer      = 5000;
-        uiDisturbEggsTimer      = urand(8000, 10000);
-        uiWaitTimer             = 0;
-
-        m_bIsMovementActive     = false;
-    }
-
-    void MovementInform(uint32 uiMoveType, uint32 uiPointId) override
-    {
-        if (uiMoveType != POINT_MOTION_TYPE || !uiPointId)
-            return;
-
-        m_creature->GetMotionMaster()->MoveIdle();
-        m_bIsMovementActive  = false;
-        uiWaitTimer = 2000;
-
-        if (DoCastSpellIfCan(m_creature, SPELL_DISTURB_EGGS) == CAST_OK)
-            uiDisturbEggsTimer = urand(7500, 10000);
-    }
-
-    // Function to search for new rookery egg in range
-    void DoFindNewEgg()
-    {
-        GameObjectList lEggsInRange;
-        GetGameObjectListWithEntryInGrid(lEggsInRange, m_creature, GO_ROOKERY_EGG, 20.0f);
-
-        if (lEggsInRange.empty())   // No GO found
-            return;
-
-        lEggsInRange.sort(ObjectDistanceOrder(m_creature));
-        GameObject* pNearestEgg = nullptr;
-
-        // Always need to find new ones
-        for (GameObjectList::const_iterator itr = lEggsInRange.begin(); itr != lEggsInRange.end(); ++itr)
+        npc_rookery_hatcherAI(Creature* pCreature) : ScriptedAI(pCreature)
         {
-            if (!((*itr)->HasFlag(GAMEOBJECT_FLAGS, GO_FLAG_IN_USE)))
-            {
-                pNearestEgg = *itr;
-                break;
-            }
+            m_pInstance = (instance_blackrock_spire*) pCreature->GetInstanceData();
+            Reset();
         }
 
-        if (!pNearestEgg)
-            return;
+        instance_blackrock_spire* m_pInstance;
 
-        float fX, fY, fZ;
-        pNearestEgg->GetContactPoint(m_creature, fX, fY, fZ, 1.0f);
-        m_creature->SetWalk(false);
-        m_creature->GetMotionMaster()->MovePoint(1, fX, fY, fZ);
-        m_bIsMovementActive = true;
-    }
+        uint32 uiStrikeTimer;
+        uint32 uiSunderArmorTimer;
+        uint32 uiDisturbEggsTimer;
+        uint32 uiWaitTimer;
 
-    void UpdateAI(const uint32 uiDiff) override
-    {
-        // Return since we have no target or are disturbing an egg
-        if (!m_creature->SelectHostileTarget() || !m_creature->GetVictim() || m_bIsMovementActive)
-            return;
+        bool m_bIsMovementActive;
 
-        if (uiWaitTimer)
+        void Reset() override
         {
-            if (uiWaitTimer < uiDiff)
+            uiStrikeTimer           = urand(5000, 7000);
+            uiSunderArmorTimer      = 5000;
+            uiDisturbEggsTimer      = urand(8000, 10000);
+            uiWaitTimer             = 0;
+
+            m_bIsMovementActive     = false;
+        }
+
+        void MovementInform(uint32 uiMoveType, uint32 uiPointId) override
+        {
+            if (uiMoveType != POINT_MOTION_TYPE || !uiPointId)
+                return;
+
+            m_creature->GetMotionMaster()->MoveIdle();
+            m_bIsMovementActive  = false;
+            uiWaitTimer = 2000;
+
+            if (DoCastSpellIfCan(m_creature, SPELL_DISTURB_EGGS) == CAST_OK)
+                uiDisturbEggsTimer = urand(7500, 10000);
+        }
+
+        // Function to search for new rookery egg in range
+        void DoFindNewEgg()
+        {
+            GameObjectList lEggsInRange;
+            GetGameObjectListWithEntryInGrid(lEggsInRange, m_creature, GO_ROOKERY_EGG, 20.0f);
+
+            if (lEggsInRange.empty())   // No GO found
+                return;
+
+            lEggsInRange.sort(ObjectDistanceOrder(m_creature));
+            GameObject* pNearestEgg = nullptr;
+
+            // Always need to find new ones
+            for (GameObjectList::const_iterator itr = lEggsInRange.begin(); itr != lEggsInRange.end(); ++itr)
             {
-                uiWaitTimer = 0;
-                m_creature->GetMotionMaster()->MoveChase(m_creature->GetVictim());
+                if (!((*itr)->HasFlag(GAMEOBJECT_FLAGS, GO_FLAG_IN_USE)))
+                {
+                    pNearestEgg = *itr;
+                    break;
+                }
+            }
+
+            if (!pNearestEgg)
+                return;
+
+            float fX, fY, fZ;
+            pNearestEgg->GetContactPoint(m_creature, fX, fY, fZ, 1.0f);
+            m_creature->SetWalk(false);
+            m_creature->GetMotionMaster()->MovePoint(1, fX, fY, fZ);
+            m_bIsMovementActive = true;
+        }
+
+        void UpdateAI(const uint32 uiDiff) override
+        {
+            // Return since we have no target or are disturbing an egg
+            if (!m_creature->SelectHostileTarget() || !m_creature->GetVictim() || m_bIsMovementActive)
+                return;
+
+            if (uiWaitTimer)
+            {
+                if (uiWaitTimer < uiDiff)
+                {
+                    uiWaitTimer = 0;
+                    m_creature->GetMotionMaster()->MoveChase(m_creature->GetVictim());
+                }
+                else
+                    uiWaitTimer -= uiDiff;
+            }
+
+            //  Strike Timer
+            if (uiStrikeTimer < uiDiff)
+            {
+                if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_STRIKE) == CAST_OK)
+                    uiStrikeTimer = urand(4000, 6000);
             }
             else
-                uiWaitTimer -= uiDiff;
-        }
+                uiStrikeTimer -= uiDiff;
 
-        //  Strike Timer
-        if (uiStrikeTimer < uiDiff)
-        {
-            if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_STRIKE) == CAST_OK)
-                uiStrikeTimer = urand(4000, 6000);
-        }
-        else
-            uiStrikeTimer -= uiDiff;
+            // Sunder Armor timer
+            if (uiSunderArmorTimer < uiDiff)
+            {
+                if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_SUNDER_ARMOR) == CAST_OK)
+                    uiSunderArmorTimer = 5000;
+            }
+            else
+                uiSunderArmorTimer -= uiDiff;
 
-        // Sunder Armor timer
-        if (uiSunderArmorTimer < uiDiff)
-        {
-            if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_SUNDER_ARMOR) == CAST_OK)
-                uiSunderArmorTimer = 5000;
-        }
-        else
-            uiSunderArmorTimer -= uiDiff;
+            // Disturb Rookery Eggs timer
+            if (uiDisturbEggsTimer < uiDiff)
+            {
+                m_bIsMovementActive = false;
+                DoFindNewEgg();
+            }
+            else
+                uiDisturbEggsTimer -= uiDiff;
 
-        // Disturb Rookery Eggs timer
-        if (uiDisturbEggsTimer < uiDiff)
-        {
-            m_bIsMovementActive = false;
-            DoFindNewEgg();
+            DoMeleeAttackIfReady();
         }
-        else
-            uiDisturbEggsTimer -= uiDiff;
+    };
 
-        DoMeleeAttackIfReady();
-    }
+
+
 };
 
-UnitAI* GetAI_npc_rookery_hatcher(Creature* pCreature)
-{
-    return new npc_rookery_hatcherAI(pCreature);
-}
 
 void AddSC_instance_blackrock_spire()
 {
-    Script* pNewScript = new Script;
-    pNewScript->Name = "instance_blackrock_spire";
-    pNewScript->GetInstanceData = &GetInstanceData_instance_blackrock_spire;
-    pNewScript->RegisterSelf();
+    new instance_blackrock_spire();
+    new at_blackrock_spire();
+    new event_spell_altar_emberseer();
+    new go_father_flame();
+    new npc_rookery_hatcher();
 
-    pNewScript = new Script;
-    pNewScript->Name = "at_blackrock_spire";
-    pNewScript->pAreaTrigger = &AreaTrigger_at_blackrock_spire;
-    pNewScript->RegisterSelf();
-
-    pNewScript = new Script;
-    pNewScript->Name = "event_spell_altar_emberseer";
-    pNewScript->pProcessEventId = &ProcessEventId_event_spell_altar_emberseer;
-    pNewScript->RegisterSelf();
-
-    pNewScript = new Script;
-    pNewScript->Name = "go_father_flame";
-    pNewScript->pGOUse = &GOUse_go_father_flame;
-    pNewScript->RegisterSelf();
-
-    pNewScript = new Script;
-    pNewScript->Name = "npc_rookery_hatcher";
-    pNewScript->GetAI = &GetAI_npc_rookery_hatcher;
-    pNewScript->RegisterSelf();
 }

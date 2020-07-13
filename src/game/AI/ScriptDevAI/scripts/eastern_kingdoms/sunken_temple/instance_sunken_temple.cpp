@@ -437,16 +437,23 @@ void instance_sunken_temple::Update(uint32 uiDiff)
             m_uiSupressorTimer -= uiDiff;
     }
 }
-
-InstanceData* GetInstanceData_instance_sunken_temple(Map* pMap)
+class instance_sunken_temple : public InstanceMapScript
 {
-    return new instance_sunken_temple(pMap);
-}
+public:
+    instance_sunken_temple() : InstanceMapScript("instance_sunken_temple") { }
+
+    InstanceData* GetInstanceScript(Map* pMap) const override
+    {
+        return new instance_sunken_temple(pMap);
+    }
+
+
+
+
+};
 
 void AddSC_instance_sunken_temple()
 {
-    Script* pNewScript = new Script;
-    pNewScript->Name = "instance_sunken_temple";
-    pNewScript->GetInstanceData = &GetInstanceData_instance_sunken_temple;
-    pNewScript->RegisterSelf();
+    new instance_sunken_temple();
+
 }

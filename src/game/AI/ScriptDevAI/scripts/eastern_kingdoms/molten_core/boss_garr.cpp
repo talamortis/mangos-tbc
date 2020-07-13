@@ -52,119 +52,135 @@ enum GarrActions
     GARR_MASSIVE_ERUPTION,
     GARR_ACTION_MAX,
 };
-
-struct boss_garrAI : public CombatAI
+class boss_garr : public CreatureScript
 {
-    boss_garrAI(Creature* creature) : CombatAI(creature, GARR_ACTION_MAX), m_instance(static_cast<ScriptedInstance*>(creature->GetInstanceData()))
+public:
+    boss_garr() : CreatureScript("boss_garr") { }
+
+    UnitAI* GetAI(Creature* creature)
     {
-        AddCombatAction(GARR_ANTI_MAGIC_PULSE, 10 * IN_MILLISECONDS, 15 * IN_MILLISECONDS);
-        AddCombatAction(GARR_MAGMA_SHACKLES, 5 * IN_MILLISECONDS, 10 * IN_MILLISECONDS);
-        AddCombatAction(GARR_MASSIVE_ERUPTION, uint32(6 * MINUTE * IN_MILLISECONDS));
-        Reset();
+        return new boss_garrAI(creature);
     }
 
-    ScriptedInstance* m_instance;
 
-    void Aggro(Unit* /*who*/) override
+
+    struct boss_garrAI : public CombatAI
     {
-        if (m_instance)
-            m_instance->SetData(TYPE_GARR, IN_PROGRESS);
-
-        // Garr has a 100 yard aura to keep track of the distance of each of his adds, they will enrage if moved out of it
-        DoCastSpellIfCan(nullptr, SPELL_SEPARATION_ANXIETY, CAST_TRIGGERED | CAST_AURA_NOT_PRESENT);
-    }
-
-    void JustDied(Unit* /*killer*/) override
-    {
-        if (m_instance)
-            m_instance->SetData(TYPE_GARR, DONE);
-    }
-
-    void JustReachedHome() override
-    {
-        if (m_instance)
-            m_instance->SetData(TYPE_GARR, FAIL);
-    }
-
-    void SpellHit(Unit* /*caster*/, const SpellEntry* spellInfo) override
-    {
-        if (spellInfo->Id == SPELL_ENRAGE_TRIGGER)
-            DoCastSpellIfCan(nullptr, SPELL_ENRAGE, CAST_TRIGGERED);
-    }
-
-    void ExecuteAction(uint32 action) override
-    {
-        switch (action)
+        boss_garrAI(Creature* creature) : CombatAI(creature, GARR_ACTION_MAX), m_instance(static_cast<ScriptedInstance*>(creature->GetInstanceData()))
         {
-            case GARR_ANTI_MAGIC_PULSE:
+            AddCombatAction(GARR_ANTI_MAGIC_PULSE, 10 * IN_MILLISECONDS, 15 * IN_MILLISECONDS);
+            AddCombatAction(GARR_MAGMA_SHACKLES, 5 * IN_MILLISECONDS, 10 * IN_MILLISECONDS);
+            AddCombatAction(GARR_MASSIVE_ERUPTION, uint32(6 * MINUTE * IN_MILLISECONDS));
+            Reset();
+        }
+
+        ScriptedInstance* m_instance;
+
+        void Aggro(Unit* /*who*/) override
+        {
+            if (m_instance)
+                m_instance->SetData(TYPE_GARR, IN_PROGRESS);
+
+            // Garr has a 100 yard aura to keep track of the distance of each of his adds, they will enrage if moved out of it
+            DoCastSpellIfCan(nullptr, SPELL_SEPARATION_ANXIETY, CAST_TRIGGERED | CAST_AURA_NOT_PRESENT);
+        }
+
+        void JustDied(Unit* /*killer*/) override
+        {
+            if (m_instance)
+                m_instance->SetData(TYPE_GARR, DONE);
+        }
+
+        void JustReachedHome() override
+        {
+            if (m_instance)
+                m_instance->SetData(TYPE_GARR, FAIL);
+        }
+
+        void SpellHit(Unit* /*caster*/, const SpellEntry* spellInfo) override
+        {
+            if (spellInfo->Id == SPELL_ENRAGE_TRIGGER)
+                DoCastSpellIfCan(nullptr, SPELL_ENRAGE, CAST_TRIGGERED);
+        }
+
+        void ExecuteAction(uint32 action) override
+        {
+            switch (action)
             {
-                if (DoCastSpellIfCan(nullptr, SPELL_ANTIMAGICPULSE) == CAST_OK)
-                    ResetCombatAction(action, urand(15 * IN_MILLISECONDS, 20 * IN_MILLISECONDS));
-                break;
-            }
-            case GARR_MAGMA_SHACKLES:
-            {
-                if (DoCastSpellIfCan(nullptr, SPELL_MAGMASHACKLES) == CAST_OK)
-                    ResetCombatAction(action, urand(10 * IN_MILLISECONDS, 15 * IN_MILLISECONDS));
-                break;
-            }
-            case GARR_MASSIVE_ERUPTION:
-            {
-                if (DoCastSpellIfCan(m_creature, SPELL_ERUPTION_TRIGGER) == CAST_OK)
+                case GARR_ANTI_MAGIC_PULSE:
                 {
-                    DoScriptText(EMOTE_MASSIVE_ERUPTION, m_creature);
-                    ResetCombatAction(action, 20 * IN_MILLISECONDS);
+                    if (DoCastSpellIfCan(nullptr, SPELL_ANTIMAGICPULSE) == CAST_OK)
+                        ResetCombatAction(action, urand(15 * IN_MILLISECONDS, 20 * IN_MILLISECONDS));
+                    break;
                 }
-                break;
+                case GARR_MAGMA_SHACKLES:
+                {
+                    if (DoCastSpellIfCan(nullptr, SPELL_MAGMASHACKLES) == CAST_OK)
+                        ResetCombatAction(action, urand(10 * IN_MILLISECONDS, 15 * IN_MILLISECONDS));
+                    break;
+                }
+                case GARR_MASSIVE_ERUPTION:
+                {
+                    if (DoCastSpellIfCan(m_creature, SPELL_ERUPTION_TRIGGER) == CAST_OK)
+                    {
+                        DoScriptText(EMOTE_MASSIVE_ERUPTION, m_creature);
+                        ResetCombatAction(action, 20 * IN_MILLISECONDS);
+                    }
+                    break;
+                }
             }
         }
+    };
+
+
+
+};
+class mob_firesworn : public CreatureScript
+{
+public:
+    mob_firesworn() : CreatureScript("mob_firesworn") { }
+
+    UnitAI* GetAI(Creature* creature)
+    {
+        return new mob_fireswornAI(creature);
     }
+
+
+
+    struct mob_fireswornAI : public ScriptedAI
+    {
+        mob_fireswornAI(Creature* creature) : ScriptedAI(creature) {}
+
+        void Reset() override
+        {
+            DoCastSpellIfCan(nullptr, SPELL_THRASH, CAST_AURA_NOT_PRESENT | CAST_TRIGGERED);
+            DoCastSpellIfCan(nullptr, SPELL_IMMOLATE, CAST_AURA_NOT_PRESENT | CAST_TRIGGERED);
+        }
+
+        void JustDied(Unit* killer) override
+        {
+            if (m_creature != killer)
+                DoCastSpellIfCan(nullptr, SPELL_ERUPTION);
+
+            DoCastSpellIfCan(nullptr, SPELL_ENRAGE_TRIGGER, CAST_TRIGGERED);
+        }
+
+        void SpellHit(Unit* /*caster*/, const SpellEntry* spellInfo) override
+        {
+            if (spellInfo->Id == SPELL_ERUPTION_TRIGGER)
+                DoCastSpellIfCan(nullptr, SPELL_MASSIVE_ERUPTION);
+        }
+    };
+
+
+
 };
 
-struct mob_fireswornAI : public ScriptedAI
-{
-    mob_fireswornAI(Creature* creature) : ScriptedAI(creature) {}
 
-    void Reset() override
-    {
-        DoCastSpellIfCan(nullptr, SPELL_THRASH, CAST_AURA_NOT_PRESENT | CAST_TRIGGERED);
-        DoCastSpellIfCan(nullptr, SPELL_IMMOLATE, CAST_AURA_NOT_PRESENT | CAST_TRIGGERED);
-    }
-
-    void JustDied(Unit* killer) override
-    {
-        if (m_creature != killer)
-            DoCastSpellIfCan(nullptr, SPELL_ERUPTION);
-
-        DoCastSpellIfCan(nullptr, SPELL_ENRAGE_TRIGGER, CAST_TRIGGERED);
-    }
-
-    void SpellHit(Unit* /*caster*/, const SpellEntry* spellInfo) override
-    {
-        if (spellInfo->Id == SPELL_ERUPTION_TRIGGER)
-            DoCastSpellIfCan(nullptr, SPELL_MASSIVE_ERUPTION);
-    }
-};
-
-UnitAI* GetAI_boss_garr(Creature* creature)
-{
-    return new boss_garrAI(creature);
-}
-
-UnitAI* GetAI_mob_firesworn(Creature* creature)
-{
-    return new mob_fireswornAI(creature);
-}
 
 void AddSC_boss_garr()
 {
-    Script* pNewScript = new Script;
-    pNewScript->Name = "boss_garr";
-    pNewScript->GetAI = &GetAI_boss_garr;
-    pNewScript->RegisterSelf();
+    new boss_garr();
+    new mob_firesworn();
 
-    pNewScript = new Script;
-    pNewScript->Name = "mob_firesworn";
-    pNewScript->GetAI = &GetAI_mob_firesworn;
-    pNewScript->RegisterSelf();
 }

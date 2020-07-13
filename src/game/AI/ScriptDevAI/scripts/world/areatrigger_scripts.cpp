@@ -49,20 +49,28 @@ static uint32 TriggerOrphanSpell[6][3] =
     {3550, 14444, 65057},                                   // Down at the Docks
     {3552, 14305, 65054}                                    // Spooky Lighthouse
 };
-
-bool AreaTrigger_at_childrens_week_spot(Player* pPlayer, AreaTriggerEntry const* pAt)
+class at_childrens_week_spot : public AreaTriggerScript
 {
-    for (auto& i : TriggerOrphanSpell)
+public:
+    at_childrens_week_spot() : AreaTriggerScript("at_childrens_week_spot") { }
+
+    bool OnTrigger(Player* pPlayer, AreaTriggerEntry const* pAt) override
     {
-        if (pAt->id == i[0] &&
-                pPlayer->GetMiniPet() && pPlayer->GetMiniPet()->GetEntry() == i[1])
+        for (auto& i : TriggerOrphanSpell)
         {
-            pPlayer->CastSpell(pPlayer, i[2], TRIGGERED_OLD_TRIGGERED);
-            return true;
+            if (pAt->id == i[0] &&
+                    pPlayer->GetMiniPet() && pPlayer->GetMiniPet()->GetEntry() == i[1])
+            {
+                pPlayer->CastSpell(pPlayer, i[2], TRIGGERED_OLD_TRIGGERED);
+                return true;
+            }
         }
+        return false;
     }
-    return false;
-}
+
+
+
+};
 
 /*######
 ## at_coilfang_waterfall
@@ -72,16 +80,24 @@ enum
 {
     GO_COILFANG_WATERFALL   = 184212
 };
-
-bool AreaTrigger_at_coilfang_waterfall(Player* pPlayer, AreaTriggerEntry const* /*pAt*/)
+class at_coilfang_waterfall : public AreaTriggerScript
 {
-    if (GameObject* pGo = GetClosestGameObjectWithEntry(pPlayer, GO_COILFANG_WATERFALL, 35.0f))
+public:
+    at_coilfang_waterfall() : AreaTriggerScript("at_coilfang_waterfall") { }
+
+    bool OnTrigger(Player* pPlayer, AreaTriggerEntry const* /*pAt*/) override
     {
-        if (pGo->GetLootState() == GO_READY)
-            pGo->UseDoorOrButton();
+        if (GameObject* pGo = GetClosestGameObjectWithEntry(pPlayer, GO_COILFANG_WATERFALL, 35.0f))
+        {
+            if (pGo->GetLootState() == GO_READY)
+                pGo->UseDoorOrButton();
+        }
+        return false;
     }
-    return false;
-}
+
+
+
+};
 
 /*######
 ## at_legion_teleporter
@@ -95,26 +111,34 @@ enum
     SPELL_TELE_H_TO         = 37387, // has cast time TODO: verify once sniff is acquired
     QUEST_GAINING_ACCESS_H  = 10604
 };
-
-bool AreaTrigger_at_legion_teleporter(Player* pPlayer, AreaTriggerEntry const* /*pAt*/)
+class at_legion_teleporter : public AreaTriggerScript
 {
-    if (pPlayer->IsAlive() && !pPlayer->IsInCombat())
-    {
-        if (pPlayer->GetTeam() == ALLIANCE && pPlayer->GetQuestRewardStatus(QUEST_GAINING_ACCESS_A))
-        {
-            pPlayer->CastSpell(pPlayer, SPELL_TELE_A_TO, TRIGGERED_NONE);
-            return true;
-        }
+public:
+    at_legion_teleporter() : AreaTriggerScript("at_legion_teleporter") { }
 
-        if (pPlayer->GetTeam() == HORDE && pPlayer->GetQuestRewardStatus(QUEST_GAINING_ACCESS_H))
+    bool OnTrigger(Player* pPlayer, AreaTriggerEntry const* /*pAt*/) override
+    {
+        if (pPlayer->IsAlive() && !pPlayer->IsInCombat())
         {
-            pPlayer->CastSpell(pPlayer, SPELL_TELE_H_TO, TRIGGERED_NONE);
-            return true;
+            if (pPlayer->GetTeam() == ALLIANCE && pPlayer->GetQuestRewardStatus(QUEST_GAINING_ACCESS_A))
+            {
+                pPlayer->CastSpell(pPlayer, SPELL_TELE_A_TO, TRIGGERED_NONE);
+                return true;
+            }
+
+            if (pPlayer->GetTeam() == HORDE && pPlayer->GetQuestRewardStatus(QUEST_GAINING_ACCESS_H))
+            {
+                pPlayer->CastSpell(pPlayer, SPELL_TELE_H_TO, TRIGGERED_NONE);
+                return true;
+            }
+            return false;
         }
         return false;
     }
-    return false;
-}
+
+
+
+};
 
 /*######
 ## at_ravenholdt
@@ -125,14 +149,22 @@ enum
     QUEST_MANOR_RAVENHOLDT  = 6681,
     NPC_RAVENHOLDT          = 13936
 };
-
-bool AreaTrigger_at_ravenholdt(Player* pPlayer, AreaTriggerEntry const* /*pAt*/)
+class at_ravenholdt : public AreaTriggerScript
 {
-    if (pPlayer->GetQuestStatus(QUEST_MANOR_RAVENHOLDT) == QUEST_STATUS_INCOMPLETE)
-        pPlayer->KilledMonsterCredit(NPC_RAVENHOLDT);
+public:
+    at_ravenholdt() : AreaTriggerScript("at_ravenholdt") { }
 
-    return false;
-}
+    bool OnTrigger(Player* pPlayer, AreaTriggerEntry const* /*pAt*/) override
+    {
+        if (pPlayer->GetQuestStatus(QUEST_MANOR_RAVENHOLDT) == QUEST_STATUS_INCOMPLETE)
+            pPlayer->KilledMonsterCredit(NPC_RAVENHOLDT);
+
+        return false;
+    }
+
+
+
+};
 
 /*######
 ## at_scent_larkorwi
@@ -143,57 +175,73 @@ enum
     QUEST_SCENT_OF_LARKORWI     = 4291,
     NPC_LARKORWI_MATE           = 9683
 };
-
-bool AreaTrigger_at_scent_larkorwi(Player* pPlayer, AreaTriggerEntry const* pAt)
+class at_scent_larkorwi : public AreaTriggerScript
 {
-    if (pPlayer->IsAlive() && !pPlayer->isGameMaster() && pPlayer->GetQuestStatus(QUEST_SCENT_OF_LARKORWI) == QUEST_STATUS_INCOMPLETE)
+public:
+    at_scent_larkorwi() : AreaTriggerScript("at_scent_larkorwi") { }
+
+    bool OnTrigger(Player* pPlayer, AreaTriggerEntry const* pAt) override
     {
-        if (!GetClosestCreatureWithEntry(pPlayer, NPC_LARKORWI_MATE, 25.0f, false, false))
-            pPlayer->SummonCreature(NPC_LARKORWI_MATE, pAt->x, pAt->y, pAt->z, 3.3f, TEMPSPAWN_TIMED_OOC_DESPAWN, 2 * MINUTE * IN_MILLISECONDS);
+        if (pPlayer->IsAlive() && !pPlayer->isGameMaster() && pPlayer->GetQuestStatus(QUEST_SCENT_OF_LARKORWI) == QUEST_STATUS_INCOMPLETE)
+        {
+            if (!GetClosestCreatureWithEntry(pPlayer, NPC_LARKORWI_MATE, 25.0f, false, false))
+                pPlayer->SummonCreature(NPC_LARKORWI_MATE, pAt->x, pAt->y, pAt->z, 3.3f, TEMPSPAWN_TIMED_OOC_DESPAWN, 2 * MINUTE * IN_MILLISECONDS);
+        }
+
+        return false;
     }
 
-    return false;
-}
+
+
+};
 
 /*######
 ## at_murkdeep
 ######*/
-
-bool AreaTrigger_at_murkdeep(Player* pPlayer, AreaTriggerEntry const* /*pAt*/)
+class at_murkdeep : public AreaTriggerScript
 {
-    // Handle Murkdeep event start
-    // The area trigger summons 3 Greymist Coastrunners; The rest of the event is handled by world map scripts
-    if (pPlayer->IsAlive() && !pPlayer->isGameMaster() && pPlayer->GetQuestStatus(QUEST_WANTED_MURKDEEP) == QUEST_STATUS_INCOMPLETE)
+public:
+    at_murkdeep() : AreaTriggerScript("at_murkdeep") { }
+
+    bool OnTrigger(Player* pPlayer, AreaTriggerEntry const* /*pAt*/) override
     {
-        ScriptedMap* pScriptedMap = (ScriptedMap*)pPlayer->GetInstanceData();
-        if (!pScriptedMap)
-            return false;
-
-        // If Murkdeep is already spawned, skip the rest
-        if (pScriptedMap->GetSingleCreatureFromStorage(NPC_MURKDEEP, true))
-            return true;
-
-        // Check if there are already coastrunners (dead or alive) around the area
-        if (GetClosestCreatureWithEntry(pPlayer, NPC_GREYMIST_COASTRUNNNER, 60.0f, false, false))
-            return true;
-
-        float fX, fY, fZ;
-        for (uint8 i = 0; i < 3; ++i)
+        // Handle Murkdeep event start
+        // The area trigger summons 3 Greymist Coastrunners; The rest of the event is handled by world map scripts
+        if (pPlayer->IsAlive() && !pPlayer->isGameMaster() && pPlayer->GetQuestStatus(QUEST_WANTED_MURKDEEP) == QUEST_STATUS_INCOMPLETE)
         {
-            // Spawn locations are defined in World Maps Scripts.h
-            pPlayer->GetRandomPoint(aSpawnLocations[POS_IDX_MURKDEEP_SPAWN][0], aSpawnLocations[POS_IDX_MURKDEEP_SPAWN][1], aSpawnLocations[POS_IDX_MURKDEEP_SPAWN][2], 5.0f, fX, fY, fZ);
+            ScriptedMap* pScriptedMap = (ScriptedMap*)pPlayer->GetInstanceData();
+            if (!pScriptedMap)
+                return false;
 
-            if (Creature* pTemp = pPlayer->SummonCreature(NPC_GREYMIST_COASTRUNNNER, fX, fY, fZ, aSpawnLocations[POS_IDX_MURKDEEP_SPAWN][3], TEMPSPAWN_DEAD_DESPAWN, 0))
+            // If Murkdeep is already spawned, skip the rest
+            if (pScriptedMap->GetSingleCreatureFromStorage(NPC_MURKDEEP, true))
+                return true;
+
+            // Check if there are already coastrunners (dead or alive) around the area
+            if (GetClosestCreatureWithEntry(pPlayer, NPC_GREYMIST_COASTRUNNNER, 60.0f, false, false))
+                return true;
+
+            float fX, fY, fZ;
+            for (uint8 i = 0; i < 3; ++i)
             {
-                pTemp->SetWalk(false);
-                pTemp->GetRandomPoint(aSpawnLocations[POS_IDX_MURKDEEP_MOVE][0], aSpawnLocations[POS_IDX_MURKDEEP_MOVE][1], aSpawnLocations[POS_IDX_MURKDEEP_MOVE][2], 5.0f, fX, fY, fZ);
-                pTemp->GetMotionMaster()->MovePoint(0, fX, fY, fZ);
+                // Spawn locations are defined in World Maps Scripts.h
+                pPlayer->GetRandomPoint(aSpawnLocations[POS_IDX_MURKDEEP_SPAWN][0], aSpawnLocations[POS_IDX_MURKDEEP_SPAWN][1], aSpawnLocations[POS_IDX_MURKDEEP_SPAWN][2], 5.0f, fX, fY, fZ);
+
+                if (Creature* pTemp = pPlayer->SummonCreature(NPC_GREYMIST_COASTRUNNNER, fX, fY, fZ, aSpawnLocations[POS_IDX_MURKDEEP_SPAWN][3], TEMPSPAWN_DEAD_DESPAWN, 0))
+                {
+                    pTemp->SetWalk(false);
+                    pTemp->GetRandomPoint(aSpawnLocations[POS_IDX_MURKDEEP_MOVE][0], aSpawnLocations[POS_IDX_MURKDEEP_MOVE][1], aSpawnLocations[POS_IDX_MURKDEEP_MOVE][2], 5.0f, fX, fY, fZ);
+                    pTemp->GetMotionMaster()->MovePoint(0, fX, fY, fZ);
+                }
             }
         }
+
+        return false;
     }
 
-    return false;
-}
+
+
+};
 
 
 /*######
@@ -223,25 +271,33 @@ static const AncientSpawn afSpawnLocations[MAX_ANCIENTS] =
     { NPC_STOMA,   6246.953613f, -1155.985718f, 366.182953f, 2.90269f },    // Stoma the Ancient
     { NPC_HASTAT,  6193.449219f, -1137.834106f, 366.260529f, 5.77332f },    // Hastat the Ancient
 };
-
-bool AreaTrigger_at_ancient_leaf(Player* pPlayer, AreaTriggerEntry const* /*pAt*/)
+class at_ancient_leaf : public AreaTriggerScript
 {
-    if (pPlayer->isGameMaster() || !pPlayer->IsAlive())
-        return false;
+public:
+    at_ancient_leaf() : AreaTriggerScript("at_ancient_leaf") { }
 
-    // Handle Call Ancients event start - The area trigger summons 3 ancients
-    if (pPlayer->GetQuestStatus(QUEST_ANCIENT_LEAF) == QUEST_STATUS_COMPLETE)
+    bool OnTrigger(Player* pPlayer, AreaTriggerEntry const* /*pAt*/) override
     {
-        // If ancients are already spawned, skip the rest
-        if (GetClosestCreatureWithEntry(pPlayer, NPC_VARTRUS, 50.0f) || GetClosestCreatureWithEntry(pPlayer, NPC_STOMA, 50.0f) || GetClosestCreatureWithEntry(pPlayer, NPC_HASTAT, 50.0f))
-            return true;
+        if (pPlayer->isGameMaster() || !pPlayer->IsAlive())
+            return false;
 
-        for (const auto& afSpawnLocation : afSpawnLocations)
-            pPlayer->SummonCreature(afSpawnLocation.uiEntry, afSpawnLocation.fX, afSpawnLocation.fY, afSpawnLocation.fZ, afSpawnLocation.fO, TEMPSPAWN_TIMED_DESPAWN, 5 * MINUTE * IN_MILLISECONDS);
+        // Handle Call Ancients event start - The area trigger summons 3 ancients
+        if (pPlayer->GetQuestStatus(QUEST_ANCIENT_LEAF) == QUEST_STATUS_COMPLETE)
+        {
+            // If ancients are already spawned, skip the rest
+            if (GetClosestCreatureWithEntry(pPlayer, NPC_VARTRUS, 50.0f) || GetClosestCreatureWithEntry(pPlayer, NPC_STOMA, 50.0f) || GetClosestCreatureWithEntry(pPlayer, NPC_HASTAT, 50.0f))
+                return true;
+
+            for (const auto& afSpawnLocation : afSpawnLocations)
+                pPlayer->SummonCreature(afSpawnLocation.uiEntry, afSpawnLocation.fX, afSpawnLocation.fY, afSpawnLocation.fZ, afSpawnLocation.fO, TEMPSPAWN_TIMED_DESPAWN, 5 * MINUTE * IN_MILLISECONDS);
+        }
+
+        return false;
     }
 
-    return false;
-}
+
+
+};
 
 /*######
 ## at_haramad_teleport
@@ -251,14 +307,22 @@ enum
 {
     QUEST_SPECIAL_DELIVERY_TO_SHATTRATH = 10280
 };
-
-bool AreaTrigger_at_haramad_teleport(Player* pPlayer, AreaTriggerEntry const* /*pAt*/)
+class at_haramad_teleport : public AreaTriggerScript
 {
-    if (pPlayer->IsCurrentQuest(QUEST_SPECIAL_DELIVERY_TO_SHATTRATH))
-        pPlayer->TeleportTo(530, -1810.465f, 5323.083f, -12.428f, 2.040f);
+public:
+    at_haramad_teleport() : AreaTriggerScript("at_haramad_teleport") { }
 
-    return false;
-}
+    bool OnTrigger(Player* pPlayer, AreaTriggerEntry const* /*pAt*/) override
+    {
+        if (pPlayer->IsCurrentQuest(QUEST_SPECIAL_DELIVERY_TO_SHATTRATH))
+            pPlayer->TeleportTo(530, -1810.465f, 5323.083f, -12.428f, 2.040f);
+
+        return false;
+    }
+
+
+
+};
 
 /*######
 ## Miran and Huldar are Ambushed when AT-171 is triggered
@@ -288,54 +352,62 @@ static const Location m_miranAmbushSpawns[] =
     { -5759.85f, -3441.29f, 305.57f, 2.24f },   // Dark Iron Ambusher 1
     { -5757.75f, -3437.61f, 304.32f, 2.56f },   // Dark Iron Ambusher 2
 };
-
-bool AreaTrigger_at_huldar_miran(Player* pPlayer, AreaTriggerEntry const* /*pAt*/)
+class at_huldar_miran : public AreaTriggerScript
 {
-    // Player is deaed, a GM, quest complete or no quest, do nothing
-    if (!pPlayer->IsAlive() || pPlayer->isGameMaster() ||
-            pPlayer->GetQuestStatus(QUEST_RESUPPLYING_THE_EXCAVATION) == QUEST_STATUS_COMPLETE ||
-            pPlayer->GetQuestStatus(QUEST_RESUPPLYING_THE_EXCAVATION) == QUEST_STATUS_NONE)
-        return false;
+public:
+    at_huldar_miran() : AreaTriggerScript("at_huldar_miran") { }
 
-    ScriptedMap* pScriptedMap = (ScriptedMap*)pPlayer->GetInstanceData();
-    if (!pScriptedMap)
-        return false;
-
-    Creature* m_miran = GetClosestCreatureWithEntry(pPlayer, NPC_MIRAN, 60.0f, true);
-    Creature* m_huldar = GetClosestCreatureWithEntry(pPlayer, NPC_HULDAR, 60.0f, true);
-    Creature* m_saean = GetClosestCreatureWithEntry(pPlayer, NPC_SAEAN, 60.0f, true);
-
-    // Quest NPCs not availble, do noting
-    if (!m_miran || !m_huldar)
-        return false;
-
-    // complete quest
-    pPlayer->CompleteQuest(QUEST_RESUPPLYING_THE_EXCAVATION);
-    pPlayer->SendQuestCompleteEvent(QUEST_RESUPPLYING_THE_EXCAVATION);
-
-    // Quest NPCs in combat, skip the rest, prevent double spawns
-    if (m_miran->IsInCombat() || m_huldar->IsInCombat())
-        return true;
-
-    // Check if Saean is spawned and set his faction to hostile - summon him if not spawned
-    if (m_saean)
-        m_saean->SetFactionTemporary(FACTION_HOSTILE, TEMPFACTION_RESTORE_RESPAWN);
-    else
+    bool OnTrigger(Player* pPlayer, AreaTriggerEntry const* /*pAt*/) override
     {
-        m_saean = m_huldar->SummonCreature(NPC_SAEAN, m_miranAmbushSpawns[0].m_fX, m_miranAmbushSpawns[0].m_fY, m_miranAmbushSpawns[0].m_fZ, m_miranAmbushSpawns[0].m_fO, TEMPSPAWN_CORPSE_TIMED_DESPAWN, 25000);
+        // Player is deaed, a GM, quest complete or no quest, do nothing
+        if (!pPlayer->IsAlive() || pPlayer->isGameMaster() ||
+                pPlayer->GetQuestStatus(QUEST_RESUPPLYING_THE_EXCAVATION) == QUEST_STATUS_COMPLETE ||
+                pPlayer->GetQuestStatus(QUEST_RESUPPLYING_THE_EXCAVATION) == QUEST_STATUS_NONE)
+            return false;
+
+        ScriptedMap* pScriptedMap = (ScriptedMap*)pPlayer->GetInstanceData();
+        if (!pScriptedMap)
+            return false;
+
+        Creature* m_miran = GetClosestCreatureWithEntry(pPlayer, NPC_MIRAN, 60.0f, true);
+        Creature* m_huldar = GetClosestCreatureWithEntry(pPlayer, NPC_HULDAR, 60.0f, true);
+        Creature* m_saean = GetClosestCreatureWithEntry(pPlayer, NPC_SAEAN, 60.0f, true);
+
+        // Quest NPCs not availble, do noting
+        if (!m_miran || !m_huldar)
+            return false;
+
+        // complete quest
+        pPlayer->CompleteQuest(QUEST_RESUPPLYING_THE_EXCAVATION);
+        pPlayer->SendQuestCompleteEvent(QUEST_RESUPPLYING_THE_EXCAVATION);
+
+        // Quest NPCs in combat, skip the rest, prevent double spawns
+        if (m_miran->IsInCombat() || m_huldar->IsInCombat())
+            return true;
+
+        // Check if Saean is spawned and set his faction to hostile - summon him if not spawned
         if (m_saean)
             m_saean->SetFactionTemporary(FACTION_HOSTILE, TEMPFACTION_RESTORE_RESPAWN);
+        else
+        {
+            m_saean = m_huldar->SummonCreature(NPC_SAEAN, m_miranAmbushSpawns[0].m_fX, m_miranAmbushSpawns[0].m_fY, m_miranAmbushSpawns[0].m_fZ, m_miranAmbushSpawns[0].m_fO, TEMPSPAWN_CORPSE_TIMED_DESPAWN, 25000);
+            if (m_saean)
+                m_saean->SetFactionTemporary(FACTION_HOSTILE, TEMPFACTION_RESTORE_RESPAWN);
+        }
+
+        // Check if any Dark Iron Ambusher are already spawned or dead, if so, do nothing
+        if (!GetClosestCreatureWithEntry(pPlayer, NPC_DARK_IRON_AMBUSHER, 60.0f, false, false))
+        {
+            m_saean->SummonCreature(NPC_DARK_IRON_AMBUSHER, m_miranAmbushSpawns[1].m_fX, m_miranAmbushSpawns[1].m_fY, m_miranAmbushSpawns[1].m_fZ, m_miranAmbushSpawns[1].m_fO, TEMPSPAWN_CORPSE_TIMED_DESPAWN, 25000);
+            m_saean->SummonCreature(NPC_DARK_IRON_AMBUSHER, m_miranAmbushSpawns[2].m_fX, m_miranAmbushSpawns[2].m_fY, m_miranAmbushSpawns[2].m_fZ, m_miranAmbushSpawns[2].m_fO, TEMPSPAWN_CORPSE_TIMED_DESPAWN, 25000);
+        }
+
+        return true;
     }
 
-    // Check if any Dark Iron Ambusher are already spawned or dead, if so, do nothing
-    if (!GetClosestCreatureWithEntry(pPlayer, NPC_DARK_IRON_AMBUSHER, 60.0f, false, false))
-    {
-        m_saean->SummonCreature(NPC_DARK_IRON_AMBUSHER, m_miranAmbushSpawns[1].m_fX, m_miranAmbushSpawns[1].m_fY, m_miranAmbushSpawns[1].m_fZ, m_miranAmbushSpawns[1].m_fO, TEMPSPAWN_CORPSE_TIMED_DESPAWN, 25000);
-        m_saean->SummonCreature(NPC_DARK_IRON_AMBUSHER, m_miranAmbushSpawns[2].m_fX, m_miranAmbushSpawns[2].m_fY, m_miranAmbushSpawns[2].m_fZ, m_miranAmbushSpawns[2].m_fO, TEMPSPAWN_CORPSE_TIMED_DESPAWN, 25000);
-    }
 
-    return true;
-}
+
+};
 
 /*######
 ## at_area_52
@@ -345,15 +417,23 @@ enum
 {
     SPELL_A52_NEURALYZER = 34400
 };
-
-bool AreaTrigger_at_area_52(Player* pPlayer, AreaTriggerEntry const* /*pAt*/)
+class at_area_52 : public AreaTriggerScript
 {
-    // ToDo: research if there should be other actions happening here
-    if (!pPlayer->HasAura(SPELL_A52_NEURALYZER))
-        pPlayer->CastSpell(pPlayer, SPELL_A52_NEURALYZER, TRIGGERED_NONE);
+public:
+    at_area_52() : AreaTriggerScript("at_area_52") { }
 
-    return false;
-}
+    bool OnTrigger(Player* pPlayer, AreaTriggerEntry const* /*pAt*/) override
+    {
+        // ToDo: research if there should be other actions happening here
+        if (!pPlayer->HasAura(SPELL_A52_NEURALYZER))
+            pPlayer->CastSpell(pPlayer, SPELL_A52_NEURALYZER, TRIGGERED_NONE);
+
+        return false;
+    }
+
+
+
+};
 
 /*######
 ## at_twilight_grove
@@ -368,118 +448,88 @@ enum
 };
 
 static const Location m_twilightCorrupterSpawn = { -10326.3f, -487.423f, 50.1127f, 5.73692f };
-
-bool AreaTrigger_at_twilight_grove(Player* player, AreaTriggerEntry const* /*pAt*/)
+class at_twilight_grove : public AreaTriggerScript
 {
-    // Player is deaed, a GM, quest complete, no quest or already got item: do nothing
-    if (!player->IsAlive() || player->isGameMaster() ||
-            player->GetQuestStatus(QUEST_NIGHTMARE_CORRUPTION) == QUEST_STATUS_COMPLETE ||
-            player->GetQuestStatus(QUEST_NIGHTMARE_CORRUPTION) == QUEST_STATUS_NONE ||
-        player->HasItemCount(ITEM_FRAGMENT_NIGHTMARE, 1))
-        return false;
+public:
+    at_twilight_grove() : AreaTriggerScript("at_twilight_grove") { }
 
-    ScriptedMap* scriptedMap = (ScriptedMap*)player->GetInstanceData();
-    if (!scriptedMap)
-        return false;
-
-    // Return if Twilight Corrupter is already spawned
-    if (Creature* twilightCorrupter = GetClosestCreatureWithEntry(player, NPC_TWILIGHT_CORRUPTER, 500.0f))
-        return true;
-
-    // Spawn the Twilight Corrupter and send whisper to player
-    if (Creature* twilightCorrupter = player->SummonCreature(NPC_TWILIGHT_CORRUPTER, m_twilightCorrupterSpawn.m_fX, m_twilightCorrupterSpawn.m_fY, m_twilightCorrupterSpawn.m_fZ, m_twilightCorrupterSpawn.m_fO, TEMPSPAWN_TIMED_OOC_DESPAWN, 30 * MINUTE * IN_MILLISECONDS))
+    bool OnTrigger(Player* player, AreaTriggerEntry const* /*pAt*/) override
     {
-        DoScriptText(SAY_TWILIGHT_CORRUPTER_SPAWN, twilightCorrupter, player);
-        return true;
+        // Player is deaed, a GM, quest complete, no quest or already got item: do nothing
+        if (!player->IsAlive() || player->isGameMaster() ||
+                player->GetQuestStatus(QUEST_NIGHTMARE_CORRUPTION) == QUEST_STATUS_COMPLETE ||
+                player->GetQuestStatus(QUEST_NIGHTMARE_CORRUPTION) == QUEST_STATUS_NONE ||
+            player->HasItemCount(ITEM_FRAGMENT_NIGHTMARE, 1))
+            return false;
+
+        ScriptedMap* scriptedMap = (ScriptedMap*)player->GetInstanceData();
+        if (!scriptedMap)
+            return false;
+
+        // Return if Twilight Corrupter is already spawned
+        if (Creature* twilightCorrupter = GetClosestCreatureWithEntry(player, NPC_TWILIGHT_CORRUPTER, 500.0f))
+            return true;
+
+        // Spawn the Twilight Corrupter and send whisper to player
+        if (Creature* twilightCorrupter = player->SummonCreature(NPC_TWILIGHT_CORRUPTER, m_twilightCorrupterSpawn.m_fX, m_twilightCorrupterSpawn.m_fY, m_twilightCorrupterSpawn.m_fZ, m_twilightCorrupterSpawn.m_fO, TEMPSPAWN_TIMED_OOC_DESPAWN, 30 * MINUTE * IN_MILLISECONDS))
+        {
+            DoScriptText(SAY_TWILIGHT_CORRUPTER_SPAWN, twilightCorrupter, player);
+            return true;
+        }
+
+        return false;
     }
 
-    return false;
-}
+
+
+};
 
 /*######
 ## at_hive_tower
 ######*/
-
-bool AreaTrigger_at_hive_tower(Player* player, AreaTriggerEntry const* /*pAt*/)
+class at_hive_tower : public AreaTriggerScript
 {
-    ScriptedMap* scriptedMap = (ScriptedMap*)player->GetInstanceData();
-    if (!scriptedMap)
-        return false;
+public:
+    at_hive_tower() : AreaTriggerScript("at_hive_tower") { }
 
-    if (scriptedMap->GetData(TYPE_HIVE) != NOT_STARTED) // Only summon more Hive'Ashi Drones if the 5 minutes timer is elapsed
-        return false;
-
-    if (player->IsAlive() && !player->isGameMaster())
+    bool OnTrigger(Player* player, AreaTriggerEntry const* /*pAt*/) override
     {
-        // spawn three Hive'Ashi Drones for 5 minutes (timer is guesswork)
-        for (uint8 i = POS_IDX_HIVE_DRONES_START; i <= POS_IDX_HIVE_DRONES_STOP; ++i)
-            player->SummonCreature(NPC_HIVE_ASHI_DRONES, aSpawnLocations[i][0], aSpawnLocations[i][1], aSpawnLocations[i][2], aSpawnLocations[i][3], TEMPSPAWN_TIMED_OR_DEAD_DESPAWN, 5 * MINUTE * IN_MILLISECONDS);
-        scriptedMap->SetData(TYPE_HIVE, IN_PROGRESS);   // Notify the map script to start the timer
-        return true;
+        ScriptedMap* scriptedMap = (ScriptedMap*)player->GetInstanceData();
+        if (!scriptedMap)
+            return false;
+
+        if (scriptedMap->GetData(TYPE_HIVE) != NOT_STARTED) // Only summon more Hive'Ashi Drones if the 5 minutes timer is elapsed
+            return false;
+
+        if (player->IsAlive() && !player->isGameMaster())
+        {
+            // spawn three Hive'Ashi Drones for 5 minutes (timer is guesswork)
+            for (uint8 i = POS_IDX_HIVE_DRONES_START; i <= POS_IDX_HIVE_DRONES_STOP; ++i)
+                player->SummonCreature(NPC_HIVE_ASHI_DRONES, aSpawnLocations[i][0], aSpawnLocations[i][1], aSpawnLocations[i][2], aSpawnLocations[i][3], TEMPSPAWN_TIMED_OR_DEAD_DESPAWN, 5 * MINUTE * IN_MILLISECONDS);
+            scriptedMap->SetData(TYPE_HIVE, IN_PROGRESS);   // Notify the map script to start the timer
+            return true;
+        }
+
+        return false;
     }
 
-    return false;
-}
+
+
+};
 
 void AddSC_areatrigger_scripts()
 {
-    Script* pNewScript = new Script;
-    pNewScript->Name = "at_childrens_week_spot";
-    pNewScript->pAreaTrigger = &AreaTrigger_at_childrens_week_spot;
-    pNewScript->RegisterSelf();
+    new at_childrens_week_spot();
+    new at_coilfang_waterfall();
+    new at_legion_teleporter();
+    new at_ravenholdt();
+    new at_scent_larkorwi();
+    new at_murkdeep();
+    new at_ancient_leaf();
+    new at_haramad_teleport();
+    new at_huldar_miran();
+    new at_area_52();
+    new at_twilight_grove();
+    new at_hive_tower();
 
-    pNewScript = new Script;
-    pNewScript->Name = "at_coilfang_waterfall";
-    pNewScript->pAreaTrigger = &AreaTrigger_at_coilfang_waterfall;
-    pNewScript->RegisterSelf();
-
-    pNewScript = new Script;
-    pNewScript->Name = "at_legion_teleporter";
-    pNewScript->pAreaTrigger = &AreaTrigger_at_legion_teleporter;
-    pNewScript->RegisterSelf();
-
-    pNewScript = new Script;
-    pNewScript->Name = "at_ravenholdt";
-    pNewScript->pAreaTrigger = &AreaTrigger_at_ravenholdt;
-    pNewScript->RegisterSelf();
-
-    pNewScript = new Script;
-    pNewScript->Name = "at_scent_larkorwi";
-    pNewScript->pAreaTrigger = &AreaTrigger_at_scent_larkorwi;
-    pNewScript->RegisterSelf();
-
-    pNewScript = new Script;
-    pNewScript->Name = "at_murkdeep";
-    pNewScript->pAreaTrigger = &AreaTrigger_at_murkdeep;
-    pNewScript->RegisterSelf();
-
-    pNewScript = new Script;
-    pNewScript->Name = "at_ancient_leaf";
-    pNewScript->pAreaTrigger = &AreaTrigger_at_ancient_leaf;
-    pNewScript->RegisterSelf();
-
-    pNewScript = new Script;
-    pNewScript->Name = "at_haramad_teleport";
-    pNewScript->pAreaTrigger = &AreaTrigger_at_haramad_teleport;
-    pNewScript->RegisterSelf();
-
-    pNewScript = new Script;
-    pNewScript->Name = "at_huldar_miran";
-    pNewScript->pAreaTrigger = &AreaTrigger_at_huldar_miran;
-    pNewScript->RegisterSelf();
-
-    pNewScript = new Script;
-    pNewScript->Name = "at_area_52";
-    pNewScript->pAreaTrigger = &AreaTrigger_at_area_52;
-    pNewScript->RegisterSelf();
-
-    pNewScript = new Script;
-    pNewScript->Name = "at_twilight_grove";
-    pNewScript->pAreaTrigger = &AreaTrigger_at_twilight_grove;
-    pNewScript->RegisterSelf();
-
-    pNewScript = new Script;
-    pNewScript->Name = "at_hive_tower";
-    pNewScript->pAreaTrigger = &AreaTrigger_at_hive_tower;
-    pNewScript->RegisterSelf();
 }

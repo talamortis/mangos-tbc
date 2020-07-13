@@ -42,96 +42,105 @@ enum ShazzrahActions
     SHAZZRAH_GATE_OF_SHAZZRAH,
     SHAZZRAH_ACTION_MAX,
 };
-
-struct boss_shazzrahAI : public CombatAI
+class boss_shazzrah : public CreatureScript
 {
-    boss_shazzrahAI(Creature* creature) : CombatAI(creature, SHAZZRAH_ACTION_MAX), m_instance(static_cast<ScriptedInstance*>(creature->GetInstanceData()))
+public:
+    boss_shazzrah() : CreatureScript("boss_shazzrah") { }
+
+    UnitAI* GetAI(Creature* creature)
     {
-        AddCombatAction(SHAZZRAH_ARCANE_EXPLOSION, 6000u);
-        AddCombatAction(SHAZZRAH_SHAZZRAH_CURSE, 10000u);
-        AddCombatAction(SHAZZRAH_COUNTERSPELL, 15000u);
-        AddCombatAction(SHAZZRAH_MAGIC_GROUNDING, 24000u);
-        AddCombatAction(SHAZZRAH_GATE_OF_SHAZZRAH, 30000u);
-        Reset();
+        return new boss_shazzrahAI(creature);
     }
 
-    ScriptedInstance* m_instance;
 
-    void Aggro(Unit* /*who*/) override
-    {
-        if (m_instance)
-            m_instance->SetData(TYPE_SHAZZRAH, IN_PROGRESS);
-    }
 
-    void JustDied(Unit* /*killer*/) override
+    struct boss_shazzrahAI : public CombatAI
     {
-        if (m_instance)
-            m_instance->SetData(TYPE_SHAZZRAH, DONE);
-    }
-
-    void JustReachedHome() override
-    {
-        if (m_instance)
-            m_instance->SetData(TYPE_SHAZZRAH, NOT_STARTED);
-    }
-
-    void ReceiveAIEvent(AIEventType eventType, Unit* /*sender*/, Unit* /*invoker*/, uint32 /*miscValue*/) override
-    {
-        if (eventType == AI_EVENT_CUSTOM_A) // succesful teleport
+        boss_shazzrahAI(Creature* creature) : CombatAI(creature, SHAZZRAH_ACTION_MAX), m_instance(static_cast<ScriptedInstance*>(creature->GetInstanceData()))
         {
-            DoResetThreat();
-            DoCastSpellIfCan(nullptr, SPELL_ARCANE_EXPLOSION);
+            AddCombatAction(SHAZZRAH_ARCANE_EXPLOSION, 6000u);
+            AddCombatAction(SHAZZRAH_SHAZZRAH_CURSE, 10000u);
+            AddCombatAction(SHAZZRAH_COUNTERSPELL, 15000u);
+            AddCombatAction(SHAZZRAH_MAGIC_GROUNDING, 24000u);
+            AddCombatAction(SHAZZRAH_GATE_OF_SHAZZRAH, 30000u);
+            Reset();
         }
-    }
 
-    void ExecuteAction(uint32 action) override
-    {
-        switch (action)
+        ScriptedInstance* m_instance;
+
+        void Aggro(Unit* /*who*/) override
         {
-            case SHAZZRAH_ARCANE_EXPLOSION:
+            if (m_instance)
+                m_instance->SetData(TYPE_SHAZZRAH, IN_PROGRESS);
+        }
+
+        void JustDied(Unit* /*killer*/) override
+        {
+            if (m_instance)
+                m_instance->SetData(TYPE_SHAZZRAH, DONE);
+        }
+
+        void JustReachedHome() override
+        {
+            if (m_instance)
+                m_instance->SetData(TYPE_SHAZZRAH, NOT_STARTED);
+        }
+
+        void ReceiveAIEvent(AIEventType eventType, Unit* /*sender*/, Unit* /*invoker*/, uint32 /*miscValue*/) override
+        {
+            if (eventType == AI_EVENT_CUSTOM_A) // succesful teleport
             {
-                if (DoCastSpellIfCan(nullptr, SPELL_ARCANE_EXPLOSION) == CAST_OK)
-                    ResetCombatAction(action, urand(5000, 9000));
-                break;
-            }
-            case SHAZZRAH_SHAZZRAH_CURSE:
-            {
-                if (DoCastSpellIfCan(nullptr, SPELL_SHAZZRAH_CURSE) == CAST_OK)
-                    ResetCombatAction(action, 20000);
-                break;
-            }
-            case SHAZZRAH_COUNTERSPELL:
-            {
-                if (DoCastSpellIfCan(nullptr, SPELL_COUNTERSPELL) == CAST_OK)
-                    ResetCombatAction(action, urand(16000, 20000));
-                break;
-            }
-            case SHAZZRAH_MAGIC_GROUNDING:
-            {
-                if (DoCastSpellIfCan(nullptr, SPELL_MAGIC_GROUNDING) == CAST_OK)
-                    ResetCombatAction(action, 35000);
-                break;
-            }
-            case SHAZZRAH_GATE_OF_SHAZZRAH:
-            {
-                // Teleporting him to a random target and casting Arcane Explosion after that.
-                if (DoCastSpellIfCan(nullptr, SPELL_GATE_OF_SHAZZRAH) == CAST_OK)
-                    ResetCombatAction(action, 45000);
-                break;
+                DoResetThreat();
+                DoCastSpellIfCan(nullptr, SPELL_ARCANE_EXPLOSION);
             }
         }
-    }
+
+        void ExecuteAction(uint32 action) override
+        {
+            switch (action)
+            {
+                case SHAZZRAH_ARCANE_EXPLOSION:
+                {
+                    if (DoCastSpellIfCan(nullptr, SPELL_ARCANE_EXPLOSION) == CAST_OK)
+                        ResetCombatAction(action, urand(5000, 9000));
+                    break;
+                }
+                case SHAZZRAH_SHAZZRAH_CURSE:
+                {
+                    if (DoCastSpellIfCan(nullptr, SPELL_SHAZZRAH_CURSE) == CAST_OK)
+                        ResetCombatAction(action, 20000);
+                    break;
+                }
+                case SHAZZRAH_COUNTERSPELL:
+                {
+                    if (DoCastSpellIfCan(nullptr, SPELL_COUNTERSPELL) == CAST_OK)
+                        ResetCombatAction(action, urand(16000, 20000));
+                    break;
+                }
+                case SHAZZRAH_MAGIC_GROUNDING:
+                {
+                    if (DoCastSpellIfCan(nullptr, SPELL_MAGIC_GROUNDING) == CAST_OK)
+                        ResetCombatAction(action, 35000);
+                    break;
+                }
+                case SHAZZRAH_GATE_OF_SHAZZRAH:
+                {
+                    // Teleporting him to a random target and casting Arcane Explosion after that.
+                    if (DoCastSpellIfCan(nullptr, SPELL_GATE_OF_SHAZZRAH) == CAST_OK)
+                        ResetCombatAction(action, 45000);
+                    break;
+                }
+            }
+        }
+    };
+
+
+
 };
 
-UnitAI* GetAI_boss_shazzrah(Creature* creature)
-{
-    return new boss_shazzrahAI(creature);
-}
 
 void AddSC_boss_shazzrah()
 {
-    Script* pNewScript = new Script;
-    pNewScript->Name = "boss_shazzrah";
-    pNewScript->GetAI = &GetAI_boss_shazzrah;
-    pNewScript->RegisterSelf();
+    new boss_shazzrah();
+
 }

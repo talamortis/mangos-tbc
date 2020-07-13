@@ -186,89 +186,98 @@ enum VeknilashActions
     VEKNILASH_UNBALANCING_STRIKE,
     VEKNILASH_ACTION_MAX,
 };
-
-struct boss_veknilashAI : public boss_twin_emperorsAI
+class boss_veknilash : public CreatureScript
 {
-    boss_veknilashAI(Creature* creature) : boss_twin_emperorsAI(creature, VEKNILASH_ACTION_MAX)
+public:
+    boss_veknilash() : CreatureScript("boss_veknilash") { }
+
+
+    struct boss_veknilashAI : public boss_twin_emperorsAI
     {
-        AddCombatAction(VEKNILASH_UPPERCUT, urand(14000, 29000));
-        AddCombatAction(VEKNILASH_UNBALANCING_STRIKE, urand(8000, 18000));
-    }
-
-    void Reset() override
-    {
-        boss_twin_emperorsAI::Reset();
-
-        DoCastSpellIfCan(nullptr, SPELL_DOUBLE_ATTACK, CAST_TRIGGERED | CAST_AURA_NOT_PRESENT);
-    }
-
-    void MoveInLineOfSight(Unit* who) override
-    {
-        if (m_instance && m_instance->GetData(TYPE_TWINS) == IN_PROGRESS && who->GetEntry() == NPC_VEKLOR && who->IsWithinDistInMap(m_creature, 60.0f))
-            DoCastSpellIfCan(who, SPELL_HEAL_BROTHER);
-
-        boss_twin_emperorsAI::MoveInLineOfSight(who);
-    }
-
-    void Aggro(Unit* who) override
-    {
-        boss_twin_emperorsAI::Aggro(who);
-
-        switch (urand(0, 3))
+        boss_veknilashAI(Creature* creature) : boss_twin_emperorsAI(creature, VEKNILASH_ACTION_MAX)
         {
-            case 0: DoScriptText(SAY_VEKNILASH_AGGRO_1, m_creature); break;
-            case 1: DoScriptText(SAY_VEKNILASH_AGGRO_2, m_creature); break;
-            case 2: DoScriptText(SAY_VEKNILASH_AGGRO_3, m_creature); break;
-            case 3: DoScriptText(SAY_VEKNILASH_AGGRO_4, m_creature); break;
+            AddCombatAction(VEKNILASH_UPPERCUT, urand(14000, 29000));
+            AddCombatAction(VEKNILASH_UNBALANCING_STRIKE, urand(8000, 18000));
         }
-    }
 
-    void KilledUnit(Unit* /*victim*/) override
-    {
-        DoScriptText(SAY_VEKNILASH_SLAY, m_creature);
-    }
-
-    void JustDied(Unit* killer) override
-    {
-        boss_twin_emperorsAI::JustDied(killer);
-
-        DoScriptText(SAY_VEKNILASH_DEATH, m_creature);
-    }
-
-    bool DoHandleBugAbility()
-    {
-        return DoCastSpellIfCan(nullptr, SPELL_MUTATE_BUG) == CAST_OK;
-    }
-
-    bool DoHandleBerserk()
-    {
-        return DoCastSpellIfCan(nullptr, SPELL_BERSERK) == CAST_OK;
-    }
-
-    void ExecuteAction(uint32 action) override
-    {
-        switch (action)
+        void Reset() override
         {
-            case VEKNILASH_UPPERCUT:
+            boss_twin_emperorsAI::Reset();
+
+            DoCastSpellIfCan(nullptr, SPELL_DOUBLE_ATTACK, CAST_TRIGGERED | CAST_AURA_NOT_PRESENT);
+        }
+
+        void MoveInLineOfSight(Unit* who) override
+        {
+            if (m_instance && m_instance->GetData(TYPE_TWINS) == IN_PROGRESS && who->GetEntry() == NPC_VEKLOR && who->IsWithinDistInMap(m_creature, 60.0f))
+                DoCastSpellIfCan(who, SPELL_HEAL_BROTHER);
+
+            boss_twin_emperorsAI::MoveInLineOfSight(who);
+        }
+
+        void Aggro(Unit* who) override
+        {
+            boss_twin_emperorsAI::Aggro(who);
+
+            switch (urand(0, 3))
             {
-                if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, SPELL_UPPERCUT, SELECT_FLAG_IN_MELEE_RANGE))
+                case 0: DoScriptText(SAY_VEKNILASH_AGGRO_1, m_creature); break;
+                case 1: DoScriptText(SAY_VEKNILASH_AGGRO_2, m_creature); break;
+                case 2: DoScriptText(SAY_VEKNILASH_AGGRO_3, m_creature); break;
+                case 3: DoScriptText(SAY_VEKNILASH_AGGRO_4, m_creature); break;
+            }
+        }
+
+        void KilledUnit(Unit* /*victim*/) override
+        {
+            DoScriptText(SAY_VEKNILASH_SLAY, m_creature);
+        }
+
+        void JustDied(Unit* killer) override
+        {
+            boss_twin_emperorsAI::JustDied(killer);
+
+            DoScriptText(SAY_VEKNILASH_DEATH, m_creature);
+        }
+
+        bool DoHandleBugAbility()
+        {
+            return DoCastSpellIfCan(nullptr, SPELL_MUTATE_BUG) == CAST_OK;
+        }
+
+        bool DoHandleBerserk()
+        {
+            return DoCastSpellIfCan(nullptr, SPELL_BERSERK) == CAST_OK;
+        }
+
+        void ExecuteAction(uint32 action) override
+        {
+            switch (action)
+            {
+                case VEKNILASH_UPPERCUT:
                 {
-                    if (DoCastSpellIfCan(target, SPELL_UPPERCUT) == CAST_OK)
-                        ResetCombatAction(action, urand(15000, 30000));
+                    if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, SPELL_UPPERCUT, SELECT_FLAG_IN_MELEE_RANGE))
+                    {
+                        if (DoCastSpellIfCan(target, SPELL_UPPERCUT) == CAST_OK)
+                            ResetCombatAction(action, urand(15000, 30000));
+                    }
+                    break;
                 }
-                break;
+                case VEKNILASH_UNBALANCING_STRIKE:
+                {
+                    if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_UNBALANCING_STRIKE) == CAST_OK)
+                        ResetCombatAction(action, urand(8000, 20000));
+                    break;
+                }
+                default:
+                    boss_twin_emperorsAI::ExecuteAction(action);
+                    break;
             }
-            case VEKNILASH_UNBALANCING_STRIKE:
-            {
-                if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_UNBALANCING_STRIKE) == CAST_OK)
-                    ResetCombatAction(action, urand(8000, 20000));
-                break;
-            }
-            default:
-                boss_twin_emperorsAI::ExecuteAction(action);
-                break;
         }
-    }
+    };
+
+
+
 };
 
 enum VeklorActions
@@ -279,129 +288,138 @@ enum VeklorActions
     VEKLOR_TELEPORT,
     VEKLOR_ACTION_MAX,
 };
-
-struct boss_veklorAI : public boss_twin_emperorsAI
+class boss_veklor : public CreatureScript
 {
-    boss_veklorAI(Creature* creature) : boss_twin_emperorsAI(creature, VEKLOR_ACTION_MAX)
+public:
+    boss_veklor() : CreatureScript("boss_veklor") { }
+
+
+    struct boss_veklorAI : public boss_twin_emperorsAI
     {
-        AddCombatAction(VEKLOR_SHADOWBOLT, 1000u);
-        AddCombatAction(VEKLOR_BLIZZARD, urand(15000, 20000));
-        AddCombatAction(VEKLOR_ARCANE_BURST, 1000u);
-        AddCombatAction(VEKLOR_TELEPORT, 35000u);
-    }
-
-    void Reset() override
-    {
-        boss_twin_emperorsAI::Reset();
-
-        m_meleeEnabled = false;
-        m_attackDistance = 40.f;
-    }
-
-    void MoveInLineOfSight(Unit* who) override
-    {
-        if (m_instance && m_instance->GetData(TYPE_TWINS) == IN_PROGRESS && who->GetEntry() == NPC_VEKNILASH && who->IsWithinDistInMap(m_creature, 60.0f))
-            DoCastSpellIfCan(who, SPELL_HEAL_BROTHER);
-
-        boss_twin_emperorsAI::MoveInLineOfSight(who);
-    }
-
-    void Aggro(Unit* who) override
-    {
-        boss_twin_emperorsAI::Aggro(who);
-
-        switch (urand(0, 3))
+        boss_veklorAI(Creature* creature) : boss_twin_emperorsAI(creature, VEKLOR_ACTION_MAX)
         {
-            case 0: DoScriptText(SAY_VEKLOR_AGGRO_1, m_creature); break;
-            case 1: DoScriptText(SAY_VEKLOR_AGGRO_2, m_creature); break;
-            case 2: DoScriptText(SAY_VEKLOR_AGGRO_3, m_creature); break;
-            case 3: DoScriptText(SAY_VEKLOR_AGGRO_4, m_creature); break;
+            AddCombatAction(VEKLOR_SHADOWBOLT, 1000u);
+            AddCombatAction(VEKLOR_BLIZZARD, urand(15000, 20000));
+            AddCombatAction(VEKLOR_ARCANE_BURST, 1000u);
+            AddCombatAction(VEKLOR_TELEPORT, 35000u);
         }
-    }
 
-    void KilledUnit(Unit* /*victim*/) override
-    {
-        DoScriptText(SAY_VEKLOR_SLAY, m_creature);
-    }
-
-    void JustDied(Unit* killer) override
-    {
-        boss_twin_emperorsAI::JustDied(killer);
-
-        DoScriptText(SAY_VEKLOR_DEATH, m_creature);
-    }
-
-    void SpellHit(Unit* /*caster*/, const SpellEntry* spellInfo) override
-    {
-        if (spellInfo->Id == SPELL_TWIN_TELEPORT)
+        void Reset() override
         {
+            boss_twin_emperorsAI::Reset();
 
-            if (Creature* veknilash = m_instance->GetSingleCreatureFromStorage(NPC_VEKNILASH))
+            m_meleeEnabled = false;
+            m_attackDistance = 40.f;
+        }
+
+        void MoveInLineOfSight(Unit* who) override
+        {
+            if (m_instance && m_instance->GetData(TYPE_TWINS) == IN_PROGRESS && who->GetEntry() == NPC_VEKNILASH && who->IsWithinDistInMap(m_creature, 60.0f))
+                DoCastSpellIfCan(who, SPELL_HEAL_BROTHER);
+
+            boss_twin_emperorsAI::MoveInLineOfSight(who);
+        }
+
+        void Aggro(Unit* who) override
+        {
+            boss_twin_emperorsAI::Aggro(who);
+
+            switch (urand(0, 3))
             {
-                float twinX, twinY, twinZ;
-                m_creature->GetPosition(twinX, twinY, twinZ);
-                float twinOri = m_creature->GetOrientation();
-
-                TeleportTwin(m_creature, veknilash->GetPositionX(), veknilash->GetPositionY(), veknilash->GetPositionZ(), veknilash->GetOrientation());
-                TeleportTwin(veknilash, twinX, twinY, twinZ, twinOri);
+                case 0: DoScriptText(SAY_VEKLOR_AGGRO_1, m_creature); break;
+                case 1: DoScriptText(SAY_VEKLOR_AGGRO_2, m_creature); break;
+                case 2: DoScriptText(SAY_VEKLOR_AGGRO_3, m_creature); break;
+                case 3: DoScriptText(SAY_VEKLOR_AGGRO_4, m_creature); break;
             }
         }
-    }
 
-    void TeleportTwin(Creature* twin, float x, float y, float z, float ori)
-    {
-        twin->AI()->DoResetThreat();
-        twin->AI()->DoCastSpellIfCan(nullptr, SPELL_TWIN_TELEPORT_VISUAL, CAST_TRIGGERED);
-        twin->AI()->DoCastSpellIfCan(nullptr, SPELL_TWIN_TELEPORT_STUN, CAST_TRIGGERED);
-        twin->NearTeleportTo(x, y, z, ori, true);
-        static_cast<boss_twin_emperorsAI*>(twin->AI())->StartDelayedAttack();
-    }
-
-    bool DoHandleBugAbility() override
-    {
-        return DoCastSpellIfCan(nullptr, SPELL_EXPLODE_BUG) == CAST_OK;
-    }
-
-    bool DoHandleBerserk()
-    {
-        return DoCastSpellIfCan(nullptr, SPELL_FRENZY) == CAST_OK;
-    }
-
-    void ExecuteAction(uint32 action) override
-    {
-        switch (action)
+        void KilledUnit(Unit* /*victim*/) override
         {
-            case VEKLOR_SHADOWBOLT:
-            {
-                if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_SHADOW_BOLT) == CAST_OK)
-                    ResetCombatAction(action, 2000);
-                break;
-            }
-            case VEKLOR_BLIZZARD:
-            {
-                if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, SPELL_BLIZZARD, SELECT_FLAG_PLAYER))
-                    if (DoCastSpellIfCan(target, SPELL_BLIZZARD) == CAST_OK)
-                        ResetCombatAction(action, urand(15000, 30000));
-                break;
-            }
-            case VEKLOR_ARCANE_BURST:
-            {
-                if (m_creature->SelectAttackingTarget(ATTACKING_TARGET_TOPAGGRO, 0, SPELL_ARCANE_BURST, SELECT_FLAG_PLAYER | SELECT_FLAG_USE_EFFECT_RADIUS))
-                    if (DoCastSpellIfCan(nullptr, SPELL_ARCANE_BURST) == CAST_OK)
-                        ResetCombatAction(action, 5000);
-                break;
-            }
-            case VEKLOR_TELEPORT:
-            {
-                if (DoCastSpellIfCan(nullptr, SPELL_TWIN_TELEPORT) == CAST_OK)
-                    ResetCombatAction(action, 35000);
-                break;
-            }
-            default:
-                boss_twin_emperorsAI::ExecuteAction(action);
-                break;
+            DoScriptText(SAY_VEKLOR_SLAY, m_creature);
         }
-    }
+
+        void JustDied(Unit* killer) override
+        {
+            boss_twin_emperorsAI::JustDied(killer);
+
+            DoScriptText(SAY_VEKLOR_DEATH, m_creature);
+        }
+
+        void SpellHit(Unit* /*caster*/, const SpellEntry* spellInfo) override
+        {
+            if (spellInfo->Id == SPELL_TWIN_TELEPORT)
+            {
+
+                if (Creature* veknilash = m_instance->GetSingleCreatureFromStorage(NPC_VEKNILASH))
+                {
+                    float twinX, twinY, twinZ;
+                    m_creature->GetPosition(twinX, twinY, twinZ);
+                    float twinOri = m_creature->GetOrientation();
+
+                    TeleportTwin(m_creature, veknilash->GetPositionX(), veknilash->GetPositionY(), veknilash->GetPositionZ(), veknilash->GetOrientation());
+                    TeleportTwin(veknilash, twinX, twinY, twinZ, twinOri);
+                }
+            }
+        }
+
+        void TeleportTwin(Creature* twin, float x, float y, float z, float ori)
+        {
+            twin->AI()->DoResetThreat();
+            twin->AI()->DoCastSpellIfCan(nullptr, SPELL_TWIN_TELEPORT_VISUAL, CAST_TRIGGERED);
+            twin->AI()->DoCastSpellIfCan(nullptr, SPELL_TWIN_TELEPORT_STUN, CAST_TRIGGERED);
+            twin->NearTeleportTo(x, y, z, ori, true);
+            static_cast<boss_twin_emperorsAI*>(twin->AI())->StartDelayedAttack();
+        }
+
+        bool DoHandleBugAbility() override
+        {
+            return DoCastSpellIfCan(nullptr, SPELL_EXPLODE_BUG) == CAST_OK;
+        }
+
+        bool DoHandleBerserk()
+        {
+            return DoCastSpellIfCan(nullptr, SPELL_FRENZY) == CAST_OK;
+        }
+
+        void ExecuteAction(uint32 action) override
+        {
+            switch (action)
+            {
+                case VEKLOR_SHADOWBOLT:
+                {
+                    if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_SHADOW_BOLT) == CAST_OK)
+                        ResetCombatAction(action, 2000);
+                    break;
+                }
+                case VEKLOR_BLIZZARD:
+                {
+                    if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, SPELL_BLIZZARD, SELECT_FLAG_PLAYER))
+                        if (DoCastSpellIfCan(target, SPELL_BLIZZARD) == CAST_OK)
+                            ResetCombatAction(action, urand(15000, 30000));
+                    break;
+                }
+                case VEKLOR_ARCANE_BURST:
+                {
+                    if (m_creature->SelectAttackingTarget(ATTACKING_TARGET_TOPAGGRO, 0, SPELL_ARCANE_BURST, SELECT_FLAG_PLAYER | SELECT_FLAG_USE_EFFECT_RADIUS))
+                        if (DoCastSpellIfCan(nullptr, SPELL_ARCANE_BURST) == CAST_OK)
+                            ResetCombatAction(action, 5000);
+                    break;
+                }
+                case VEKLOR_TELEPORT:
+                {
+                    if (DoCastSpellIfCan(nullptr, SPELL_TWIN_TELEPORT) == CAST_OK)
+                        ResetCombatAction(action, 35000);
+                    break;
+                }
+                default:
+                    boss_twin_emperorsAI::ExecuteAction(action);
+                    break;
+            }
+        }
+    };
+
+
+
 };
 
 struct MutateBug : public AuraScript
@@ -423,15 +441,8 @@ struct MutateBug : public AuraScript
 
 void AddSC_boss_twinemperors()
 {
-    Script* pNewScript = new Script;
-    pNewScript->Name = "boss_veknilash";
-    pNewScript->GetAI = &GetNewAIInstance<boss_veknilashAI>;
-    pNewScript->RegisterSelf();
-
-    pNewScript = new Script;
-    pNewScript->Name = "boss_veklor";
-    pNewScript->GetAI = &GetNewAIInstance<boss_veklorAI>;
-    pNewScript->RegisterSelf();
+    new boss_veknilash();
+    new boss_veklor();
 
     RegisterAuraScript<MutateBug>("spell_mutate_bug");
 }

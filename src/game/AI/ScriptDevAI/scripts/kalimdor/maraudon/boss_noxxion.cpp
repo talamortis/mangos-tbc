@@ -30,89 +30,100 @@ enum
     SPELL_NOXXION_SPAWNS_AURA   = 21708,
     SPELL_NOXXION_SPAWNS_SUMMON = 21707,
 };
-
-struct boss_noxxionAI : public ScriptedAI
+class boss_noxxion : public CreatureScript
 {
-    boss_noxxionAI(Creature* pCreature) : ScriptedAI(pCreature) {Reset();}
+public:
+    boss_noxxion() : CreatureScript("boss_noxxion") { }
 
-    uint32 m_uiToxicVolleyTimer;
-    uint32 m_uiUppercutTimer;
-    uint32 m_uiSummonTimer;
-
-    void Reset() override
+    bool OnAuraDummy(const Aura* pAura, bool bApply) override
     {
-        m_uiToxicVolleyTimer   = 7000;
-        m_uiUppercutTimer      = 16000;
-        m_uiSummonTimer         = 19000;
-    }
-
-    void JustSummoned(Creature* pSummoned) override
-    {
-        if (Unit* pTarget = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0))
-            pSummoned->AI()->AttackStart(pTarget);
-    }
-
-    void UpdateAI(const uint32 diff) override
-    {
-        if (!m_creature->SelectHostileTarget() || !m_creature->GetVictim())
-            return;
-
-        if (m_uiToxicVolleyTimer < diff)
+        if (pAura->GetId() == SPELL_NOXXION_SPAWNS_AURA && pAura->GetEffIndex() == EFFECT_INDEX_0)
         {
-            if (DoCastSpellIfCan(m_creature, SPELL_TOXICVOLLEY) == CAST_OK)
-                m_uiToxicVolleyTimer = 9000;
-        }
-        else
-            m_uiToxicVolleyTimer -= diff;
-
-        if (m_uiUppercutTimer < diff)
-        {
-            if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_UPPERCUT) == CAST_OK)
-                m_uiUppercutTimer = 12000;
-        }
-        else
-            m_uiUppercutTimer -= diff;
-
-        if (m_uiSummonTimer < diff)
-        {
-            if (DoCastSpellIfCan(m_creature, SPELL_NOXXION_SPAWNS_AURA) == CAST_OK)
-                m_uiSummonTimer = 40000;
-        }
-        else
-            m_uiSummonTimer -= diff;
-
-        DoMeleeAttackIfReady();
-    }
-};
-
-UnitAI* GetAI_boss_noxxion(Creature* pCreature)
-{
-    return new boss_noxxionAI(pCreature);
-}
-
-bool EffectAuraDummy_spell_aura_dummy_noxxion_spawns(const Aura* pAura, bool bApply)
-{
-    if (pAura->GetId() == SPELL_NOXXION_SPAWNS_AURA && pAura->GetEffIndex() == EFFECT_INDEX_0)
-    {
-        if (Creature* pTarget = (Creature*)pAura->GetTarget())
-        {
-            if (bApply)
+            if (Creature* pTarget = (Creature*)pAura->GetTarget())
             {
-                pTarget->CastSpell(pTarget, SPELL_NOXXION_SPAWNS_SUMMON, TRIGGERED_OLD_TRIGGERED);
-                pTarget->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE);
+                if (bApply)
+                {
+                    pTarget->CastSpell(pTarget, SPELL_NOXXION_SPAWNS_SUMMON, TRIGGERED_OLD_TRIGGERED);
+                    pTarget->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE);
+                }
+                else
+                    pTarget->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE);
+            }
+        }
+        return true;
+    }
+
+
+
+    UnitAI* GetAI(Creature* pCreature)
+    {
+        return new boss_noxxionAI(pCreature);
+    }
+
+
+
+    struct boss_noxxionAI : public ScriptedAI
+    {
+        boss_noxxionAI(Creature* pCreature) : ScriptedAI(pCreature) {Reset();}
+
+        uint32 m_uiToxicVolleyTimer;
+        uint32 m_uiUppercutTimer;
+        uint32 m_uiSummonTimer;
+
+        void Reset() override
+        {
+            m_uiToxicVolleyTimer   = 7000;
+            m_uiUppercutTimer      = 16000;
+            m_uiSummonTimer         = 19000;
+        }
+
+        void JustSummoned(Creature* pSummoned) override
+        {
+            if (Unit* pTarget = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0))
+                pSummoned->AI()->AttackStart(pTarget);
+        }
+
+        void UpdateAI(const uint32 diff) override
+        {
+            if (!m_creature->SelectHostileTarget() || !m_creature->GetVictim())
+                return;
+
+            if (m_uiToxicVolleyTimer < diff)
+            {
+                if (DoCastSpellIfCan(m_creature, SPELL_TOXICVOLLEY) == CAST_OK)
+                    m_uiToxicVolleyTimer = 9000;
             }
             else
-                pTarget->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE);
+                m_uiToxicVolleyTimer -= diff;
+
+            if (m_uiUppercutTimer < diff)
+            {
+                if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_UPPERCUT) == CAST_OK)
+                    m_uiUppercutTimer = 12000;
+            }
+            else
+                m_uiUppercutTimer -= diff;
+
+            if (m_uiSummonTimer < diff)
+            {
+                if (DoCastSpellIfCan(m_creature, SPELL_NOXXION_SPAWNS_AURA) == CAST_OK)
+                    m_uiSummonTimer = 40000;
+            }
+            else
+                m_uiSummonTimer -= diff;
+
+            DoMeleeAttackIfReady();
         }
-    }
-    return true;
-}
+    };
+
+
+
+};
+
+
 
 void AddSC_boss_noxxion()
 {
-    Script* pNewScript = new Script;
-    pNewScript->Name = "boss_noxxion";
-    pNewScript->GetAI = &GetAI_boss_noxxion;
-    pNewScript->pEffectAuraDummy = &EffectAuraDummy_spell_aura_dummy_noxxion_spawns;
-    pNewScript->RegisterSelf();
+    new boss_noxxion();
+
 }

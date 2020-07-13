@@ -228,35 +228,46 @@ Creature* instance_zulgurub::SelectRandomPantherTrigger(bool bIsLeft)
 
     return vTriggers[urand(0, vTriggers.size() - 1)];
 }
-
-InstanceData* GetInstanceData_instance_zulgurub(Map* pMap)
+class instance_zulgurub : public InstanceMapScript
 {
-    return new instance_zulgurub(pMap);
-}
+public:
+    instance_zulgurub() : InstanceMapScript("instance_zulgurub") { }
 
-bool AreaTrigger_at_zulgurub(Player* pPlayer, AreaTriggerEntry const* pAt)
-{
-    if (pAt->id == AREATRIGGER_ENTER || pAt->id == AREATRIGGER_ALTAR)
+    InstanceData* GetInstanceScript(Map* pMap) const override
     {
-        if (pPlayer->isGameMaster() || pPlayer->IsDead())
-            return false;
-
-        if (instance_zulgurub* pInstance = (instance_zulgurub*)pPlayer->GetInstanceData())
-            pInstance->DoYellAtTriggerIfCan(pAt->id);
+        return new instance_zulgurub(pMap);
     }
 
-    return false;
-}
+
+
+
+};
+class at_zulgurub : public AreaTriggerScript
+{
+public:
+    at_zulgurub() : AreaTriggerScript("at_zulgurub") { }
+
+    bool OnTrigger(Player* pPlayer, AreaTriggerEntry const* pAt) override
+    {
+        if (pAt->id == AREATRIGGER_ENTER || pAt->id == AREATRIGGER_ALTAR)
+        {
+            if (pPlayer->isGameMaster() || pPlayer->IsDead())
+                return false;
+
+            if (instance_zulgurub* pInstance = (instance_zulgurub*)pPlayer->GetInstanceData())
+                pInstance->DoYellAtTriggerIfCan(pAt->id);
+        }
+
+        return false;
+    }
+
+
+
+};
 
 void AddSC_instance_zulgurub()
 {
-    Script* pNewScript = new Script;
-    pNewScript->Name = "instance_zulgurub";
-    pNewScript->GetInstanceData = &GetInstanceData_instance_zulgurub;
-    pNewScript->RegisterSelf();
+    new instance_zulgurub();
+    new at_zulgurub();
 
-    pNewScript = new Script;
-    pNewScript->Name = "at_zulgurub";
-    pNewScript->pAreaTrigger = &AreaTrigger_at_zulgurub;
-    pNewScript->RegisterSelf();
 }

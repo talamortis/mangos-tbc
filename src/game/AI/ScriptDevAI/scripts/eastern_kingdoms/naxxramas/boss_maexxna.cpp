@@ -366,18 +366,5 @@ UnitAI* GetAI_npc_invible_man(Creature* creature)
 
 void AddSC_boss_maexxna()
 {
-    Script* newScript = new Script;
-    newScript->Name = "boss_maexxna";
-    newScript->GetAI = &GetAI_boss_maexxna;
-    newScript->RegisterSelf();
 
-    newScript = new Script;
-    newScript->Name = "npc_web_wrap";
-    newScript->GetAI = &GetAI_npc_web_wrap;
-    newScript->RegisterSelf();
-
-    newScript = new Script;
-    newScript->Name = "npc_invible_man";
-    newScript->GetAI = &GetAI_npc_invible_man;
-    newScript->RegisterSelf();
 }

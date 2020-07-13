@@ -39,92 +39,101 @@ enum
     SPELL_MANA_BURN                 = 17630,
     SPELL_SILENCE                   = 12528,
 };
-
-struct npc_spectral_tutorAI : public ScriptedAI
+class npc_spectral_tutor : public CreatureScript
 {
-    npc_spectral_tutorAI(Creature* pCreature) : ScriptedAI(pCreature) { Reset(); }
+public:
+    npc_spectral_tutor() : CreatureScript("npc_spectral_tutor") { }
 
-    uint32 m_uiManaBurnTimer;
-    uint32 m_uiSilenceTimer;
-    uint32 m_uiProjectionTimer;
-    uint32 m_uiProjEndTimer;
-
-    void Reset() override
+    UnitAI* GetAI(Creature* pCreature)
     {
-        m_uiProjEndTimer    = 0;
-        m_uiManaBurnTimer   = urand(4000, 19000);
-        m_uiSilenceTimer    = urand(0, 3000);
-        m_uiProjectionTimer = urand(12000, 13000);
+        return new npc_spectral_tutorAI(pCreature);
     }
 
-    void EnterEvadeMode() override
+
+
+    struct npc_spectral_tutorAI : public ScriptedAI
     {
-        if (m_uiProjEndTimer)
-            return;
+        npc_spectral_tutorAI(Creature* pCreature) : ScriptedAI(pCreature) { Reset(); }
 
-        ScriptedAI::EnterEvadeMode();
-    }
+        uint32 m_uiManaBurnTimer;
+        uint32 m_uiSilenceTimer;
+        uint32 m_uiProjectionTimer;
+        uint32 m_uiProjEndTimer;
 
-    void UpdateAI(const uint32 uiDiff) override
-    {
-        if (!m_creature->SelectHostileTarget() || !m_creature->GetVictim())
-            return;
-
-        if (m_uiProjEndTimer)
+        void Reset() override
         {
-            if (m_uiProjEndTimer <= uiDiff)
+            m_uiProjEndTimer    = 0;
+            m_uiManaBurnTimer   = urand(4000, 19000);
+            m_uiSilenceTimer    = urand(0, 3000);
+            m_uiProjectionTimer = urand(12000, 13000);
+        }
+
+        void EnterEvadeMode() override
+        {
+            if (m_uiProjEndTimer)
+                return;
+
+            ScriptedAI::EnterEvadeMode();
+        }
+
+        void UpdateAI(const uint32 uiDiff) override
+        {
+            if (!m_creature->SelectHostileTarget() || !m_creature->GetVictim())
+                return;
+
+            if (m_uiProjEndTimer)
             {
-                if (DoCastSpellIfCan(m_creature, SPELL_IMAGE_PROJECTION_HEAL) == CAST_OK)
-                    m_uiProjEndTimer = 0;
+                if (m_uiProjEndTimer <= uiDiff)
+                {
+                    if (DoCastSpellIfCan(m_creature, SPELL_IMAGE_PROJECTION_HEAL) == CAST_OK)
+                        m_uiProjEndTimer = 0;
+                }
+                else
+                    m_uiProjEndTimer -= uiDiff;
+
+                // no other actions during Image Projection
+                return;
+            }
+
+            if (m_uiManaBurnTimer < uiDiff)
+            {
+                if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_MANA_BURN) == CAST_OK)
+                    m_uiManaBurnTimer = urand(9000, 26000);
             }
             else
-                m_uiProjEndTimer -= uiDiff;
+                m_uiManaBurnTimer -= uiDiff;
 
-            // no other actions during Image Projection
-            return;
-        }
-
-        if (m_uiManaBurnTimer < uiDiff)
-        {
-            if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_MANA_BURN) == CAST_OK)
-                m_uiManaBurnTimer = urand(9000, 26000);
-        }
-        else
-            m_uiManaBurnTimer -= uiDiff;
-
-        if (m_uiSilenceTimer < uiDiff)
-        {
-            if (DoCastSpellIfCan(m_creature, SPELL_SILENCE) == CAST_OK)
-                m_uiSilenceTimer = urand(12000, 26000);
-        }
-        else
-            m_uiSilenceTimer -= uiDiff;
-
-        if (m_uiProjectionTimer < uiDiff)
-        {
-            if (DoCastSpellIfCan(m_creature, SPELL_IMAGE_PROJECTION) == CAST_OK)
+            if (m_uiSilenceTimer < uiDiff)
             {
-                DoCastSpellIfCan(m_creature, SPELL_IMAGE_PROJECTION_SUMMON, CAST_TRIGGERED);
-                m_uiProjEndTimer = 1000;
-                m_uiProjectionTimer = urand(18000, 25000);
+                if (DoCastSpellIfCan(m_creature, SPELL_SILENCE) == CAST_OK)
+                    m_uiSilenceTimer = urand(12000, 26000);
             }
-        }
-        else
-            m_uiProjectionTimer -= uiDiff;
+            else
+                m_uiSilenceTimer -= uiDiff;
 
-        DoMeleeAttackIfReady();
-    }
+            if (m_uiProjectionTimer < uiDiff)
+            {
+                if (DoCastSpellIfCan(m_creature, SPELL_IMAGE_PROJECTION) == CAST_OK)
+                {
+                    DoCastSpellIfCan(m_creature, SPELL_IMAGE_PROJECTION_SUMMON, CAST_TRIGGERED);
+                    m_uiProjEndTimer = 1000;
+                    m_uiProjectionTimer = urand(18000, 25000);
+                }
+            }
+            else
+                m_uiProjectionTimer -= uiDiff;
+
+            DoMeleeAttackIfReady();
+        }
+    };
+
+
+
 };
 
-UnitAI* GetAI_npc_spectral_tutor(Creature* pCreature)
-{
-    return new npc_spectral_tutorAI(pCreature);
-}
 
 void AddSC_scholomance()
 {
-    Script* pNewScript = new Script;
-    pNewScript->Name = "npc_spectral_tutor";
-    pNewScript->GetAI = &GetAI_npc_spectral_tutor;
-    pNewScript->RegisterSelf();
+    new npc_spectral_tutor();
+
 }

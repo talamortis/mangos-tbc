@@ -59,41 +59,51 @@ void instance_underbog::OnCreatureCreate(Creature* creature)
         break;
     }
 }
-
-InstanceData* GetInstanceData_instance_underbog(Map* map)
+class instance_underbog : public InstanceMapScript
 {
-    return new instance_underbog(map);
-}
+public:
+    instance_underbog() : InstanceMapScript("instance_underbog") { }
+
+    InstanceData* GetInstanceScript(Map* map) const override
+    {
+        return new instance_underbog(map);
+    }
+
+
+
+
+};
 
 /*######
 ## at_ghazan_surface
 ######*/
-
-bool AreaTrigger_at_ghazan_surface(Player* player, AreaTriggerEntry const* /*pAt*/)
+class at_ghazan_surface : public AreaTriggerScript
 {
-    ScriptedInstance* instance = (ScriptedInstance*)player->GetMap()->GetInstanceData();
-    if (instance->GetData(DATA_GHAZAN_SURFACE) == 0)
+public:
+    at_ghazan_surface() : AreaTriggerScript("at_ghazan_surface") { }
+
+    bool OnTrigger(Player* player, AreaTriggerEntry const* /*pAt*/) override
     {
-        if (Unit* ghazan = instance->GetSingleCreatureFromStorage(NPC_GHAZAN))
+        ScriptedInstance* instance = (ScriptedInstance*)player->GetMap()->GetInstanceData();
+        if (instance->GetData(DATA_GHAZAN_SURFACE) == 0)
         {
-            ghazan->GetMotionMaster()->Clear(false, true);
-            ghazan->GetMotionMaster()->MoveWaypoint(1);
+            if (Unit* ghazan = instance->GetSingleCreatureFromStorage(NPC_GHAZAN))
+            {
+                ghazan->GetMotionMaster()->Clear(false, true);
+                ghazan->GetMotionMaster()->MoveWaypoint(1);
+            }
+            instance->SetData(DATA_GHAZAN_SURFACE, 1);
         }
-        instance->SetData(DATA_GHAZAN_SURFACE, 1);
+        return true;
     }
-    return true;
-}
+
+
+
+};
 
 void AddSC_instance_underbog()
 {
-    Script* pNewScript = new Script;
-    pNewScript->Name = "instance_underbog";
-    pNewScript->GetInstanceData = &GetInstanceData_instance_underbog;
-    pNewScript->RegisterSelf();
+    new instance_underbog();
+    new at_ghazan_surface();
 
-    pNewScript = new Script;
-    pNewScript->Name = "at_ghazan_surface";
-    pNewScript->pAreaTrigger = &AreaTrigger_at_ghazan_surface;
-    pNewScript->RegisterSelf();
 }
-

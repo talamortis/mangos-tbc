@@ -41,105 +41,114 @@ enum
 /*######
 ## npc_soulflayer
 ######*/
-
-struct npc_soulflayerAI : public ScriptedAI
+class npc_soulflayer : public CreatureScript
 {
-    npc_soulflayerAI(Creature* pCreature) : ScriptedAI(pCreature), m_uiRandomBuffAbility(0) { Reset(); }
+public:
+    npc_soulflayer() : CreatureScript("npc_soulflayer") { }
 
-    uint32 m_uiSoulTapTimer;
-    uint32 m_uiLightingBreathTimer;
-    uint32 m_uiRandomCcAbility;
-    uint32 m_uiRandomCcAbilityTimer;
-    uint32 m_uiRandomBuffAbility;
-
-    const uint32 spell_list_cc[2] = { SPELL_FEAR, SPELL_KNOCKDOWN };
-    const uint32 spell_list_buff[3] = { SPELL_ENRAGE, SPELL_FRENZY, SPELL_THRASH };
-
-    void JustRespawned() override
+    UnitAI* GetAI(Creature* pCreature)
     {
-        // Set random time based CC ability on spawn (Fear or Knockdown)
-        m_uiRandomCcAbility = spell_list_cc[urand(0, 1)];
-
-        // Set a random buff HP based ability (Frenzy or Enrage) or Thrash on spawn
-        m_uiRandomBuffAbility = spell_list_buff[urand(0, 2)];
-
-        // Cast Thrash on spawn, since a passive ability
-        if (m_uiRandomBuffAbility == SPELL_THRASH)
-            DoCastSpellIfCan(m_creature, m_uiRandomBuffAbility, CAST_TRIGGERED | CAST_AURA_NOT_PRESENT);
+        return new npc_soulflayerAI(pCreature);
     }
 
-    void Reset() override
+
+
+    struct npc_soulflayerAI : public ScriptedAI
     {
-        m_uiRandomCcAbilityTimer = urand(2000, 5000);
-        m_uiSoulTapTimer = urand(m_uiRandomCcAbilityTimer, 7000);
-        m_uiLightingBreathTimer = urand(m_uiSoulTapTimer, 9000);
+        npc_soulflayerAI(Creature* pCreature) : ScriptedAI(pCreature), m_uiRandomBuffAbility(0) { Reset(); }
 
-        if (m_uiRandomBuffAbility == SPELL_THRASH)
-            DoCastSpellIfCan(m_creature, m_uiRandomBuffAbility, CAST_TRIGGERED | CAST_AURA_NOT_PRESENT);
-    }
+        uint32 m_uiSoulTapTimer;
+        uint32 m_uiLightingBreathTimer;
+        uint32 m_uiRandomCcAbility;
+        uint32 m_uiRandomCcAbilityTimer;
+        uint32 m_uiRandomBuffAbility;
 
-    void UpdateAI(const uint32 uiDiff) override
-    {
-        // Check if we have a valid target, otherwise do nothing
-        if (!m_creature->SelectHostileTarget() || !m_creature->GetVictim())
-            return;
+        const uint32 spell_list_cc[2] = { SPELL_FEAR, SPELL_KNOCKDOWN };
+        const uint32 spell_list_buff[3] = { SPELL_ENRAGE, SPELL_FRENZY, SPELL_THRASH };
 
-        // Check if we are casting / channelling, return to not interrupt process and pause CDs
-        if (m_creature->IsNonMeleeSpellCasted(false))
-            return;
-
-        // Soul Tap
-        if (m_uiSoulTapTimer < uiDiff)
+        void JustRespawned() override
         {
-            if (Unit* pTarget = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, SPELL_SOUL_TAP, SELECT_TARGET_ANY_ENEMY))
-                if (DoCastSpellIfCan(pTarget, SPELL_SOUL_TAP) == CAST_OK)
-                    m_uiSoulTapTimer = urand(10000, 15000);
+            // Set random time based CC ability on spawn (Fear or Knockdown)
+            m_uiRandomCcAbility = spell_list_cc[urand(0, 1)];
+
+            // Set a random buff HP based ability (Frenzy or Enrage) or Thrash on spawn
+            m_uiRandomBuffAbility = spell_list_buff[urand(0, 2)];
+
+            // Cast Thrash on spawn, since a passive ability
+            if (m_uiRandomBuffAbility == SPELL_THRASH)
+                DoCastSpellIfCan(m_creature, m_uiRandomBuffAbility, CAST_TRIGGERED | CAST_AURA_NOT_PRESENT);
         }
-        else
-            m_uiSoulTapTimer -= uiDiff;
 
-        // Lightning Breath
-        if (m_uiLightingBreathTimer < uiDiff)
+        void Reset() override
         {
-            if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_LIGHTNING_BREATH) == CAST_OK)
-                m_uiLightingBreathTimer = urand(10000, 15000);
+            m_uiRandomCcAbilityTimer = urand(2000, 5000);
+            m_uiSoulTapTimer = urand(m_uiRandomCcAbilityTimer, 7000);
+            m_uiLightingBreathTimer = urand(m_uiSoulTapTimer, 9000);
+
+            if (m_uiRandomBuffAbility == SPELL_THRASH)
+                DoCastSpellIfCan(m_creature, m_uiRandomBuffAbility, CAST_TRIGGERED | CAST_AURA_NOT_PRESENT);
         }
-        else
-            m_uiLightingBreathTimer -= uiDiff;
 
-        // Random time based CC ability
-        // Either Fear or Knockdown
-        if (m_uiRandomCcAbilityTimer < uiDiff)
+        void UpdateAI(const uint32 uiDiff) override
         {
-            if (DoCastSpellIfCan(m_creature->GetVictim(), m_uiRandomCcAbility) == CAST_OK)
+            // Check if we have a valid target, otherwise do nothing
+            if (!m_creature->SelectHostileTarget() || !m_creature->GetVictim())
+                return;
+
+            // Check if we are casting / channelling, return to not interrupt process and pause CDs
+            if (m_creature->IsNonMeleeSpellCasted(false))
+                return;
+
+            // Soul Tap
+            if (m_uiSoulTapTimer < uiDiff)
             {
-                m_creature->GetVictim()->DeleteThreatList();
-                m_uiRandomCcAbilityTimer = urand(8000, 10000);
+                if (Unit* pTarget = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, SPELL_SOUL_TAP, SELECT_TARGET_ANY_ENEMY))
+                    if (DoCastSpellIfCan(pTarget, SPELL_SOUL_TAP) == CAST_OK)
+                        m_uiSoulTapTimer = urand(10000, 15000);
             }
+            else
+                m_uiSoulTapTimer -= uiDiff;
+
+            // Lightning Breath
+            if (m_uiLightingBreathTimer < uiDiff)
+            {
+                if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_LIGHTNING_BREATH) == CAST_OK)
+                    m_uiLightingBreathTimer = urand(10000, 15000);
+            }
+            else
+                m_uiLightingBreathTimer -= uiDiff;
+
+            // Random time based CC ability
+            // Either Fear or Knockdown
+            if (m_uiRandomCcAbilityTimer < uiDiff)
+            {
+                if (DoCastSpellIfCan(m_creature->GetVictim(), m_uiRandomCcAbility) == CAST_OK)
+                {
+                    m_creature->GetVictim()->DeleteThreatList();
+                    m_uiRandomCcAbilityTimer = urand(8000, 10000);
+                }
+            }
+            else
+                m_uiRandomCcAbilityTimer -= uiDiff;
+
+            // Random HP based ability
+            // Either Frenzy or Enrage
+            if (m_uiRandomBuffAbility != SPELL_THRASH)
+                if (m_creature->GetHealthPercent() <= 30.0f)
+                    if (!m_creature->HasAura(m_uiRandomBuffAbility))
+                        DoCastSpellIfCan(m_creature->GetVictim(), m_uiRandomBuffAbility);
+
+            DoMeleeAttackIfReady();
         }
-        else
-            m_uiRandomCcAbilityTimer -= uiDiff;
+    };
 
-        // Random HP based ability
-        // Either Frenzy or Enrage
-        if (m_uiRandomBuffAbility != SPELL_THRASH)
-            if (m_creature->GetHealthPercent() <= 30.0f)
-                if (!m_creature->HasAura(m_uiRandomBuffAbility))
-                    DoCastSpellIfCan(m_creature->GetVictim(), m_uiRandomBuffAbility);
 
-        DoMeleeAttackIfReady();
-    }
+
 };
 
-UnitAI* GetAI_npc_soulflayer(Creature* pCreature)
-{
-    return new npc_soulflayerAI(pCreature);
-}
 
 void AddSC_zulgurub()
 {
-    Script* pNewScript = new Script();
-    pNewScript->Name = "npc_soulflayer";
-    pNewScript->GetAI = &GetAI_npc_soulflayer;
-    pNewScript->RegisterSelf();
+    new npc_soulflayer();
+
 }

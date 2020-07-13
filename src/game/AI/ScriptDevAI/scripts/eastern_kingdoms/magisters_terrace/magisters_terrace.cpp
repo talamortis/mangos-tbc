@@ -46,93 +46,106 @@ enum
 static const float afKaelLandPoint[4] = {200.36f, -270.77f, -8.73f, 0.01f};
 
 // This is friendly keal that appear after used Orb.
-// If we assume DB handle summon, summon appear somewhere outside the platform where Orb is
-struct npc_kalecgosAI : public ScriptedAI
+// If we assume DB handle summon, summon appear somewhere outside the platform where Orb isclass npc_kalecgos : public CreatureScript
 {
-    npc_kalecgosAI(Creature* pCreature) : ScriptedAI(pCreature) { Reset(); }
+public:
+    npc_kalecgos() : CreatureScript("npc_kalecgos") { }
 
-    uint32 m_uiTransformTimer;
-
-    void Reset() override
+    UnitAI* GetAI(Creature* pCreature)
     {
-        // Check the map id because the same creature entry is involved in other scripted event in other instance
-        if (m_creature->GetMapId() != MAP_ID_MAGISTER)
-            return;
-
-        m_uiTransformTimer = 0;
-
-        // Move the dragon to landing point
-        m_creature->GetMotionMaster()->MovePoint(1, afKaelLandPoint[0], afKaelLandPoint[1], afKaelLandPoint[2]);
+        return new npc_kalecgosAI(pCreature);
     }
 
-    void JustRespawned() override
-    {
-        ScriptedAI::JustRespawned();
-        DoScriptText(SAY_SPAWN, m_creature);
-    }
 
-    void MovementInform(uint32 uiType, uint32 uiPointId) override
-    {
-        if (uiType != POINT_MOTION_TYPE)
-            return;
 
-        if (uiPointId)
+    struct npc_kalecgosAI : public ScriptedAI
+    {
+        npc_kalecgosAI(Creature* pCreature) : ScriptedAI(pCreature) { Reset(); }
+
+        uint32 m_uiTransformTimer;
+
+        void Reset() override
         {
-            m_creature->SetLevitate(false);
-            m_creature->SetFacingTo(afKaelLandPoint[3]);
-            m_uiTransformTimer = MINUTE * IN_MILLISECONDS;
+            // Check the map id because the same creature entry is involved in other scripted event in other instance
+            if (m_creature->GetMapId() != MAP_ID_MAGISTER)
+                return;
+
+            m_uiTransformTimer = 0;
+
+            // Move the dragon to landing point
+            m_creature->GetMotionMaster()->MovePoint(1, afKaelLandPoint[0], afKaelLandPoint[1], afKaelLandPoint[2]);
         }
-    }
 
-    void UpdateAI(const uint32 uiDiff) override
-    {
-        if (m_uiTransformTimer)
+        void JustRespawned() override
         {
-            if (m_uiTransformTimer <= uiDiff)
+            ScriptedAI::JustRespawned();
+            DoScriptText(SAY_SPAWN, m_creature);
+        }
+
+        void MovementInform(uint32 uiType, uint32 uiPointId) override
+        {
+            if (uiType != POINT_MOTION_TYPE)
+                return;
+
+            if (uiPointId)
             {
-                // Transform and update entry, now ready for quest/read gossip
-                if (DoCastSpellIfCan(m_creature, SPELL_TRANSFORM_TO_KAEL) == CAST_OK)
-                {
-                    DoCastSpellIfCan(m_creature, SPELL_ORB_KILL_CREDIT, CAST_TRIGGERED);
-                    m_creature->UpdateEntry(NPC_KALECGOS);
-
-                    m_uiTransformTimer = 0;
-                }
+                m_creature->SetLevitate(false);
+                m_creature->SetFacingTo(afKaelLandPoint[3]);
+                m_uiTransformTimer = MINUTE * IN_MILLISECONDS;
             }
-            else
-                m_uiTransformTimer -= uiDiff;
         }
-    }
+
+        void UpdateAI(const uint32 uiDiff) override
+        {
+            if (m_uiTransformTimer)
+            {
+                if (m_uiTransformTimer <= uiDiff)
+                {
+                    // Transform and update entry, now ready for quest/read gossip
+                    if (DoCastSpellIfCan(m_creature, SPELL_TRANSFORM_TO_KAEL) == CAST_OK)
+                    {
+                        DoCastSpellIfCan(m_creature, SPELL_ORB_KILL_CREDIT, CAST_TRIGGERED);
+                        m_creature->UpdateEntry(NPC_KALECGOS);
+
+                        m_uiTransformTimer = 0;
+                    }
+                }
+                else
+                    m_uiTransformTimer -= uiDiff;
+            }
+        }
+    };
+
+
+
 };
 
-UnitAI* GetAI_npc_kalecgos(Creature* pCreature)
+class event_go_scrying_orb : public UnknownScript
 {
-    return new npc_kalecgosAI(pCreature);
-}
+public:
+    event_go_scrying_orb() : UnknownScript("event_go_scrying_orb") { }
 
-bool ProcessEventId_event_go_scrying_orb(uint32 /*uiEventId*/, Object* pSource, Object* /*pTarget*/, bool bIsStart)
-{
-    if (bIsStart && pSource->GetTypeId() == TYPEID_PLAYER)
+    bool OnProcessEvent(uint32 /*uiEventId*/, Object* pSource, Object* /*pTarget*/, bool bIsStart) override
     {
-        if (instance_magisters_terrace* pInstance = (instance_magisters_terrace*)((Player*)pSource)->GetInstanceData())
+        if (bIsStart && pSource->GetTypeId() == TYPEID_PLAYER)
         {
-            // Check if the Dragon is already spawned and don't allow it to spawn it multiple times
-            if (pInstance->GetSingleCreatureFromStorage(NPC_KALECGOS_DRAGON, true))
-                return true;
+            if (instance_magisters_terrace* pInstance = (instance_magisters_terrace*)((Player*)pSource)->GetInstanceData())
+            {
+                // Check if the Dragon is already spawned and don't allow it to spawn it multiple times
+                if (pInstance->GetSingleCreatureFromStorage(NPC_KALECGOS_DRAGON, true))
+                    return true;
+            }
         }
+        return false;
     }
-    return false;
-}
+
+
+
+};
 
 void AddSC_magisters_terrace()
 {
-    Script* pNewScript = new Script;
-    pNewScript->Name = "npc_kalecgos";
-    pNewScript->GetAI = &GetAI_npc_kalecgos;
-    pNewScript->RegisterSelf();
+    new npc_kalecgos();
+    new event_go_scrying_orb();
 
-    pNewScript = new Script;
-    pNewScript->Name = "event_go_scrying_orb";
-    pNewScript->pProcessEventId = &ProcessEventId_event_go_scrying_orb;
-    pNewScript->RegisterSelf();
 }

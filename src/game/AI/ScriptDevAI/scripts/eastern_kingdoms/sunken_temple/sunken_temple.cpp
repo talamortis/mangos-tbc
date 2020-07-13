@@ -38,25 +38,33 @@ enum
     QUEST_THE_CHARGE_OF_DRAGONFLIGHTS = 8555,
     QUEST_ERANIKUS_TYRANT_OF_DREAMS   = 8733
 };
-
-bool AreaTrigger_at_shade_of_eranikus(Player* pPlayer, AreaTriggerEntry const* /*pAt*/)
+class at_shade_of_eranikus : public AreaTriggerScript
 {
-    if (ScriptedInstance* pInstance = (ScriptedInstance*)pPlayer->GetInstanceData())
+public:
+    at_shade_of_eranikus() : AreaTriggerScript("at_shade_of_eranikus") { }
+
+    bool OnTrigger(Player* pPlayer, AreaTriggerEntry const* /*pAt*/) override
     {
-        // Only do stuff, if the player has finished the PreQuest
-        if (pPlayer->GetQuestRewardStatus(QUEST_THE_CHARGE_OF_DRAGONFLIGHTS) &&
-                !pPlayer->GetQuestRewardStatus(QUEST_ERANIKUS_TYRANT_OF_DREAMS) &&
-                pPlayer->GetQuestStatus(QUEST_ERANIKUS_TYRANT_OF_DREAMS) != QUEST_STATUS_COMPLETE)
+        if (ScriptedInstance* pInstance = (ScriptedInstance*)pPlayer->GetInstanceData())
         {
-            if (pInstance->GetData(TYPE_MALFURION) != IN_PROGRESS)
+            // Only do stuff, if the player has finished the PreQuest
+            if (pPlayer->GetQuestRewardStatus(QUEST_THE_CHARGE_OF_DRAGONFLIGHTS) &&
+                    !pPlayer->GetQuestRewardStatus(QUEST_ERANIKUS_TYRANT_OF_DREAMS) &&
+                    pPlayer->GetQuestStatus(QUEST_ERANIKUS_TYRANT_OF_DREAMS) != QUEST_STATUS_COMPLETE)
             {
-                pPlayer->SummonCreature(NPC_MALFURION, aSunkenTempleLocation[2].m_fX, aSunkenTempleLocation[2].m_fY, aSunkenTempleLocation[2].m_fZ, aSunkenTempleLocation[2].m_fO, TEMPSPAWN_DEAD_DESPAWN, 0);
-                pInstance->SetData(TYPE_MALFURION, IN_PROGRESS);
+                if (pInstance->GetData(TYPE_MALFURION) != IN_PROGRESS)
+                {
+                    pPlayer->SummonCreature(NPC_MALFURION, aSunkenTempleLocation[2].m_fX, aSunkenTempleLocation[2].m_fY, aSunkenTempleLocation[2].m_fZ, aSunkenTempleLocation[2].m_fO, TEMPSPAWN_DEAD_DESPAWN, 0);
+                    pInstance->SetData(TYPE_MALFURION, IN_PROGRESS);
+                }
             }
         }
+        return false;
     }
-    return false;
-}
+
+
+
+};
 
 /*######
 ## npc_malfurion_stormrage
@@ -72,212 +80,233 @@ enum
 
     MAX_MALFURION_TEMPLE_SPEECHES = 6
 };
-
-struct npc_malfurionAI : public ScriptedAI
+class npc_malfurion_stormrage : public CreatureScript
 {
-    npc_malfurionAI(Creature* pCreature) :
-        ScriptedAI(pCreature),
-        m_uiSpeech(0),
-        m_uiSayTimer(3000)
-    {
-        // Only in Sunken Temple
-        if (m_creature->GetMap()->IsDungeon())
-        {
-            DoScriptText(EMOTE_MALFURION1, m_creature);
-        }
+public:
+    npc_malfurion_stormrage() : CreatureScript("npc_malfurion_stormrage") { }
 
-        DoCastSpellIfCan(m_creature, SPELL_SPIRIT_SPAWN_IN, TRIGGERED_OLD_TRIGGERED);
-        m_creature->RemoveFlag(UNIT_NPC_FLAGS, UNIT_NPC_FLAG_QUESTGIVER);
+    UnitAI* GetAI_npc_malfurion(Creature* pCreature)
+    {
+        return new npc_malfurionAI(pCreature);
     }
 
-    uint32 m_uiSayTimer;
-    uint32 m_uiSpeech;
 
-    void Reset() override {}
-    void UpdateAI(const uint32 uiDiff) override
+
+    struct npc_malfurionAI : public ScriptedAI
     {
-        // We are in Sunken Temple
-        if (m_creature->GetMap()->IsDungeon())
+        npc_malfurionAI(Creature* pCreature) :
+            ScriptedAI(pCreature),
+            m_uiSpeech(0),
+            m_uiSayTimer(3000)
         {
-            if (m_uiSpeech < MAX_MALFURION_TEMPLE_SPEECHES)
+            // Only in Sunken Temple
+            if (m_creature->GetMap()->IsDungeon())
             {
-                if (m_uiSayTimer <= uiDiff)
-                {
-                    switch (m_uiSpeech)
-                    {
-                        case 0:
-                            m_creature->HandleEmote(EMOTE_ONESHOT_BOW);
-                            m_uiSayTimer = 2000;
-                            break;
-                        case 1:
-                            DoScriptText(SAY_MALFURION1, m_creature);
-                            m_creature->HandleEmote(EMOTE_STATE_TALK);
-                            m_uiSayTimer = 12000;
-                            break;
-                        case 2:
-                            DoScriptText(SAY_MALFURION2, m_creature);
-                            m_uiSayTimer = 12000;
-                            break;
-                        case 3:
-                            DoScriptText(SAY_MALFURION3, m_creature);
-                            m_uiSayTimer = 11000;
-                            break;
-                        case 4:
-                            DoScriptText(SAY_MALFURION4, m_creature);
-                            m_uiSayTimer = 4000;
-                            break;
-                        case 5:
-                            m_creature->SetFlag(UNIT_NPC_FLAGS, UNIT_NPC_FLAG_QUESTGIVER);
-                            m_creature->HandleEmote(EMOTE_STATE_NONE);
-                            break;
-                    }
+                DoScriptText(EMOTE_MALFURION1, m_creature);
+            }
 
-                    ++m_uiSpeech;
+            DoCastSpellIfCan(m_creature, SPELL_SPIRIT_SPAWN_IN, TRIGGERED_OLD_TRIGGERED);
+            m_creature->RemoveFlag(UNIT_NPC_FLAGS, UNIT_NPC_FLAG_QUESTGIVER);
+        }
+
+        uint32 m_uiSayTimer;
+        uint32 m_uiSpeech;
+
+        void Reset() override {}
+        void UpdateAI(const uint32 uiDiff) override
+        {
+            // We are in Sunken Temple
+            if (m_creature->GetMap()->IsDungeon())
+            {
+                if (m_uiSpeech < MAX_MALFURION_TEMPLE_SPEECHES)
+                {
+                    if (m_uiSayTimer <= uiDiff)
+                    {
+                        switch (m_uiSpeech)
+                        {
+                            case 0:
+                                m_creature->HandleEmote(EMOTE_ONESHOT_BOW);
+                                m_uiSayTimer = 2000;
+                                break;
+                            case 1:
+                                DoScriptText(SAY_MALFURION1, m_creature);
+                                m_creature->HandleEmote(EMOTE_STATE_TALK);
+                                m_uiSayTimer = 12000;
+                                break;
+                            case 2:
+                                DoScriptText(SAY_MALFURION2, m_creature);
+                                m_uiSayTimer = 12000;
+                                break;
+                            case 3:
+                                DoScriptText(SAY_MALFURION3, m_creature);
+                                m_uiSayTimer = 11000;
+                                break;
+                            case 4:
+                                DoScriptText(SAY_MALFURION4, m_creature);
+                                m_uiSayTimer = 4000;
+                                break;
+                            case 5:
+                                m_creature->SetFlag(UNIT_NPC_FLAGS, UNIT_NPC_FLAG_QUESTGIVER);
+                                m_creature->HandleEmote(EMOTE_STATE_NONE);
+                                break;
+                        }
+
+                        ++m_uiSpeech;
+                    }
+                    else
+                        m_uiSayTimer -= uiDiff;
                 }
-                else
-                    m_uiSayTimer -= uiDiff;
             }
         }
-    }
+    };
+
+
+
 };
 
-UnitAI* GetAI_npc_malfurion(Creature* pCreature)
-{
-    return new npc_malfurionAI(pCreature);
-}
 
 /*######
 ## event_antalarion_statues
 ######*/
-
-bool ProcessEventId_event_antalarion_statue_activation(uint32 uiEventId, Object* pSource, Object* pTarget, bool /*bIsStart*/)
+class event_antalarion_statue_activation : public UnknownScript
 {
-    if (pSource->GetTypeId() == TYPEID_PLAYER && pTarget->GetTypeId() == TYPEID_GAMEOBJECT)
+public:
+    event_antalarion_statue_activation() : UnknownScript("event_antalarion_statue_activation") { }
+
+    bool OnProcessEvent(uint32 uiEventId, Object* pSource, Object* pTarget, bool /*bIsStart*/) override
     {
-        if (instance_sunken_temple* pInstance = (instance_sunken_temple*)((Player*)pSource)->GetInstanceData())
+        if (pSource->GetTypeId() == TYPEID_PLAYER && pTarget->GetTypeId() == TYPEID_GAMEOBJECT)
         {
-            // return if event completed
-            if (pInstance->GetData(TYPE_ATALARION) != NOT_STARTED)
+            if (instance_sunken_temple* pInstance = (instance_sunken_temple*)((Player*)pSource)->GetInstanceData())
+            {
+                // return if event completed
+                if (pInstance->GetData(TYPE_ATALARION) != NOT_STARTED)
+                    return true;
+
+                // Send the event id to process
+                if (pInstance->ProcessStatueEvent(uiEventId))
+                {
+                    // Activate the green light if the correct statue is activated
+                    if (GameObject* pLight = GetClosestGameObjectWithEntry((GameObject*)pTarget, GO_ATALAI_LIGHT, INTERACTION_DISTANCE))
+                        pInstance->DoRespawnGameObject(pLight->GetObjectGuid(), 30 * MINUTE);
+                }
+                else
+                {
+                    // If the wrong statue was activated, then trigger trap
+                    // We don't know actually which trap goes to which statue so we need to search for each
+                    if (GameObject* pTrap = GetClosestGameObjectWithEntry((GameObject*)pTarget, GO_ATALAI_TRAP_1, INTERACTION_DISTANCE))
+                        pTrap->Use((Unit*)pSource);
+                    else if (GameObject* pTrap2 = GetClosestGameObjectWithEntry((GameObject*)pTarget, GO_ATALAI_TRAP_2, INTERACTION_DISTANCE))
+                        pTrap2->Use((Unit*)pSource);
+                    else if (GameObject* pTrap3 = GetClosestGameObjectWithEntry((GameObject*)pTarget, GO_ATALAI_TRAP_3, INTERACTION_DISTANCE))
+                        pTrap3->Use((Unit*)pSource);
+                }
+
                 return true;
-
-            // Send the event id to process
-            if (pInstance->ProcessStatueEvent(uiEventId))
-            {
-                // Activate the green light if the correct statue is activated
-                if (GameObject* pLight = GetClosestGameObjectWithEntry((GameObject*)pTarget, GO_ATALAI_LIGHT, INTERACTION_DISTANCE))
-                    pInstance->DoRespawnGameObject(pLight->GetObjectGuid(), 30 * MINUTE);
             }
-            else
-            {
-                // If the wrong statue was activated, then trigger trap
-                // We don't know actually which trap goes to which statue so we need to search for each
-                if (GameObject* pTrap = GetClosestGameObjectWithEntry((GameObject*)pTarget, GO_ATALAI_TRAP_1, INTERACTION_DISTANCE))
-                    pTrap->Use((Unit*)pSource);
-                else if (GameObject* pTrap2 = GetClosestGameObjectWithEntry((GameObject*)pTarget, GO_ATALAI_TRAP_2, INTERACTION_DISTANCE))
-                    pTrap2->Use((Unit*)pSource);
-                else if (GameObject* pTrap3 = GetClosestGameObjectWithEntry((GameObject*)pTarget, GO_ATALAI_TRAP_3, INTERACTION_DISTANCE))
-                    pTrap3->Use((Unit*)pSource);
-            }
-
-            return true;
         }
+        return false;
     }
-    return false;
-}
+
+
+
+};
 
 /*######
 ## event_avatar_of_hakkar
-######*/
-bool ProcessEventId_event_avatar_of_hakkar(uint32 /*uiEventId*/, Object* pSource, Object* /*pTarget*/, bool /*bIsStart*/)
+######*/class event_avatar_of_hakkar : public UnknownScript
 {
-    if (pSource->GetTypeId() == TYPEID_PLAYER)
+public:
+    event_avatar_of_hakkar() : UnknownScript("event_avatar_of_hakkar") { }
+
+    bool OnProcessEvent(uint32 /*uiEventId*/, Object* pSource, Object* /*pTarget*/, bool /*bIsStart*/) override
     {
-        if (instance_sunken_temple* pInstance = (instance_sunken_temple*)((Player*)pSource)->GetInstanceData())
+        if (pSource->GetTypeId() == TYPEID_PLAYER)
         {
-            // return if not NOT_STARTED
-            if (pInstance->GetData(TYPE_AVATAR) != NOT_STARTED)
+            if (instance_sunken_temple* pInstance = (instance_sunken_temple*)((Player*)pSource)->GetInstanceData())
+            {
+                // return if not NOT_STARTED
+                if (pInstance->GetData(TYPE_AVATAR) != NOT_STARTED)
+                    return true;
+
+                pInstance->SetData(TYPE_AVATAR, IN_PROGRESS);
+
                 return true;
-
-            pInstance->SetData(TYPE_AVATAR, IN_PROGRESS);
-
-            return true;
+            }
         }
+        return false;
     }
-    return false;
-}
+
+
+
+};
 
 /*######
 ## go_eternal_flame
-######*/
-bool GOUse_go_eternal_flame(Player* /*pPlayer*/, GameObject* pGo)
+######*/class go_eternal_flame : public GameObjectScript
 {
-    instance_sunken_temple* pInstance = (instance_sunken_temple*)pGo->GetInstanceData();
+public:
+    go_eternal_flame() : GameObjectScript("go_eternal_flame") { }
 
-    if (!pInstance)
-        return false;
-
-    if (pInstance->GetData(TYPE_AVATAR) != IN_PROGRESS)
-        return false;
-
-    // Set data to special when flame is used
-    pInstance->SetData(TYPE_AVATAR, SPECIAL);
-    pGo->SetFlag(GAMEOBJECT_FLAGS, GO_FLAG_NO_INTERACT);
-
-    return true;
-}
-
-/*######
-## effectDummy_summon_hakkar
-######*/
-bool EffectDummyCreature_summon_hakkar(Unit* pCaster, uint32 uiSpellId, SpellEffectIndex uiEffIndex, Creature* /*pCreatureTarget*/, ObjectGuid /*originalCasterGuid*/)
-{
-    // Always check spellid and effectindex
-    if (uiSpellId == SPELL_SUMMON_AVATAR && uiEffIndex == EFFECT_INDEX_0)
+    bool OnGameObjectUse(Player* /*pPlayer*/, GameObject* pGo) override
     {
-        if (!pCaster || pCaster->GetTypeId() != TYPEID_UNIT)
-            return true;
+        instance_sunken_temple* pInstance = (instance_sunken_temple*)pGo->GetInstanceData();
 
-        // Update entry to avatar of Hakkar and cast some visuals
-        ((Creature*)pCaster)->UpdateEntry(NPC_AVATAR_OF_HAKKAR);
-        pCaster->CastSpell(pCaster, SPELL_AVATAR_SUMMONED, TRIGGERED_OLD_TRIGGERED);
-        DoScriptText(SAY_AVATAR_SPAWN, pCaster);
+        if (!pInstance)
+            return false;
 
-        // Always return true when we are handling this spell and effect
+        if (pInstance->GetData(TYPE_AVATAR) != IN_PROGRESS)
+            return false;
+
+        // Set data to special when flame is used
+        pInstance->SetData(TYPE_AVATAR, SPECIAL);
+        pGo->SetFlag(GAMEOBJECT_FLAGS, GO_FLAG_NO_INTERACT);
+
         return true;
     }
 
-    return false;
-}
+
+
+};
+
+/*######
+## effectDummy_summon_hakkar
+######*/class npc_shade_of_hakkar : public CreatureScript
+{
+public:
+    npc_shade_of_hakkar() : CreatureScript("npc_shade_of_hakkar") { }
+
+    bool OnEffectDummy(Unit* pCaster, uint32 uiSpellId, SpellEffectIndex uiEffIndex, Creature* /*pCreatureTarget*/, ObjectGuid /*originalCasterGuid*/) override
+    {
+        // Always check spellid and effectindex
+        if (uiSpellId == SPELL_SUMMON_AVATAR && uiEffIndex == EFFECT_INDEX_0)
+        {
+            if (!pCaster || pCaster->GetTypeId() != TYPEID_UNIT)
+                return true;
+
+            // Update entry to avatar of Hakkar and cast some visuals
+            ((Creature*)pCaster)->UpdateEntry(NPC_AVATAR_OF_HAKKAR);
+            pCaster->CastSpell(pCaster, SPELL_AVATAR_SUMMONED, TRIGGERED_OLD_TRIGGERED);
+            DoScriptText(SAY_AVATAR_SPAWN, pCaster);
+
+            // Always return true when we are handling this spell and effect
+            return true;
+        }
+
+        return false;
+    }
+
+
+
+};
 
 void AddSC_sunken_temple()
 {
-    Script* pNewScript = new Script;
-    pNewScript->Name = "at_shade_of_eranikus";
-    pNewScript->pAreaTrigger = &AreaTrigger_at_shade_of_eranikus;
-    pNewScript->RegisterSelf();
+    new at_shade_of_eranikus();
+    new npc_malfurion_stormrage();
+    new event_antalarion_statue_activation();
+    new event_avatar_of_hakkar();
+    new go_eternal_flame();
+    new npc_shade_of_hakkar();
 
-    pNewScript = new Script;
-    pNewScript->Name = "npc_malfurion_stormrage";
-    pNewScript->GetAI = &GetAI_npc_malfurion;
-    pNewScript->RegisterSelf();
-
-    pNewScript = new Script;
-    pNewScript->Name = "event_antalarion_statue_activation";
-    pNewScript->pProcessEventId = &ProcessEventId_event_antalarion_statue_activation;
-    pNewScript->RegisterSelf();
-
-    pNewScript = new Script;
-    pNewScript->Name = "event_avatar_of_hakkar";
-    pNewScript->pProcessEventId = &ProcessEventId_event_avatar_of_hakkar;
-    pNewScript->RegisterSelf();
-
-    pNewScript = new Script;
-    pNewScript->Name = "go_eternal_flame";
-    pNewScript->pGOUse = &GOUse_go_eternal_flame;
-    pNewScript->RegisterSelf();
-
-    pNewScript = new Script;
-    pNewScript->Name = "npc_shade_of_hakkar";
-    pNewScript->pEffectDummyNPC = &EffectDummyCreature_summon_hakkar;
-    pNewScript->RegisterSelf();
 }

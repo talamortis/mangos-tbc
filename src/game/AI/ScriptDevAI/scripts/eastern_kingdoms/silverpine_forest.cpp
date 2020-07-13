@@ -53,79 +53,93 @@ enum
     NPC_RANE            = 1950,
     NPC_QUINN           = 1951
 };
-
-struct npc_deathstalker_erlandAI : public npc_escortAI
+class npc_deathstalker_erland : public CreatureScript
 {
-    npc_deathstalker_erlandAI(Creature* pCreature) : npc_escortAI(pCreature) { Reset(); }
+public:
+    npc_deathstalker_erland() : CreatureScript("npc_deathstalker_erland") { }
 
-    void WaypointReached(uint32 i) override
+    bool OnQuestAccept(Player* pPlayer, Creature* pCreature, const Quest* pQuest) override
     {
-        Player* pPlayer = GetPlayerForEscort();
-
-        if (!pPlayer)
-            return;
-
-        switch (i)
+        if (pQuest->GetQuestId() == QUEST_ERLAND)
         {
-            case 1:
-                DoScriptText(SAY_START_2, m_creature, pPlayer);
-                break;
-            case 14:
-                DoScriptText(SAY_END, m_creature, pPlayer);
-                pPlayer->RewardPlayerAndGroupAtEventExplored(QUEST_ERLAND, m_creature);
-                break;
-            case 15:
-                if (Creature* pRane = GetClosestCreatureWithEntry(m_creature, NPC_RANE, 45.0f))
-                    DoScriptText(SAY_RANE, pRane, m_creature);
-                break;
-            case 16:
-                DoScriptText(SAY_RANE_REPLY, m_creature);
-                break;
-            case 17:
-                DoScriptText(SAY_CHECK_NEXT, m_creature);
-                break;
-            case 25:
-                DoScriptText(SAY_QUINN, m_creature);
-                break;
-            case 26:
-                if (Creature* pQuinn = GetClosestCreatureWithEntry(m_creature, NPC_QUINN, 45.0f))
-                    DoScriptText(SAY_QUINN_REPLY, pQuinn, m_creature);
-                break;
-            case 27:
-                DoScriptText(SAY_BYE, m_creature);
-                break;
+            DoScriptText(SAY_START_1, pCreature);
+
+            if (npc_deathstalker_erlandAI* pEscortAI = dynamic_cast<npc_deathstalker_erlandAI*>(pCreature->AI()))
+                pEscortAI->Start(false, pPlayer, pQuest);
         }
+        return true;
     }
 
-    void Reset() override {}
 
-    void Aggro(Unit* who) override
+
+    UnitAI* GetAI(Creature* pCreature)
     {
-        switch (urand(0, 2))
-        {
-            case 0: DoScriptText(SAY_AGGRO_1, m_creature, who); break;
-            case 1: DoScriptText(SAY_AGGRO_2, m_creature, who); break;
-            case 2: DoScriptText(SAY_AGGRO_3, m_creature, who); break;
-        }
+        return new npc_deathstalker_erlandAI(pCreature);
     }
+
+
+
+    struct npc_deathstalker_erlandAI : public npc_escortAI
+    {
+        npc_deathstalker_erlandAI(Creature* pCreature) : npc_escortAI(pCreature) { Reset(); }
+
+        void WaypointReached(uint32 i) override
+        {
+            Player* pPlayer = GetPlayerForEscort();
+
+            if (!pPlayer)
+                return;
+
+            switch (i)
+            {
+                case 1:
+                    DoScriptText(SAY_START_2, m_creature, pPlayer);
+                    break;
+                case 14:
+                    DoScriptText(SAY_END, m_creature, pPlayer);
+                    pPlayer->RewardPlayerAndGroupAtEventExplored(QUEST_ERLAND, m_creature);
+                    break;
+                case 15:
+                    if (Creature* pRane = GetClosestCreatureWithEntry(m_creature, NPC_RANE, 45.0f))
+                        DoScriptText(SAY_RANE, pRane, m_creature);
+                    break;
+                case 16:
+                    DoScriptText(SAY_RANE_REPLY, m_creature);
+                    break;
+                case 17:
+                    DoScriptText(SAY_CHECK_NEXT, m_creature);
+                    break;
+                case 25:
+                    DoScriptText(SAY_QUINN, m_creature);
+                    break;
+                case 26:
+                    if (Creature* pQuinn = GetClosestCreatureWithEntry(m_creature, NPC_QUINN, 45.0f))
+                        DoScriptText(SAY_QUINN_REPLY, pQuinn, m_creature);
+                    break;
+                case 27:
+                    DoScriptText(SAY_BYE, m_creature);
+                    break;
+            }
+        }
+
+        void Reset() override {}
+
+        void Aggro(Unit* who) override
+        {
+            switch (urand(0, 2))
+            {
+                case 0: DoScriptText(SAY_AGGRO_1, m_creature, who); break;
+                case 1: DoScriptText(SAY_AGGRO_2, m_creature, who); break;
+                case 2: DoScriptText(SAY_AGGRO_3, m_creature, who); break;
+            }
+        }
+    };
+
+
+
 };
 
-bool QuestAccept_npc_deathstalker_erland(Player* pPlayer, Creature* pCreature, const Quest* pQuest)
-{
-    if (pQuest->GetQuestId() == QUEST_ERLAND)
-    {
-        DoScriptText(SAY_START_1, pCreature);
 
-        if (npc_deathstalker_erlandAI* pEscortAI = dynamic_cast<npc_deathstalker_erlandAI*>(pCreature->AI()))
-            pEscortAI->Start(false, pPlayer, pQuest);
-    }
-    return true;
-}
-
-UnitAI* GetAI_npc_deathstalker_erland(Creature* pCreature)
-{
-    return new npc_deathstalker_erlandAI(pCreature);
-}
 
 /*#####
 ## npc_deathstalker_faerleia
@@ -172,150 +186,156 @@ SpawnPoint SpawnPoints[] =
 };
 
 static float m_afMoveCoords[] = { -410.69f, 1498.04f, 19.77f};
-
-struct npc_deathstalker_faerleiaAI : public ScriptedAI
+class npc_deathstalker_faerleia : public CreatureScript
 {
-    npc_deathstalker_faerleiaAI(Creature* pCreature) : ScriptedAI(pCreature) { Reset(); }
+public:
+    npc_deathstalker_faerleia() : CreatureScript("npc_deathstalker_faerleia") { }
 
-    void Reset() override {}
-
-    ObjectGuid m_playerGuid;
-    uint32 m_uiWaveTimer;
-    uint32 m_uiSummonCount;
-    uint8  m_uiWaveCount;
-    bool   m_bEventStarted;
-
-    void StartEvent(Player* pPlayer)
+    bool OnQuestAccept(Player* pPlayer, Creature* pCreature, const Quest* pQuest) override
     {
-        m_creature->RemoveFlag(UNIT_NPC_FLAGS, UNIT_NPC_FLAG_QUESTGIVER);
-
-        m_playerGuid  = pPlayer->GetObjectGuid();
-        m_bEventStarted = true;
-        m_uiWaveTimer   = 10000;
-        m_uiSummonCount = 0;
-        m_uiWaveCount   = 0;
-    }
-
-    void FinishEvent()
-    {
-        m_playerGuid.Clear();
-        m_bEventStarted = false;
-        m_creature->SetFlag(UNIT_NPC_FLAGS, UNIT_NPC_FLAG_QUESTGIVER);
-    }
-
-    void JustDied(Unit* /*pKiller*/) override
-    {
-        if (Player* pPlayer = m_creature->GetMap()->GetPlayer(m_playerGuid))
-            pPlayer->SendQuestFailed(QUEST_PYREWOOD_AMBUSH);
-
-        FinishEvent();
-    }
-
-    void JustSummoned(Creature* pSummoned) override
-    {
-        ++m_uiSummonCount;
-
-        // put them on correct waypoints later on
-        float fX, fY, fZ;
-        pSummoned->GetRandomPoint(m_afMoveCoords[0], m_afMoveCoords[1], m_afMoveCoords[2], 10.0f, fX, fY, fZ);
-        pSummoned->GetMotionMaster()->MovePoint(0, fX, fY, fZ);
-    }
-
-    void SummonedCreatureJustDied(Creature* /*pKilled*/) override
-    {
-        --m_uiSummonCount;
-
-        if (!m_uiSummonCount)
+        if (pQuest->GetQuestId() == QUEST_PYREWOOD_AMBUSH)
         {
-            DoCastSpellIfCan(m_creature, SPELL_DRINK_POTION);
+            DoScriptText(SAY_START, pCreature, pPlayer);
 
-            // final wave
-            if (m_uiWaveCount == 4)
+            if (npc_deathstalker_faerleiaAI* pFaerleiaAI = dynamic_cast<npc_deathstalker_faerleiaAI*>(pCreature->AI()))
             {
-                DoScriptText(SAY_COMPLETED, m_creature);
-
-                if (Player* pPlayer = m_creature->GetMap()->GetPlayer(m_playerGuid))
-                    pPlayer->RewardPlayerAndGroupAtEventExplored(QUEST_PYREWOOD_AMBUSH, m_creature);
-
-                FinishEvent();
+                pFaerleiaAI->StartEvent(pPlayer);
+                pCreature->SetFactionTemporary(FACTION_ESCORT_H_NEUTRAL_ACTIVE, TEMPFACTION_RESTORE_RESPAWN); // faction guessed
             }
         }
+        return true;
     }
 
-    void UpdateAI(const uint32 uiDiff) override
+
+
+    UnitAI* GetAI(Creature* pCreature)
     {
-        if (m_bEventStarted && !m_uiSummonCount)
+        return new npc_deathstalker_faerleiaAI(pCreature);
+    }
+
+
+
+    struct npc_deathstalker_faerleiaAI : public ScriptedAI
+    {
+        npc_deathstalker_faerleiaAI(Creature* pCreature) : ScriptedAI(pCreature) { Reset(); }
+
+        void Reset() override {}
+
+        ObjectGuid m_playerGuid;
+        uint32 m_uiWaveTimer;
+        uint32 m_uiSummonCount;
+        uint8  m_uiWaveCount;
+        bool   m_bEventStarted;
+
+        void StartEvent(Player* pPlayer)
         {
-            if (m_uiWaveTimer < uiDiff)
+            m_creature->RemoveFlag(UNIT_NPC_FLAGS, UNIT_NPC_FLAG_QUESTGIVER);
+
+            m_playerGuid  = pPlayer->GetObjectGuid();
+            m_bEventStarted = true;
+            m_uiWaveTimer   = 10000;
+            m_uiSummonCount = 0;
+            m_uiWaveCount   = 0;
+        }
+
+        void FinishEvent()
+        {
+            m_playerGuid.Clear();
+            m_bEventStarted = false;
+            m_creature->SetFlag(UNIT_NPC_FLAGS, UNIT_NPC_FLAG_QUESTGIVER);
+        }
+
+        void JustDied(Unit* /*pKiller*/) override
+        {
+            if (Player* pPlayer = m_creature->GetMap()->GetPlayer(m_playerGuid))
+                pPlayer->SendQuestFailed(QUEST_PYREWOOD_AMBUSH);
+
+            FinishEvent();
+        }
+
+        void JustSummoned(Creature* pSummoned) override
+        {
+            ++m_uiSummonCount;
+
+            // put them on correct waypoints later on
+            float fX, fY, fZ;
+            pSummoned->GetRandomPoint(m_afMoveCoords[0], m_afMoveCoords[1], m_afMoveCoords[2], 10.0f, fX, fY, fZ);
+            pSummoned->GetMotionMaster()->MovePoint(0, fX, fY, fZ);
+        }
+
+        void SummonedCreatureJustDied(Creature* /*pKilled*/) override
+        {
+            --m_uiSummonCount;
+
+            if (!m_uiSummonCount)
             {
-                switch (m_uiWaveCount)
+                DoCastSpellIfCan(m_creature, SPELL_DRINK_POTION);
+
+                // final wave
+                if (m_uiWaveCount == 4)
                 {
-                    case 0:
-                        m_creature->SummonCreature(NPC_COUNCILMAN_SMITHERS,  SpawnPoints[1].fX, SpawnPoints[1].fY, SpawnPoints[1].fZ, SpawnPoints[1].fO, TEMPSPAWN_CORPSE_TIMED_DESPAWN, 20000);
-                        m_uiWaveTimer = 10000;
-                        break;
-                    case 1:
-                        m_creature->SummonCreature(NPC_COUNCILMAN_THATHER,   SpawnPoints[2].fX, SpawnPoints[2].fY, SpawnPoints[2].fZ, SpawnPoints[2].fO, TEMPSPAWN_CORPSE_TIMED_DESPAWN, 20000);
-                        m_creature->SummonCreature(NPC_COUNCILMAN_HENDRICKS, SpawnPoints[1].fX, SpawnPoints[1].fY, SpawnPoints[1].fZ, SpawnPoints[1].fO, TEMPSPAWN_CORPSE_TIMED_DESPAWN, 20000);
-                        m_uiWaveTimer = 10000;
-                        break;
-                    case 2:
-                        m_creature->SummonCreature(NPC_COUNCILMAN_WILHELM,   SpawnPoints[1].fX, SpawnPoints[1].fY, SpawnPoints[1].fZ, SpawnPoints[1].fO, TEMPSPAWN_CORPSE_TIMED_DESPAWN, 20000);
-                        m_creature->SummonCreature(NPC_COUNCILMAN_HARTIN,    SpawnPoints[0].fX, SpawnPoints[0].fY, SpawnPoints[0].fZ, SpawnPoints[0].fO, TEMPSPAWN_CORPSE_TIMED_DESPAWN, 20000);
-                        m_creature->SummonCreature(NPC_COUNCILMAN_HIGARTH,   SpawnPoints[2].fX, SpawnPoints[2].fY, SpawnPoints[2].fZ, SpawnPoints[2].fO, TEMPSPAWN_CORPSE_TIMED_DESPAWN, 20000);
-                        m_uiWaveTimer  = 8000;
-                        break;
-                    case 3:
-                        m_creature->SummonCreature(NPC_COUNCILMAN_COOPER,    SpawnPoints[1].fX, SpawnPoints[1].fY, SpawnPoints[1].fZ, SpawnPoints[1].fO, TEMPSPAWN_CORPSE_TIMED_DESPAWN, 20000);
-                        m_creature->SummonCreature(NPC_COUNCILMAN_BRUNSWICK, SpawnPoints[2].fX, SpawnPoints[2].fY, SpawnPoints[2].fZ, SpawnPoints[2].fO, TEMPSPAWN_CORPSE_TIMED_DESPAWN, 20000);
-                        m_creature->SummonCreature(NPC_LORD_MAYOR_MORRISON,  SpawnPoints[0].fX, SpawnPoints[0].fY, SpawnPoints[0].fZ, SpawnPoints[0].fO, TEMPSPAWN_CORPSE_TIMED_DESPAWN, 20000);
-                        break;
-                }
+                    DoScriptText(SAY_COMPLETED, m_creature);
 
-                ++m_uiWaveCount;
+                    if (Player* pPlayer = m_creature->GetMap()->GetPlayer(m_playerGuid))
+                        pPlayer->RewardPlayerAndGroupAtEventExplored(QUEST_PYREWOOD_AMBUSH, m_creature);
+
+                    FinishEvent();
+                }
             }
-            else
-                m_uiWaveTimer -= uiDiff;
         }
 
-        if (!m_creature->SelectHostileTarget() || !m_creature->GetVictim())
-            return;
+        void UpdateAI(const uint32 uiDiff) override
+        {
+            if (m_bEventStarted && !m_uiSummonCount)
+            {
+                if (m_uiWaveTimer < uiDiff)
+                {
+                    switch (m_uiWaveCount)
+                    {
+                        case 0:
+                            m_creature->SummonCreature(NPC_COUNCILMAN_SMITHERS,  SpawnPoints[1].fX, SpawnPoints[1].fY, SpawnPoints[1].fZ, SpawnPoints[1].fO, TEMPSPAWN_CORPSE_TIMED_DESPAWN, 20000);
+                            m_uiWaveTimer = 10000;
+                            break;
+                        case 1:
+                            m_creature->SummonCreature(NPC_COUNCILMAN_THATHER,   SpawnPoints[2].fX, SpawnPoints[2].fY, SpawnPoints[2].fZ, SpawnPoints[2].fO, TEMPSPAWN_CORPSE_TIMED_DESPAWN, 20000);
+                            m_creature->SummonCreature(NPC_COUNCILMAN_HENDRICKS, SpawnPoints[1].fX, SpawnPoints[1].fY, SpawnPoints[1].fZ, SpawnPoints[1].fO, TEMPSPAWN_CORPSE_TIMED_DESPAWN, 20000);
+                            m_uiWaveTimer = 10000;
+                            break;
+                        case 2:
+                            m_creature->SummonCreature(NPC_COUNCILMAN_WILHELM,   SpawnPoints[1].fX, SpawnPoints[1].fY, SpawnPoints[1].fZ, SpawnPoints[1].fO, TEMPSPAWN_CORPSE_TIMED_DESPAWN, 20000);
+                            m_creature->SummonCreature(NPC_COUNCILMAN_HARTIN,    SpawnPoints[0].fX, SpawnPoints[0].fY, SpawnPoints[0].fZ, SpawnPoints[0].fO, TEMPSPAWN_CORPSE_TIMED_DESPAWN, 20000);
+                            m_creature->SummonCreature(NPC_COUNCILMAN_HIGARTH,   SpawnPoints[2].fX, SpawnPoints[2].fY, SpawnPoints[2].fZ, SpawnPoints[2].fO, TEMPSPAWN_CORPSE_TIMED_DESPAWN, 20000);
+                            m_uiWaveTimer  = 8000;
+                            break;
+                        case 3:
+                            m_creature->SummonCreature(NPC_COUNCILMAN_COOPER,    SpawnPoints[1].fX, SpawnPoints[1].fY, SpawnPoints[1].fZ, SpawnPoints[1].fO, TEMPSPAWN_CORPSE_TIMED_DESPAWN, 20000);
+                            m_creature->SummonCreature(NPC_COUNCILMAN_BRUNSWICK, SpawnPoints[2].fX, SpawnPoints[2].fY, SpawnPoints[2].fZ, SpawnPoints[2].fO, TEMPSPAWN_CORPSE_TIMED_DESPAWN, 20000);
+                            m_creature->SummonCreature(NPC_LORD_MAYOR_MORRISON,  SpawnPoints[0].fX, SpawnPoints[0].fY, SpawnPoints[0].fZ, SpawnPoints[0].fO, TEMPSPAWN_CORPSE_TIMED_DESPAWN, 20000);
+                            break;
+                    }
 
-        DoMeleeAttackIfReady();
-    }
+                    ++m_uiWaveCount;
+                }
+                else
+                    m_uiWaveTimer -= uiDiff;
+            }
+
+            if (!m_creature->SelectHostileTarget() || !m_creature->GetVictim())
+                return;
+
+            DoMeleeAttackIfReady();
+        }
+    };
+
+
+
 };
 
-bool QuestAccept_npc_deathstalker_faerleia(Player* pPlayer, Creature* pCreature, const Quest* pQuest)
-{
-    if (pQuest->GetQuestId() == QUEST_PYREWOOD_AMBUSH)
-    {
-        DoScriptText(SAY_START, pCreature, pPlayer);
 
-        if (npc_deathstalker_faerleiaAI* pFaerleiaAI = dynamic_cast<npc_deathstalker_faerleiaAI*>(pCreature->AI()))
-        {
-            pFaerleiaAI->StartEvent(pPlayer);
-            pCreature->SetFactionTemporary(FACTION_ESCORT_H_NEUTRAL_ACTIVE, TEMPFACTION_RESTORE_RESPAWN); // faction guessed
-        }
-    }
-    return true;
-}
-
-UnitAI* GetAI_npc_deathstalker_faerleia(Creature* pCreature)
-{
-    return new npc_deathstalker_faerleiaAI(pCreature);
-}
 
 void AddSC_silverpine_forest()
 {
-    Script* pNewScript = new Script;
-    pNewScript->Name = "npc_deathstalker_erland";
-    pNewScript->GetAI = &GetAI_npc_deathstalker_erland;
-    pNewScript->pQuestAcceptNPC = &QuestAccept_npc_deathstalker_erland;
-    pNewScript->RegisterSelf();
+    new npc_deathstalker_erland();
+    new npc_deathstalker_faerleia();
 
-    pNewScript = new Script;
-    pNewScript->Name = "npc_deathstalker_faerleia";
-    pNewScript->GetAI = &GetAI_npc_deathstalker_faerleia;
-    pNewScript->pQuestAcceptNPC = &QuestAccept_npc_deathstalker_faerleia;
-    pNewScript->RegisterSelf();
 }

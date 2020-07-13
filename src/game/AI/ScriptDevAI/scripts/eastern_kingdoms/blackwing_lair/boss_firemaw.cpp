@@ -41,83 +41,92 @@ enum FiremawActions
     FIREMAW_THRASH,
     FIREMAW_ACTION_MAX,
 };
-
-struct boss_firemawAI : public CombatAI
+class boss_firemaw : public CreatureScript
 {
-    boss_firemawAI(Creature* creature) : CombatAI(creature, FIREMAW_ACTION_MAX), m_instance(static_cast<ScriptedInstance*>(creature->GetInstanceData()))
+public:
+    boss_firemaw() : CreatureScript("boss_firemaw") { }
+
+    UnitAI* GetAI(Creature* creature)
     {
-        AddCombatAction(FIREMAW_SHADOW_FLAME, uint32(18 * IN_MILLISECONDS));
-        AddCombatAction(FIREMAW_WING_BUFFET, uint32(30 * IN_MILLISECONDS));
-        AddCombatAction(FIREMAW_FLAME_BUFFET, 5000u);
-        AddCombatAction(FIREMAW_THRASH, uint32(6 * IN_MILLISECONDS));
+        return new boss_firemawAI(creature);
     }
 
-    ScriptedInstance* m_instance;
 
-    void Aggro(Unit* /*who*/) override
-    {
-        if (m_instance)
-            m_instance->SetData(TYPE_FIREMAW, IN_PROGRESS);
-    }
 
-    void JustDied(Unit* /*killer*/) override
+    struct boss_firemawAI : public CombatAI
     {
-        if (m_instance)
-            m_instance->SetData(TYPE_FIREMAW, DONE);
-    }
-
-    void JustReachedHome() override
-    {
-        if (m_instance)
-            m_instance->SetData(TYPE_FIREMAW, FAIL);
-    }
-
-    void SpellHitTarget(Unit* target, const SpellEntry* spellInfo, SpellMissInfo /*missInfo*/) override
-    {
-        if (spellInfo->Id == SPELL_WING_BUFFET) // reduces threat of everyone hit
-            m_creature->getThreatManager().modifyThreatPercent(target, -50);
-    }
-
-    void ExecuteAction(uint32 action) override
-    {
-        switch (action)
+        boss_firemawAI(Creature* creature) : CombatAI(creature, FIREMAW_ACTION_MAX), m_instance(static_cast<ScriptedInstance*>(creature->GetInstanceData()))
         {
-            case FIREMAW_SHADOW_FLAME:
+            AddCombatAction(FIREMAW_SHADOW_FLAME, uint32(18 * IN_MILLISECONDS));
+            AddCombatAction(FIREMAW_WING_BUFFET, uint32(30 * IN_MILLISECONDS));
+            AddCombatAction(FIREMAW_FLAME_BUFFET, 5000u);
+            AddCombatAction(FIREMAW_THRASH, uint32(6 * IN_MILLISECONDS));
+        }
+
+        ScriptedInstance* m_instance;
+
+        void Aggro(Unit* /*who*/) override
+        {
+            if (m_instance)
+                m_instance->SetData(TYPE_FIREMAW, IN_PROGRESS);
+        }
+
+        void JustDied(Unit* /*killer*/) override
+        {
+            if (m_instance)
+                m_instance->SetData(TYPE_FIREMAW, DONE);
+        }
+
+        void JustReachedHome() override
+        {
+            if (m_instance)
+                m_instance->SetData(TYPE_FIREMAW, FAIL);
+        }
+
+        void SpellHitTarget(Unit* target, const SpellEntry* spellInfo, SpellMissInfo /*missInfo*/) override
+        {
+            if (spellInfo->Id == SPELL_WING_BUFFET) // reduces threat of everyone hit
+                m_creature->getThreatManager().modifyThreatPercent(target, -50);
+        }
+
+        void ExecuteAction(uint32 action) override
+        {
+            switch (action)
             {
-                if (DoCastSpellIfCan(nullptr, SPELL_SHADOW_FLAME) == CAST_OK)
-                    ResetCombatAction(action, urand(15 * IN_MILLISECONDS, 18 * IN_MILLISECONDS));
-                break;
-            }
-            case FIREMAW_WING_BUFFET:
-            {
-                if (DoCastSpellIfCan(nullptr, SPELL_WING_BUFFET) == CAST_OK)
-                    ResetCombatAction(action, urand(30 * IN_MILLISECONDS, 35 * IN_MILLISECONDS));
-                break;
-            }
-            case FIREMAW_FLAME_BUFFET:
-            {
-                if (DoCastSpellIfCan(nullptr, SPELL_FLAME_BUFFET) == CAST_OK)
-                    ResetCombatAction(action, 5000);
-                break;
-            }
-            case FIREMAW_THRASH:
-            {
-                if (DoCastSpellIfCan(nullptr, SPELL_THRASH) == CAST_OK)
-                    ResetCombatAction(action, urand(2 * IN_MILLISECONDS, 6 * IN_MILLISECONDS));
-                break;
+                case FIREMAW_SHADOW_FLAME:
+                {
+                    if (DoCastSpellIfCan(nullptr, SPELL_SHADOW_FLAME) == CAST_OK)
+                        ResetCombatAction(action, urand(15 * IN_MILLISECONDS, 18 * IN_MILLISECONDS));
+                    break;
+                }
+                case FIREMAW_WING_BUFFET:
+                {
+                    if (DoCastSpellIfCan(nullptr, SPELL_WING_BUFFET) == CAST_OK)
+                        ResetCombatAction(action, urand(30 * IN_MILLISECONDS, 35 * IN_MILLISECONDS));
+                    break;
+                }
+                case FIREMAW_FLAME_BUFFET:
+                {
+                    if (DoCastSpellIfCan(nullptr, SPELL_FLAME_BUFFET) == CAST_OK)
+                        ResetCombatAction(action, 5000);
+                    break;
+                }
+                case FIREMAW_THRASH:
+                {
+                    if (DoCastSpellIfCan(nullptr, SPELL_THRASH) == CAST_OK)
+                        ResetCombatAction(action, urand(2 * IN_MILLISECONDS, 6 * IN_MILLISECONDS));
+                    break;
+                }
             }
         }
-    }
+    };
+
+
+
 };
-UnitAI* GetAI_boss_firemaw(Creature* creature)
-{
-    return new boss_firemawAI(creature);
-}
 
 void AddSC_boss_firemaw()
 {
-    Script* pNewScript = new Script;
-    pNewScript->Name = "boss_firemaw";
-    pNewScript->GetAI = &GetAI_boss_firemaw;
-    pNewScript->RegisterSelf();
+    new boss_firemaw();
+
 }

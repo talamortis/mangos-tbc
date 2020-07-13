@@ -40,26 +40,34 @@ enum
     SPELL_DOMINION_SOUL     = 16053,
     NPC_EMBERSTRIFE         = 10321
 };
-
-bool ItemUse_item_orb_of_draconic_energy(Player* pPlayer, Item* pItem, const SpellCastTargets& /*pTargets*/)
+class item_orb_of_draconic_energy : public ItemScript
 {
-    Creature* pEmberstrife = GetClosestCreatureWithEntry(pPlayer, NPC_EMBERSTRIFE, 20.0f);
-    if (!pEmberstrife)
-        return false;
+public:
+    item_orb_of_draconic_energy() : ItemScript("item_orb_of_draconic_energy") { }
 
-    // If Emberstrife already mind controled or above 10% HP: force spell cast failure
-    if (pEmberstrife->HasAura(SPELL_DOMINION_SOUL) || pEmberstrife->GetHealthPercent() > 10.0f)
+    bool OnItemUse(Player* pPlayer, Item* pItem, const SpellCastTargets& /*pTargets*/) override
     {
-        pPlayer->SendEquipError(EQUIP_ERR_NONE, pItem, nullptr);
+        Creature* pEmberstrife = GetClosestCreatureWithEntry(pPlayer, NPC_EMBERSTRIFE, 20.0f);
+        if (!pEmberstrife)
+            return false;
 
-        if (const SpellEntry* pSpellInfo = GetSpellStore()->LookupEntry<SpellEntry>(SPELL_DOMINION_SOUL))
-            Spell::SendCastResult(pPlayer, pSpellInfo, 1, SPELL_FAILED_TARGET_AURASTATE);
+        // If Emberstrife already mind controled or above 10% HP: force spell cast failure
+        if (pEmberstrife->HasAura(SPELL_DOMINION_SOUL) || pEmberstrife->GetHealthPercent() > 10.0f)
+        {
+            pPlayer->SendEquipError(EQUIP_ERR_NONE, pItem, nullptr);
 
-        return true;
+            if (const SpellEntry* pSpellInfo = GetSpellStore()->LookupEntry<SpellEntry>(SPELL_DOMINION_SOUL))
+                Spell::SendCastResult(pPlayer, pSpellInfo, 1, SPELL_FAILED_TARGET_AURASTATE);
+
+            return true;
+        }
+
+        return false;
     }
 
-    return false;
-}
+
+
+};
 
 /*#####
 # item_arcane_charges
@@ -69,40 +77,56 @@ enum
 {
     SPELL_ARCANE_CHARGES    = 45072
 };
-
-bool ItemUse_item_arcane_charges(Player* pPlayer, Item* pItem, const SpellCastTargets& /*pTargets*/)
+class item_arcane_charges : public ItemScript
 {
-    if (pPlayer->IsTaxiFlying())
-        return false;
+public:
+    item_arcane_charges() : ItemScript("item_arcane_charges") { }
 
-    pPlayer->SendEquipError(EQUIP_ERR_NONE, pItem, nullptr);
+    bool OnItemUse(Player* pPlayer, Item* pItem, const SpellCastTargets& /*pTargets*/) override
+    {
+        if (pPlayer->IsTaxiFlying())
+            return false;
 
-    if (const SpellEntry* pSpellInfo = GetSpellStore()->LookupEntry<SpellEntry>(SPELL_ARCANE_CHARGES))
-        Spell::SendCastResult(pPlayer, pSpellInfo, 1, SPELL_FAILED_ERROR);
+        pPlayer->SendEquipError(EQUIP_ERR_NONE, pItem, nullptr);
 
-    return true;
-}
+        if (const SpellEntry* pSpellInfo = GetSpellStore()->LookupEntry<SpellEntry>(SPELL_ARCANE_CHARGES))
+            Spell::SendCastResult(pPlayer, pSpellInfo, 1, SPELL_FAILED_ERROR);
+
+        return true;
+    }
+
+
+
+};
 
 /*#####
 # item_flying_machine
 #####*/
-
-bool ItemUse_item_flying_machine(Player* pPlayer, Item* pItem, const SpellCastTargets& /*pTargets*/)
+class item_flying_machine : public ItemScript
 {
-    uint32 itemId = pItem->GetEntry();
+public:
+    item_flying_machine() : ItemScript("item_flying_machine") { }
 
-    if (itemId == 34060)
-        if (pPlayer->GetSkillValueBase(SKILL_RIDING) >= 225)
-            return false;
+    bool OnItemUse(Player* pPlayer, Item* pItem, const SpellCastTargets& /*pTargets*/) override
+    {
+        uint32 itemId = pItem->GetEntry();
 
-    if (itemId == 34061)
-        if (pPlayer->GetSkillValueBase(SKILL_RIDING) == 300)
-            return false;
+        if (itemId == 34060)
+            if (pPlayer->GetSkillValueBase(SKILL_RIDING) >= 225)
+                return false;
 
-    debug_log("SD2: Player attempt to use item %u, but did not meet riding requirement", itemId);
-    pPlayer->SendEquipError(EQUIP_ERR_CANT_EQUIP_SKILL, pItem, nullptr);
-    return true;
-}
+        if (itemId == 34061)
+            if (pPlayer->GetSkillValueBase(SKILL_RIDING) == 300)
+                return false;
+
+        debug_log("SD2: Player attempt to use item %u, but did not meet riding requirement", itemId);
+        pPlayer->SendEquipError(EQUIP_ERR_CANT_EQUIP_SKILL, pItem, nullptr);
+        return true;
+    }
+
+
+
+};
 
 /*#####
 # item_gor_dreks_ointment
@@ -113,41 +137,35 @@ enum
     NPC_TH_DIRE_WOLF        = 20748,
     SPELL_GORDREKS_OINTMENT = 32578
 };
-
-bool ItemUse_item_gor_dreks_ointment(Player* pPlayer, Item* pItem, const SpellCastTargets& pTargets)
+class item_gor_dreks_ointment : public ItemScript
 {
-    if (pTargets.getUnitTarget() && pTargets.getUnitTarget()->GetTypeId() == TYPEID_UNIT && pTargets.getUnitTarget()->HasAura(SPELL_GORDREKS_OINTMENT))
+public:
+    item_gor_dreks_ointment() : ItemScript("item_gor_dreks_ointment") { }
+
+    bool OnItemUse(Player* pPlayer, Item* pItem, const SpellCastTargets& pTargets) override
     {
-        pPlayer->SendEquipError(EQUIP_ERR_NONE, pItem, nullptr);
+        if (pTargets.getUnitTarget() && pTargets.getUnitTarget()->GetTypeId() == TYPEID_UNIT && pTargets.getUnitTarget()->HasAura(SPELL_GORDREKS_OINTMENT))
+        {
+            pPlayer->SendEquipError(EQUIP_ERR_NONE, pItem, nullptr);
 
-        if (const SpellEntry* pSpellInfo = GetSpellStore()->LookupEntry<SpellEntry>(SPELL_GORDREKS_OINTMENT))
-            Spell::SendCastResult(pPlayer, pSpellInfo, 1, SPELL_FAILED_TARGET_AURASTATE);
+            if (const SpellEntry* pSpellInfo = GetSpellStore()->LookupEntry<SpellEntry>(SPELL_GORDREKS_OINTMENT))
+                Spell::SendCastResult(pPlayer, pSpellInfo, 1, SPELL_FAILED_TARGET_AURASTATE);
 
-        return true;
+            return true;
+        }
+
+        return false;
     }
 
-    return false;
-}
+
+
+};
 
 void AddSC_item_scripts()
 {
-    Script* pNewScript = new Script;
-    pNewScript->Name = "item_orb_of_draconic_energy";
-    pNewScript->pItemUse = &ItemUse_item_orb_of_draconic_energy;
-    pNewScript->RegisterSelf();
+    new item_orb_of_draconic_energy();
+    new item_arcane_charges();
+    new item_flying_machine();
+    new item_gor_dreks_ointment();
 
-    pNewScript = new Script;
-    pNewScript->Name = "item_arcane_charges";
-    pNewScript->pItemUse = &ItemUse_item_arcane_charges;
-    pNewScript->RegisterSelf();
-
-    pNewScript = new Script;
-    pNewScript->Name = "item_flying_machine";
-    pNewScript->pItemUse = &ItemUse_item_flying_machine;
-    pNewScript->RegisterSelf();
-
-    pNewScript = new Script;
-    pNewScript->Name = "item_gor_dreks_ointment";
-    pNewScript->pItemUse = &ItemUse_item_gor_dreks_ointment;
-    pNewScript->RegisterSelf();
 }

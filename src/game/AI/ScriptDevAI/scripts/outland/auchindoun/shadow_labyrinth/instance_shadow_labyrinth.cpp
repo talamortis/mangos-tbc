@@ -184,11 +184,20 @@ void instance_shadow_labyrinth::Load(const char* chrIn)
 
     OUT_LOAD_INST_DATA_COMPLETE;
 }
-
-InstanceData* GetInstanceData_instance_shadow_labyrinth(Map* pMap)
+class instance_shadow_labyrinth : public InstanceMapScript
 {
-    return new instance_shadow_labyrinth(pMap);
-}
+public:
+    instance_shadow_labyrinth() : InstanceMapScript("instance_shadow_labyrinth") { }
+
+    InstanceData* GetInstanceScript(Map* pMap) const override
+    {
+        return new instance_shadow_labyrinth(pMap);
+    }
+
+
+
+
+};
 
 struct go_screaming_hall_door : public GameObjectAI
 {
@@ -219,21 +228,23 @@ struct go_screaming_hall_door : public GameObjectAI
             m_doorCheckNearbyPlayersTimer -= diff;
     }
 };
-
-GameObjectAI* GetAIgo_screaming_hall_door(GameObject* go)
+class go_screaming_hall_door : public GameObjectScript
 {
-    return new go_screaming_hall_door(go);
-}
+public:
+    go_screaming_hall_door() : GameObjectScript("go_screaming_hall_door") { }
+
+    GameObjectAI* GetAIgo_screaming_hall_door(GameObject* go)
+    {
+        return new go_screaming_hall_door(go);
+    }
+
+
+
+};
 
 void AddSC_instance_shadow_labyrinth()
 {
-    Script* pNewScript = new Script;
-    pNewScript->Name = "instance_shadow_labyrinth";
-    pNewScript->GetInstanceData = &GetInstanceData_instance_shadow_labyrinth;
-    pNewScript->RegisterSelf();
+    new instance_shadow_labyrinth();
+    new go_screaming_hall_door();
 
-    pNewScript = new Script;
-    pNewScript->Name = "go_screaming_hall_door";
-    pNewScript->GetGameObjectAI = &GetAIgo_screaming_hall_door;
-    pNewScript->RegisterSelf();
 }

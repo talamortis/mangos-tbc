@@ -160,8 +160,5 @@ UnitAI* GetAI_boss_razuvious(Creature* creature)
 
 void AddSC_boss_razuvious()
 {
-    Script* newScript = new Script;
-    newScript->Name = "boss_razuvious";
-    newScript->GetAI = &GetAI_boss_razuvious;
-    newScript->RegisterSelf();
+
 }

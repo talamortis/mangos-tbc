@@ -120,367 +120,385 @@ static const uint32 auiPortals[MAX_PORTALS] =
 ## boss_netherspite
 ######*/
 
-// TODO: Should propably have 25yd aggro range?
-struct boss_netherspiteAI : public ScriptedAI
+// TODO: Should propably have 25yd aggro range?class boss_netherspite : public CreatureScript
 {
-    boss_netherspiteAI(Creature* creature) : ScriptedAI(creature), m_instance(static_cast<ScriptedInstance*>(creature->GetInstanceData()))
+public:
+    boss_netherspite() : CreatureScript("boss_netherspite") { }
+
+    UnitAI* GetAI(Creature* pCreature)
     {
-        Reset();
+        return new boss_netherspiteAI(pCreature);
     }
 
-    ScriptedInstance* m_instance;
 
-    NetherspitePhases m_uiActivePhase;
 
-    uint32 m_uiEnrageTimer;
-    uint32 m_uiVoidZoneTimer;
-    uint32 m_uiPhaseSwitchTimer;
-    uint32 m_uiNetherbreathTimer;
-    uint32 m_uiEmpowermentTimer;
-
-    std::vector<uint32> m_vPortalEntryList;
-
-    std::vector<ObjectGuid> m_vPortalGuidList;
-
-    void Reset() override
+    struct boss_netherspiteAI : public ScriptedAI
     {
-        m_uiActivePhase       = BEAM_PHASE;
-
-        m_uiEmpowermentTimer  = 10000;
-        m_uiEnrageTimer       = 9 * MINUTE * IN_MILLISECONDS;
-        m_uiVoidZoneTimer     = 15000;
-        m_uiPhaseSwitchTimer  = MINUTE * IN_MILLISECONDS;
-
-        SetCombatMovement(true);
-
-        // initialize the portal list
-        m_vPortalEntryList.clear();
-        m_vPortalEntryList.resize(MAX_PORTALS);
-
-        for (uint8 i = 0; i < MAX_PORTALS; ++i)
-            m_vPortalEntryList[i] = auiPortals[i];
-
-        m_creature->FixateTarget(nullptr);
-    }
-
-    void Aggro(Unit* /*who*/) override
-    {
-        if (m_instance)
-            m_instance->SetData(TYPE_NETHERSPITE, IN_PROGRESS);
-
-        DoSummonPortals();
-        DoCastSpellIfCan(m_creature, SPELL_NETHERBURN);
-    }
-
-    void JustDied(Unit* /*killer*/) override
-    {
-        if (m_instance)
-            m_instance->SetData(TYPE_NETHERSPITE, DONE);
-
-        DespawnPortals();
-    }
-
-    void DespawnPortals()
-    {
-        for (ObjectGuid& portalGuid : m_vPortalGuidList)
-            if (Creature* portal = m_creature->GetMap()->GetCreature(portalGuid))
-                portal->ForcedDespawn();
-
-        m_vPortalGuidList.clear();
-    }
-
-    void EnterEvadeMode() override
-    {
-        ScriptedAI::EnterEvadeMode();
-
-        if (m_instance)
-            m_instance->SetData(TYPE_NETHERSPITE, FAIL);
-        
-        DespawnPortals();
-    }
-
-    void SwitchPhases()
-    {
-        if (m_uiActivePhase == BEAM_PHASE)
-        {            
-            if (DoCastSpellIfCan(m_creature, SPELL_SHADOWFORM, CAST_TRIGGERED) == CAST_OK)
-            {
-                m_creature->RemoveAurasDueToSpell(SPELL_EMPOWERMENT);
-                m_creature->RemoveAurasDueToSpell(SPELL_NETHERBURN);
-                DoCastSpellIfCan(m_creature, SPELL_NETHERSPITE_ROAR);
-
-                SetCombatMovement(false);
-                SetCombatScriptStatus(true);
-                SetMeleeEnabled(false);
-                m_creature->SetTarget(nullptr);
-
-                m_uiActivePhase = BANISH_PHASE;
-                DoScriptText(EMOTE_PHASE_BANISH, m_creature);
-
-                m_uiNetherbreathTimer = 2000;
-                m_uiPhaseSwitchTimer  = 30000;
-
-                DespawnPortals();
-            }
-        }
-        else
+        boss_netherspiteAI(Creature* creature) : ScriptedAI(creature), m_instance(static_cast<ScriptedInstance*>(creature->GetInstanceData()))
         {
-            DoCastSpellIfCan(m_creature, SPELL_NETHERBURN, CAST_TRIGGERED);
-            m_creature->RemoveAurasDueToSpell(SPELL_SHADOWFORM);
-            DoCastSpellIfCan(m_creature, SPELL_NETHERSPITE_ROAR);
+            Reset();
+        }
+
+        ScriptedInstance* m_instance;
+
+        NetherspitePhases m_uiActivePhase;
+
+        uint32 m_uiEnrageTimer;
+        uint32 m_uiVoidZoneTimer;
+        uint32 m_uiPhaseSwitchTimer;
+        uint32 m_uiNetherbreathTimer;
+        uint32 m_uiEmpowermentTimer;
+
+        std::vector<uint32> m_vPortalEntryList;
+
+        std::vector<ObjectGuid> m_vPortalGuidList;
+
+        void Reset() override
+        {
+            m_uiActivePhase       = BEAM_PHASE;
+
+            m_uiEmpowermentTimer  = 10000;
+            m_uiEnrageTimer       = 9 * MINUTE * IN_MILLISECONDS;
+            m_uiVoidZoneTimer     = 15000;
+            m_uiPhaseSwitchTimer  = MINUTE * IN_MILLISECONDS;
+
             SetCombatMovement(true);
-            SetCombatScriptStatus(false);
-            SetMeleeEnabled(true);
 
-            if (m_creature->GetVictim())
-            {
-                m_creature->SetTarget(m_creature->GetVictim());
-                DoStartMovement(m_creature->GetVictim());
-            }
+            // initialize the portal list
+            m_vPortalEntryList.clear();
+            m_vPortalEntryList.resize(MAX_PORTALS);
 
-            m_uiActivePhase = BEAM_PHASE;
-            DoScriptText(EMOTE_PHASE_BEAM, m_creature);
+            for (uint8 i = 0; i < MAX_PORTALS; ++i)
+                m_vPortalEntryList[i] = auiPortals[i];
+
+            m_creature->FixateTarget(nullptr);
+        }
+
+        void Aggro(Unit* /*who*/) override
+        {
+            if (m_instance)
+                m_instance->SetData(TYPE_NETHERSPITE, IN_PROGRESS);
 
             DoSummonPortals();
-            m_uiEmpowermentTimer  = 10000;
-            m_uiPhaseSwitchTimer  = MINUTE * IN_MILLISECONDS;
+            DoCastSpellIfCan(m_creature, SPELL_NETHERBURN);
         }
 
-        // reset threat every phase switch
-        DoResetThreat();
-    }
-
-    void DoSummonPortals()
-    {
-        for (uint8 i = 0; i < MAX_PORTALS; ++i)
-            m_creature->SummonCreature(m_vPortalEntryList[i], aPortalCoordinates[i].fX, aPortalCoordinates[i].fY, aPortalCoordinates[i].fZ, aPortalCoordinates[i].fO, TEMPSPAWN_DEAD_DESPAWN, 0);
-
-        // randomize the portals after the first summon
-        std::random_shuffle(m_vPortalEntryList.begin(), m_vPortalEntryList.end());
-    }
-
-    void JustSummoned(Creature* summoned) override
-    {
-        m_vPortalGuidList.push_back(summoned->GetObjectGuid());
-
-        switch (summoned->GetEntry())
+        void JustDied(Unit* /*killer*/) override
         {
-            case NPC_PORTAL_RED:
-                summoned->CastSpell(summoned, SPELL_RED_PORTAL, TRIGGERED_NONE);
-                break;
-            case NPC_PORTAL_GREEN:
-                summoned->CastSpell(summoned, SPELL_GREEN_PORTAL, TRIGGERED_NONE);
-                break;
-            case NPC_PORTAL_BLUE:
-                summoned->CastSpell(summoned, SPELL_BLUE_PORTAL, TRIGGERED_NONE);
-                break;
-        }
-    }
+            if (m_instance)
+                m_instance->SetData(TYPE_NETHERSPITE, DONE);
 
-    void UpdateAI(const uint32 uiDiff) override
-    {
-        if (!m_creature->SelectHostileTarget())
-            return;
-
-        if (GetCombatScriptStatus() && m_instance && m_instance->GetPlayerInMap(true, false) == nullptr)
-        {
-            EnterEvadeMode();
-            return;
+            DespawnPortals();
         }
 
-        if (m_uiPhaseSwitchTimer <= uiDiff)
-            SwitchPhases();
-        else
-            m_uiPhaseSwitchTimer -= uiDiff;
-
-        if (m_uiEnrageTimer)
+        void DespawnPortals()
         {
-            if (m_uiEnrageTimer <= uiDiff)
-            {
-                if (DoCastSpellIfCan(m_creature, SPELL_NETHER_INFUSION) == CAST_OK)
-                    m_uiEnrageTimer = 0;
-            }
-            else
-                m_uiEnrageTimer -= uiDiff;
+            for (ObjectGuid& portalGuid : m_vPortalGuidList)
+                if (Creature* portal = m_creature->GetMap()->GetCreature(portalGuid))
+                    portal->ForcedDespawn();
+
+            m_vPortalGuidList.clear();
         }
 
-        if (m_uiActivePhase == BEAM_PHASE)
+        void EnterEvadeMode() override
         {
-            if (m_uiVoidZoneTimer < uiDiff)
-            {
-                if (Unit* pTarget = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, nullptr, SELECT_FLAG_PLAYER))
+            ScriptedAI::EnterEvadeMode();
+
+            if (m_instance)
+                m_instance->SetData(TYPE_NETHERSPITE, FAIL);
+        
+            DespawnPortals();
+        }
+
+        void SwitchPhases()
+        {
+            if (m_uiActivePhase == BEAM_PHASE)
+            {        
+                if (DoCastSpellIfCan(m_creature, SPELL_SHADOWFORM, CAST_TRIGGERED) == CAST_OK)
                 {
-                    if (DoCastSpellIfCan(pTarget, SPELL_VOID_ZONE) == CAST_OK)
-                        m_uiVoidZoneTimer = 15000;
+                    m_creature->RemoveAurasDueToSpell(SPELL_EMPOWERMENT);
+                    m_creature->RemoveAurasDueToSpell(SPELL_NETHERBURN);
+                    DoCastSpellIfCan(m_creature, SPELL_NETHERSPITE_ROAR);
+
+                    SetCombatMovement(false);
+                    SetCombatScriptStatus(true);
+                    SetMeleeEnabled(false);
+                    m_creature->SetTarget(nullptr);
+
+                    m_uiActivePhase = BANISH_PHASE;
+                    DoScriptText(EMOTE_PHASE_BANISH, m_creature);
+
+                    m_uiNetherbreathTimer = 2000;
+                    m_uiPhaseSwitchTimer  = 30000;
+
+                    DespawnPortals();
                 }
             }
             else
-                m_uiVoidZoneTimer -= uiDiff;
-
-            if (m_uiEmpowermentTimer)
             {
-                if (m_uiEmpowermentTimer <= uiDiff)
+                DoCastSpellIfCan(m_creature, SPELL_NETHERBURN, CAST_TRIGGERED);
+                m_creature->RemoveAurasDueToSpell(SPELL_SHADOWFORM);
+                DoCastSpellIfCan(m_creature, SPELL_NETHERSPITE_ROAR);
+                SetCombatMovement(true);
+                SetCombatScriptStatus(false);
+                SetMeleeEnabled(true);
+
+                if (m_creature->GetVictim())
                 {
-                    if (DoCastSpellIfCan(m_creature, SPELL_EMPOWERMENT) == CAST_OK)
+                    m_creature->SetTarget(m_creature->GetVictim());
+                    DoStartMovement(m_creature->GetVictim());
+                }
+
+                m_uiActivePhase = BEAM_PHASE;
+                DoScriptText(EMOTE_PHASE_BEAM, m_creature);
+
+                DoSummonPortals();
+                m_uiEmpowermentTimer  = 10000;
+                m_uiPhaseSwitchTimer  = MINUTE * IN_MILLISECONDS;
+            }
+
+            // reset threat every phase switch
+            DoResetThreat();
+        }
+
+        void DoSummonPortals()
+        {
+            for (uint8 i = 0; i < MAX_PORTALS; ++i)
+                m_creature->SummonCreature(m_vPortalEntryList[i], aPortalCoordinates[i].fX, aPortalCoordinates[i].fY, aPortalCoordinates[i].fZ, aPortalCoordinates[i].fO, TEMPSPAWN_DEAD_DESPAWN, 0);
+
+            // randomize the portals after the first summon
+            std::random_shuffle(m_vPortalEntryList.begin(), m_vPortalEntryList.end());
+        }
+
+        void JustSummoned(Creature* summoned) override
+        {
+            m_vPortalGuidList.push_back(summoned->GetObjectGuid());
+
+            switch (summoned->GetEntry())
+            {
+                case NPC_PORTAL_RED:
+                    summoned->CastSpell(summoned, SPELL_RED_PORTAL, TRIGGERED_NONE);
+                    break;
+                case NPC_PORTAL_GREEN:
+                    summoned->CastSpell(summoned, SPELL_GREEN_PORTAL, TRIGGERED_NONE);
+                    break;
+                case NPC_PORTAL_BLUE:
+                    summoned->CastSpell(summoned, SPELL_BLUE_PORTAL, TRIGGERED_NONE);
+                    break;
+            }
+        }
+
+        void UpdateAI(const uint32 uiDiff) override
+        {
+            if (!m_creature->SelectHostileTarget())
+                return;
+
+            if (GetCombatScriptStatus() && m_instance && m_instance->GetPlayerInMap(true, false) == nullptr)
+            {
+                EnterEvadeMode();
+                return;
+            }
+
+            if (m_uiPhaseSwitchTimer <= uiDiff)
+                SwitchPhases();
+            else
+                m_uiPhaseSwitchTimer -= uiDiff;
+
+            if (m_uiEnrageTimer)
+            {
+                if (m_uiEnrageTimer <= uiDiff)
+                {
+                    if (DoCastSpellIfCan(m_creature, SPELL_NETHER_INFUSION) == CAST_OK)
+                        m_uiEnrageTimer = 0;
+                }
+                else
+                    m_uiEnrageTimer -= uiDiff;
+            }
+
+            if (m_uiActivePhase == BEAM_PHASE)
+            {
+                if (m_uiVoidZoneTimer < uiDiff)
+                {
+                    if (Unit* pTarget = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, nullptr, SELECT_FLAG_PLAYER))
                     {
-                        DoCastSpellIfCan(m_creature, SPELL_PORTAL_ATTUNEMENT, CAST_TRIGGERED);
-                        m_uiEmpowermentTimer = 0;
+                        if (DoCastSpellIfCan(pTarget, SPELL_VOID_ZONE) == CAST_OK)
+                            m_uiVoidZoneTimer = 15000;
                     }
                 }
                 else
-                    m_uiEmpowermentTimer -= uiDiff;
-            }
+                    m_uiVoidZoneTimer -= uiDiff;
 
-            DoMeleeAttackIfReady();
-        }
-        else
-        {
-            if (m_uiNetherbreathTimer < uiDiff)
-            {
-                if (Unit* pTarget = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, SPELL_NETHERBREATH, SELECT_FLAG_PLAYER))
+                if (m_uiEmpowermentTimer)
                 {
-                    m_creature->SetInFront(pTarget);
-                    if (DoCastSpellIfCan(pTarget, SPELL_NETHERBREATH) == CAST_OK)
-                        m_uiNetherbreathTimer = urand(4000, 5000);
+                    if (m_uiEmpowermentTimer <= uiDiff)
+                    {
+                        if (DoCastSpellIfCan(m_creature, SPELL_EMPOWERMENT) == CAST_OK)
+                        {
+                            DoCastSpellIfCan(m_creature, SPELL_PORTAL_ATTUNEMENT, CAST_TRIGGERED);
+                            m_uiEmpowermentTimer = 0;
+                        }
+                    }
+                    else
+                        m_uiEmpowermentTimer -= uiDiff;
                 }
+
+                DoMeleeAttackIfReady();
             }
             else
-                m_uiNetherbreathTimer -= uiDiff;
+            {
+                if (m_uiNetherbreathTimer < uiDiff)
+                {
+                    if (Unit* pTarget = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, SPELL_NETHERBREATH, SELECT_FLAG_PLAYER))
+                    {
+                        m_creature->SetInFront(pTarget);
+                        if (DoCastSpellIfCan(pTarget, SPELL_NETHERBREATH) == CAST_OK)
+                            m_uiNetherbreathTimer = urand(4000, 5000);
+                    }
+                }
+                else
+                    m_uiNetherbreathTimer -= uiDiff;
+            }
         }
-    }
+    };
+
+
+
 };
 
-UnitAI* GetAI_boss_netherspite(Creature* pCreature)
-{
-    return new boss_netherspiteAI(pCreature);
-}
 
 /*######
 ## npc_netherspite_portal
 ######*/
-
-struct npc_netherspite_portalAI : public Scripted_NoMovementAI
+class npc_netherspite_portal : public CreatureScript
 {
-    npc_netherspite_portalAI(Creature* pCreature) : Scripted_NoMovementAI(pCreature)
+public:
+    npc_netherspite_portal() : CreatureScript("npc_netherspite_portal") { }
+
+    bool OnEffectScriptEffect(Unit* pCaster, uint32 uiSpellId, SpellEffectIndex uiEffIndex, Creature* pCreatureTarget, ObjectGuid /*originalCasterGuid*/) override
     {
-        m_pInstance = (ScriptedInstance*)pCreature->GetInstanceData();
-        m_uiOrientationTimer = 0;
-        m_creature->GetCombatManager().SetLeashingDisable(true);
-        Reset();
-    }
-
-    ScriptedInstance* m_pInstance;
-
-    uint32 m_uiOrientationTimer;
-
-    ObjectGuid m_uiCurrentBeamTarget;
-
-    void Reset() override
-    {
-        m_uiCurrentBeamTarget = ObjectGuid();
-    }
-
-    void ReceiveAIEvent(AIEventType eventType, Unit* /*pSender*/, Unit* pInvoker, uint32 /*uiMiscValue*/) override
-    {
-        if (eventType == AI_EVENT_CUSTOM_A)
+        if (uiSpellId == SPELL_PORTAL_ATTUNEMENT && uiEffIndex == EFFECT_INDEX_0)
         {
-            if (pInvoker->GetEntry() != NPC_NETHERSPITE)
-                return;
+            if (pCreatureTarget->GetEntry() == NPC_PORTAL_RED || pCreatureTarget->GetEntry() == NPC_PORTAL_GREEN || pCreatureTarget->GetEntry() == NPC_PORTAL_BLUE)
+                pCreatureTarget->AI()->SendAIEvent(AI_EVENT_CUSTOM_A, pCaster, pCreatureTarget);
 
-            // update orientation every second to focus on Netherspite
-            m_uiOrientationTimer = 1000;
-            float angle = m_creature->GetAngle(pInvoker);
-            m_creature->SetFacingTo(angle);
-            m_creature->SetOrientation(angle);
-
-            switch (m_creature->GetEntry())
-            {
-                case NPC_PORTAL_GREEN:
-                    DoCastSpellIfCan(nullptr, SPELL_SERENITY_PASSIVE, CAST_TRIGGERED | CAST_AURA_NOT_PRESENT);
-                    break;
-                case NPC_PORTAL_BLUE:
-                    DoCastSpellIfCan(nullptr, SPELL_DOMINANCE_PASSIVE, CAST_TRIGGERED | CAST_AURA_NOT_PRESENT);
-                    break;
-                case NPC_PORTAL_RED:
-                    DoCastSpellIfCan(nullptr, SPELL_PERSEVERANCE_PASSIVE, CAST_TRIGGERED | CAST_AURA_NOT_PRESENT);
-                    break;
-            }
+            return true;
         }
+
+        return false;
     }
 
-    void SpellHitTarget(Unit* pTarget, const SpellEntry* pSpell) override
+
+
+    UnitAI* GetAI(Creature* pCreature)
     {
-        if (pTarget->GetObjectGuid() != m_uiCurrentBeamTarget)
+        return new npc_netherspite_portalAI(pCreature);
+    }
+
+
+
+    struct npc_netherspite_portalAI : public Scripted_NoMovementAI
+    {
+        npc_netherspite_portalAI(Creature* pCreature) : Scripted_NoMovementAI(pCreature)
         {
-            switch (pSpell->Id)
-            {
-                case SPELL_BEAM_PER:
-                    if (Creature* pNetherspite = m_pInstance->GetSingleCreatureFromStorage(NPC_NETHERSPITE))
-                        pNetherspite->FixateTarget(pTarget);
-                case SPELL_BEAM_SER:
-                case SPELL_BEAM_DOM:
-                    m_uiCurrentBeamTarget = pTarget->GetObjectGuid();
-                    break;
-                case SPELL_BEAM_RED:
-                case SPELL_BEAM_BLUE:
-                case SPELL_BEAM_GREEN:
-                    m_uiCurrentBeamTarget = pTarget->GetObjectGuid();
-                    break;
-            }
+            m_pInstance = (ScriptedInstance*)pCreature->GetInstanceData();
+            m_uiOrientationTimer = 0;
+            m_creature->GetCombatManager().SetLeashingDisable(true);
+            Reset();
         }
-    }
 
-    void UpdateAI(const uint32 uiDiff) override
-    {
-        if (m_uiOrientationTimer)
+        ScriptedInstance* m_pInstance;
+
+        uint32 m_uiOrientationTimer;
+
+        ObjectGuid m_uiCurrentBeamTarget;
+
+        void Reset() override
         {
-            if (m_uiOrientationTimer <= uiDiff)
+            m_uiCurrentBeamTarget = ObjectGuid();
+        }
+
+        void ReceiveAIEvent(AIEventType eventType, Unit* /*pSender*/, Unit* pInvoker, uint32 /*uiMiscValue*/) override
+        {
+            if (eventType == AI_EVENT_CUSTOM_A)
             {
-                if (m_pInstance)
-                {
-                    if (Creature* pNetherspite = m_pInstance->GetSingleCreatureFromStorage(NPC_NETHERSPITE))
-                    {
-                        float angle = m_creature->GetAngle(pNetherspite);
-                        m_creature->SetFacingTo(angle);
-                        m_creature->SetOrientation(angle);
-                    }
-                }
+                if (pInvoker->GetEntry() != NPC_NETHERSPITE)
+                    return;
+
+                // update orientation every second to focus on Netherspite
                 m_uiOrientationTimer = 1000;
+                float angle = m_creature->GetAngle(pInvoker);
+                m_creature->SetFacingTo(angle);
+                m_creature->SetOrientation(angle);
+
+                switch (m_creature->GetEntry())
+                {
+                    case NPC_PORTAL_GREEN:
+                        DoCastSpellIfCan(nullptr, SPELL_SERENITY_PASSIVE, CAST_TRIGGERED | CAST_AURA_NOT_PRESENT);
+                        break;
+                    case NPC_PORTAL_BLUE:
+                        DoCastSpellIfCan(nullptr, SPELL_DOMINANCE_PASSIVE, CAST_TRIGGERED | CAST_AURA_NOT_PRESENT);
+                        break;
+                    case NPC_PORTAL_RED:
+                        DoCastSpellIfCan(nullptr, SPELL_PERSEVERANCE_PASSIVE, CAST_TRIGGERED | CAST_AURA_NOT_PRESENT);
+                        break;
+                }
             }
-            else
-                m_uiOrientationTimer -= uiDiff;
         }
-    }
+
+        void SpellHitTarget(Unit* pTarget, const SpellEntry* pSpell) override
+        {
+            if (pTarget->GetObjectGuid() != m_uiCurrentBeamTarget)
+            {
+                switch (pSpell->Id)
+                {
+                    case SPELL_BEAM_PER:
+                        if (Creature* pNetherspite = m_pInstance->GetSingleCreatureFromStorage(NPC_NETHERSPITE))
+                            pNetherspite->FixateTarget(pTarget);
+                    case SPELL_BEAM_SER:
+                    case SPELL_BEAM_DOM:
+                        m_uiCurrentBeamTarget = pTarget->GetObjectGuid();
+                        break;
+                    case SPELL_BEAM_RED:
+                    case SPELL_BEAM_BLUE:
+                    case SPELL_BEAM_GREEN:
+                        m_uiCurrentBeamTarget = pTarget->GetObjectGuid();
+                        break;
+                }
+            }
+        }
+
+        void UpdateAI(const uint32 uiDiff) override
+        {
+            if (m_uiOrientationTimer)
+            {
+                if (m_uiOrientationTimer <= uiDiff)
+                {
+                    if (m_pInstance)
+                    {
+                        if (Creature* pNetherspite = m_pInstance->GetSingleCreatureFromStorage(NPC_NETHERSPITE))
+                        {
+                            float angle = m_creature->GetAngle(pNetherspite);
+                            m_creature->SetFacingTo(angle);
+                            m_creature->SetOrientation(angle);
+                        }
+                    }
+                    m_uiOrientationTimer = 1000;
+                }
+                else
+                    m_uiOrientationTimer -= uiDiff;
+            }
+        }
+    };
+
+
+
 };
 
-UnitAI* GetAI_npc_netherspite_portal(Creature* pCreature)
-{
-    return new npc_netherspite_portalAI(pCreature);
-}
 
-bool EffectScriptEffectCreature_spell_portal_attunement(Unit* pCaster, uint32 uiSpellId, SpellEffectIndex uiEffIndex, Creature* pCreatureTarget, ObjectGuid /*originalCasterGuid*/)
-{
-    if (uiSpellId == SPELL_PORTAL_ATTUNEMENT && uiEffIndex == EFFECT_INDEX_0)
-    {
-        if (pCreatureTarget->GetEntry() == NPC_PORTAL_RED || pCreatureTarget->GetEntry() == NPC_PORTAL_GREEN || pCreatureTarget->GetEntry() == NPC_PORTAL_BLUE)
-            pCreatureTarget->AI()->SendAIEvent(AI_EVENT_CUSTOM_A, pCaster, pCreatureTarget);
-
-        return true;
-    }
-
-    return false;
-}
 
 void AddSC_boss_netherspite()
 {
-    Script* pNewScript = new Script;
-    pNewScript->Name = "boss_netherspite";
-    pNewScript->GetAI = &GetAI_boss_netherspite;
-    pNewScript->RegisterSelf();
+    new boss_netherspite();
+    new npc_netherspite_portal();
 
-    pNewScript = new Script;
-    pNewScript->Name = "npc_netherspite_portal";
-    pNewScript->GetAI = &GetAI_npc_netherspite_portal;
-    pNewScript->pEffectScriptEffectNPC = &EffectScriptEffectCreature_spell_portal_attunement;
-    pNewScript->RegisterSelf();
 }

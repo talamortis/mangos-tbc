@@ -46,90 +46,99 @@ enum MagmadarActions
     MAGMADAR_LAVABOMB_MANA,
     MAGMADAR_ACTION_MAX,
 };
-
-struct boss_magmadarAI : public CombatAI
+class boss_magmadar : public CreatureScript
 {
-    boss_magmadarAI(Creature* creature) : CombatAI(creature, MAGMADAR_ACTION_MAX), m_instance(static_cast<ScriptedInstance*>(creature->GetInstanceData()))
+public:
+    boss_magmadar() : CreatureScript("boss_magmadar") { }
+
+    UnitAI* GetAI(Creature* creature)
     {
-        AddCombatAction(MAGMADAR_FRENZY, 30000u);
-        AddCombatAction(MAGMADAR_PANIC, 6000, 10000);
-        AddCombatAction(MAGMADAR_LAVABOMB, 12000u);
-        AddCombatAction(MAGMADAR_LAVABOMB_MANA, 18000u);
-        Reset();
+        return new boss_magmadarAI(creature);
     }
 
-    ScriptedInstance* m_instance;
 
-    void Reset() override
-    {
-        CombatAI::Reset();
-        DoCastSpellIfCan(nullptr, SPELL_MAGMASPIT, CAST_TRIGGERED | CAST_AURA_NOT_PRESENT);
-    }
 
-    void Aggro(Unit* /*who*/) override
+    struct boss_magmadarAI : public CombatAI
     {
-        if (m_instance)
-            m_instance->SetData(TYPE_MAGMADAR, IN_PROGRESS);
-    }
-
-    void JustDied(Unit* /*killer*/) override
-    {
-        if (m_instance)
-            m_instance->SetData(TYPE_MAGMADAR, DONE);
-    }
-
-    void JustReachedHome() override
-    {
-        if (m_instance)
-            m_instance->SetData(TYPE_MAGMADAR, NOT_STARTED);
-    }
-
-    void ExecuteAction(uint32 action) override
-    {
-        switch (action)
+        boss_magmadarAI(Creature* creature) : CombatAI(creature, MAGMADAR_ACTION_MAX), m_instance(static_cast<ScriptedInstance*>(creature->GetInstanceData()))
         {
-            case MAGMADAR_FRENZY:
+            AddCombatAction(MAGMADAR_FRENZY, 30000u);
+            AddCombatAction(MAGMADAR_PANIC, 6000, 10000);
+            AddCombatAction(MAGMADAR_LAVABOMB, 12000u);
+            AddCombatAction(MAGMADAR_LAVABOMB_MANA, 18000u);
+            Reset();
+        }
+
+        ScriptedInstance* m_instance;
+
+        void Reset() override
+        {
+            CombatAI::Reset();
+            DoCastSpellIfCan(nullptr, SPELL_MAGMASPIT, CAST_TRIGGERED | CAST_AURA_NOT_PRESENT);
+        }
+
+        void Aggro(Unit* /*who*/) override
+        {
+            if (m_instance)
+                m_instance->SetData(TYPE_MAGMADAR, IN_PROGRESS);
+        }
+
+        void JustDied(Unit* /*killer*/) override
+        {
+            if (m_instance)
+                m_instance->SetData(TYPE_MAGMADAR, DONE);
+        }
+
+        void JustReachedHome() override
+        {
+            if (m_instance)
+                m_instance->SetData(TYPE_MAGMADAR, NOT_STARTED);
+        }
+
+        void ExecuteAction(uint32 action) override
+        {
+            switch (action)
             {
-                if (DoCastSpellIfCan(nullptr, SPELL_FRENZY) == CAST_OK)
+                case MAGMADAR_FRENZY:
                 {
-                    DoScriptText(EMOTE_GENERIC_FRENZY_KILL, m_creature);
-                    ResetCombatAction(action, urand(15000, 20000));
+                    if (DoCastSpellIfCan(nullptr, SPELL_FRENZY) == CAST_OK)
+                    {
+                        DoScriptText(EMOTE_GENERIC_FRENZY_KILL, m_creature);
+                        ResetCombatAction(action, urand(15000, 20000));
+                    }
+                    break;
                 }
-                break;
-            }
-            case MAGMADAR_PANIC:
-            {
-                if (DoCastSpellIfCan(nullptr, SPELL_PANIC) == CAST_OK)
-                    ResetCombatAction(action, urand(16000, 21000));
-                break;
-            }
-            case MAGMADAR_LAVABOMB:
-            {
-                if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, SPELL_LAVABOMB, SELECT_FLAG_POWER_NOT_MANA))
-                    if (DoCastSpellIfCan(target, SPELL_LAVABOMB) == CAST_OK)
-                        ResetCombatAction(action, urand(12000, 15000));
-                break;
-            }
-            case MAGMADAR_LAVABOMB_MANA:
-            {
-                if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, SPELL_LAVABOMB_MANA, SELECT_FLAG_POWER_MANA))
-                    if (DoCastSpellIfCan(target, SPELL_LAVABOMB_MANA) == CAST_OK)
-                        ResetCombatAction(action, urand(12000, 15000));
-                break;
+                case MAGMADAR_PANIC:
+                {
+                    if (DoCastSpellIfCan(nullptr, SPELL_PANIC) == CAST_OK)
+                        ResetCombatAction(action, urand(16000, 21000));
+                    break;
+                }
+                case MAGMADAR_LAVABOMB:
+                {
+                    if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, SPELL_LAVABOMB, SELECT_FLAG_POWER_NOT_MANA))
+                        if (DoCastSpellIfCan(target, SPELL_LAVABOMB) == CAST_OK)
+                            ResetCombatAction(action, urand(12000, 15000));
+                    break;
+                }
+                case MAGMADAR_LAVABOMB_MANA:
+                {
+                    if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, SPELL_LAVABOMB_MANA, SELECT_FLAG_POWER_MANA))
+                        if (DoCastSpellIfCan(target, SPELL_LAVABOMB_MANA) == CAST_OK)
+                            ResetCombatAction(action, urand(12000, 15000));
+                    break;
+                }
             }
         }
-    }
+    };
+
+
+
 };
 
-UnitAI* GetAI_boss_magmadar(Creature* creature)
-{
-    return new boss_magmadarAI(creature);
-}
 
 void AddSC_boss_magmadar()
 {
-    Script* pNewScript = new Script;
-    pNewScript->Name = "boss_magmadar";
-    pNewScript->GetAI = &GetAI_boss_magmadar;
-    pNewScript->RegisterSelf();
+    new boss_magmadar();
+
 }

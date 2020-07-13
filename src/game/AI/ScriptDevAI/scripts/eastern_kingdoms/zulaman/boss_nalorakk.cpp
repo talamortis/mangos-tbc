@@ -66,205 +66,214 @@ enum NalorakkActions
     NALORAKK_ACTION_ROAR,
     NALORAKK_ACTION_MAX,
 };
-
-struct boss_nalorakkAI : public CombatAI
+class boss_nalorakk : public CreatureScript
 {
-    boss_nalorakkAI(Creature* creature) : CombatAI(creature, NALORAKK_ACTION_MAX), m_instance(static_cast<instance_zulaman*>(creature->GetInstanceData())), m_uiCurrentWave(0)
+public:
+    boss_nalorakk() : CreatureScript("boss_nalorakk") { }
+
+    UnitAI* GetAI(Creature* creature)
     {
-        AddCombatAction(NALORAKK_ACTION_BERSERK, uint32(10 * MINUTE * IN_MILLISECONDS));
-        AddCombatAction(NALORAKK_ACTION_BEAR_SHAPE, 45000u);
-        AddCombatAction(NALORAKK_ACTION_SWIPE, 12000u);
-        AddCombatAction(NALORAKK_ACTION_MANGLE, 15000u);
-        AddCombatAction(NALORAKK_ACTION_SURGE, 20000u);
-        AddCombatAction(NALORAKK_ACTION_SLASH, true);
-        AddCombatAction(NALORAKK_ACTION_REND, true);
-        AddCombatAction(NALORAKK_ACTION_ROAR, true);
-        Reset();
+        return new boss_nalorakkAI(creature);
     }
 
-    instance_zulaman* m_instance;
 
-    uint8 m_uiCurrentWave;
-    bool m_bIsInBearForm;
 
-    void Reset() override
+    struct boss_nalorakkAI : public CombatAI
     {
-        CombatAI::Reset();
-        m_bIsInBearForm             = false;
-    }
-
-    void MoveInLineOfSight(Unit* who) override
-    {
-        ScriptedAI::MoveInLineOfSight(who);
-
-        if (m_instance && m_instance->IsBearPhaseInProgress())
-            return;
-
-        if (who->GetTypeId() == TYPEID_PLAYER && !static_cast<Player*>(who)->isGameMaster() && m_creature->IsWithinDistInMap(who, aBearEventInfo[m_uiCurrentWave].aggroDist))
+        boss_nalorakkAI(Creature* creature) : CombatAI(creature, NALORAKK_ACTION_MAX), m_instance(static_cast<instance_zulaman*>(creature->GetInstanceData())), m_uiCurrentWave(0)
         {
-            DoScriptText(aBearEventInfo[m_uiCurrentWave].yellId, m_creature);
-            if (m_instance)
-                m_instance->SendNextBearWave(who);
+            AddCombatAction(NALORAKK_ACTION_BERSERK, uint32(10 * MINUTE * IN_MILLISECONDS));
+            AddCombatAction(NALORAKK_ACTION_BEAR_SHAPE, 45000u);
+            AddCombatAction(NALORAKK_ACTION_SWIPE, 12000u);
+            AddCombatAction(NALORAKK_ACTION_MANGLE, 15000u);
+            AddCombatAction(NALORAKK_ACTION_SURGE, 20000u);
+            AddCombatAction(NALORAKK_ACTION_SLASH, true);
+            AddCombatAction(NALORAKK_ACTION_REND, true);
+            AddCombatAction(NALORAKK_ACTION_ROAR, true);
+            Reset();
         }
-    }
 
-    void JustReachedHome() override
-    {
-        if (m_instance)
-            m_instance->SetData(TYPE_NALORAKK, FAIL);
-    }
+        instance_zulaman* m_instance;
 
-    void MovementInform(uint32 motionType, uint32 pointId) override
-    {
-        if (motionType != POINT_MOTION_TYPE)
-            return;
+        uint8 m_uiCurrentWave;
+        bool m_bIsInBearForm;
 
-        if (pointId)
+        void Reset() override
         {
-            m_creature->GetMotionMaster()->Clear(false, true);
-            m_creature->GetMotionMaster()->MoveIdle();
-            m_creature->SetFacingTo(aBearEventInfo[m_uiCurrentWave].ori);
+            CombatAI::Reset();
+            m_bIsInBearForm             = false;
+        }
 
-            if (m_uiCurrentWave < MAX_BEAR_WAVES - 1)
+        void MoveInLineOfSight(Unit* who) override
+        {
+            ScriptedAI::MoveInLineOfSight(who);
+
+            if (m_instance && m_instance->IsBearPhaseInProgress())
+                return;
+
+            if (who->GetTypeId() == TYPEID_PLAYER && !static_cast<Player*>(who)->isGameMaster() && m_creature->IsWithinDistInMap(who, aBearEventInfo[m_uiCurrentWave].aggroDist))
             {
+                DoScriptText(aBearEventInfo[m_uiCurrentWave].yellId, m_creature);
                 if (m_instance)
-                    m_instance->SetBearEventProgress(false);
-                ++m_uiCurrentWave;
+                    m_instance->SendNextBearWave(who);
             }
         }
-    }
 
-    void Aggro(Unit* /*who*/) override
-    {
-        DoScriptText(SAY_AGGRO, m_creature);
-
-        if (m_instance)
-            m_instance->SetData(TYPE_NALORAKK, IN_PROGRESS);
-    }
-
-    void KilledUnit(Unit* /*victim*/) override
-    {
-        DoScriptText(urand(0, 1) ? SAY_SLAY1 : SAY_SLAY2, m_creature);
-    }
-
-    void JustDied(Unit* /*killer*/) override
-    {
-        DoScriptText(SAY_DEATH, m_creature);
-
-        if (!m_instance)
-            return;
-
-        m_instance->SetData(TYPE_NALORAKK, DONE);
-    }
-
-    void ExecuteAction(uint32 action) override
-    {
-        switch (action)
+        void JustReachedHome() override
         {
-            case NALORAKK_ACTION_BERSERK:
-                if (DoCastSpellIfCan(m_creature, SPELL_BERSERK) == CAST_OK)
-                {
-                    DoScriptText(SAY_BERSERK, m_creature);
-                    DisableCombatAction(action);
-                }
-                return;
-            case NALORAKK_ACTION_BEAR_SHAPE:
-                if (m_bIsInBearForm)
-                {
-                    DoScriptText(SAY_TOTROLL, m_creature);
-                    ResetCombatAction(action, 45000);
-                    m_bIsInBearForm = false;
-                    // Reset troll form timers
-                    DisableCombatAction(NALORAKK_ACTION_SLASH);
-                    DisableCombatAction(NALORAKK_ACTION_REND);
-                    DisableCombatAction(NALORAKK_ACTION_ROAR);
-                    ResetCombatAction(NALORAKK_ACTION_SURGE, urand(15000, 32000));
-                    ResetCombatAction(NALORAKK_ACTION_SWIPE, urand(7000, 20000));
-                    ResetCombatAction(NALORAKK_ACTION_MANGLE, urand(3000, 20000));
-                    SetEquipmentSlots(true);
-                }
-                else
-                {
-                    if (DoCastSpellIfCan(nullptr, SPELL_BEAR_SHAPE, CAST_INTERRUPT_PREVIOUS) == CAST_OK)
-                    {
-                        DoScriptText(SAY_TOBEAR_EMOTE, m_creature);
-                        DoScriptText(SAY_TOBEAR, m_creature);
-                        ResetCombatAction(action, 30000);
-                        m_bIsInBearForm = true;
-                        // Reset bear form timers
-                        DisableCombatAction(NALORAKK_ACTION_SWIPE);
-                        DisableCombatAction(NALORAKK_ACTION_MANGLE);
-                        DisableCombatAction(NALORAKK_ACTION_SURGE);
-                        ResetCombatAction(NALORAKK_ACTION_SLASH, urand(5000, 8000));
-                        ResetCombatAction(NALORAKK_ACTION_REND, urand(6000, 10000));
-                        ResetCombatAction(NALORAKK_ACTION_ROAR, urand(15000, 25000));
-                        SetEquipmentSlots(false, 0, 0, 0);
-                        m_creature->resetAttackTimer(BASE_ATTACK);
-                    }
-                }
-                return;
-            case NALORAKK_ACTION_SWIPE:
-                if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_BRUTAL_SWIPE) == CAST_OK)
-                    ResetCombatAction(action, urand(7000, 15000));
-                return;
-            case NALORAKK_ACTION_MANGLE:
-                if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_MANGLE) == CAST_OK)
-                    ResetCombatAction(action, urand(3000, 15000));
-                return;
-            case NALORAKK_ACTION_SURGE:
-            {
-                // select a random unit other than the main tank
-                Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, nullptr, SELECT_FLAG_PLAYER | SELECT_FLAG_NOT_IN_MELEE_RANGE);
+            if (m_instance)
+                m_instance->SetData(TYPE_NALORAKK, FAIL);
+        }
 
-                // if there aren't other units, cast on random
-                if (!target)
-                    target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, nullptr, SELECT_FLAG_PLAYER);
+        void MovementInform(uint32 motionType, uint32 pointId) override
+        {
+            if (motionType != POINT_MOTION_TYPE)
+                return;
 
-                if (DoCastSpellIfCan(target, SPELL_SURGE) == CAST_OK)
+            if (pointId)
+            {
+                m_creature->GetMotionMaster()->Clear(false, true);
+                m_creature->GetMotionMaster()->MoveIdle();
+                m_creature->SetFacingTo(aBearEventInfo[m_uiCurrentWave].ori);
+
+                if (m_uiCurrentWave < MAX_BEAR_WAVES - 1)
                 {
-                    DoScriptText(SAY_SURGE, m_creature);
-                    ResetCombatAction(action, urand(15000, 32500));
+                    if (m_instance)
+                        m_instance->SetBearEventProgress(false);
+                    ++m_uiCurrentWave;
                 }
-                return;
-            }
-            case NALORAKK_ACTION_SLASH:
-            {
-                if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_LACERATING_SLASH) == CAST_OK)
-                    ResetCombatAction(action, 20000);
-                return;
-            }
-            case NALORAKK_ACTION_REND:
-            {
-                if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_REND_FLESH) == CAST_OK)
-                    ResetCombatAction(action, urand(6000, 10000));
-                return;
-            }
-            case NALORAKK_ACTION_ROAR:
-            {
-                if (DoCastSpellIfCan(m_creature, SPELL_DEAFENING_ROAR) == CAST_OK)
-                    ResetCombatAction(action, urand(15000, 20000));
-                return;
             }
         }
-    }
 
-    void UpdateAI(const uint32 diff) override
-    {
-        CombatAI::UpdateAI(diff);
-        if (m_creature->IsInCombat())
-            EnterEvadeIfOutOfCombatArea(diff);
-    }
+        void Aggro(Unit* /*who*/) override
+        {
+            DoScriptText(SAY_AGGRO, m_creature);
+
+            if (m_instance)
+                m_instance->SetData(TYPE_NALORAKK, IN_PROGRESS);
+        }
+
+        void KilledUnit(Unit* /*victim*/) override
+        {
+            DoScriptText(urand(0, 1) ? SAY_SLAY1 : SAY_SLAY2, m_creature);
+        }
+
+        void JustDied(Unit* /*killer*/) override
+        {
+            DoScriptText(SAY_DEATH, m_creature);
+
+            if (!m_instance)
+                return;
+
+            m_instance->SetData(TYPE_NALORAKK, DONE);
+        }
+
+        void ExecuteAction(uint32 action) override
+        {
+            switch (action)
+            {
+                case NALORAKK_ACTION_BERSERK:
+                    if (DoCastSpellIfCan(m_creature, SPELL_BERSERK) == CAST_OK)
+                    {
+                        DoScriptText(SAY_BERSERK, m_creature);
+                        DisableCombatAction(action);
+                    }
+                    return;
+                case NALORAKK_ACTION_BEAR_SHAPE:
+                    if (m_bIsInBearForm)
+                    {
+                        DoScriptText(SAY_TOTROLL, m_creature);
+                        ResetCombatAction(action, 45000);
+                        m_bIsInBearForm = false;
+                        // Reset troll form timers
+                        DisableCombatAction(NALORAKK_ACTION_SLASH);
+                        DisableCombatAction(NALORAKK_ACTION_REND);
+                        DisableCombatAction(NALORAKK_ACTION_ROAR);
+                        ResetCombatAction(NALORAKK_ACTION_SURGE, urand(15000, 32000));
+                        ResetCombatAction(NALORAKK_ACTION_SWIPE, urand(7000, 20000));
+                        ResetCombatAction(NALORAKK_ACTION_MANGLE, urand(3000, 20000));
+                        SetEquipmentSlots(true);
+                    }
+                    else
+                    {
+                        if (DoCastSpellIfCan(nullptr, SPELL_BEAR_SHAPE, CAST_INTERRUPT_PREVIOUS) == CAST_OK)
+                        {
+                            DoScriptText(SAY_TOBEAR_EMOTE, m_creature);
+                            DoScriptText(SAY_TOBEAR, m_creature);
+                            ResetCombatAction(action, 30000);
+                            m_bIsInBearForm = true;
+                            // Reset bear form timers
+                            DisableCombatAction(NALORAKK_ACTION_SWIPE);
+                            DisableCombatAction(NALORAKK_ACTION_MANGLE);
+                            DisableCombatAction(NALORAKK_ACTION_SURGE);
+                            ResetCombatAction(NALORAKK_ACTION_SLASH, urand(5000, 8000));
+                            ResetCombatAction(NALORAKK_ACTION_REND, urand(6000, 10000));
+                            ResetCombatAction(NALORAKK_ACTION_ROAR, urand(15000, 25000));
+                            SetEquipmentSlots(false, 0, 0, 0);
+                            m_creature->resetAttackTimer(BASE_ATTACK);
+                        }
+                    }
+                    return;
+                case NALORAKK_ACTION_SWIPE:
+                    if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_BRUTAL_SWIPE) == CAST_OK)
+                        ResetCombatAction(action, urand(7000, 15000));
+                    return;
+                case NALORAKK_ACTION_MANGLE:
+                    if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_MANGLE) == CAST_OK)
+                        ResetCombatAction(action, urand(3000, 15000));
+                    return;
+                case NALORAKK_ACTION_SURGE:
+                {
+                    // select a random unit other than the main tank
+                    Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, nullptr, SELECT_FLAG_PLAYER | SELECT_FLAG_NOT_IN_MELEE_RANGE);
+
+                    // if there aren't other units, cast on random
+                    if (!target)
+                        target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, nullptr, SELECT_FLAG_PLAYER);
+
+                    if (DoCastSpellIfCan(target, SPELL_SURGE) == CAST_OK)
+                    {
+                        DoScriptText(SAY_SURGE, m_creature);
+                        ResetCombatAction(action, urand(15000, 32500));
+                    }
+                    return;
+                }
+                case NALORAKK_ACTION_SLASH:
+                {
+                    if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_LACERATING_SLASH) == CAST_OK)
+                        ResetCombatAction(action, 20000);
+                    return;
+                }
+                case NALORAKK_ACTION_REND:
+                {
+                    if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_REND_FLESH) == CAST_OK)
+                        ResetCombatAction(action, urand(6000, 10000));
+                    return;
+                }
+                case NALORAKK_ACTION_ROAR:
+                {
+                    if (DoCastSpellIfCan(m_creature, SPELL_DEAFENING_ROAR) == CAST_OK)
+                        ResetCombatAction(action, urand(15000, 20000));
+                    return;
+                }
+            }
+        }
+
+        void UpdateAI(const uint32 diff) override
+        {
+            CombatAI::UpdateAI(diff);
+            if (m_creature->IsInCombat())
+                EnterEvadeIfOutOfCombatArea(diff);
+        }
+    };
+
+
+
 };
 
-UnitAI* GetAI_boss_nalorakk(Creature* creature)
-{
-    return new boss_nalorakkAI(creature);
-}
 
 void AddSC_boss_nalorakk()
 {
-    Script* pNewScript = new Script;
-    pNewScript->Name = "boss_nalorakk";
-    pNewScript->GetAI = &GetAI_boss_nalorakk;
-    pNewScript->RegisterSelf();
+    new boss_nalorakk();
+
 }

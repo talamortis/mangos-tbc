@@ -20,41 +20,50 @@
 
 /* *********************************************************
  *                  EASTERN KINGDOMS
- */
-struct world_map_eastern_kingdoms : public ScriptedMap
+ */class world_map_eastern_kingdoms : public UnknownScript
 {
-    world_map_eastern_kingdoms(Map* pMap) : ScriptedMap(pMap) {}
+public:
+    world_map_eastern_kingdoms() : UnknownScript("world_map_eastern_kingdoms") { }
 
-    void OnCreatureCreate(Creature* pCreature) override
+    InstanceData* GetInstanceScript(Map* pMap) const override
     {
-        switch (pCreature->GetEntry())
-        {
-            case NPC_NEZRAZ:
-            case NPC_HINDENBURG:
-            case NPC_ZAPETTA:
-            case NPC_SQUIBBY_OVERSPECK:
-            case NPC_JONATHAN:
-            case NPC_WRYNN:
-            case NPC_BOLVAR:
-            case NPC_PRESTOR:
-            case NPC_WINDSOR:
-                m_npcEntryGuidStore[pCreature->GetEntry()] = pCreature->GetObjectGuid();
-                break;
-        }
+        return new world_map_eastern_kingdoms(pMap);
     }
 
-    void SetData(uint32 /*uiType*/, uint32 /*uiData*/) override {}
+
+
+    struct world_map_eastern_kingdoms : public ScriptedMap
+    {
+        world_map_eastern_kingdoms(Map* pMap) : ScriptedMap(pMap) {}
+
+        void OnCreatureCreate(Creature* pCreature) override
+        {
+            switch (pCreature->GetEntry())
+            {
+                case NPC_NEZRAZ:
+                case NPC_HINDENBURG:
+                case NPC_ZAPETTA:
+                case NPC_SQUIBBY_OVERSPECK:
+                case NPC_JONATHAN:
+                case NPC_WRYNN:
+                case NPC_BOLVAR:
+                case NPC_PRESTOR:
+                case NPC_WINDSOR:
+                    m_npcEntryGuidStore[pCreature->GetEntry()] = pCreature->GetObjectGuid();
+                    break;
+            }
+        }
+
+        void SetData(uint32 /*uiType*/, uint32 /*uiData*/) override {}
+    };
+
+
+
 };
 
-InstanceData* GetInstanceData_world_map_eastern_kingdoms(Map* pMap)
-{
-    return new world_map_eastern_kingdoms(pMap);
-}
 
 void AddSC_world_eastern_kingdoms()
 {
-    Script* pNewScript = new Script;
-    pNewScript->Name = "world_map_eastern_kingdoms";
-    pNewScript->GetInstanceData = &GetInstanceData_world_map_eastern_kingdoms;
-    pNewScript->RegisterSelf();
+    new world_map_eastern_kingdoms();
+
 }

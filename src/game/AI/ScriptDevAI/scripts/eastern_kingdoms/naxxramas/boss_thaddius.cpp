@@ -599,19 +599,5 @@ UnitAI* GetAI_boss_feugen(Creature* creature)
 
 void AddSC_boss_thaddius()
 {
-    Script* newScript = new Script;
-    newScript->Name = "boss_thaddius";
-    newScript->GetAI = &GetAI_boss_thaddius;
-    newScript->pEffectDummyNPC = &EffectDummyNPC_spell_thaddius_encounter;
-    newScript->RegisterSelf();
 
-    newScript = new Script;
-    newScript->Name = "boss_stalagg";
-    newScript->GetAI = &GetAI_boss_stalagg;
-    newScript->RegisterSelf();
-
-    newScript = new Script;
-    newScript->Name = "boss_feugen";
-    newScript->GetAI = &GetAI_boss_feugen;
-    newScript->RegisterSelf();
 }

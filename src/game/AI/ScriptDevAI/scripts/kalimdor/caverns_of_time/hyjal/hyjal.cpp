@@ -1823,18 +1823,23 @@ bool instance_mount_hyjal::CheckConditionCriteriaMeet(Player const* player, uint
         instanceConditionId, player ? player->GetGuidStr().c_str() : "nullptr", conditionSource ? conditionSource->GetGuidStr().c_str() : "nullptr", conditionSourceType);
     return false;
 }
-
-InstanceData* GetInstanceData_instance_mount_hyjal(Map* map)
+class instance_hyjal : public InstanceMapScript
 {
-    return new instance_mount_hyjal(map);
-}
+public:
+    instance_hyjal() : InstanceMapScript("instance_hyjal") { }
+
+    InstanceData* GetInstanceScript(Map* map) const override
+    {
+        return new instance_mount_hyjal(map);
+    }
+
+
+
+
+};
 
 void AddSC_instance_mount_hyjal()
 {
-    Script* pNewScript;
+    new instance_hyjal();
 
-    pNewScript = new Script;
-    pNewScript->Name = "instance_hyjal";
-    pNewScript->GetInstanceData = &GetInstanceData_instance_mount_hyjal;
-    pNewScript->RegisterSelf();
 }

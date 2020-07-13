@@ -57,11 +57,20 @@ void instance_slave_pens::OnCreatureCreate(Creature* creature)
             break;
     }
 }
-
-InstanceData* GetInstanceData_instance_slave_pens(Map* map)
+class instance_slave_pens : public InstanceMapScript
 {
-    return new instance_slave_pens(map);
-}
+public:
+    instance_slave_pens() : InstanceMapScript("instance_slave_pens") { }
+
+    InstanceData* GetInstanceScript(Map* map) const override
+    {
+        return new instance_slave_pens(map);
+    }
+
+
+
+
+};
 
 /*######
 ## at_naturalist_bite
@@ -76,46 +85,51 @@ enum
 
     FACTION_RELEASED = 113,
 };
-
-bool AreaTrigger_at_naturalist_bite(Player* player, AreaTriggerEntry const* /*pAt*/)
+class at_naturalist_bite : public AreaTriggerScript
 {
-    ScriptedInstance* instance = (ScriptedInstance*)player->GetMap()->GetInstanceData();
-    if (instance->GetData(DATA_NATURALIST) == 0)
+public:
+    at_naturalist_bite() : AreaTriggerScript("at_naturalist_bite") { }
+
+    bool OnTrigger(Player* player, AreaTriggerEntry const* /*pAt*/) override
     {
-        if (Unit* naturalist = instance->GetSingleCreatureFromStorage(NPC_NATURALIST_BITE))
+        ScriptedInstance* instance = (ScriptedInstance*)player->GetMap()->GetInstanceData();
+        if (instance->GetData(DATA_NATURALIST) == 0)
         {
-            DoScriptText(SAY_AREATRIGGER, naturalist, player);
+            if (Unit* naturalist = instance->GetSingleCreatureFromStorage(NPC_NATURALIST_BITE))
+            {
+                DoScriptText(SAY_AREATRIGGER, naturalist, player);
+            }
+            instance->SetData(DATA_NATURALIST, 1);
         }
-        instance->SetData(DATA_NATURALIST, 1);
+        return true;
     }
-    return true;
-}
 
-bool GossipHello_npc_naturalist_bite(Player* player, Creature* creature)
+
+
+};
+class npc_naturalist_bite : public CreatureScript
 {
-    // custom code required because it utilizes two entries
-    uint32 gossipId = creature->getFaction() == FACTION_RELEASED ? GOSSIP_RELEASED : GOSSIP_CAGED;
-    player->PrepareGossipMenu(creature, gossipId);
-    player->SendPreparedGossip(creature);
+public:
+    npc_naturalist_bite() : CreatureScript("npc_naturalist_bite") { }
 
-    return true;
-}
+    bool OnGossipHello(Player* player, Creature* creature) override
+    {
+        // custom code required because it utilizes two entries
+        uint32 gossipId = creature->getFaction() == FACTION_RELEASED ? GOSSIP_RELEASED : GOSSIP_CAGED;
+        player->PrepareGossipMenu(creature, gossipId);
+        player->SendPreparedGossip(creature);
+
+        return true;
+    }
+
+
+
+};
 
 void AddSC_instance_slave_pens()
 {
-    Script* pNewScript = new Script;
-    pNewScript->Name = "instance_slave_pens";
-    pNewScript->GetInstanceData = &GetInstanceData_instance_slave_pens;
-    pNewScript->RegisterSelf();
+    new instance_slave_pens();
+    new at_naturalist_bite();
+    new npc_naturalist_bite();
 
-    pNewScript = new Script;
-    pNewScript->Name = "at_naturalist_bite";
-    pNewScript->pAreaTrigger = &AreaTrigger_at_naturalist_bite;
-    pNewScript->RegisterSelf();
-
-    pNewScript = new Script;
-    pNewScript->Name = "npc_naturalist_bite";
-    pNewScript->pGossipHello = &GossipHello_npc_naturalist_bite;
-    pNewScript->RegisterSelf();
 }
-

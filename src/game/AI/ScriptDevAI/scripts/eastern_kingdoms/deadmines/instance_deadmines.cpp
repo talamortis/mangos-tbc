@@ -225,16 +225,23 @@ void instance_deadmines::Update(uint32 uiDiff)
             m_uiIronDoorTimer -= uiDiff;
     }
 }
-
-InstanceData* GetInstanceData_instance_deadmines(Map* pMap)
+class instance_deadmines : public InstanceMapScript
 {
-    return new instance_deadmines(pMap);
-}
+public:
+    instance_deadmines() : InstanceMapScript("instance_deadmines") { }
+
+    InstanceData* GetInstanceScript(Map* pMap) const override
+    {
+        return new instance_deadmines(pMap);
+    }
+
+
+
+
+};
 
 void AddSC_instance_deadmines()
 {
-    Script* pNewScript = new Script;
-    pNewScript->Name = "instance_deadmines";
-    pNewScript->GetInstanceData = &GetInstanceData_instance_deadmines;
-    pNewScript->RegisterSelf();
+    new instance_deadmines();
+
 }

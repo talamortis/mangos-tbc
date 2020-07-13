@@ -176,17 +176,25 @@ struct boss_yorAI : public ScriptedAI, public CombatActions
         DoMeleeAttackIfReady();
     }
 };
-
-bool GOUse_go_stasis_chamber_shaffar(Player* player, GameObject* go)
+class go_stasis_chamber_shaffar : public GameObjectScript
 {
-    if (Creature* prisoner = GetClosestCreatureWithEntry(go, NPC_STASIS_PRISONER_DUNGEON, 2.f))
+public:
+    go_stasis_chamber_shaffar() : GameObjectScript("go_stasis_chamber_shaffar") { }
+
+    bool OnGameObjectUse(Player* player, GameObject* go) override
     {
-        boss_yorAI* ai = static_cast<boss_yorAI*>(prisoner->AI());
-        ai->StartEvent(player, go);
+        if (Creature* prisoner = GetClosestCreatureWithEntry(go, NPC_STASIS_PRISONER_DUNGEON, 2.f))
+        {
+            boss_yorAI* ai = static_cast<boss_yorAI*>(prisoner->AI());
+            ai->StartEvent(player, go);
+        }
+
+        return false;
     }
 
-    return false;
-}
+
+
+};
 
 enum
 {
@@ -257,42 +265,46 @@ struct npc_ethereum_prisoner_dungeonAI : public ScriptedAI, public CombatActions
     }
 };
 
-// guid scripting, if there ever was any
-UnitAI* GetAInpc_ethereum_prisoner_dungeon(Creature* creature)
+// guid scripting, if there ever was anyclass npc_ethereum_prisoner_dungeon : public CreatureScript
 {
-    if (creature->GetPositionX() > 0)
-        return new npc_ethereum_prisoner_dungeonAI(creature);
-    else
-        return new boss_yorAI(creature);
-}
+public:
+    npc_ethereum_prisoner_dungeon() : CreatureScript("npc_ethereum_prisoner_dungeon") { }
 
-bool GOUse_go_stasis_chamber_mana_tombs(Player* player, GameObject* go)
-{
-    if (Creature* prisoner = GetClosestCreatureWithEntry(go, NPC_STASIS_PRISONER_DUNGEON, 2.f))
+    UnitAI* GetAInpc_ethereum_prisoner_dungeon(Creature* creature)
     {
-        npc_ethereum_prisoner_dungeonAI* ai = static_cast<npc_ethereum_prisoner_dungeonAI*>(prisoner->AI());
-        ai->StartEvent(player, go);
+        if (creature->GetPositionX() > 0)
+            return new npc_ethereum_prisoner_dungeonAI(creature);
+        else
+            return new boss_yorAI(creature);
     }
 
-    return false;
-}
+
+
+};
+class go_stasis_chamber_mana_tombs : public GameObjectScript
+{
+public:
+    go_stasis_chamber_mana_tombs() : GameObjectScript("go_stasis_chamber_mana_tombs") { }
+
+    bool OnGameObjectUse(Player* player, GameObject* go) override
+    {
+        if (Creature* prisoner = GetClosestCreatureWithEntry(go, NPC_STASIS_PRISONER_DUNGEON, 2.f))
+        {
+            npc_ethereum_prisoner_dungeonAI* ai = static_cast<npc_ethereum_prisoner_dungeonAI*>(prisoner->AI());
+            ai->StartEvent(player, go);
+        }
+
+        return false;
+    }
+
+
+
+};
 
 void AddSC_boss_yor()
 {
-    Script* pNewScript;
+    new go_stasis_chamber_mana_tombs();
+    new npc_ethereum_prisoner_dungeon();
+    new go_stasis_chamber_shaffar();
 
-    pNewScript = new Script;
-    pNewScript->Name = "go_stasis_chamber_mana_tombs";
-    pNewScript->pGOUse = &GOUse_go_stasis_chamber_mana_tombs;
-    pNewScript->RegisterSelf();
-
-    pNewScript = new Script;
-    pNewScript->Name = "npc_ethereum_prisoner_dungeon";
-    pNewScript->GetAI = &GetAInpc_ethereum_prisoner_dungeon;
-    pNewScript->RegisterSelf();
-
-    pNewScript = new Script;
-    pNewScript->Name = "go_stasis_chamber_shaffar";
-    pNewScript->pGOUse = &GOUse_go_stasis_chamber_shaffar;
-    pNewScript->RegisterSelf();
 }

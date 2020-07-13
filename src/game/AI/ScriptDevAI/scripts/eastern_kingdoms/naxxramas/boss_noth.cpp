@@ -357,8 +357,5 @@ UnitAI* GetAI_boss_noth(Creature* creature)
 
 void AddSC_boss_noth()
 {
-    Script* newScript = new Script;
-    newScript->Name = "boss_noth";
-    newScript->GetAI = &GetAI_boss_noth;
-    newScript->RegisterSelf();
+
 }

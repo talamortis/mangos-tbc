@@ -44,88 +44,97 @@ enum BroodlordActions
     BROODLORD_MORTAL_STRIKE,
     BROODLORD_ACTION_MAX,
 };
-
-struct boss_broodlordAI : public CombatAI
+class boss_broodlord : public CreatureScript
 {
-    boss_broodlordAI(Creature* creature) : CombatAI(creature, BROODLORD_ACTION_MAX), m_instance(static_cast<instance_blackwing_lair*>(creature->GetInstanceData()))
+public:
+    boss_broodlord() : CreatureScript("boss_broodlord") { }
+
+    UnitAI* GetAI(Creature* creature)
     {
-        AddCombatAction(BROODLORD_CLEAVE, 8000u);
-        AddCombatAction(BROODLORD_KNOCK_AWAY, 12000u);
-        AddCombatAction(BROODLORD_BLAST_WAVE, 20000u);
-        AddCombatAction(BROODLORD_MORTAL_STRIKE, 30000u);
-        Reset();
+        return new boss_broodlordAI(creature);
     }
 
-    ScriptedInstance* m_instance;
 
-    void Aggro(Unit* /*who*/) override
+
+    struct boss_broodlordAI : public CombatAI
     {
-        if (m_instance)
-            m_instance->SetData(TYPE_LASHLAYER, IN_PROGRESS);
-
-        DoScriptText(SAY_AGGRO, m_creature);
-    }
-
-    void JustDied(Unit* /*killer*/) override
-    {
-        if (m_instance)
-            m_instance->SetData(TYPE_LASHLAYER, DONE);
-    }
-
-    void JustReachedHome() override
-    {
-        if (m_instance)
-            m_instance->SetData(TYPE_LASHLAYER, FAIL);
-    }
-
-    void ExecuteAction(uint32 action) override
-    {
-        switch (action)
+        boss_broodlordAI(Creature* creature) : CombatAI(creature, BROODLORD_ACTION_MAX), m_instance(static_cast<instance_blackwing_lair*>(creature->GetInstanceData()))
         {
-            case BROODLORD_CLEAVE:
+            AddCombatAction(BROODLORD_CLEAVE, 8000u);
+            AddCombatAction(BROODLORD_KNOCK_AWAY, 12000u);
+            AddCombatAction(BROODLORD_BLAST_WAVE, 20000u);
+            AddCombatAction(BROODLORD_MORTAL_STRIKE, 30000u);
+            Reset();
+        }
+
+        ScriptedInstance* m_instance;
+
+        void Aggro(Unit* /*who*/) override
+        {
+            if (m_instance)
+                m_instance->SetData(TYPE_LASHLAYER, IN_PROGRESS);
+
+            DoScriptText(SAY_AGGRO, m_creature);
+        }
+
+        void JustDied(Unit* /*killer*/) override
+        {
+            if (m_instance)
+                m_instance->SetData(TYPE_LASHLAYER, DONE);
+        }
+
+        void JustReachedHome() override
+        {
+            if (m_instance)
+                m_instance->SetData(TYPE_LASHLAYER, FAIL);
+        }
+
+        void ExecuteAction(uint32 action) override
+        {
+            switch (action)
             {
-                if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_CLEAVE) == CAST_OK)
-                    ResetCombatAction(action, 7000);
-                break;
-            }
-            case BROODLORD_KNOCK_AWAY:
-            {
-                if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_KNOCK_AWAY) == CAST_OK)
-                    ResetCombatAction(action, urand(15000, 30000));
-                break;
-            }
-            case BROODLORD_BLAST_WAVE:
-            {
-                if (DoCastSpellIfCan(nullptr, SPELL_BLAST_WAVE) == CAST_OK)
-                    ResetCombatAction(action, urand(8000, 16000));
-                break;
-            }
-            case BROODLORD_MORTAL_STRIKE:
-            {
-                if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_MORTAL_STRIKE) == CAST_OK)
-                    ResetCombatAction(action, urand(25000, 35000));
-                break;
+                case BROODLORD_CLEAVE:
+                {
+                    if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_CLEAVE) == CAST_OK)
+                        ResetCombatAction(action, 7000);
+                    break;
+                }
+                case BROODLORD_KNOCK_AWAY:
+                {
+                    if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_KNOCK_AWAY) == CAST_OK)
+                        ResetCombatAction(action, urand(15000, 30000));
+                    break;
+                }
+                case BROODLORD_BLAST_WAVE:
+                {
+                    if (DoCastSpellIfCan(nullptr, SPELL_BLAST_WAVE) == CAST_OK)
+                        ResetCombatAction(action, urand(8000, 16000));
+                    break;
+                }
+                case BROODLORD_MORTAL_STRIKE:
+                {
+                    if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_MORTAL_STRIKE) == CAST_OK)
+                        ResetCombatAction(action, urand(25000, 35000));
+                    break;
+                }
             }
         }
-    }
 
-    void UpdateAI(const uint32 diff) override
-    {
-        CombatAI::UpdateAI(diff);
-        if (m_creature->IsInCombat())
-            if (EnterEvadeIfOutOfCombatArea(diff))
-                DoScriptText(SAY_LEASH, m_creature);
-    }
+        void UpdateAI(const uint32 diff) override
+        {
+            CombatAI::UpdateAI(diff);
+            if (m_creature->IsInCombat())
+                if (EnterEvadeIfOutOfCombatArea(diff))
+                    DoScriptText(SAY_LEASH, m_creature);
+        }
+    };
+
+
+
 };
-UnitAI* GetAI_boss_broodlord(Creature* creature)
-{
-    return new boss_broodlordAI(creature);
-}
 
 void AddSC_boss_broodlord()
 {
-    Script* pNewScript = new Script;
-    pNewScript->Name = "boss_broodlord";
-    pNewScript->GetAI = &GetAI_boss_broodlord;
-    pNewScript->RegisterSelf();
+    new boss_broodlord();
+
 }

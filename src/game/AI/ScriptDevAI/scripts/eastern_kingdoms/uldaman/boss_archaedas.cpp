@@ -39,208 +39,223 @@ enum
     SAY_UNIT_SLAIN                  = -1070004,
     EMOTE_BREAKS_FREE               = -1070005,
 };
-
-struct boss_archaedasAI : public ScriptedAI
+class boss_archaedas : public CreatureScript
 {
-    boss_archaedasAI(Creature* pCreature) : ScriptedAI(pCreature)
+public:
+    boss_archaedas() : CreatureScript("boss_archaedas") { }
+
+    UnitAI* GetAI(Creature* pCreature)
     {
-        m_pInstance = (instance_uldaman*)pCreature->GetInstanceData();
-        Reset();
+        return new boss_archaedasAI(pCreature);
     }
 
-    instance_uldaman* m_pInstance;
 
-    uint32 m_uiAwakeningTimer;
-    uint32 m_uiAwakeDwarfTimer;
-    uint32 m_uiTremorTimer;
-    uint8 m_uiSubevent;
-    bool m_bDwarvesAwaken;
 
-    uint8 m_uiHpPhaseCheck;
-
-    void Reset() override
+    struct boss_archaedasAI : public ScriptedAI
     {
-        m_uiAwakeningTimer  = 1000;
-        m_uiSubevent        = 0;
-        m_uiAwakeDwarfTimer = 10000;
-        m_uiTremorTimer     = urand(7000, 14000);
-        m_bDwarvesAwaken    = false;
-        m_uiHpPhaseCheck    = 1;
-
-        DoCastSpellIfCan(m_creature, SPELL_FREEZE_ANIM);
-        m_creature->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE);
-    }
-
-    void Aggro(Unit* /*pWho*/) override
-    {
-        if (m_pInstance)
-            m_pInstance->SetData(TYPE_ARCHAEDAS, IN_PROGRESS);
-    }
-
-    void KilledUnit(Unit* /*pVictim*/) override
-    {
-        DoScriptText(SAY_UNIT_SLAIN, m_creature);
-    }
-
-    void JustDied(Unit* /*pKiller*/) override
-    {
-        // open door to vault (handled by instance script)
-        if (m_pInstance)
-            m_pInstance->SetData(TYPE_ARCHAEDAS, DONE);
-    }
-
-    void JustReachedHome() override
-    {
-        if (m_pInstance)
-            m_pInstance->SetData(TYPE_ARCHAEDAS, FAIL);
-    }
-
-    void UpdateAI(const uint32 uiDiff) override
-    {
-        // so many things are based in this script on instance data
-        // so if we don't have access to it better do nothing
-        if (!m_pInstance)
-            return;
-
-        // OOC Intro part triggered by Altar activation
-        if (m_pInstance->GetData(TYPE_ARCHAEDAS) == SPECIAL)
+        boss_archaedasAI(Creature* pCreature) : ScriptedAI(pCreature)
         {
-            if (m_uiAwakeningTimer <= uiDiff)
-            {
-                switch (m_uiSubevent)
-                {
-                    case 0:
-                        DoCastSpellIfCan(m_creature, SPELL_ARCHAEDAS_AWAKEN_VISUAL);
-                        m_uiAwakeningTimer = 2000;
-                        break;
-                    case 1:
-                        DoScriptText(EMOTE_BREAKS_FREE, m_creature);
-                        m_uiAwakeningTimer = 3000;
-                        break;
-                    case 2:
-                        DoScriptText(SAY_AGGRO, m_creature);
-                        m_creature->RemoveAurasDueToSpell(SPELL_FREEZE_ANIM);
-                        m_creature->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE);
-
-                        // Attack player
-                        if (Player* pPlayer = m_creature->GetMap()->GetPlayer(m_pInstance->GetGuid(DATA_EVENT_STARTER)))
-                            AttackStart(pPlayer);
-                        else
-                            EnterEvadeMode();
-                        break;
-                    default:
-                        break;
-                }
-
-                ++m_uiSubevent;
-            }
-            else
-                m_uiAwakeningTimer -= uiDiff;
+            m_pInstance = (instance_uldaman*)pCreature->GetInstanceData();
+            Reset();
         }
 
-        if (!m_creature->SelectHostileTarget() || !m_creature->GetVictim())
-            return;
+        instance_uldaman* m_pInstance;
 
-        // Phase switch
-        if (m_creature->GetHealthPercent() < 100.0f - 33.4f * (float)m_uiHpPhaseCheck)
+        uint32 m_uiAwakeningTimer;
+        uint32 m_uiAwakeDwarfTimer;
+        uint32 m_uiTremorTimer;
+        uint8 m_uiSubevent;
+        bool m_bDwarvesAwaken;
+
+        uint8 m_uiHpPhaseCheck;
+
+        void Reset() override
         {
-            if (DoCastSpellIfCan(m_creature, m_uiHpPhaseCheck == 1 ? SPELL_AWAKEN_EARTHEN_GUARDIAN : SPELL_AWAKEN_VAULT_WARDER) == CAST_OK)
-            {
-                DoScriptText(m_uiHpPhaseCheck == 1 ? SAY_AWAKE_GUARDIANS : SAY_AWAKE_WARDERS, m_creature);
-                ++m_uiHpPhaseCheck;
-            }
+            m_uiAwakeningTimer  = 1000;
+            m_uiSubevent        = 0;
+            m_uiAwakeDwarfTimer = 10000;
+            m_uiTremorTimer     = urand(7000, 14000);
+            m_bDwarvesAwaken    = false;
+            m_uiHpPhaseCheck    = 1;
+
+            DoCastSpellIfCan(m_creature, SPELL_FREEZE_ANIM);
+            m_creature->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE);
         }
 
-        // Awake random Dwarf
-        if (!m_bDwarvesAwaken && m_creature->GetHealthPercent() >= 33.0f)
+        void Aggro(Unit* /*pWho*/) override
         {
-            if (m_uiAwakeDwarfTimer < uiDiff)
+            if (m_pInstance)
+                m_pInstance->SetData(TYPE_ARCHAEDAS, IN_PROGRESS);
+        }
+
+        void KilledUnit(Unit* /*pVictim*/) override
+        {
+            DoScriptText(SAY_UNIT_SLAIN, m_creature);
+        }
+
+        void JustDied(Unit* /*pKiller*/) override
+        {
+            // open door to vault (handled by instance script)
+            if (m_pInstance)
+                m_pInstance->SetData(TYPE_ARCHAEDAS, DONE);
+        }
+
+        void JustReachedHome() override
+        {
+            if (m_pInstance)
+                m_pInstance->SetData(TYPE_ARCHAEDAS, FAIL);
+        }
+
+        void UpdateAI(const uint32 uiDiff) override
+        {
+            // so many things are based in this script on instance data
+            // so if we don't have access to it better do nothing
+            if (!m_pInstance)
+                return;
+
+            // OOC Intro part triggered by Altar activation
+            if (m_pInstance->GetData(TYPE_ARCHAEDAS) == SPECIAL)
             {
-                if (Creature* pEarthen = m_pInstance->GetClosestDwarfNotInCombat(m_creature))
+                if (m_uiAwakeningTimer <= uiDiff)
                 {
-                    if (DoCastSpellIfCan(pEarthen, SPELL_AWAKEN_EARTHEN_DWARF) == CAST_OK)
-                        m_uiAwakeDwarfTimer = urand(9000, 12000);
+                    switch (m_uiSubevent)
+                    {
+                        case 0:
+                            DoCastSpellIfCan(m_creature, SPELL_ARCHAEDAS_AWAKEN_VISUAL);
+                            m_uiAwakeningTimer = 2000;
+                            break;
+                        case 1:
+                            DoScriptText(EMOTE_BREAKS_FREE, m_creature);
+                            m_uiAwakeningTimer = 3000;
+                            break;
+                        case 2:
+                            DoScriptText(SAY_AGGRO, m_creature);
+                            m_creature->RemoveAurasDueToSpell(SPELL_FREEZE_ANIM);
+                            m_creature->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE);
+
+                            // Attack player
+                            if (Player* pPlayer = m_creature->GetMap()->GetPlayer(m_pInstance->GetGuid(DATA_EVENT_STARTER)))
+                                AttackStart(pPlayer);
+                            else
+                                EnterEvadeMode();
+                            break;
+                        default:
+                            break;
+                    }
+
+                    ++m_uiSubevent;
                 }
                 else
-                    m_bDwarvesAwaken = true;
+                    m_uiAwakeningTimer -= uiDiff;
+            }
+
+            if (!m_creature->SelectHostileTarget() || !m_creature->GetVictim())
+                return;
+
+            // Phase switch
+            if (m_creature->GetHealthPercent() < 100.0f - 33.4f * (float)m_uiHpPhaseCheck)
+            {
+                if (DoCastSpellIfCan(m_creature, m_uiHpPhaseCheck == 1 ? SPELL_AWAKEN_EARTHEN_GUARDIAN : SPELL_AWAKEN_VAULT_WARDER) == CAST_OK)
+                {
+                    DoScriptText(m_uiHpPhaseCheck == 1 ? SAY_AWAKE_GUARDIANS : SAY_AWAKE_WARDERS, m_creature);
+                    ++m_uiHpPhaseCheck;
+                }
+            }
+
+            // Awake random Dwarf
+            if (!m_bDwarvesAwaken && m_creature->GetHealthPercent() >= 33.0f)
+            {
+                if (m_uiAwakeDwarfTimer < uiDiff)
+                {
+                    if (Creature* pEarthen = m_pInstance->GetClosestDwarfNotInCombat(m_creature))
+                    {
+                        if (DoCastSpellIfCan(pEarthen, SPELL_AWAKEN_EARTHEN_DWARF) == CAST_OK)
+                            m_uiAwakeDwarfTimer = urand(9000, 12000);
+                    }
+                    else
+                        m_bDwarvesAwaken = true;
+                }
+                else
+                    m_uiAwakeDwarfTimer -= uiDiff;
+            }
+
+            if (m_uiTremorTimer < uiDiff)
+            {
+                if (DoCastSpellIfCan(m_creature, SPELL_GROUND_TREMOR) == CAST_OK)
+                    m_uiTremorTimer = urand(8000, 17000);
             }
             else
-                m_uiAwakeDwarfTimer -= uiDiff;
-        }
+                m_uiTremorTimer -= uiDiff;
 
-        if (m_uiTremorTimer < uiDiff)
-        {
-            if (DoCastSpellIfCan(m_creature, SPELL_GROUND_TREMOR) == CAST_OK)
-                m_uiTremorTimer = urand(8000, 17000);
+            DoMeleeAttackIfReady();
         }
-        else
-            m_uiTremorTimer -= uiDiff;
+    };
 
-        DoMeleeAttackIfReady();
-    }
+
+
 };
 
-UnitAI* GetAI_boss_archaedas(Creature* pCreature)
+class mob_archaeras_add : public CreatureScript
 {
-    return new boss_archaedasAI(pCreature);
-}
+public:
+    mob_archaeras_add() : CreatureScript("mob_archaeras_add") { }
 
-bool EffectDummyCreature_npc_vault_warder(Unit* /*pCaster*/, uint32 uiSpellId, SpellEffectIndex uiEffIndex, Creature* pCreatureTarget, ObjectGuid /*originalCasterGuid*/)
-{
-    // always check spellid and effectindex
-    if (uiSpellId == SPELL_AWAKEN_VAULT_WARDER && uiEffIndex == EFFECT_INDEX_0)
+    bool OnAuraDummy(const Aura* pAura, bool bApply) override
     {
-        if (pCreatureTarget->GetEntry() == NPC_VAULT_WARDER)
-        {
-            pCreatureTarget->RemoveAurasDueToSpell(SPELL_STONED);
-
-            ScriptedInstance* pInstance = (ScriptedInstance*)pCreatureTarget->GetInstanceData();
-            if (!pInstance)
-                return true;
-
-            if (Creature* pArchaedas = pInstance->GetSingleCreatureFromStorage(NPC_ARCHAEDAS))
-                pCreatureTarget->AI()->AttackStart(pArchaedas->GetVictim());
-
+        if (bApply)
             return true;
-        }
-    }
 
-    return false;
-}
-
-bool EffectAuraDummy_spell_aura_dummy_awaken_dwarf(const Aura* pAura, bool bApply)
-{
-    if (bApply)
-        return true;
-
-    if ((pAura->GetId() == SPELL_AWAKEN_EARTHEN_DWARF || pAura->GetId() == SPELL_AWAKEN_EARTHEN_GUARDIAN) && pAura->GetEffIndex() == EFFECT_INDEX_0)
-    {
-        if (Creature* pTarget = (Creature*)pAura->GetTarget())
+        if ((pAura->GetId() == SPELL_AWAKEN_EARTHEN_DWARF || pAura->GetId() == SPELL_AWAKEN_EARTHEN_GUARDIAN) && pAura->GetEffIndex() == EFFECT_INDEX_0)
         {
-            pTarget->RemoveAurasDueToSpell(SPELL_STONED);
+            if (Creature* pTarget = (Creature*)pAura->GetTarget())
+            {
+                pTarget->RemoveAurasDueToSpell(SPELL_STONED);
 
-            ScriptedInstance* pInstance = (ScriptedInstance*)pTarget->GetInstanceData();
-            if (!pInstance)
-                return true;
+                ScriptedInstance* pInstance = (ScriptedInstance*)pTarget->GetInstanceData();
+                if (!pInstance)
+                    return true;
 
-            if (Creature* pArchaedas = pInstance->GetSingleCreatureFromStorage(NPC_ARCHAEDAS))
-                pTarget->AI()->AttackStart(pArchaedas->GetVictim());
+                if (Creature* pArchaedas = pInstance->GetSingleCreatureFromStorage(NPC_ARCHAEDAS))
+                    pTarget->AI()->AttackStart(pArchaedas->GetVictim());
+            }
         }
+
+        return true;
     }
 
-    return true;
-}
+
+
+    bool OnEffectDummy(Unit* /*pCaster*/, uint32 uiSpellId, SpellEffectIndex uiEffIndex, Creature* pCreatureTarget, ObjectGuid /*originalCasterGuid*/) override
+    {
+        // always check spellid and effectindex
+        if (uiSpellId == SPELL_AWAKEN_VAULT_WARDER && uiEffIndex == EFFECT_INDEX_0)
+        {
+            if (pCreatureTarget->GetEntry() == NPC_VAULT_WARDER)
+            {
+                pCreatureTarget->RemoveAurasDueToSpell(SPELL_STONED);
+
+                ScriptedInstance* pInstance = (ScriptedInstance*)pCreatureTarget->GetInstanceData();
+                if (!pInstance)
+                    return true;
+
+                if (Creature* pArchaedas = pInstance->GetSingleCreatureFromStorage(NPC_ARCHAEDAS))
+                    pCreatureTarget->AI()->AttackStart(pArchaedas->GetVictim());
+
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+
+
+};
+
 
 void AddSC_boss_archaedas()
 {
-    Script* pNewScript = new Script;
-    pNewScript->Name = "boss_archaedas";
-    pNewScript->GetAI = &GetAI_boss_archaedas;
-    pNewScript->RegisterSelf();
+    new boss_archaedas();
+    new mob_archaeras_add();
 
-    pNewScript = new Script;
-    pNewScript->Name = "mob_archaeras_add";
-    pNewScript->pEffectDummyNPC = &EffectDummyCreature_npc_vault_warder;
-    pNewScript->pEffectAuraDummy = &EffectAuraDummy_spell_aura_dummy_awaken_dwarf;
-    pNewScript->RegisterSelf();
 }

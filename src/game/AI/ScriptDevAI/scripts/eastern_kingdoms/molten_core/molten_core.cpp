@@ -295,16 +295,23 @@ void instance_molten_core::ExecuteChatCommand(ChatHandler* handler, char* args)
         SpawnMajordomo(handler->GetPlayer(), true, summonPos);
     }
 }
-
-InstanceData* GetInstance_instance_molten_core(Map* pMap)
+class instance_molten_core : public InstanceMapScript
 {
-    return new instance_molten_core(pMap);
-}
+public:
+    instance_molten_core() : InstanceMapScript("instance_molten_core") { }
+
+    InstanceData* GetInstanceScript(Map* pMap) const override
+    {
+        return new instance_molten_core(pMap);
+    }
+
+
+
+
+};
 
 void AddSC_instance_molten_core()
 {
-    Script* pNewScript = new Script;
-    pNewScript->Name = "instance_molten_core";
-    pNewScript->GetInstanceData = &GetInstance_instance_molten_core;
-    pNewScript->RegisterSelf();
+    new instance_molten_core();
+
 }

@@ -161,8 +161,5 @@ UnitAI* GetAI_boss_patchwerk(Creature* creature)
 
 void AddSC_boss_patchwerk()
 {
-    Script* newScript = new Script;
-    newScript->Name = "boss_patchwerk";
-    newScript->GetAI = &GetAI_boss_patchwerk;
-    newScript->RegisterSelf();
+
 }

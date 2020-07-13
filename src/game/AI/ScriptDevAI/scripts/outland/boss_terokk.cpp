@@ -86,266 +86,279 @@ enum TerokkActions
     TEROKK_ACTION_ATTACK,
     TEROKK_ACTION_ACE_CAST,
 };
-
-struct boss_terokkAI : public ScriptedAI, public CombatActions
+class boss_terokk : public CreatureScript
 {
-    boss_terokkAI(Creature* creature) : ScriptedAI(creature), CombatActions(TEROKK_COMBAT_ACTION_MAX)
+public:
+    boss_terokk() : CreatureScript("boss_terokk") { }
+
+    UnitAI* GetAI(Creature* pCreature)
     {
-        AddCustomAction(TEROKK_ACTION_SPAWN, 0u, [&] { m_creature->CastSpell(nullptr, SPELL_RED_BEAM, TRIGGERED_OLD_TRIGGERED); });
-        AddCustomAction(TEROKK_ACTION_SAY, 2000u, [&]
-        {
-            m_creature->CastSpell(nullptr, SPELL_SHADOWFORM, TRIGGERED_OLD_TRIGGERED);
-            DoScriptText(SAY_SPAWN, m_creature);
-        });
-        AddCustomAction(TEROKK_ACTION_ATTACK, 9000u, [&]
-        {
-            m_creature->SetImmuneToPlayer(false);
-            if (Unit* spawner = m_creature->GetSpawner()) AttackStart(spawner);
-        });
-        AddCustomAction(TEROKK_ACTION_ACE_CAST, true, [&]
-        {
-            Creature* target = GetClosestCreatureWithEntry(m_creature, NPC_SKYGUARD_TARGET, 70.f);
-            if (Creature* ace = m_creature->GetMap()->GetCreature(m_aces[1]))
-                ace->AI()->DoCastSpellIfCan(target, SPELL_ANCIENT_FLAMES);
-        });
-        AddCombatAction(TEROKK_COMBAT_ACTION_DIVINE_SHIELD, 0u);
-        AddCombatAction(TEROKK_COMBAT_ACTION_SHADOW_BOLT_VOLLEY, 0u);
-        AddCombatAction(TEROKK_COMBAT_ACTION_CHOSEN_ONE, 0u);
-        AddCombatAction(TEROKK_COMBAT_ACTION_CLEAVE, 0u);
+        return new boss_terokkAI(pCreature);
     }
 
-    bool m_phase;
-    GuidVector m_aces;
 
-    uint32 GetInitialActionTimer(TerokkActions id)
+
+    struct boss_terokkAI : public ScriptedAI, public CombatActions
     {
-        switch (id)
+        boss_terokkAI(Creature* creature) : ScriptedAI(creature), CombatActions(TEROKK_COMBAT_ACTION_MAX)
         {
-            case TEROKK_COMBAT_ACTION_DIVINE_SHIELD: return 0;
-            case TEROKK_COMBAT_ACTION_SHADOW_BOLT_VOLLEY: return 4000;
-            case TEROKK_COMBAT_ACTION_CHOSEN_ONE: return 30000;
-            case TEROKK_COMBAT_ACTION_CLEAVE: return urand(6000, 9000);
-            default: return 0;
-        }
-    }
-
-    uint32 GetSubsequentActionTimer(TerokkActions id) const
-    {
-        switch (id)
-        {
-            case TEROKK_COMBAT_ACTION_DIVINE_SHIELD: return 22000;
-            case TEROKK_COMBAT_ACTION_SHADOW_BOLT_VOLLEY: return urand(4000, 15000);
-            case TEROKK_COMBAT_ACTION_CHOSEN_ONE: return 30000;
-            case TEROKK_COMBAT_ACTION_CLEAVE: return urand(7000, 15000);
-            default: return 0;
-        }
-    }
-
-    void Reset() override
-    {
-        for (uint32 i = 0; i < TEROKK_COMBAT_ACTION_MAX; ++i)
-            SetActionReadyStatus(i, false);
-
-        SetActionReadyStatus(TEROKK_COMBAT_ACTION_SPAWN_ACE, true);
-        SetActionReadyStatus(TEROKK_COMBAT_ACTION_PHASE_2, true);
-
-        ResetTimer(TEROKK_COMBAT_ACTION_DIVINE_SHIELD,              GetInitialActionTimer(TEROKK_COMBAT_ACTION_DIVINE_SHIELD));
-        ResetTimer(TEROKK_COMBAT_ACTION_SHADOW_BOLT_VOLLEY,         GetInitialActionTimer(TEROKK_COMBAT_ACTION_SHADOW_BOLT_VOLLEY));
-        ResetTimer(TEROKK_COMBAT_ACTION_CHOSEN_ONE,                 GetInitialActionTimer(TEROKK_COMBAT_ACTION_CHOSEN_ONE));
-        ResetTimer(TEROKK_COMBAT_ACTION_CLEAVE,                     GetInitialActionTimer(TEROKK_COMBAT_ACTION_CLEAVE));
-        DisableTimer(TEROKK_ACTION_ACE_CAST);
-
-        m_phase = false;
-
-        DespawnAces();
-    }
-
-    void DespawnAces()
-    {
-        for (ObjectGuid& guid : m_aces)
-            if (Creature* spawn = m_creature->GetMap()->GetCreature(guid))
-                spawn->ForcedDespawn();
-
-        m_aces.clear();
-    }
-
-    void JustDied(Unit* killer) override
-    {
-        if (Creature* spawn = m_creature->GetMap()->GetCreature(m_aces[0]))
-        {
-            DoScriptText(SAY_TEROKK_DOWN, spawn, killer);
-            spawn->GetMotionMaster()->Clear(false, true);
-            spawn->GetMotionMaster()->MoveWaypoint(PATH_ID_END);
-        }
-    }
-
-    void ReceiveAIEvent(AIEventType eventType, Unit* /*sender*/, Unit* /*invoker*/, uint32 /*miscValue*/) override
-    {
-        if (eventType == AI_EVENT_CUSTOM_A)
-        {
-            m_creature->RemoveAurasDueToSpell(SPELL_DIVINE_SHIELD);
-            m_creature->CastSpell(nullptr, SPELL_ENRAGE, TRIGGERED_NONE);
-            DoScriptText(SAY_ENRAGE, m_creature);
-        }
-    }
-
-    void JustSummoned(Creature* creature) override
-    {
-        creature->AI()->SetReactState(REACT_PASSIVE);
-        switch (m_aces.size())
-        {
-            case 0:
-                DoScriptText(SAY_SPAWN_ACE, creature);
-                creature->GetMotionMaster()->Clear(false, true);
-                creature->GetMotionMaster()->MoveWaypoint();
-                break;
-            case 1:
-                if (Creature* spawn = m_creature->GetMap()->GetCreature(m_aces[0]))
-                    creature->GetMotionMaster()->MoveFollow(spawn, 1.f, M_PI_F + M_PI_F / 4, true);
-                break;
-            case 2:
-                if (Creature* spawn = m_creature->GetMap()->GetCreature(m_aces[0]))
-                    creature->GetMotionMaster()->MoveFollow(spawn, 1.f, M_PI_F - M_PI_F / 4, true);
-                break;
-        }
-        creature->Mount(MOUNT_OFFSET + urand(0, MOUNT_COUNT - 1));
-        m_aces.push_back(creature->GetObjectGuid());
-    }
-
-    void SummonedMovementInform(Creature* summoned, uint32 motionType, uint32 data) override
-    {
-        if (motionType == WAYPOINT_MOTION_TYPE)
-        {
-            switch (summoned->GetMotionMaster()->GetPathId())
+            AddCustomAction(TEROKK_ACTION_SPAWN, 0u, [&] { m_creature->CastSpell(nullptr, SPELL_RED_BEAM, TRIGGERED_OLD_TRIGGERED); });
+            AddCustomAction(TEROKK_ACTION_SAY, 2000u, [&]
             {
-                case PATH_ID_START:
-                    if (data == POINT_FINAL_START)
-                    {
-                        summoned->GetMotionMaster()->Clear(false, true);
-                        summoned->GetMotionMaster()->MoveWaypoint(PATH_ID_CYCLE);
-                    }
-                    break;
-                case PATH_ID_END:
-                    if (data == POINT_FINAL_END)
-                        DespawnAces();
-                    break;
-                default: break;
-            }                
-        }
-    }
-
-    void ExecuteActions() override
-    {
-        if (!CanExecuteCombatAction())
-            return;
-
-        for (uint32 i = 0; i < TEROKK_COMBAT_ACTION_MAX; ++i)
-        {
-            if (!GetActionReadyStatus(i))
-                continue;
-
-            switch (i)
+                m_creature->CastSpell(nullptr, SPELL_SHADOWFORM, TRIGGERED_OLD_TRIGGERED);
+                DoScriptText(SAY_SPAWN, m_creature);
+            });
+            AddCustomAction(TEROKK_ACTION_ATTACK, 9000u, [&]
             {
-                case TEROKK_COMBAT_ACTION_SPAWN_ACE:
-                    if (m_creature->GetHealthPercent() > 50.f)
-                        continue;
-                    m_creature->SummonCreature(NPC_ACE, -3335.223f, 3431.947f, 426.3864f, 0.f, TEMPSPAWN_MANUAL_DESPAWN, 0, true, true);
-                    m_creature->SummonCreature(NPC_ACE, -3335.223f, 3431.947f, 426.3864f, 0.f, TEMPSPAWN_MANUAL_DESPAWN, 0, true, true);
-                    m_creature->SummonCreature(NPC_ACE, -3335.223f, 3431.947f, 426.3864f, 0.f, TEMPSPAWN_MANUAL_DESPAWN, 0, true, true);
-                    SetActionReadyStatus(i, false);
-                    continue; // not exclusive action
-                case TEROKK_COMBAT_ACTION_PHASE_2:
-                    if (m_creature->GetHealthPercent() > 25.f)
-                        break;
-                    m_phase = true;
-                    DoScriptText(SAY_DIVINE_SHIELD, m_creature);
-                    if (Creature* ace = m_creature->GetMap()->GetCreature(m_aces[0]))
-                        DoScriptText(SAY_FLAMES, ace);
-                    SetActionReadyStatus(i, false);
-                    continue; // not exclusive action
-                case TEROKK_COMBAT_ACTION_DIVINE_SHIELD:
-                    if (!m_phase)
-                        continue;
-                    m_creature->RemoveAurasDueToSpell(SPELL_ENRAGE);
-                    if (DoCastSpellIfCan(nullptr, SPELL_DIVINE_SHIELD) == CAST_OK)
-                    {
-                        Creature* stalker = GetClosestCreatureWithEntry(m_creature, NPC_INVISIBLE_STALKER, 70.f);
-                        if (stalker)
-                            if (Creature* ace = m_creature->GetMap()->GetCreature(m_aces[0]))
-                                ace->AI()->DoCastSpellIfCan(stalker, SPELL_SKYGUARD_FLARE);
-                        ResetTimer(TEROKK_ACTION_ACE_CAST, 15000);
-                        SetActionReadyStatus(i, false);
-                        ResetTimer(i, GetSubsequentActionTimer(TerokkActions(i)));
-                        return;
-                    }
-                    continue;
-                case TEROKK_COMBAT_ACTION_SHADOW_BOLT_VOLLEY:
-                    if (DoCastSpellIfCan(nullptr, SPELL_SHADOW_BOLT_VOLLEY) == CAST_OK)
-                    {
-                        SetActionReadyStatus(i, false);
-                        ResetTimer(i, GetSubsequentActionTimer(TerokkActions(i)));
-                        return;
-                    }
-                    continue;
-                case TEROKK_COMBAT_ACTION_CHOSEN_ONE:
-                    if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, nullptr, SELECT_FLAG_PLAYER))
-                    {
-                        if (DoCastSpellIfCan(target, SPELL_CHOSEN_ONE) == CAST_OK)
+                m_creature->SetImmuneToPlayer(false);
+                if (Unit* spawner = m_creature->GetSpawner()) AttackStart(spawner);
+            });
+            AddCustomAction(TEROKK_ACTION_ACE_CAST, true, [&]
+            {
+                Creature* target = GetClosestCreatureWithEntry(m_creature, NPC_SKYGUARD_TARGET, 70.f);
+                if (Creature* ace = m_creature->GetMap()->GetCreature(m_aces[1]))
+                    ace->AI()->DoCastSpellIfCan(target, SPELL_ANCIENT_FLAMES);
+            });
+            AddCombatAction(TEROKK_COMBAT_ACTION_DIVINE_SHIELD, 0u);
+            AddCombatAction(TEROKK_COMBAT_ACTION_SHADOW_BOLT_VOLLEY, 0u);
+            AddCombatAction(TEROKK_COMBAT_ACTION_CHOSEN_ONE, 0u);
+            AddCombatAction(TEROKK_COMBAT_ACTION_CLEAVE, 0u);
+        }
+
+        bool m_phase;
+        GuidVector m_aces;
+
+        uint32 GetInitialActionTimer(TerokkActions id)
+        {
+            switch (id)
+            {
+                case TEROKK_COMBAT_ACTION_DIVINE_SHIELD: return 0;
+                case TEROKK_COMBAT_ACTION_SHADOW_BOLT_VOLLEY: return 4000;
+                case TEROKK_COMBAT_ACTION_CHOSEN_ONE: return 30000;
+                case TEROKK_COMBAT_ACTION_CLEAVE: return urand(6000, 9000);
+                default: return 0;
+            }
+        }
+
+        uint32 GetSubsequentActionTimer(TerokkActions id) const
+        {
+            switch (id)
+            {
+                case TEROKK_COMBAT_ACTION_DIVINE_SHIELD: return 22000;
+                case TEROKK_COMBAT_ACTION_SHADOW_BOLT_VOLLEY: return urand(4000, 15000);
+                case TEROKK_COMBAT_ACTION_CHOSEN_ONE: return 30000;
+                case TEROKK_COMBAT_ACTION_CLEAVE: return urand(7000, 15000);
+                default: return 0;
+            }
+        }
+
+        void Reset() override
+        {
+            for (uint32 i = 0; i < TEROKK_COMBAT_ACTION_MAX; ++i)
+                SetActionReadyStatus(i, false);
+
+            SetActionReadyStatus(TEROKK_COMBAT_ACTION_SPAWN_ACE, true);
+            SetActionReadyStatus(TEROKK_COMBAT_ACTION_PHASE_2, true);
+
+            ResetTimer(TEROKK_COMBAT_ACTION_DIVINE_SHIELD,              GetInitialActionTimer(TEROKK_COMBAT_ACTION_DIVINE_SHIELD));
+            ResetTimer(TEROKK_COMBAT_ACTION_SHADOW_BOLT_VOLLEY,         GetInitialActionTimer(TEROKK_COMBAT_ACTION_SHADOW_BOLT_VOLLEY));
+            ResetTimer(TEROKK_COMBAT_ACTION_CHOSEN_ONE,                 GetInitialActionTimer(TEROKK_COMBAT_ACTION_CHOSEN_ONE));
+            ResetTimer(TEROKK_COMBAT_ACTION_CLEAVE,                     GetInitialActionTimer(TEROKK_COMBAT_ACTION_CLEAVE));
+            DisableTimer(TEROKK_ACTION_ACE_CAST);
+
+            m_phase = false;
+
+            DespawnAces();
+        }
+
+        void DespawnAces()
+        {
+            for (ObjectGuid& guid : m_aces)
+                if (Creature* spawn = m_creature->GetMap()->GetCreature(guid))
+                    spawn->ForcedDespawn();
+
+            m_aces.clear();
+        }
+
+        void JustDied(Unit* killer) override
+        {
+            if (Creature* spawn = m_creature->GetMap()->GetCreature(m_aces[0]))
+            {
+                DoScriptText(SAY_TEROKK_DOWN, spawn, killer);
+                spawn->GetMotionMaster()->Clear(false, true);
+                spawn->GetMotionMaster()->MoveWaypoint(PATH_ID_END);
+            }
+        }
+
+        void ReceiveAIEvent(AIEventType eventType, Unit* /*sender*/, Unit* /*invoker*/, uint32 /*miscValue*/) override
+        {
+            if (eventType == AI_EVENT_CUSTOM_A)
+            {
+                m_creature->RemoveAurasDueToSpell(SPELL_DIVINE_SHIELD);
+                m_creature->CastSpell(nullptr, SPELL_ENRAGE, TRIGGERED_NONE);
+                DoScriptText(SAY_ENRAGE, m_creature);
+            }
+        }
+
+        void JustSummoned(Creature* creature) override
+        {
+            creature->AI()->SetReactState(REACT_PASSIVE);
+            switch (m_aces.size())
+            {
+                case 0:
+                    DoScriptText(SAY_SPAWN_ACE, creature);
+                    creature->GetMotionMaster()->Clear(false, true);
+                    creature->GetMotionMaster()->MoveWaypoint();
+                    break;
+                case 1:
+                    if (Creature* spawn = m_creature->GetMap()->GetCreature(m_aces[0]))
+                        creature->GetMotionMaster()->MoveFollow(spawn, 1.f, M_PI_F + M_PI_F / 4, true);
+                    break;
+                case 2:
+                    if (Creature* spawn = m_creature->GetMap()->GetCreature(m_aces[0]))
+                        creature->GetMotionMaster()->MoveFollow(spawn, 1.f, M_PI_F - M_PI_F / 4, true);
+                    break;
+            }
+            creature->Mount(MOUNT_OFFSET + urand(0, MOUNT_COUNT - 1));
+            m_aces.push_back(creature->GetObjectGuid());
+        }
+
+        void SummonedMovementInform(Creature* summoned, uint32 motionType, uint32 data) override
+        {
+            if (motionType == WAYPOINT_MOTION_TYPE)
+            {
+                switch (summoned->GetMotionMaster()->GetPathId())
+                {
+                    case PATH_ID_START:
+                        if (data == POINT_FINAL_START)
                         {
-                            m_creature->CastSpell(nullptr, SPELL_WILL_OF_THE_ARAKKOA_GOD, TRIGGERED_NONE);
-                            DoScriptText(SAY_CHOSEN_ONE, m_creature, target);
+                            summoned->GetMotionMaster()->Clear(false, true);
+                            summoned->GetMotionMaster()->MoveWaypoint(PATH_ID_CYCLE);
+                        }
+                        break;
+                    case PATH_ID_END:
+                        if (data == POINT_FINAL_END)
+                            DespawnAces();
+                        break;
+                    default: break;
+                }            
+            }
+        }
+
+        void ExecuteActions() override
+        {
+            if (!CanExecuteCombatAction())
+                return;
+
+            for (uint32 i = 0; i < TEROKK_COMBAT_ACTION_MAX; ++i)
+            {
+                if (!GetActionReadyStatus(i))
+                    continue;
+
+                switch (i)
+                {
+                    case TEROKK_COMBAT_ACTION_SPAWN_ACE:
+                        if (m_creature->GetHealthPercent() > 50.f)
+                            continue;
+                        m_creature->SummonCreature(NPC_ACE, -3335.223f, 3431.947f, 426.3864f, 0.f, TEMPSPAWN_MANUAL_DESPAWN, 0, true, true);
+                        m_creature->SummonCreature(NPC_ACE, -3335.223f, 3431.947f, 426.3864f, 0.f, TEMPSPAWN_MANUAL_DESPAWN, 0, true, true);
+                        m_creature->SummonCreature(NPC_ACE, -3335.223f, 3431.947f, 426.3864f, 0.f, TEMPSPAWN_MANUAL_DESPAWN, 0, true, true);
+                        SetActionReadyStatus(i, false);
+                        continue; // not exclusive action
+                    case TEROKK_COMBAT_ACTION_PHASE_2:
+                        if (m_creature->GetHealthPercent() > 25.f)
+                            break;
+                        m_phase = true;
+                        DoScriptText(SAY_DIVINE_SHIELD, m_creature);
+                        if (Creature* ace = m_creature->GetMap()->GetCreature(m_aces[0]))
+                            DoScriptText(SAY_FLAMES, ace);
+                        SetActionReadyStatus(i, false);
+                        continue; // not exclusive action
+                    case TEROKK_COMBAT_ACTION_DIVINE_SHIELD:
+                        if (!m_phase)
+                            continue;
+                        m_creature->RemoveAurasDueToSpell(SPELL_ENRAGE);
+                        if (DoCastSpellIfCan(nullptr, SPELL_DIVINE_SHIELD) == CAST_OK)
+                        {
+                            Creature* stalker = GetClosestCreatureWithEntry(m_creature, NPC_INVISIBLE_STALKER, 70.f);
+                            if (stalker)
+                                if (Creature* ace = m_creature->GetMap()->GetCreature(m_aces[0]))
+                                    ace->AI()->DoCastSpellIfCan(stalker, SPELL_SKYGUARD_FLARE);
+                            ResetTimer(TEROKK_ACTION_ACE_CAST, 15000);
                             SetActionReadyStatus(i, false);
                             ResetTimer(i, GetSubsequentActionTimer(TerokkActions(i)));
                             return;
                         }
-                    }
-                    continue;
-                case TEROKK_COMBAT_ACTION_CLEAVE:
-                    if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_CLEAVE) == CAST_OK)
-                    {
-                        SetActionReadyStatus(i, false);
-                        ResetTimer(i, GetSubsequentActionTimer(TerokkActions(i)));
-                        return;
-                    }
+                        continue;
+                    case TEROKK_COMBAT_ACTION_SHADOW_BOLT_VOLLEY:
+                        if (DoCastSpellIfCan(nullptr, SPELL_SHADOW_BOLT_VOLLEY) == CAST_OK)
+                        {
+                            SetActionReadyStatus(i, false);
+                            ResetTimer(i, GetSubsequentActionTimer(TerokkActions(i)));
+                            return;
+                        }
+                        continue;
+                    case TEROKK_COMBAT_ACTION_CHOSEN_ONE:
+                        if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, nullptr, SELECT_FLAG_PLAYER))
+                        {
+                            if (DoCastSpellIfCan(target, SPELL_CHOSEN_ONE) == CAST_OK)
+                            {
+                                m_creature->CastSpell(nullptr, SPELL_WILL_OF_THE_ARAKKOA_GOD, TRIGGERED_NONE);
+                                DoScriptText(SAY_CHOSEN_ONE, m_creature, target);
+                                SetActionReadyStatus(i, false);
+                                ResetTimer(i, GetSubsequentActionTimer(TerokkActions(i)));
+                                return;
+                            }
+                        }
+                        continue;
+                    case TEROKK_COMBAT_ACTION_CLEAVE:
+                        if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_CLEAVE) == CAST_OK)
+                        {
+                            SetActionReadyStatus(i, false);
+                            ResetTimer(i, GetSubsequentActionTimer(TerokkActions(i)));
+                            return;
+                        }
+                }
             }
         }
-    }
 
-    void UpdateAI(const uint32 diff) override
-    {
-        UpdateTimers(diff, m_creature->IsInCombat());
+        void UpdateAI(const uint32 diff) override
+        {
+            UpdateTimers(diff, m_creature->IsInCombat());
 
-        if (!m_creature->SelectHostileTarget() || !m_creature->GetVictim())
-            return;
+            if (!m_creature->SelectHostileTarget() || !m_creature->GetVictim())
+                return;
 
-        ExecuteActions();
+            ExecuteActions();
 
-        DoMeleeAttackIfReady();
-    }
+            DoMeleeAttackIfReady();
+        }
+    };
+
+
+
 };
 
-UnitAI* GetAI_boss_terokk(Creature* pCreature)
+class event_summon_terokk : public UnknownScript
 {
-    return new boss_terokkAI(pCreature);
-}
+public:
+    event_summon_terokk() : UnknownScript("event_summon_terokk") { }
 
-bool ProcessEventId_event_summon_terokk(uint32 /*eventId*/, Object* source, Object* /*pTarget*/, bool /*isStart*/)
-{
-    Player* player = (Player*)source;
-    if (player->GetMap()->SpawnedCountForEntry(NPC_TEROKK) == 0)
-        player->SummonCreature(NPC_TEROKK, -3788.856f, 3507.526f, 286.8846f, 3.159046f, TEMPSPAWN_TIMED_OOC_OR_DEAD_DESPAWN, 600000, true, false, 0, 0, 0, true);
-    return true;
-}
+    bool OnProcessEvent(uint32 /*eventId*/, Object* source, Object* /*pTarget*/, bool /*isStart*/) override
+    {
+        Player* player = (Player*)source;
+        if (player->GetMap()->SpawnedCountForEntry(NPC_TEROKK) == 0)
+            player->SummonCreature(NPC_TEROKK, -3788.856f, 3507.526f, 286.8846f, 3.159046f, TEMPSPAWN_TIMED_OOC_OR_DEAD_DESPAWN, 600000, true, false, 0, 0, 0, true);
+        return true;
+    }
+
+
+
+};
 
 void AddSC_boss_terokk()
 {
-    Script* pNewScript = new Script;
-    pNewScript->Name = "event_summon_terokk";
-    pNewScript->pProcessEventId = &ProcessEventId_event_summon_terokk;
-    pNewScript->RegisterSelf();
+    new event_summon_terokk();
+    new boss_terokk();
 
-    pNewScript = new Script;
-    pNewScript->Name = "boss_terokk";
-    pNewScript->GetAI = &GetAI_boss_terokk;
-    pNewScript->RegisterSelf();
 }

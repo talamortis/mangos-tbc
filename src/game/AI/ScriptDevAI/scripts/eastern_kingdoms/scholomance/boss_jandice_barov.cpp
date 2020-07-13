@@ -31,80 +31,89 @@ enum
     SPELL_SPREAD_JANDICE        = 17774,
     SPELL_BANISH                = 8994,
 };
-
-struct boss_jandicebarovAI : public ScriptedAI
+class boss_jandice_barov : public CreatureScript
 {
-    boss_jandicebarovAI(Creature* pCreature) : ScriptedAI(pCreature) {Reset();}
+public:
+    boss_jandice_barov() : CreatureScript("boss_jandice_barov") { }
 
-    uint32 m_uiCurseOfBloodTimer;
-    uint32 m_uiIllusionTimer;
-    uint32 m_uiBanishTimer;
-
-    void Reset() override
+    UnitAI* GetAI_boss_jandicebarov(Creature* pCreature)
     {
-        m_uiCurseOfBloodTimer = 5000;
-        m_uiIllusionTimer = 15000;
-        m_uiBanishTimer = urand(9000, 13000);
+        return new boss_jandicebarovAI(pCreature);
     }
 
-    void JustSummoned(Creature* pSummoned) override
-    {
-        pSummoned->CastSpell(pSummoned, SPELL_SPREAD_ILLUSIONS, TRIGGERED_OLD_TRIGGERED);
-    }
 
-    void UpdateAI(const uint32 uiDiff) override
-    {
-        // Return since we have no target
-        if (!m_creature->SelectHostileTarget() || !m_creature->GetVictim())
-            return;
 
-        // CurseOfBlood_Timer
-        if (m_uiCurseOfBloodTimer < uiDiff)
+    struct boss_jandicebarovAI : public ScriptedAI
+    {
+        boss_jandicebarovAI(Creature* pCreature) : ScriptedAI(pCreature) {Reset();}
+
+        uint32 m_uiCurseOfBloodTimer;
+        uint32 m_uiIllusionTimer;
+        uint32 m_uiBanishTimer;
+
+        void Reset() override
         {
-            if (DoCastSpellIfCan(m_creature, SPELL_CURSE_OF_BLOOD) == CAST_OK)
-                m_uiCurseOfBloodTimer = urand(30000, 35000);
+            m_uiCurseOfBloodTimer = 5000;
+            m_uiIllusionTimer = 15000;
+            m_uiBanishTimer = urand(9000, 13000);
         }
-        else
-            m_uiCurseOfBloodTimer -= uiDiff;
 
-        // Banish
-        if (m_uiBanishTimer < uiDiff)
+        void JustSummoned(Creature* pSummoned) override
         {
-            if (Unit* pTarget = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 1))
+            pSummoned->CastSpell(pSummoned, SPELL_SPREAD_ILLUSIONS, TRIGGERED_OLD_TRIGGERED);
+        }
+
+        void UpdateAI(const uint32 uiDiff) override
+        {
+            // Return since we have no target
+            if (!m_creature->SelectHostileTarget() || !m_creature->GetVictim())
+                return;
+
+            // CurseOfBlood_Timer
+            if (m_uiCurseOfBloodTimer < uiDiff)
             {
-                if (DoCastSpellIfCan(pTarget, SPELL_BANISH) == CAST_OK)
-                    m_uiBanishTimer = urand(17000, 21000);
+                if (DoCastSpellIfCan(m_creature, SPELL_CURSE_OF_BLOOD) == CAST_OK)
+                    m_uiCurseOfBloodTimer = urand(30000, 35000);
             }
-        }
-        else
-            m_uiBanishTimer -= uiDiff;
+            else
+                m_uiCurseOfBloodTimer -= uiDiff;
 
-        // Illusion_Timer
-        if (m_uiIllusionTimer < uiDiff)
-        {
-            // Summon illusions and becomes invisible for 8 seconds while hiding into the illusions
-            if (DoCastSpellIfCan(m_creature, SPELL_SUMMON_ILLUSIONS) == CAST_OK)
+            // Banish
+            if (m_uiBanishTimer < uiDiff)
             {
-                m_uiIllusionTimer = 25000;
-                DoCastSpellIfCan(m_creature, SPELL_SPREAD_JANDICE);
+                if (Unit* pTarget = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 1))
+                {
+                    if (DoCastSpellIfCan(pTarget, SPELL_BANISH) == CAST_OK)
+                        m_uiBanishTimer = urand(17000, 21000);
+                }
             }
-        }
-        else
-            m_uiIllusionTimer -= uiDiff;
+            else
+                m_uiBanishTimer -= uiDiff;
 
-        DoMeleeAttackIfReady();
-    }
+            // Illusion_Timer
+            if (m_uiIllusionTimer < uiDiff)
+            {
+                // Summon illusions and becomes invisible for 8 seconds while hiding into the illusions
+                if (DoCastSpellIfCan(m_creature, SPELL_SUMMON_ILLUSIONS) == CAST_OK)
+                {
+                    m_uiIllusionTimer = 25000;
+                    DoCastSpellIfCan(m_creature, SPELL_SPREAD_JANDICE);
+                }
+            }
+            else
+                m_uiIllusionTimer -= uiDiff;
+
+            DoMeleeAttackIfReady();
+        }
+    };
+
+
+
 };
 
-UnitAI* GetAI_boss_jandicebarov(Creature* pCreature)
-{
-    return new boss_jandicebarovAI(pCreature);
-}
 
 void AddSC_boss_jandicebarov()
 {
-    Script* pNewScript = new Script;
-    pNewScript->Name = "boss_jandice_barov";
-    pNewScript->GetAI = &GetAI_boss_jandicebarov;
-    pNewScript->RegisterSelf();
+    new boss_jandice_barov();
+
 }

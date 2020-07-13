@@ -471,37 +471,48 @@ void instance_sunwell_plateau::JustDidDialogueStep(int32 iEntry)
             break;
     }
 }
-
-InstanceData* GetInstanceData_instance_sunwell_plateau(Map* pMap)
+class instance_sunwell_plateau : public InstanceMapScript
 {
-    return new instance_sunwell_plateau(pMap);
-}
+public:
+    instance_sunwell_plateau() : InstanceMapScript("instance_sunwell_plateau") { }
 
-bool AreaTrigger_at_sunwell_plateau(Player* pPlayer, AreaTriggerEntry const* pAt)
-{
-    if (pAt->id == AREATRIGGER_TWINS)
+    InstanceData* GetInstanceScript(Map* pMap) const override
     {
-        if (pPlayer->isGameMaster() || pPlayer->IsDead())
-            return false;
-
-        instance_sunwell_plateau* pInstance = (instance_sunwell_plateau*)pPlayer->GetInstanceData();
-
-        if (pInstance && pInstance->GetData(TYPE_EREDAR_TWINS) == NOT_STARTED)
-            pInstance->SetData(TYPE_EREDAR_TWINS, SPECIAL);
+        return new instance_sunwell_plateau(pMap);
     }
 
-    return false;
-}
+
+
+
+};
+class at_sunwell_plateau : public AreaTriggerScript
+{
+public:
+    at_sunwell_plateau() : AreaTriggerScript("at_sunwell_plateau") { }
+
+    bool OnTrigger(Player* pPlayer, AreaTriggerEntry const* pAt) override
+    {
+        if (pAt->id == AREATRIGGER_TWINS)
+        {
+            if (pPlayer->isGameMaster() || pPlayer->IsDead())
+                return false;
+
+            instance_sunwell_plateau* pInstance = (instance_sunwell_plateau*)pPlayer->GetInstanceData();
+
+            if (pInstance && pInstance->GetData(TYPE_EREDAR_TWINS) == NOT_STARTED)
+                pInstance->SetData(TYPE_EREDAR_TWINS, SPECIAL);
+        }
+
+        return false;
+    }
+
+
+
+};
 
 void AddSC_instance_sunwell_plateau()
 {
-    Script* pNewScript = new Script;
-    pNewScript->Name = "instance_sunwell_plateau";
-    pNewScript->GetInstanceData = &GetInstanceData_instance_sunwell_plateau;
-    pNewScript->RegisterSelf();
+    new instance_sunwell_plateau();
+    new at_sunwell_plateau();
 
-    pNewScript = new Script;
-    pNewScript->Name = "at_sunwell_plateau";
-    pNewScript->pAreaTrigger = &AreaTrigger_at_sunwell_plateau;
-    pNewScript->RegisterSelf();
 }

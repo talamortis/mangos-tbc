@@ -102,100 +102,129 @@ enum ViscidusActions
     VISCIDUS_ACTION_MAX,
     VISCIDUS_EXPLODE,
 };
-
-struct boss_viscidusAI : public CombatAI
+class boss_viscidus : public CreatureScript
 {
-    boss_viscidusAI(Creature* creature) : CombatAI(creature, VISCIDUS_ACTION_MAX), m_instance(static_cast<ScriptedInstance*>(creature->GetInstanceData()))
+public:
+    boss_viscidus() : CreatureScript("boss_viscidus") { }
+
+
+    struct boss_viscidusAI : public CombatAI
     {
-        AddCombatAction(VISCIDUS_TOXIN, 30000u);
-        AddCombatAction(VISCIDUS_POISON_SHOCK, 7000, 12000);
-        AddCombatAction(VISCIDUS_POISON_BOLT_VOLLEY, 10000, 15000);
-        AddCustomAction(VISCIDUS_EXPLODE, true, [&]() { HandleExplode(); });
-        m_creature->GetCombatManager().SetLeashingCheck([&](Unit* unit, float x, float y, float z) -> bool
+        boss_viscidusAI(Creature* creature) : CombatAI(creature, VISCIDUS_ACTION_MAX), m_instance(static_cast<ScriptedInstance*>(creature->GetInstanceData()))
         {
-            return m_creature->GetDistance(resetPoint.m_fX, resetPoint.m_fY, resetPoint.m_fZ, DIST_CALC_COMBAT_REACH) < 10.0f;
-        });
-    }
-
-    ScriptedInstance* m_instance;
-
-    uint8 m_uiPhase;
-
-    uint32 m_uiHitCount;
-
-    GuidList m_lGlobesGuidList;
-
-    void Reset() override
-    {
-        CombatAI::Reset();
-        m_uiPhase                 = PHASE_NORMAL;
-        m_uiHitCount              = 0;
-
-        DoCastSpellIfCan(nullptr, SPELL_MEMBRANE_VISCIDUS, CAST_TRIGGERED);
-        DoCastSpellIfCan(nullptr, SPELL_VISCIDUS_WEAKNESS, CAST_TRIGGERED);
-
-        SetCombatScriptStatus(false);
-        SetMeleeEnabled(true);
-        SetCombatMovement(true);
-        SetDeathPrevention(true);
-        m_creature->SetStandState(UNIT_STAND_STATE_STAND);
-    }
-
-    void Aggro(Unit* /*who*/) override
-    {
-        if (m_instance)
-            m_instance->SetData(TYPE_VISCIDUS, IN_PROGRESS);
-    }
-
-    void JustReachedHome() override
-    {
-        if (m_instance)
-            m_instance->SetData(TYPE_VISCIDUS, FAIL);
-
-        DoCastSpellIfCan(m_creature, SPELL_DESPAWN_GLOBS, CAST_TRIGGERED);
-    }
-
-    void JustDied(Unit* /*killer*/) override
-    {
-        if (m_instance)
-            m_instance->SetData(TYPE_VISCIDUS, DONE);
-    }
-
-    void JustSummoned(Creature* summoned) override
-    {
-        if (summoned->GetEntry() == NPC_GLOB_OF_VISCIDUS)
-        {
-            summoned->AI()->SetReactState(REACT_PASSIVE);
-            float x, y, z;
-            m_creature->GetRespawnCoord(x, y, z);
-            summoned->GetMotionMaster()->MovePoint(1, x, y, z);
-            m_lGlobesGuidList.push_back(summoned->GetObjectGuid());
+            AddCombatAction(VISCIDUS_TOXIN, 30000u);
+            AddCombatAction(VISCIDUS_POISON_SHOCK, 7000, 12000);
+            AddCombatAction(VISCIDUS_POISON_BOLT_VOLLEY, 10000, 15000);
+            AddCustomAction(VISCIDUS_EXPLODE, true, [&]() { HandleExplode(); });
+            m_creature->GetCombatManager().SetLeashingCheck([&](Unit* unit, float x, float y, float z) -> bool
+            {
+                return m_creature->GetDistance(resetPoint.m_fX, resetPoint.m_fY, resetPoint.m_fZ, DIST_CALC_COMBAT_REACH) < 10.0f;
+            });
         }
-        else if (summoned->GetEntry() == NPC_VISCIDUS_TRIGGER) // forwarded from map
-            summoned->CastSpell(nullptr, SPELL_TOXIN, TRIGGERED_OLD_TRIGGERED);
-    }
 
-    void SummonedCreatureJustDied(Creature* summoned) override
-    {
-        if (summoned->GetEntry() == NPC_GLOB_OF_VISCIDUS)
+        ScriptedInstance* m_instance;
+
+        uint8 m_uiPhase;
+
+        uint32 m_uiHitCount;
+
+        GuidList m_lGlobesGuidList;
+
+        void Reset() override
         {
-            // shrink - modify scale
-            DoCastSpellIfCan(m_creature, SPELL_VISCIDUS_SHRINKS, CAST_TRIGGERED);
+            CombatAI::Reset();
+            m_uiPhase                 = PHASE_NORMAL;
+            m_uiHitCount              = 0;
 
-            if (DoCastSpellIfCan(m_creature, SPELL_VISCIDUS_SHRINKS_HP, CAST_TRIGGERED) == CAST_OK)
-                m_creature->SetHealth(m_creature->GetHealth() - (m_creature->GetMaxHealth() * 0.05f));
+            DoCastSpellIfCan(nullptr, SPELL_MEMBRANE_VISCIDUS, CAST_TRIGGERED);
+            DoCastSpellIfCan(nullptr, SPELL_VISCIDUS_WEAKNESS, CAST_TRIGGERED);
+
+            SetCombatScriptStatus(false);
+            SetMeleeEnabled(true);
+            SetCombatMovement(true);
+            SetDeathPrevention(true);
+            m_creature->SetStandState(UNIT_STAND_STATE_STAND);
+        }
+
+        void Aggro(Unit* /*who*/) override
+        {
+            if (m_instance)
+                m_instance->SetData(TYPE_VISCIDUS, IN_PROGRESS);
+        }
+
+        void JustReachedHome() override
+        {
+            if (m_instance)
+                m_instance->SetData(TYPE_VISCIDUS, FAIL);
+
+            DoCastSpellIfCan(m_creature, SPELL_DESPAWN_GLOBS, CAST_TRIGGERED);
+        }
+
+        void JustDied(Unit* /*killer*/) override
+        {
+            if (m_instance)
+                m_instance->SetData(TYPE_VISCIDUS, DONE);
+        }
+
+        void JustSummoned(Creature* summoned) override
+        {
+            if (summoned->GetEntry() == NPC_GLOB_OF_VISCIDUS)
+            {
+                summoned->AI()->SetReactState(REACT_PASSIVE);
+                float x, y, z;
+                m_creature->GetRespawnCoord(x, y, z);
+                summoned->GetMotionMaster()->MovePoint(1, x, y, z);
+                m_lGlobesGuidList.push_back(summoned->GetObjectGuid());
+            }
+            else if (summoned->GetEntry() == NPC_VISCIDUS_TRIGGER) // forwarded from map
+                summoned->CastSpell(nullptr, SPELL_TOXIN, TRIGGERED_OLD_TRIGGERED);
+        }
+
+        void SummonedCreatureJustDied(Creature* summoned) override
+        {
+            if (summoned->GetEntry() == NPC_GLOB_OF_VISCIDUS)
+            {
+                // shrink - modify scale
+                DoCastSpellIfCan(m_creature, SPELL_VISCIDUS_SHRINKS, CAST_TRIGGERED);
+
+                if (DoCastSpellIfCan(m_creature, SPELL_VISCIDUS_SHRINKS_HP, CAST_TRIGGERED) == CAST_OK)
+                    m_creature->SetHealth(m_creature->GetHealth() - (m_creature->GetMaxHealth() * 0.05f));
+
+                m_lGlobesGuidList.remove(summoned->GetObjectGuid());
+
+                // suicide if required
+                if (m_creature->GetHealthPercent() < 5.0f)
+                {
+                    m_creature->RemoveAurasDueToSpell(SPELL_INVIS_SELF);
+
+                    if (DoCastSpellIfCan(m_creature, SPELL_VISCIDUS_SUICIDE_TRIGGER, CAST_TRIGGERED) == CAST_OK)
+                        m_creature->CastSpell(nullptr, SPELL_VISCIDUS_SUICIDE, TRIGGERED_OLD_TRIGGERED);
+                }
+                else if (m_lGlobesGuidList.empty())
+                {
+                    m_creature->RemoveAurasDueToSpell(SPELL_INVIS_SELF);
+                    m_creature->SetStandState(UNIT_STAND_STATE_STAND);
+                    m_uiPhase = PHASE_NORMAL;
+
+                    SetCombatScriptStatus(false);
+                    SetMeleeEnabled(true);
+                    SetCombatMovement(true, true);
+                }
+            }
+        }
+
+        void SummonedMovementInform(Creature* summoned, uint32 motionType, uint32 pointId) override
+        {
+            if (summoned->GetEntry() != NPC_GLOB_OF_VISCIDUS || motionType != POINT_MOTION_TYPE || !pointId)
+                return;
+
+            DoCastSpellIfCan(m_creature, SPELL_VISCIDUS_GROWS, CAST_TRIGGERED);
 
             m_lGlobesGuidList.remove(summoned->GetObjectGuid());
+            summoned->CastSpell(m_creature, SPELL_REJOIN_VISCIDUS, TRIGGERED_OLD_TRIGGERED);
+            summoned->ForcedDespawn(1000);
 
-            // suicide if required
-            if (m_creature->GetHealthPercent() < 5.0f)
-            {
-                m_creature->RemoveAurasDueToSpell(SPELL_INVIS_SELF);
-
-                if (DoCastSpellIfCan(m_creature, SPELL_VISCIDUS_SUICIDE_TRIGGER, CAST_TRIGGERED) == CAST_OK)
-                    m_creature->CastSpell(nullptr, SPELL_VISCIDUS_SUICIDE, TRIGGERED_OLD_TRIGGERED);
-            }
-            else if (m_lGlobesGuidList.empty())
+            if (m_lGlobesGuidList.empty())
             {
                 m_creature->RemoveAurasDueToSpell(SPELL_INVIS_SELF);
                 m_creature->SetStandState(UNIT_STAND_STATE_STAND);
@@ -206,159 +235,139 @@ struct boss_viscidusAI : public CombatAI
                 SetCombatMovement(true, true);
             }
         }
-    }
 
-    void SummonedMovementInform(Creature* summoned, uint32 motionType, uint32 pointId) override
-    {
-        if (summoned->GetEntry() != NPC_GLOB_OF_VISCIDUS || motionType != POINT_MOTION_TYPE || !pointId)
-            return;
-
-        DoCastSpellIfCan(m_creature, SPELL_VISCIDUS_GROWS, CAST_TRIGGERED);
-
-        m_lGlobesGuidList.remove(summoned->GetObjectGuid());
-        summoned->CastSpell(m_creature, SPELL_REJOIN_VISCIDUS, TRIGGERED_OLD_TRIGGERED);
-        summoned->ForcedDespawn(1000);
-
-        if (m_lGlobesGuidList.empty())
+        void DamageTaken(Unit* dealer, uint32& damage, DamageEffectType damagetype, SpellEntry const* spellInfo) override
         {
-            m_creature->RemoveAurasDueToSpell(SPELL_INVIS_SELF);
-            m_creature->SetStandState(UNIT_STAND_STATE_STAND);
-            m_uiPhase = PHASE_NORMAL;
+            if (m_uiPhase == PHASE_FROZEN)
+            {
+                if (!spellInfo || spellInfo->DmgClass == SPELL_DAMAGE_CLASS_MELEE) // only melee attacks - TODO: do through proc of SPELL_VISCIDUS_FREEZE
+                {
+                    ++m_uiHitCount;
 
-            SetCombatScriptStatus(false);
-            SetMeleeEnabled(true);
-            SetCombatMovement(true, true);
+                    // only count melee attacks
+                    if (m_uiHitCount >= HITCOUNT_EXPLODE)
+                    {
+                        if (m_creature->GetHealthPercent() <= 5.0f)
+                        {
+                            if (DoCastSpellIfCan(m_creature, SPELL_VISCIDUS_SUICIDE_TRIGGER, CAST_TRIGGERED) == CAST_OK)
+                                m_creature->CastSpell(nullptr, SPELL_VISCIDUS_SUICIDE, TRIGGERED_OLD_TRIGGERED);
+                        }
+                        else if (DoCastSpellIfCan(m_creature, SPELL_VISCIDUS_EXPLODE, CAST_TRIGGERED | CAST_INTERRUPT_PREVIOUS) == CAST_OK)
+                        {
+                            DoScriptText(EMOTE_EXPLODE, m_creature);
+                            m_uiPhase = PHASE_EXPLODED;
+                            m_uiHitCount = 0;
+                            m_lGlobesGuidList.clear();
+                            uint32 uiGlobeCount = m_creature->GetHealthPercent() / 5.0f;
+
+                            DoCastSpellIfCan(m_creature, SPELL_SUMMON_GLOBS, CAST_TRIGGERED);
+
+                            for (uint8 i = 0; i < uiGlobeCount; ++i)
+                                DoCastSpellIfCan(m_creature, auiGlobSummonSpells[i], CAST_TRIGGERED);
+
+                            m_creature->RemoveAurasDueToSpell(SPELL_VISCIDUS_FREEZE);
+                            ResetTimer(VISCIDUS_EXPLODE, 2000);
+
+                            SetCombatScriptStatus(true);
+                            SetCombatMovement(false, true);
+                            SetMeleeEnabled(false);
+                            m_creature->SetStandState(UNIT_STAND_STATE_DEAD);
+                        }
+                    }
+                    else if (m_uiHitCount == HITCOUNT_SHATTER)
+                        DoScriptText(EMOTE_SHATTER, m_creature);
+                    else if (m_uiHitCount == HITCOUNT_CRACK)
+                        DoScriptText(EMOTE_CRACK, m_creature);
+                }
+            }
+            CombatAI::DamageTaken(dealer, damage, damagetype, spellInfo);
         }
-    }
 
-    void DamageTaken(Unit* dealer, uint32& damage, DamageEffectType damagetype, SpellEntry const* spellInfo) override
-    {
-        if (m_uiPhase == PHASE_FROZEN)
+        void SpellHit(Unit* /*pCaster*/, const SpellEntry* pSpell) override
         {
-            if (!spellInfo || spellInfo->DmgClass == SPELL_DAMAGE_CLASS_MELEE) // only melee attacks - TODO: do through proc of SPELL_VISCIDUS_FREEZE
+            if (m_uiPhase != PHASE_NORMAL)
+                return;
+
+            // only count frost damage
+            if (pSpell->SchoolMask == SPELL_SCHOOL_MASK_FROST) // - TODO: do through proc of SPELL_VISCIDUS_WEAKNESS
             {
                 ++m_uiHitCount;
 
-                // only count melee attacks
-                if (m_uiHitCount >= HITCOUNT_EXPLODE)
+                if (m_uiHitCount >= HITCOUNT_FREEZE)
                 {
-                    if (m_creature->GetHealthPercent() <= 5.0f)
-                    {
-                        if (DoCastSpellIfCan(m_creature, SPELL_VISCIDUS_SUICIDE_TRIGGER, CAST_TRIGGERED) == CAST_OK)
-                            m_creature->CastSpell(nullptr, SPELL_VISCIDUS_SUICIDE, TRIGGERED_OLD_TRIGGERED);
-                    }
-                    else if (DoCastSpellIfCan(m_creature, SPELL_VISCIDUS_EXPLODE, CAST_TRIGGERED | CAST_INTERRUPT_PREVIOUS) == CAST_OK)
-                    {
-                        DoScriptText(EMOTE_EXPLODE, m_creature);
-                        m_uiPhase = PHASE_EXPLODED;
-                        m_uiHitCount = 0;
-                        m_lGlobesGuidList.clear();
-                        uint32 uiGlobeCount = m_creature->GetHealthPercent() / 5.0f;
+                    m_uiPhase = PHASE_FROZEN;
+                    m_uiHitCount = 0;
 
-                        DoCastSpellIfCan(m_creature, SPELL_SUMMON_GLOBS, CAST_TRIGGERED);
-
-                        for (uint8 i = 0; i < uiGlobeCount; ++i)
-                            DoCastSpellIfCan(m_creature, auiGlobSummonSpells[i], CAST_TRIGGERED);
-
-                        m_creature->RemoveAurasDueToSpell(SPELL_VISCIDUS_FREEZE);
-                        ResetTimer(VISCIDUS_EXPLODE, 2000);
-
-                        SetCombatScriptStatus(true);
-                        SetCombatMovement(false, true);
-                        SetMeleeEnabled(false);
-                        m_creature->SetStandState(UNIT_STAND_STATE_DEAD);
-                    }
+                    if (m_uiHitCount == HITCOUNT_FREEZE)
+                        DoScriptText(EMOTE_FROZEN, m_creature);
+                    m_creature->RemoveAurasDueToSpell(SPELL_VISCIDUS_SLOWED_MORE);
+                    DoCastSpellIfCan(m_creature, SPELL_VISCIDUS_FREEZE, CAST_TRIGGERED);
                 }
-                else if (m_uiHitCount == HITCOUNT_SHATTER)
-                    DoScriptText(EMOTE_SHATTER, m_creature);
-                else if (m_uiHitCount == HITCOUNT_CRACK)
-                    DoScriptText(EMOTE_CRACK, m_creature);
+                else if (m_uiHitCount >= HITCOUNT_SLOW_MORE)
+                {
+                    if (m_uiHitCount == HITCOUNT_SLOW_MORE)
+                        DoScriptText(EMOTE_FREEZE, m_creature);
+                    m_creature->RemoveAurasDueToSpell(SPELL_VISCIDUS_SLOWED);
+                    DoCastSpellIfCan(m_creature, SPELL_VISCIDUS_SLOWED_MORE, CAST_TRIGGERED);
+                }
+                else if (m_uiHitCount >= HITCOUNT_SLOW)
+                {
+                    if (m_uiHitCount == HITCOUNT_SLOW)
+                        DoScriptText(EMOTE_SLOW, m_creature);
+                    DoCastSpellIfCan(m_creature, SPELL_VISCIDUS_SLOWED, CAST_TRIGGERED);
+                }
             }
         }
-        CombatAI::DamageTaken(dealer, damage, damagetype, spellInfo);
-    }
 
-    void SpellHit(Unit* /*pCaster*/, const SpellEntry* pSpell) override
-    {
-        if (m_uiPhase != PHASE_NORMAL)
-            return;
-
-        // only count frost damage
-        if (pSpell->SchoolMask == SPELL_SCHOOL_MASK_FROST) // - TODO: do through proc of SPELL_VISCIDUS_WEAKNESS
+        void ReceiveAIEvent(AIEventType eventType, Unit* /*pSender*/, Unit* /*pInvoker*/, uint32 /*uiMiscValue*/) override
         {
-            ++m_uiHitCount;
-
-            if (m_uiHitCount >= HITCOUNT_FREEZE)
+            if (eventType == AI_EVENT_CUSTOM_A)
             {
-                m_uiPhase = PHASE_FROZEN;
+                if (m_uiPhase == PHASE_EXPLODED)
+                    return;
+
+                // reset phase if not already exploded
+                m_uiPhase = PHASE_NORMAL;
                 m_uiHitCount = 0;
-
-                if (m_uiHitCount == HITCOUNT_FREEZE)
-                    DoScriptText(EMOTE_FROZEN, m_creature);
-                m_creature->RemoveAurasDueToSpell(SPELL_VISCIDUS_SLOWED_MORE);
-                DoCastSpellIfCan(m_creature, SPELL_VISCIDUS_FREEZE, CAST_TRIGGERED);
-            }
-            else if (m_uiHitCount >= HITCOUNT_SLOW_MORE)
-            {
-                if (m_uiHitCount == HITCOUNT_SLOW_MORE)
-                    DoScriptText(EMOTE_FREEZE, m_creature);
-                m_creature->RemoveAurasDueToSpell(SPELL_VISCIDUS_SLOWED);
-                DoCastSpellIfCan(m_creature, SPELL_VISCIDUS_SLOWED_MORE, CAST_TRIGGERED);
-            }
-            else if (m_uiHitCount >= HITCOUNT_SLOW)
-            {
-                if (m_uiHitCount == HITCOUNT_SLOW)
-                    DoScriptText(EMOTE_SLOW, m_creature);
-                DoCastSpellIfCan(m_creature, SPELL_VISCIDUS_SLOWED, CAST_TRIGGERED);
             }
         }
-    }
 
-    void ReceiveAIEvent(AIEventType eventType, Unit* /*pSender*/, Unit* /*pInvoker*/, uint32 /*uiMiscValue*/) override
-    {
-        if (eventType == AI_EVENT_CUSTOM_A)
+        void ExecuteAction(uint32 action) override
         {
-            if (m_uiPhase == PHASE_EXPLODED)
-                return;
-
-            // reset phase if not already exploded
-            m_uiPhase = PHASE_NORMAL;
-            m_uiHitCount = 0;
+            switch (action)
+            {
+                case VISCIDUS_TOXIN:
+                {
+                    if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, nullptr, SELECT_FLAG_PLAYER))
+                        if (DoCastSpellIfCan(target, SPELL_SUMMON_TOXIC_SLIME) == CAST_OK)
+                            ResetCombatAction(action, 30000);
+                    break;
+                }
+                case VISCIDUS_POISON_SHOCK:
+                {
+                    if (DoCastSpellIfCan(nullptr, SPELL_POISON_SHOCK) == CAST_OK)
+                        ResetCombatAction(action, urand(7000, 12000));
+                    break;
+                }
+                case VISCIDUS_POISON_BOLT_VOLLEY:
+                {
+                    if (DoCastSpellIfCan(nullptr, SPELL_POISONBOLT_VOLLEY) == CAST_OK)
+                        ResetCombatAction(action, urand(10000, 15000));
+                    break;
+                }
+            }
         }
-    }
 
-    void ExecuteAction(uint32 action) override
-    {
-        switch (action)
+        void HandleExplode()
         {
-            case VISCIDUS_TOXIN:
-            {
-                if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, nullptr, SELECT_FLAG_PLAYER))
-                    if (DoCastSpellIfCan(target, SPELL_SUMMON_TOXIC_SLIME) == CAST_OK)
-                        ResetCombatAction(action, 30000);
-                break;
-            }
-            case VISCIDUS_POISON_SHOCK:
-            {
-                if (DoCastSpellIfCan(nullptr, SPELL_POISON_SHOCK) == CAST_OK)
-                    ResetCombatAction(action, urand(7000, 12000));
-                break;
-            }
-            case VISCIDUS_POISON_BOLT_VOLLEY:
-            {
-                if (DoCastSpellIfCan(nullptr, SPELL_POISONBOLT_VOLLEY) == CAST_OK)
-                    ResetCombatAction(action, urand(10000, 15000));
-                break;
-            }
+            // Make invisible
+            m_creature->CastSpell(nullptr, SPELL_INVIS_SELF, TRIGGERED_OLD_TRIGGERED);
+            DoCastSpellIfCan(nullptr, SPELL_VISCIDUS_TELEPORT, CAST_TRIGGERED);
         }
-    }
+    };
 
-    void HandleExplode()
-    {
-        // Make invisible
-        m_creature->CastSpell(nullptr, SPELL_INVIS_SELF, TRIGGERED_OLD_TRIGGERED);
-        DoCastSpellIfCan(nullptr, SPELL_VISCIDUS_TELEPORT, CAST_TRIGGERED);
-    }
+
+
 };
 
 struct ViscidusFreeze : public AuraScript
@@ -383,11 +392,8 @@ struct SummonToxicSlime : public SpellScript
 
 void AddSC_boss_viscidus()
 {
-    Script* pNewScript = new Script;
-    pNewScript->Name = "boss_viscidus";
-    pNewScript->GetAI = &GetNewAIInstance<boss_viscidusAI>;
-    pNewScript->RegisterSelf();
+    new boss_viscidus();
 
-    RegisterAuraScript<ViscidusFreeze>("spell_viscidus_freeze");
     RegisterSpellScript<SummonToxicSlime>("spell_summon_toxic_slime");
+    RegisterAuraScript<ViscidusFreeze>("spell_viscidus_freeze");
 }

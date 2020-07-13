@@ -223,16 +223,23 @@ void instance_shadowfang_keep::Load(const char* chrIn)
 
     OUT_LOAD_INST_DATA_COMPLETE;
 }
-
-InstanceData* GetInstanceData_instance_shadowfang_keep(Map* pMap)
+class instance_shadowfang_keep : public InstanceMapScript
 {
-    return new instance_shadowfang_keep(pMap);
-}
+public:
+    instance_shadowfang_keep() : InstanceMapScript("instance_shadowfang_keep") { }
+
+    InstanceData* GetInstanceScript(Map* pMap) const override
+    {
+        return new instance_shadowfang_keep(pMap);
+    }
+
+
+
+
+};
 
 void AddSC_instance_shadowfang_keep()
 {
-    Script* pNewScript = new Script;
-    pNewScript->Name = "instance_shadowfang_keep";
-    pNewScript->GetInstanceData = &GetInstanceData_instance_shadowfang_keep;
-    pNewScript->RegisterSelf();
+    new instance_shadowfang_keep();
+
 }

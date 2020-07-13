@@ -80,457 +80,494 @@ enum
 /*######
 ## boss_muru
 ######*/
-
-struct boss_muruAI : public Scripted_NoMovementAI
+class boss_muru : public CreatureScript
 {
-    boss_muruAI(Creature* pCreature) : Scripted_NoMovementAI(pCreature)
+public:
+    boss_muru() : CreatureScript("boss_muru") { }
+
+    UnitAI* GetAI(Creature* pCreature)
     {
-        m_pInstance = ((instance_sunwell_plateau*)pCreature->GetInstanceData());
-        Reset();
+        return new boss_muruAI(pCreature);
     }
 
-    instance_sunwell_plateau* m_pInstance;
 
-    uint32 m_uiDarknessTimer;
-    uint32 m_uiSummonHumanoidsTimer;
-    uint32 m_uiDarkFiendsTimer;
-    bool m_bIsTransition;
 
-    void Reset() override
+    struct boss_muruAI : public Scripted_NoMovementAI
     {
-        m_uiDarknessTimer          = 45000;
-        m_uiSummonHumanoidsTimer   = 15000;
-        m_uiDarkFiendsTimer        = 0;
-        m_bIsTransition            = false;
-    }
-
-    void Aggro(Unit* /*pWho*/) override
-    {
-        if (m_pInstance)
-            m_pInstance->SetData(TYPE_MURU, IN_PROGRESS);
-
-        DoCastSpellIfCan(m_creature, SPELL_NEGATIVE_ENERGY, CAST_TRIGGERED);
-        DoCastSpellIfCan(m_creature, SPELL_OPEN_PORTAL_PERIODIC, CAST_TRIGGERED);
-    }
-
-    void JustReachedHome() override
-    {
-        if (m_pInstance)
-            m_pInstance->SetData(TYPE_MURU, FAIL);
-    }
-
-    void DamageTaken(Unit* /*pDoneBy*/, uint32& damage, DamageEffectType /*damagetype*/, SpellEntry const* /*spellInfo*/) override
-    {
-        if (damage > m_creature->GetHealth())
+        boss_muruAI(Creature* pCreature) : Scripted_NoMovementAI(pCreature)
         {
-            damage = std::min(damage, m_creature->GetHealth() - 1);
+            m_pInstance = ((instance_sunwell_plateau*)pCreature->GetInstanceData());
+            Reset();
+        }
 
-            if (!m_bIsTransition)
+        instance_sunwell_plateau* m_pInstance;
+
+        uint32 m_uiDarknessTimer;
+        uint32 m_uiSummonHumanoidsTimer;
+        uint32 m_uiDarkFiendsTimer;
+        bool m_bIsTransition;
+
+        void Reset() override
+        {
+            m_uiDarknessTimer          = 45000;
+            m_uiSummonHumanoidsTimer   = 15000;
+            m_uiDarkFiendsTimer        = 0;
+            m_bIsTransition            = false;
+        }
+
+        void Aggro(Unit* /*pWho*/) override
+        {
+            if (m_pInstance)
+                m_pInstance->SetData(TYPE_MURU, IN_PROGRESS);
+
+            DoCastSpellIfCan(m_creature, SPELL_NEGATIVE_ENERGY, CAST_TRIGGERED);
+            DoCastSpellIfCan(m_creature, SPELL_OPEN_PORTAL_PERIODIC, CAST_TRIGGERED);
+        }
+
+        void JustReachedHome() override
+        {
+            if (m_pInstance)
+                m_pInstance->SetData(TYPE_MURU, FAIL);
+        }
+
+        void DamageTaken(Unit* /*pDoneBy*/, uint32& damage, DamageEffectType /*damagetype*/, SpellEntry const* /*spellInfo*/) override
+        {
+            if (damage > m_creature->GetHealth())
             {
-                // Start transition
-                if (DoCastSpellIfCan(m_creature, SPELL_OPEN_ALL_PORTALS) == CAST_OK)
+                damage = std::min(damage, m_creature->GetHealth() - 1);
+
+                if (!m_bIsTransition)
                 {
-                    // remove the auras
-                    m_creature->RemoveAurasDueToSpell(SPELL_NEGATIVE_ENERGY);
-                    m_creature->RemoveAurasDueToSpell(SPELL_OPEN_PORTAL_PERIODIC);
-                    m_bIsTransition = true;
+                    // Start transition
+                    if (DoCastSpellIfCan(m_creature, SPELL_OPEN_ALL_PORTALS) == CAST_OK)
+                    {
+                        // remove the auras
+                        m_creature->RemoveAurasDueToSpell(SPELL_NEGATIVE_ENERGY);
+                        m_creature->RemoveAurasDueToSpell(SPELL_OPEN_PORTAL_PERIODIC);
+                        m_bIsTransition = true;
+                    }
                 }
             }
         }
-    }
 
-    void JustSummoned(Creature* pSummoned) override
-    {
-        switch (pSummoned->GetEntry())
+        void JustSummoned(Creature* pSummoned) override
         {
-            case NPC_ENTROPIUS:
-                // Cast the Entropius spawn effect and force despawn
-                pSummoned->CastSpell(pSummoned, SPELL_ENTROPIUS_SPAWN, TRIGGERED_OLD_TRIGGERED);
-                m_creature->ForcedDespawn(1000);
-            // no break here; All other summons should behave the same way
-            default:
-                pSummoned->AI()->AttackStart(m_creature->GetVictim());
-                break;
-        }
-    }
-
-    // Wrapper for summoning the humanoids
-    void DoSummonHumanoids()
-    {
-        // summon 2 berserkers and 1 fury mage on each side
-        for (uint8 i = 0; i < 2; i++)
-        {
-            DoCastSpellIfCan(m_creature, SPELL_SUMMON_BERSERKER_1, CAST_TRIGGERED);
-            DoCastSpellIfCan(m_creature, SPELL_SUMMON_BERSERKER_2, CAST_TRIGGERED);
-        }
-
-        DoCastSpellIfCan(m_creature, SPELL_SUMMON_FURY_MAGE_1, CAST_TRIGGERED);
-        DoCastSpellIfCan(m_creature, SPELL_SUMMON_FURY_MAGE_2, CAST_TRIGGERED);
-    }
-
-    // Wrapper for summoning the dark fiends
-    void DoSummonDarkFiends()
-    {
-        DoCastSpellIfCan(m_creature, SPELL_SUMMON_DARK_FIEND_1, CAST_TRIGGERED);
-        DoCastSpellIfCan(m_creature, SPELL_SUMMON_DARK_FIEND_2, CAST_TRIGGERED);
-        DoCastSpellIfCan(m_creature, SPELL_SUMMON_DARK_FIEND_3, CAST_TRIGGERED);
-        DoCastSpellIfCan(m_creature, SPELL_SUMMON_DARK_FIEND_4, CAST_TRIGGERED);
-        DoCastSpellIfCan(m_creature, SPELL_SUMMON_DARK_FIEND_5, CAST_TRIGGERED);
-        DoCastSpellIfCan(m_creature, SPELL_SUMMON_DARK_FIEND_6, CAST_TRIGGERED);
-        DoCastSpellIfCan(m_creature, SPELL_SUMMON_DARK_FIEND_7, CAST_TRIGGERED);
-        DoCastSpellIfCan(m_creature, SPELL_SUMMON_DARK_FIEND_8, CAST_TRIGGERED);
-    }
-
-    void UpdateAI(const uint32 uiDiff) override
-    {
-        if (!m_creature->SelectHostileTarget() || !m_creature->GetVictim())
-            return;
-
-        // Return if already in transition
-        if (m_bIsTransition)
-            return;
-
-        if (m_uiDarknessTimer < uiDiff)
-        {
-            if (DoCastSpellIfCan(m_creature, SPELL_DARKNESS) == CAST_OK)
+            switch (pSummoned->GetEntry())
             {
-                m_uiDarknessTimer = 45000;
-                m_uiDarkFiendsTimer = 4000;     // in about 4 secs after darkness
+                case NPC_ENTROPIUS:
+                    // Cast the Entropius spawn effect and force despawn
+                    pSummoned->CastSpell(pSummoned, SPELL_ENTROPIUS_SPAWN, TRIGGERED_OLD_TRIGGERED);
+                    m_creature->ForcedDespawn(1000);
+                // no break here; All other summons should behave the same way
+                default:
+                    pSummoned->AI()->AttackStart(m_creature->GetVictim());
+                    break;
             }
         }
-        else
-            m_uiDarknessTimer -= uiDiff;
 
-        if (m_uiDarkFiendsTimer)
+        // Wrapper for summoning the humanoids
+        void DoSummonHumanoids()
         {
-            if (m_uiDarkFiendsTimer <= uiDiff)
+            // summon 2 berserkers and 1 fury mage on each side
+            for (uint8 i = 0; i < 2; i++)
             {
-                DoSummonDarkFiends();
-                m_uiDarkFiendsTimer = 0;
+                DoCastSpellIfCan(m_creature, SPELL_SUMMON_BERSERKER_1, CAST_TRIGGERED);
+                DoCastSpellIfCan(m_creature, SPELL_SUMMON_BERSERKER_2, CAST_TRIGGERED);
+            }
+
+            DoCastSpellIfCan(m_creature, SPELL_SUMMON_FURY_MAGE_1, CAST_TRIGGERED);
+            DoCastSpellIfCan(m_creature, SPELL_SUMMON_FURY_MAGE_2, CAST_TRIGGERED);
+        }
+
+        // Wrapper for summoning the dark fiends
+        void DoSummonDarkFiends()
+        {
+            DoCastSpellIfCan(m_creature, SPELL_SUMMON_DARK_FIEND_1, CAST_TRIGGERED);
+            DoCastSpellIfCan(m_creature, SPELL_SUMMON_DARK_FIEND_2, CAST_TRIGGERED);
+            DoCastSpellIfCan(m_creature, SPELL_SUMMON_DARK_FIEND_3, CAST_TRIGGERED);
+            DoCastSpellIfCan(m_creature, SPELL_SUMMON_DARK_FIEND_4, CAST_TRIGGERED);
+            DoCastSpellIfCan(m_creature, SPELL_SUMMON_DARK_FIEND_5, CAST_TRIGGERED);
+            DoCastSpellIfCan(m_creature, SPELL_SUMMON_DARK_FIEND_6, CAST_TRIGGERED);
+            DoCastSpellIfCan(m_creature, SPELL_SUMMON_DARK_FIEND_7, CAST_TRIGGERED);
+            DoCastSpellIfCan(m_creature, SPELL_SUMMON_DARK_FIEND_8, CAST_TRIGGERED);
+        }
+
+        void UpdateAI(const uint32 uiDiff) override
+        {
+            if (!m_creature->SelectHostileTarget() || !m_creature->GetVictim())
+                return;
+
+            // Return if already in transition
+            if (m_bIsTransition)
+                return;
+
+            if (m_uiDarknessTimer < uiDiff)
+            {
+                if (DoCastSpellIfCan(m_creature, SPELL_DARKNESS) == CAST_OK)
+                {
+                    m_uiDarknessTimer = 45000;
+                    m_uiDarkFiendsTimer = 4000;     // in about 4 secs after darkness
+                }
             }
             else
-                m_uiDarkFiendsTimer -= uiDiff;
-        }
+                m_uiDarknessTimer -= uiDiff;
 
-        if (m_uiSummonHumanoidsTimer < uiDiff)
-        {
-            DoSummonHumanoids();
-            m_uiSummonHumanoidsTimer = 1 * MINUTE * IN_MILLISECONDS;
+            if (m_uiDarkFiendsTimer)
+            {
+                if (m_uiDarkFiendsTimer <= uiDiff)
+                {
+                    DoSummonDarkFiends();
+                    m_uiDarkFiendsTimer = 0;
+                }
+                else
+                    m_uiDarkFiendsTimer -= uiDiff;
+            }
+
+            if (m_uiSummonHumanoidsTimer < uiDiff)
+            {
+                DoSummonHumanoids();
+                m_uiSummonHumanoidsTimer = 1 * MINUTE * IN_MILLISECONDS;
+            }
+            else
+                m_uiSummonHumanoidsTimer -= uiDiff;
         }
-        else
-            m_uiSummonHumanoidsTimer -= uiDiff;
-    }
+    };
+
+
+
 };
 
 /*######
 ## boss_entropius
 ######*/
-
-struct boss_entropiusAI : public ScriptedAI
+class boss_entropius : public CreatureScript
 {
-    boss_entropiusAI(Creature* pCreature) : ScriptedAI(pCreature)
+public:
+    boss_entropius() : CreatureScript("boss_entropius") { }
+
+    UnitAI* GetAI(Creature* pCreature)
     {
-        m_pInstance = ((instance_sunwell_plateau*)pCreature->GetInstanceData());
-        Reset();
+        return new boss_entropiusAI(pCreature);
     }
 
-    instance_sunwell_plateau* m_pInstance;
 
-    uint32 m_uiBlackHoleTimer;
-    uint32 m_uiDarknessTimer;
 
-    GuidList m_lSummonedCreaturesList;
-
-    void Reset() override
+    struct boss_entropiusAI : public ScriptedAI
     {
-        m_uiBlackHoleTimer = 15000;
-        m_uiDarknessTimer = 20000;
-    }
-
-    void Aggro(Unit* /*pWho*/) override
-    {
-        DoCastSpellIfCan(m_creature, SPELL_NEGATIVE_ENERGY_ENT);
-    }
-
-    void JustDied(Unit* /*pKiller*/) override
-    {
-        if (m_pInstance)
-            m_pInstance->SetData(TYPE_MURU, DONE);
-    }
-
-    void JustReachedHome() override
-    {
-        if (m_pInstance)
+        boss_entropiusAI(Creature* pCreature) : ScriptedAI(pCreature)
         {
-            m_pInstance->SetData(TYPE_MURU, FAIL);
-
-            // respawn muru
-            m_creature->SummonCreature(NPC_MURU, afMuruSpawnLoc[0], afMuruSpawnLoc[1], afMuruSpawnLoc[2], afMuruSpawnLoc[3], TEMPSPAWN_DEAD_DESPAWN, 0, true);
+            m_pInstance = ((instance_sunwell_plateau*)pCreature->GetInstanceData());
+            Reset();
         }
 
-        // despawn boss and summons for reset
-        m_creature->ForcedDespawn();
-    }
+        instance_sunwell_plateau* m_pInstance;
 
-    void UpdateAI(const uint32 uiDiff) override
-    {
-        if (!m_creature->SelectHostileTarget() || !m_creature->GetVictim())
-            return;
+        uint32 m_uiBlackHoleTimer;
+        uint32 m_uiDarknessTimer;
 
-        if (m_uiBlackHoleTimer < uiDiff)
+        GuidList m_lSummonedCreaturesList;
+
+        void Reset() override
         {
-            if (Unit* pTarget = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, nullptr, SELECT_FLAG_PLAYER))
+            m_uiBlackHoleTimer = 15000;
+            m_uiDarknessTimer = 20000;
+        }
+
+        void Aggro(Unit* /*pWho*/) override
+        {
+            DoCastSpellIfCan(m_creature, SPELL_NEGATIVE_ENERGY_ENT);
+        }
+
+        void JustDied(Unit* /*pKiller*/) override
+        {
+            if (m_pInstance)
+                m_pInstance->SetData(TYPE_MURU, DONE);
+        }
+
+        void JustReachedHome() override
+        {
+            if (m_pInstance)
             {
-                if (DoCastSpellIfCan(pTarget, SPELL_SUMMON_BLACK_HOLE) == CAST_OK)
-                    m_uiBlackHoleTimer = 15000;
-            }
-        }
-        else
-            m_uiBlackHoleTimer -= uiDiff;
+                m_pInstance->SetData(TYPE_MURU, FAIL);
 
-        if (m_uiDarknessTimer < uiDiff)
+                // respawn muru
+                m_creature->SummonCreature(NPC_MURU, afMuruSpawnLoc[0], afMuruSpawnLoc[1], afMuruSpawnLoc[2], afMuruSpawnLoc[3], TEMPSPAWN_DEAD_DESPAWN, 0, true);
+            }
+
+            // despawn boss and summons for reset
+            m_creature->ForcedDespawn();
+        }
+
+        void UpdateAI(const uint32 uiDiff) override
         {
-            if (Unit* pTarget = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, nullptr, SELECT_FLAG_PLAYER))
-            {
-                if (DoCastSpellIfCan(pTarget, SPELL_SUMMON_DARKNESS) == CAST_OK)
-                    m_uiDarknessTimer = urand(15000, 20000);
-            }
-        }
-        else
-            m_uiDarknessTimer -= uiDiff;
+            if (!m_creature->SelectHostileTarget() || !m_creature->GetVictim())
+                return;
 
-        DoMeleeAttackIfReady();
-    }
+            if (m_uiBlackHoleTimer < uiDiff)
+            {
+                if (Unit* pTarget = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, nullptr, SELECT_FLAG_PLAYER))
+                {
+                    if (DoCastSpellIfCan(pTarget, SPELL_SUMMON_BLACK_HOLE) == CAST_OK)
+                        m_uiBlackHoleTimer = 15000;
+                }
+            }
+            else
+                m_uiBlackHoleTimer -= uiDiff;
+
+            if (m_uiDarknessTimer < uiDiff)
+            {
+                if (Unit* pTarget = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, nullptr, SELECT_FLAG_PLAYER))
+                {
+                    if (DoCastSpellIfCan(pTarget, SPELL_SUMMON_DARKNESS) == CAST_OK)
+                        m_uiDarknessTimer = urand(15000, 20000);
+                }
+            }
+            else
+                m_uiDarknessTimer -= uiDiff;
+
+            DoMeleeAttackIfReady();
+        }
+    };
+
+
+
 };
 
 /*######
 ## npc_portal_target
 ######*/
-
-struct npc_portal_targetAI : public Scripted_NoMovementAI
+class npc_portal_target : public CreatureScript
 {
-    npc_portal_targetAI(Creature* pCreature) : Scripted_NoMovementAI(pCreature)
+public:
+    npc_portal_target() : CreatureScript("npc_portal_target") { }
+
+    UnitAI* GetAI(Creature* pCreature)
     {
-        m_pInstance = ((instance_sunwell_plateau*)pCreature->GetInstanceData());
-        Reset();
+        return new npc_portal_targetAI(pCreature);
     }
 
-    instance_sunwell_plateau* m_pInstance;
 
-    uint8 m_uiTransformCount;
-    uint32 m_uiTransformTimer;
-    uint32 m_uiSentinelTimer;
 
-    void Reset() override
+    struct npc_portal_targetAI : public Scripted_NoMovementAI
     {
-        m_uiTransformCount = 0;
-        m_uiTransformTimer = 0;
-        m_uiSentinelTimer  = 0;
-    }
-
-    void JustSummoned(Creature* pSummoned) override
-    {
-        // Cast a visual ball on the summoner
-        if (pSummoned->GetEntry() == NPC_VOID_SENTINEL_SUMMONER)
-            DoCastSpellIfCan(pSummoned, SPELL_SENTINEL_SUMMONER_VISUAL, CAST_TRIGGERED);
-    }
-
-    void SpellHit(Unit* /*pCaster*/, const SpellEntry* pSpell) override
-    {
-        // These spells are dummies, but are used only to init the timers
-        // They could use the EffectDummyCreature to handle this, but this makes code easier
-        switch (pSpell->Id)
+        npc_portal_targetAI(Creature* pCreature) : Scripted_NoMovementAI(pCreature)
         {
-            // Init sentinel summon timer
-            case SPELL_OPEN_PORTAL:
-                m_uiSentinelTimer = 5000;
-                break;
-            // Start transition effect
-            case SPELL_OPEN_ALL_PORTALS:
-                m_uiTransformTimer = 2000;
-                break;
+            m_pInstance = ((instance_sunwell_plateau*)pCreature->GetInstanceData());
+            Reset();
         }
-    }
 
-    void UpdateAI(const uint32 uiDiff) override
-    {
-        if (m_uiSentinelTimer)
+        instance_sunwell_plateau* m_pInstance;
+
+        uint8 m_uiTransformCount;
+        uint32 m_uiTransformTimer;
+        uint32 m_uiSentinelTimer;
+
+        void Reset() override
         {
-            // Summon the sentinel on a short timer after the portal opens
-            if (m_uiSentinelTimer <= uiDiff)
+            m_uiTransformCount = 0;
+            m_uiTransformTimer = 0;
+            m_uiSentinelTimer  = 0;
+        }
+
+        void JustSummoned(Creature* pSummoned) override
+        {
+            // Cast a visual ball on the summoner
+            if (pSummoned->GetEntry() == NPC_VOID_SENTINEL_SUMMONER)
+                DoCastSpellIfCan(pSummoned, SPELL_SENTINEL_SUMMONER_VISUAL, CAST_TRIGGERED);
+        }
+
+        void SpellHit(Unit* /*pCaster*/, const SpellEntry* pSpell) override
+        {
+            // These spells are dummies, but are used only to init the timers
+            // They could use the EffectDummyCreature to handle this, but this makes code easier
+            switch (pSpell->Id)
             {
-                if (DoCastSpellIfCan(m_creature, SPELL_SUMMON_SENTINEL_SUMMONER) == CAST_OK)
-                    m_uiSentinelTimer = 0;
+                // Init sentinel summon timer
+                case SPELL_OPEN_PORTAL:
+                    m_uiSentinelTimer = 5000;
+                    break;
+                // Start transition effect
+                case SPELL_OPEN_ALL_PORTALS:
+                    m_uiTransformTimer = 2000;
+                    break;
             }
-            else
-                m_uiSentinelTimer -= uiDiff;
         }
 
-        if (m_uiTransformTimer)
+        void UpdateAI(const uint32 uiDiff) override
         {
-            if (m_uiTransformTimer <= uiDiff)
+            if (m_uiSentinelTimer)
             {
-                // Alternate the visuals
-                ++m_uiTransformCount;
-                DoCastSpellIfCan(m_creature, (m_uiTransformCount % 2) ? SPELL_TRANSFORM_VISUAL_1 : SPELL_TRANSFORM_VISUAL_2, CAST_TRIGGERED);
-
-                if (m_uiTransformCount < MAX_TRANSFORM_CASTS)
-                    m_uiTransformTimer = 1000;
+                // Summon the sentinel on a short timer after the portal opens
+                if (m_uiSentinelTimer <= uiDiff)
+                {
+                    if (DoCastSpellIfCan(m_creature, SPELL_SUMMON_SENTINEL_SUMMONER) == CAST_OK)
+                        m_uiSentinelTimer = 0;
+                }
                 else
-                {
-                    m_uiTransformTimer = 0;
-                    m_uiTransformCount = 0;
-                }
-
-                // Summon Entropius when reached half of the transition
-                if (m_uiTransformCount == MAX_TRANSFORM_CASTS / 2)
-                {
-                    if (Creature* pMuru = m_pInstance->GetSingleCreatureFromStorage(NPC_MURU))
-                        pMuru->CastSpell(pMuru, SPELL_SUMMON_ENTROPIUS, TRIGGERED_NONE);
-                }
+                    m_uiSentinelTimer -= uiDiff;
             }
-            else
-                m_uiTransformTimer -= uiDiff;
+
+            if (m_uiTransformTimer)
+            {
+                if (m_uiTransformTimer <= uiDiff)
+                {
+                    // Alternate the visuals
+                    ++m_uiTransformCount;
+                    DoCastSpellIfCan(m_creature, (m_uiTransformCount % 2) ? SPELL_TRANSFORM_VISUAL_1 : SPELL_TRANSFORM_VISUAL_2, CAST_TRIGGERED);
+
+                    if (m_uiTransformCount < MAX_TRANSFORM_CASTS)
+                        m_uiTransformTimer = 1000;
+                    else
+                    {
+                        m_uiTransformTimer = 0;
+                        m_uiTransformCount = 0;
+                    }
+
+                    // Summon Entropius when reached half of the transition
+                    if (m_uiTransformCount == MAX_TRANSFORM_CASTS / 2)
+                    {
+                        if (Creature* pMuru = m_pInstance->GetSingleCreatureFromStorage(NPC_MURU))
+                            pMuru->CastSpell(pMuru, SPELL_SUMMON_ENTROPIUS, TRIGGERED_NONE);
+                    }
+                }
+                else
+                    m_uiTransformTimer -= uiDiff;
+            }
         }
-    }
+    };
+
+
+
 };
 
 /*######
 ## npc_darkness
 ######*/
-
-struct npc_darknessAI : public Scripted_NoMovementAI
+class npc_darkness : public CreatureScript
 {
-    npc_darknessAI(Creature* pCreature) : Scripted_NoMovementAI(pCreature) { Reset(); }
+public:
+    npc_darkness() : CreatureScript("npc_darkness") { }
 
-    uint32 m_uiActiveTimer;
-
-    void Reset() override
+    UnitAI* GetAI(Creature* pCreature)
     {
-        DoCastSpellIfCan(m_creature, SPELL_VOID_ZONE_VISUAL, CAST_TRIGGERED);
-        m_uiActiveTimer = 5000;
+        return new npc_darknessAI(pCreature);
     }
 
-    void AttackStart(Unit* /*pWho*/) override { }
-    void MoveInLineOfSight(Unit* /*pWho*/) override { }
 
-    void JustSummoned(Creature* pSummoned) override
-    {
-        if (pSummoned->GetEntry() == NPC_DARK_FIEND)
-            pSummoned->SetInCombatWithZone();
-    }
 
-    void UpdateAI(const uint32 uiDiff) override
+    struct npc_darknessAI : public Scripted_NoMovementAI
     {
-        if (m_uiActiveTimer)
+        npc_darknessAI(Creature* pCreature) : Scripted_NoMovementAI(pCreature) { Reset(); }
+
+        uint32 m_uiActiveTimer;
+
+        void Reset() override
         {
-            if (m_uiActiveTimer <= uiDiff)
-            {
-                DoCastSpellIfCan(m_creature, SPELL_VOID_ZONE_PERIODIC, CAST_TRIGGERED);
-                DoCastSpellIfCan(m_creature, SPELL_SUMMON_DARK_FIEND, CAST_TRIGGERED);
-                m_uiActiveTimer = 0;
-            }
-            else
-                m_uiActiveTimer -= uiDiff;
+            DoCastSpellIfCan(m_creature, SPELL_VOID_ZONE_VISUAL, CAST_TRIGGERED);
+            m_uiActiveTimer = 5000;
         }
-    }
+
+        void AttackStart(Unit* /*pWho*/) override { }
+        void MoveInLineOfSight(Unit* /*pWho*/) override { }
+
+        void JustSummoned(Creature* pSummoned) override
+        {
+            if (pSummoned->GetEntry() == NPC_DARK_FIEND)
+                pSummoned->SetInCombatWithZone();
+        }
+
+        void UpdateAI(const uint32 uiDiff) override
+        {
+            if (m_uiActiveTimer)
+            {
+                if (m_uiActiveTimer <= uiDiff)
+                {
+                    DoCastSpellIfCan(m_creature, SPELL_VOID_ZONE_PERIODIC, CAST_TRIGGERED);
+                    DoCastSpellIfCan(m_creature, SPELL_SUMMON_DARK_FIEND, CAST_TRIGGERED);
+                    m_uiActiveTimer = 0;
+                }
+                else
+                    m_uiActiveTimer -= uiDiff;
+            }
+        }
+    };
+
+
+
 };
 
 /*######
 ## npc_singularity
 ######*/
-
-struct npc_singularityAI : public Scripted_NoMovementAI
+class npc_singularity : public CreatureScript
 {
-    npc_singularityAI(Creature* pCreature) : Scripted_NoMovementAI(pCreature) { Reset(); }
+public:
+    npc_singularity() : CreatureScript("npc_singularity") { }
 
-    uint32 m_uiActiveTimer;
-    uint8 m_uiActivateStage;
-
-    void Reset() override
+    UnitAI* GetAI(Creature* pCreature)
     {
-        DoCastSpellIfCan(m_creature, SPELL_BLACK_HOLE_VISUAL, CAST_TRIGGERED);
-        m_uiActiveTimer = 1000;
-        m_uiActivateStage = 0;
+        return new npc_singularityAI(pCreature);
     }
 
-    void AttackStart(Unit* /*pWho*/) override { }
-    void MoveInLineOfSight(Unit* /*pWho*/) override { }
 
-    void UpdateAI(const uint32 uiDiff) override
+
+    struct npc_singularityAI : public Scripted_NoMovementAI
     {
-        if (m_uiActiveTimer)
+        npc_singularityAI(Creature* pCreature) : Scripted_NoMovementAI(pCreature) { Reset(); }
+
+        uint32 m_uiActiveTimer;
+        uint8 m_uiActivateStage;
+
+        void Reset() override
         {
-            if (m_uiActiveTimer <= uiDiff)
-            {
-                switch (m_uiActivateStage)
-                {
-                    case 0:
-                        if (DoCastSpellIfCan(m_creature, SPELL_BLACK_HOLE_VISUAL_2) == CAST_OK)
-                            m_uiActiveTimer = 4000;
-                        break;
-                    case 1:
-                        if (DoCastSpellIfCan(m_creature, SPELL_BLACK_HOLE_PASSIVE) == CAST_OK)
-                            m_uiActiveTimer = 0;
-                        break;
-                }
-                ++m_uiActivateStage;
-            }
-            else
-                m_uiActiveTimer -= uiDiff;
+            DoCastSpellIfCan(m_creature, SPELL_BLACK_HOLE_VISUAL, CAST_TRIGGERED);
+            m_uiActiveTimer = 1000;
+            m_uiActivateStage = 0;
         }
-    }
+
+        void AttackStart(Unit* /*pWho*/) override { }
+        void MoveInLineOfSight(Unit* /*pWho*/) override { }
+
+        void UpdateAI(const uint32 uiDiff) override
+        {
+            if (m_uiActiveTimer)
+            {
+                if (m_uiActiveTimer <= uiDiff)
+                {
+                    switch (m_uiActivateStage)
+                    {
+                        case 0:
+                            if (DoCastSpellIfCan(m_creature, SPELL_BLACK_HOLE_VISUAL_2) == CAST_OK)
+                                m_uiActiveTimer = 4000;
+                            break;
+                        case 1:
+                            if (DoCastSpellIfCan(m_creature, SPELL_BLACK_HOLE_PASSIVE) == CAST_OK)
+                                m_uiActiveTimer = 0;
+                            break;
+                    }
+                    ++m_uiActivateStage;
+                }
+                else
+                    m_uiActiveTimer -= uiDiff;
+            }
+        }
+    };
+
+
+
 };
 
-UnitAI* GetAI_boss_muru(Creature* pCreature)
-{
-    return new boss_muruAI(pCreature);
-}
 
-UnitAI* GetAI_boss_entropius(Creature* pCreature)
-{
-    return new boss_entropiusAI(pCreature);
-}
 
-UnitAI* GetAI_npc_portal_target(Creature* pCreature)
-{
-    return new npc_portal_targetAI(pCreature);
-}
 
-UnitAI* GetAI_npc_darkness(Creature* pCreature)
-{
-    return new npc_darknessAI(pCreature);
-}
 
-UnitAI* GetAI_npc_singularity(Creature* pCreature)
-{
-    return new npc_singularityAI(pCreature);
-}
 
 void AddSC_boss_muru()
 {
-    Script* pNewScript = new Script;
-    pNewScript->Name = "boss_muru";
-    pNewScript->GetAI = &GetAI_boss_muru;
-    pNewScript->RegisterSelf();
+    new boss_muru();
+    new boss_entropius();
+    new npc_portal_target();
+    new npc_darkness();
+    new npc_singularity();
 
-    pNewScript = new Script;
-    pNewScript->Name = "boss_entropius";
-    pNewScript->GetAI = &GetAI_boss_entropius;
-    pNewScript->RegisterSelf();
-
-    pNewScript = new Script;
-    pNewScript->Name = "npc_portal_target";
-    pNewScript->GetAI = &GetAI_npc_portal_target;
-    pNewScript->RegisterSelf();
-
-    pNewScript = new Script;
-    pNewScript->Name = "npc_darkness";
-    pNewScript->GetAI = &GetAI_npc_darkness;
-    pNewScript->RegisterSelf();
-
-    pNewScript = new Script;
-    pNewScript->Name = "npc_singularity";
-    pNewScript->GetAI = &GetAI_npc_singularity;
-    pNewScript->RegisterSelf();
 }

@@ -39,59 +39,65 @@ enum
     EVENT_ID_SUMMON_JEEVEES     = 8420,
     EVENT_ID_SUMMON_DREADSTEED  = 8428,
 };
-
-bool ProcessEventId_event_spells_warlock_dreadsteed(uint32 uiEventId, Object* pSource, Object* /*pTarget*/, bool bIsStart)
+class event_spells_warlock_dreadsteed : public UnknownScript
 {
-    if (bIsStart && pSource->GetTypeId() == TYPEID_PLAYER)
+public:
+    event_spells_warlock_dreadsteed() : UnknownScript("event_spells_warlock_dreadsteed") { }
+
+    bool OnProcessEvent(uint32 uiEventId, Object* pSource, Object* /*pTarget*/, bool bIsStart) override
     {
-        if (instance_dire_maul* pInstance = (instance_dire_maul*)((Player*)pSource)->GetInstanceData())
+        if (bIsStart && pSource->GetTypeId() == TYPEID_PLAYER)
         {
-            // summon J'eevees and start event
-            if (uiEventId == EVENT_ID_SUMMON_JEEVEES)
+            if (instance_dire_maul* pInstance = (instance_dire_maul*)((Player*)pSource)->GetInstanceData())
             {
-                if (pInstance->GetData(TYPE_DREADSTEED) == NOT_STARTED)
+                // summon J'eevees and start event
+                if (uiEventId == EVENT_ID_SUMMON_JEEVEES)
                 {
-                    // start event: summon the dummy infernal controller and set in progress
-                    // The dummy infernal is used to check for event == FAIL and stop the script on the DB side
-                    ((Player*)pSource)->SummonCreature(NPC_WARLOCK_DUMMY_INFERNAL, -37.9392f, 812.805f, -29.4525f, 4.81711f, TEMPSPAWN_DEAD_DESPAWN, 0);
-
-                    // start from point 13. Others are for Scholomance event
-                    if (Creature* pImp = ((Player*)pSource)->SummonCreature(NPC_JEEVEES, -37.9392f, 812.805f, -29.4525f, 4.81711f, TEMPSPAWN_DEAD_DESPAWN, 0))
+                    if (pInstance->GetData(TYPE_DREADSTEED) == NOT_STARTED)
                     {
-                        pImp->GetMotionMaster()->MoveWaypoint();
-                        pImp->GetMotionMaster()->SetNextWaypoint(13);
+                        // start event: summon the dummy infernal controller and set in progress
+                        // The dummy infernal is used to check for event == FAIL and stop the script on the DB side
+                        ((Player*)pSource)->SummonCreature(NPC_WARLOCK_DUMMY_INFERNAL, -37.9392f, 812.805f, -29.4525f, 4.81711f, TEMPSPAWN_DEAD_DESPAWN, 0);
+
+                        // start from point 13. Others are for Scholomance event
+                        if (Creature* pImp = ((Player*)pSource)->SummonCreature(NPC_JEEVEES, -37.9392f, 812.805f, -29.4525f, 4.81711f, TEMPSPAWN_DEAD_DESPAWN, 0))
+                        {
+                            pImp->GetMotionMaster()->MoveWaypoint();
+                            pImp->GetMotionMaster()->SetNextWaypoint(13);
+                        }
+
+                        pInstance->SetData(TYPE_DREADSTEED, IN_PROGRESS);
+
+                        // allow the rest to be handled by dbscript
+                        return false;
                     }
-
-                    pInstance->SetData(TYPE_DREADSTEED, IN_PROGRESS);
-
-                    // allow the rest to be handled by dbscript
-                    return false;
                 }
-            }
-            // summon Dreadsteed
-            else if (uiEventId == EVENT_ID_SUMMON_DREADSTEED)
-            {
-                if (pInstance->GetData(TYPE_DREADSTEED) == SPECIAL)
+                // summon Dreadsteed
+                else if (uiEventId == EVENT_ID_SUMMON_DREADSTEED)
                 {
-                    // despawn the circle
-                    if (GameObject* pCircle = pInstance->GetSingleGameObjectFromStorage(GO_WARLOCK_RITUAL_CIRCLE))
-                        pCircle->SetLootState(GO_JUST_DEACTIVATED);
+                    if (pInstance->GetData(TYPE_DREADSTEED) == SPECIAL)
+                    {
+                        // despawn the circle
+                        if (GameObject* pCircle = pInstance->GetSingleGameObjectFromStorage(GO_WARLOCK_RITUAL_CIRCLE))
+                            pCircle->SetLootState(GO_JUST_DEACTIVATED);
 
-                    pInstance->SetData(TYPE_DREADSTEED, DONE);
+                        pInstance->SetData(TYPE_DREADSTEED, DONE);
 
-                    // rest is done by DBscript
-                    return false;
+                        // rest is done by DBscript
+                        return false;
+                    }
                 }
             }
         }
+        return true;
     }
-    return true;
-}
+
+
+
+};
 
 void AddSC_dire_maul()
 {
-    Script* pNewScript = new Script;
-    pNewScript->Name = "event_spells_warlock_dreadsteed";
-    pNewScript->pProcessEventId = &ProcessEventId_event_spells_warlock_dreadsteed;
-    pNewScript->RegisterSelf();
+    new event_spells_warlock_dreadsteed();
+
 }

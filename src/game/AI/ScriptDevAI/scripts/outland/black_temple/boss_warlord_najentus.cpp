@@ -62,191 +62,200 @@ enum NajentusActions // order based on priority
 };
 
 // TODO: review opening of door - it has a text
-
-struct boss_najentusAI : public ScriptedAI, CombatActions
+class boss_najentus : public CreatureScript
 {
-    boss_najentusAI(Creature* pCreature) : ScriptedAI(pCreature), CombatActions(NAJENTUS_ACTION_MAX)
+public:
+    boss_najentus() : CreatureScript("boss_najentus") { }
+
+    UnitAI* GetAI(Creature* pCreature)
     {
-        m_instance = static_cast<instance_black_temple*>(pCreature->GetInstanceData());
-        AddCombatAction(NAJENTUS_ACTION_TIDAL_SHIELD, 0u);
-        AddCombatAction(NAJENTUS_ACTION_ENRAGE, 0u);
-        AddCombatAction(NAJENTUS_ACTION_IMPALING_SPINE, 0u);
-        AddCombatAction(NAJENTUS_ACTION_NEEDLE_SPINE, 0u);
-        Reset();
+        return new boss_najentusAI(pCreature);
     }
 
-    instance_black_temple* m_instance;
 
-    void Reset() override
+
+    struct boss_najentusAI : public ScriptedAI, CombatActions
     {
-        for (uint32 i = 0; i < NAJENTUS_ACTION_MAX; ++i)
-            SetActionReadyStatus(i, false);
-
-        ResetTimer(NAJENTUS_ACTION_TIDAL_SHIELD, GetInitialActionTimer(NAJENTUS_ACTION_TIDAL_SHIELD));
-        ResetTimer(NAJENTUS_ACTION_ENRAGE, GetInitialActionTimer(NAJENTUS_ACTION_ENRAGE));
-        ResetTimer(NAJENTUS_ACTION_IMPALING_SPINE, GetInitialActionTimer(NAJENTUS_ACTION_IMPALING_SPINE));
-        ResetTimer(NAJENTUS_ACTION_NEEDLE_SPINE, GetInitialActionTimer(NAJENTUS_ACTION_NEEDLE_SPINE));
-
-        DoCastSpellIfCan(nullptr, SPELL_DOUBLE_ATTACK, CAST_TRIGGERED | CAST_AURA_NOT_PRESENT);
-
-        SetCombatMovement(true);
-
-        m_instance->DespawnImpalingSpines();
-    }
-
-    uint32 GetInitialActionTimer(NajentusActions id)
-    {
-        switch (id)
+        boss_najentusAI(Creature* pCreature) : ScriptedAI(pCreature), CombatActions(NAJENTUS_ACTION_MAX)
         {
-            case NAJENTUS_ACTION_TIDAL_SHIELD: return 60000;
-            case NAJENTUS_ACTION_ENRAGE: return 480000;
-            case NAJENTUS_ACTION_IMPALING_SPINE: return 20000;
-            case NAJENTUS_ACTION_NEEDLE_SPINE: return 10000;
-            default: return 0;
+            m_instance = static_cast<instance_black_temple*>(pCreature->GetInstanceData());
+            AddCombatAction(NAJENTUS_ACTION_TIDAL_SHIELD, 0u);
+            AddCombatAction(NAJENTUS_ACTION_ENRAGE, 0u);
+            AddCombatAction(NAJENTUS_ACTION_IMPALING_SPINE, 0u);
+            AddCombatAction(NAJENTUS_ACTION_NEEDLE_SPINE, 0u);
+            Reset();
         }
-    }
 
-    uint32 GetSubsequentActionTimer(NajentusActions id)
-    {
-        switch (id)
+        instance_black_temple* m_instance;
+
+        void Reset() override
         {
-            case NAJENTUS_ACTION_TIDAL_SHIELD: return 60000;
-            case NAJENTUS_ACTION_IMPALING_SPINE: return 20000;
-            case NAJENTUS_ACTION_NEEDLE_SPINE: return 3000;
-            default: return 0;
-        }
-    }
+            for (uint32 i = 0; i < NAJENTUS_ACTION_MAX; ++i)
+                SetActionReadyStatus(i, false);
 
-    void JustReachedHome() override
-    {
-        if (m_instance)
-            m_instance->SetData(TYPE_NAJENTUS, NOT_STARTED);
-    }
-
-    void KilledUnit(Unit* /*pVictim*/) override
-    {
-        DoScriptText(urand(0, 1) ? SAY_SLAY1 : SAY_SLAY2, m_creature);
-    }
-
-    void JustDied(Unit* /*pKiller*/) override
-    {
-        if (m_instance)
-            m_instance->SetData(TYPE_NAJENTUS, DONE);
-
-        DoScriptText(SAY_DEATH, m_creature);
-    }
-
-    void SpellHit(Unit* /*pCaster*/, const SpellEntry* pSpell) override
-    {
-        if (m_creature->HasAura(SPELL_TIDAL_SHIELD) && pSpell->Id == SPELL_HURL_SPINE)
-        {
-            m_creature->RemoveAurasDueToSpell(SPELL_TIDAL_SHIELD);
-            m_creature->CastSpell(nullptr, SPELL_TIDAL_BURST, TRIGGERED_NONE);
-            switch (urand(0, 2))
-            {
-                case 0: DoScriptText(SAY_TIDAL_BURST_1, m_creature); break;
-                case 1: DoScriptText(SAY_TIDAL_BURST_2, m_creature); break;
-                case 2: DoScriptText(SAY_TIDAL_BURST_3, m_creature); break;
-            }
+            ResetTimer(NAJENTUS_ACTION_TIDAL_SHIELD, GetInitialActionTimer(NAJENTUS_ACTION_TIDAL_SHIELD));
+            ResetTimer(NAJENTUS_ACTION_ENRAGE, GetInitialActionTimer(NAJENTUS_ACTION_ENRAGE));
             ResetTimer(NAJENTUS_ACTION_IMPALING_SPINE, GetInitialActionTimer(NAJENTUS_ACTION_IMPALING_SPINE));
             ResetTimer(NAJENTUS_ACTION_NEEDLE_SPINE, GetInitialActionTimer(NAJENTUS_ACTION_NEEDLE_SPINE));
+
+            DoCastSpellIfCan(nullptr, SPELL_DOUBLE_ATTACK, CAST_TRIGGERED | CAST_AURA_NOT_PRESENT);
+
             SetCombatMovement(true);
+
+            m_instance->DespawnImpalingSpines();
         }
-    }
 
-    void Aggro(Unit* /*pWho*/) override
-    {
-        if (m_instance)
-            m_instance->SetData(TYPE_NAJENTUS, IN_PROGRESS);
-
-        DoScriptText(SAY_AGGRO, m_creature);
-
-        auto const& playerList = m_creature->GetMap()->GetPlayers();
-        for (auto& mapRef : playerList)
-            mapRef.getSource()->DestroyItemCount(ITEM_IMPALING_SPINE, 5, true);
-    }
-
-    void ExecuteActions()
-    {
-        if (!CanExecuteCombatAction())
-            return;
-
-        for (uint32 i = 0; i < NAJENTUS_ACTION_MAX; ++i)
+        uint32 GetInitialActionTimer(NajentusActions id)
         {
-            if (GetActionReadyStatus(i))
+            switch (id)
             {
-                switch (i)
+                case NAJENTUS_ACTION_TIDAL_SHIELD: return 60000;
+                case NAJENTUS_ACTION_ENRAGE: return 480000;
+                case NAJENTUS_ACTION_IMPALING_SPINE: return 20000;
+                case NAJENTUS_ACTION_NEEDLE_SPINE: return 10000;
+                default: return 0;
+            }
+        }
+
+        uint32 GetSubsequentActionTimer(NajentusActions id)
+        {
+            switch (id)
+            {
+                case NAJENTUS_ACTION_TIDAL_SHIELD: return 60000;
+                case NAJENTUS_ACTION_IMPALING_SPINE: return 20000;
+                case NAJENTUS_ACTION_NEEDLE_SPINE: return 3000;
+                default: return 0;
+            }
+        }
+
+        void JustReachedHome() override
+        {
+            if (m_instance)
+                m_instance->SetData(TYPE_NAJENTUS, NOT_STARTED);
+        }
+
+        void KilledUnit(Unit* /*pVictim*/) override
+        {
+            DoScriptText(urand(0, 1) ? SAY_SLAY1 : SAY_SLAY2, m_creature);
+        }
+
+        void JustDied(Unit* /*pKiller*/) override
+        {
+            if (m_instance)
+                m_instance->SetData(TYPE_NAJENTUS, DONE);
+
+            DoScriptText(SAY_DEATH, m_creature);
+        }
+
+        void SpellHit(Unit* /*pCaster*/, const SpellEntry* pSpell) override
+        {
+            if (m_creature->HasAura(SPELL_TIDAL_SHIELD) && pSpell->Id == SPELL_HURL_SPINE)
+            {
+                m_creature->RemoveAurasDueToSpell(SPELL_TIDAL_SHIELD);
+                m_creature->CastSpell(nullptr, SPELL_TIDAL_BURST, TRIGGERED_NONE);
+                switch (urand(0, 2))
                 {
-                    case NAJENTUS_ACTION_TIDAL_SHIELD:
-                        if (DoCastSpellIfCan(nullptr, SPELL_TIDAL_SHIELD) == CAST_OK)
-                        {
-                            DisableCombatAction(NAJENTUS_ACTION_IMPALING_SPINE);
-                            DisableCombatAction(NAJENTUS_ACTION_NEEDLE_SPINE);
-                            ResetTimer(i, GetSubsequentActionTimer(NajentusActions(i)));
-                            SetActionReadyStatus(i, false);
-                            return;
-                        }
-                        continue;
-                    case NAJENTUS_ACTION_ENRAGE:
-                        if (DoCastSpellIfCan(nullptr, SPELL_BERSERK) == CAST_OK)
-                        {
-                            DoScriptText(SAY_ENRAGE, m_creature);
-                            SetActionReadyStatus(i, false);
-                            return;
-                        }
-                        continue;
-                    case NAJENTUS_ACTION_IMPALING_SPINE:
+                    case 0: DoScriptText(SAY_TIDAL_BURST_1, m_creature); break;
+                    case 1: DoScriptText(SAY_TIDAL_BURST_2, m_creature); break;
+                    case 2: DoScriptText(SAY_TIDAL_BURST_3, m_creature); break;
+                }
+                ResetTimer(NAJENTUS_ACTION_IMPALING_SPINE, GetInitialActionTimer(NAJENTUS_ACTION_IMPALING_SPINE));
+                ResetTimer(NAJENTUS_ACTION_NEEDLE_SPINE, GetInitialActionTimer(NAJENTUS_ACTION_NEEDLE_SPINE));
+                SetCombatMovement(true);
+            }
+        }
+
+        void Aggro(Unit* /*pWho*/) override
+        {
+            if (m_instance)
+                m_instance->SetData(TYPE_NAJENTUS, IN_PROGRESS);
+
+            DoScriptText(SAY_AGGRO, m_creature);
+
+            auto const& playerList = m_creature->GetMap()->GetPlayers();
+            for (auto& mapRef : playerList)
+                mapRef.getSource()->DestroyItemCount(ITEM_IMPALING_SPINE, 5, true);
+        }
+
+        void ExecuteActions()
+        {
+            if (!CanExecuteCombatAction())
+                return;
+
+            for (uint32 i = 0; i < NAJENTUS_ACTION_MAX; ++i)
+            {
+                if (GetActionReadyStatus(i))
+                {
+                    switch (i)
                     {
-                        if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 1, SPELL_IMPALING_SPINE, SELECT_FLAG_PLAYER))
-                        {
-                            if (DoCastSpellIfCan(target, SPELL_IMPALING_SPINE) == CAST_OK)
+                        case NAJENTUS_ACTION_TIDAL_SHIELD:
+                            if (DoCastSpellIfCan(nullptr, SPELL_TIDAL_SHIELD) == CAST_OK)
                             {
-                                DoScriptText(urand(0, 1) ? SAY_NEEDLE1 : SAY_NEEDLE2, m_creature);
+                                DisableCombatAction(NAJENTUS_ACTION_IMPALING_SPINE);
+                                DisableCombatAction(NAJENTUS_ACTION_NEEDLE_SPINE);
                                 ResetTimer(i, GetSubsequentActionTimer(NajentusActions(i)));
                                 SetActionReadyStatus(i, false);
                                 return;
                             }
-                        }
-                        continue;
-                    }
-                    case NAJENTUS_ACTION_NEEDLE_SPINE:
-                    {
-                        if (DoCastSpellIfCan(nullptr, SPELL_NEEDLE_SPINE_TARGETING) == CAST_OK)
+                            continue;
+                        case NAJENTUS_ACTION_ENRAGE:
+                            if (DoCastSpellIfCan(nullptr, SPELL_BERSERK) == CAST_OK)
+                            {
+                                DoScriptText(SAY_ENRAGE, m_creature);
+                                SetActionReadyStatus(i, false);
+                                return;
+                            }
+                            continue;
+                        case NAJENTUS_ACTION_IMPALING_SPINE:
                         {
-                            ResetTimer(i, GetSubsequentActionTimer(NajentusActions(i)));
-                            SetActionReadyStatus(i, false);
-                            return;
+                            if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 1, SPELL_IMPALING_SPINE, SELECT_FLAG_PLAYER))
+                            {
+                                if (DoCastSpellIfCan(target, SPELL_IMPALING_SPINE) == CAST_OK)
+                                {
+                                    DoScriptText(urand(0, 1) ? SAY_NEEDLE1 : SAY_NEEDLE2, m_creature);
+                                    ResetTimer(i, GetSubsequentActionTimer(NajentusActions(i)));
+                                    SetActionReadyStatus(i, false);
+                                    return;
+                                }
+                            }
+                            continue;
                         }
-                        continue;
+                        case NAJENTUS_ACTION_NEEDLE_SPINE:
+                        {
+                            if (DoCastSpellIfCan(nullptr, SPELL_NEEDLE_SPINE_TARGETING) == CAST_OK)
+                            {
+                                ResetTimer(i, GetSubsequentActionTimer(NajentusActions(i)));
+                                SetActionReadyStatus(i, false);
+                                return;
+                            }
+                            continue;
+                        }
                     }
                 }
             }
         }
-    }
 
-    void UpdateAI(const uint32 diff) override
-    {
-        UpdateTimers(diff, m_creature->IsInCombat());
+        void UpdateAI(const uint32 diff) override
+        {
+            UpdateTimers(diff, m_creature->IsInCombat());
 
-        if (!m_creature->SelectHostileTarget() || !m_creature->GetVictim())
-            return;
+            if (!m_creature->SelectHostileTarget() || !m_creature->GetVictim())
+                return;
 
-        EnterEvadeIfOutOfCombatArea(diff);
+            EnterEvadeIfOutOfCombatArea(diff);
 
-        ExecuteActions();
-        DoMeleeAttackIfReady();
-    }
+            ExecuteActions();
+            DoMeleeAttackIfReady();
+        }
+    };
+
+
+
 };
 
-UnitAI* GetAI_boss_najentus(Creature* pCreature)
-{
-    return new boss_najentusAI(pCreature);
-}
 
 void AddSC_boss_najentus()
 {
-    Script* pNewScript = new Script;
-    pNewScript->Name = "boss_najentus";
-    pNewScript->GetAI = &GetAI_boss_najentus;
-    pNewScript->RegisterSelf();
+    new boss_najentus();
+
 }

@@ -62,93 +62,107 @@ static const float aBoarSpawn[4][3] =
     {1956.433f, 1597.97f, 81.75f},
     {1958.971f, 1599.01f, 81.44f}
 };
-
-struct npc_willix_the_importerAI : public npc_escortAI
+class npc_willix_the_importer : public CreatureScript
 {
-    npc_willix_the_importerAI(Creature* m_creature) : npc_escortAI(m_creature) { Reset(); }
+public:
+    npc_willix_the_importer() : CreatureScript("npc_willix_the_importer") { }
 
-    void Reset() override {}
-
-    // Exact use of these texts remains unknown, it seems that he should only talk when he initiates the attack or he is the first who is attacked by a npc
-    void Aggro(Unit* pWho) override
+    bool OnQuestAccept(Player* pPlayer, Creature* pCreature, const Quest* pQuest) override
     {
-        switch (urand(0, 6))                                // Not always said
+        if (pQuest->GetQuestId() == QUEST_WILLIX_THE_IMPORTER)
         {
-            case 0: DoScriptText(SAY_WILLIX_AGGRO_1, m_creature, pWho); break;
-            case 1: DoScriptText(SAY_WILLIX_AGGRO_2, m_creature, pWho); break;
-            case 2: DoScriptText(SAY_WILLIX_AGGRO_3, m_creature, pWho); break;
-            case 3: DoScriptText(SAY_WILLIX_AGGRO_4, m_creature, pWho); break;
+            if (npc_willix_the_importerAI* pEscortAI = dynamic_cast<npc_willix_the_importerAI*>(pCreature->AI()))
+            {
+                // After 4.0.1 set run = true
+                pEscortAI->Start(false, pPlayer, pQuest);
+                DoScriptText(SAY_WILLIX_READY, pCreature, pPlayer);
+                pCreature->SetFactionTemporary(FACTION_ESCORT_N_NEUTRAL_PASSIVE, TEMPFACTION_RESTORE_RESPAWN);
+            }
         }
+
+        return true;
     }
 
-    void JustSummoned(Creature* pSummoned) override
+
+
+    UnitAI* GetAI(Creature* pCreature)
     {
-        pSummoned->AI()->AttackStart(m_creature);
+        return new npc_willix_the_importerAI(pCreature);
     }
 
-    void WaypointReached(uint32 uiPointId) override
+
+
+    struct npc_willix_the_importerAI : public npc_escortAI
     {
-        switch (uiPointId)
+        npc_willix_the_importerAI(Creature* m_creature) : npc_escortAI(m_creature) { Reset(); }
+
+        void Reset() override {}
+
+        // Exact use of these texts remains unknown, it seems that he should only talk when he initiates the attack or he is the first who is attacked by a npc
+        void Aggro(Unit* pWho) override
         {
-            case 3:
-                DoScriptText(SAY_WILLIX_1, m_creature);
-                break;
-            case 7:
-                DoScriptText(SAY_WILLIX_2, m_creature);
-                break;
-            case 10:
-                DoScriptText(SAY_WILLIX_3, m_creature);
-                break;
-            case 15:
-                DoScriptText(SAY_WILLIX_4, m_creature);
-                // Summon 2 boars on the pathway
-                m_creature->SummonCreature(NPC_RAGING_AGAMAR, aBoarSpawn[0][0], aBoarSpawn[0][1], aBoarSpawn[0][2], 0, TEMPSPAWN_TIMED_OOC_DESPAWN, 25000);
-                m_creature->SummonCreature(NPC_RAGING_AGAMAR, aBoarSpawn[1][0], aBoarSpawn[1][1], aBoarSpawn[1][2], 0, TEMPSPAWN_TIMED_OOC_DESPAWN, 25000);
-                break;
-            case 26:
-                DoScriptText(SAY_WILLIX_5, m_creature);
-                break;
-            case 34:
-                DoScriptText(SAY_WILLIX_6, m_creature);
-                break;
-            case 45:
-                DoScriptText(SAY_WILLIX_7, m_creature);
-                // Summon 2 boars at the end
-                m_creature->SummonCreature(NPC_RAGING_AGAMAR, aBoarSpawn[2][0], aBoarSpawn[2][1], aBoarSpawn[2][2], 0, TEMPSPAWN_TIMED_OOC_DESPAWN, 25000);
-                m_creature->SummonCreature(NPC_RAGING_AGAMAR, aBoarSpawn[3][0], aBoarSpawn[3][1], aBoarSpawn[3][2], 0, TEMPSPAWN_TIMED_OOC_DESPAWN, 25000);
-                break;
-            case 46:
-                DoScriptText(SAY_WILLIX_END, m_creature);
-                m_creature->SetFlag(UNIT_NPC_FLAGS, UNIT_NPC_FLAG_QUESTGIVER);
-                // Complete event
-                if (Player* pPlayer = GetPlayerForEscort())
-                    pPlayer->RewardPlayerAndGroupAtEventExplored(QUEST_WILLIX_THE_IMPORTER, m_creature);
-                SetEscortPaused(true);
-                break;
+            switch (urand(0, 6))                                // Not always said
+            {
+                case 0: DoScriptText(SAY_WILLIX_AGGRO_1, m_creature, pWho); break;
+                case 1: DoScriptText(SAY_WILLIX_AGGRO_2, m_creature, pWho); break;
+                case 2: DoScriptText(SAY_WILLIX_AGGRO_3, m_creature, pWho); break;
+                case 3: DoScriptText(SAY_WILLIX_AGGRO_4, m_creature, pWho); break;
+            }
         }
-    }
+
+        void JustSummoned(Creature* pSummoned) override
+        {
+            pSummoned->AI()->AttackStart(m_creature);
+        }
+
+        void WaypointReached(uint32 uiPointId) override
+        {
+            switch (uiPointId)
+            {
+                case 3:
+                    DoScriptText(SAY_WILLIX_1, m_creature);
+                    break;
+                case 7:
+                    DoScriptText(SAY_WILLIX_2, m_creature);
+                    break;
+                case 10:
+                    DoScriptText(SAY_WILLIX_3, m_creature);
+                    break;
+                case 15:
+                    DoScriptText(SAY_WILLIX_4, m_creature);
+                    // Summon 2 boars on the pathway
+                    m_creature->SummonCreature(NPC_RAGING_AGAMAR, aBoarSpawn[0][0], aBoarSpawn[0][1], aBoarSpawn[0][2], 0, TEMPSPAWN_TIMED_OOC_DESPAWN, 25000);
+                    m_creature->SummonCreature(NPC_RAGING_AGAMAR, aBoarSpawn[1][0], aBoarSpawn[1][1], aBoarSpawn[1][2], 0, TEMPSPAWN_TIMED_OOC_DESPAWN, 25000);
+                    break;
+                case 26:
+                    DoScriptText(SAY_WILLIX_5, m_creature);
+                    break;
+                case 34:
+                    DoScriptText(SAY_WILLIX_6, m_creature);
+                    break;
+                case 45:
+                    DoScriptText(SAY_WILLIX_7, m_creature);
+                    // Summon 2 boars at the end
+                    m_creature->SummonCreature(NPC_RAGING_AGAMAR, aBoarSpawn[2][0], aBoarSpawn[2][1], aBoarSpawn[2][2], 0, TEMPSPAWN_TIMED_OOC_DESPAWN, 25000);
+                    m_creature->SummonCreature(NPC_RAGING_AGAMAR, aBoarSpawn[3][0], aBoarSpawn[3][1], aBoarSpawn[3][2], 0, TEMPSPAWN_TIMED_OOC_DESPAWN, 25000);
+                    break;
+                case 46:
+                    DoScriptText(SAY_WILLIX_END, m_creature);
+                    m_creature->SetFlag(UNIT_NPC_FLAGS, UNIT_NPC_FLAG_QUESTGIVER);
+                    // Complete event
+                    if (Player* pPlayer = GetPlayerForEscort())
+                        pPlayer->RewardPlayerAndGroupAtEventExplored(QUEST_WILLIX_THE_IMPORTER, m_creature);
+                    SetEscortPaused(true);
+                    break;
+            }
+        }
+    };
+
+
+
 };
 
-UnitAI* GetAI_npc_willix_the_importer(Creature* pCreature)
-{
-    return new npc_willix_the_importerAI(pCreature);
-}
 
-bool QuestAccept_npc_willix_the_importer(Player* pPlayer, Creature* pCreature, const Quest* pQuest)
-{
-    if (pQuest->GetQuestId() == QUEST_WILLIX_THE_IMPORTER)
-    {
-        if (npc_willix_the_importerAI* pEscortAI = dynamic_cast<npc_willix_the_importerAI*>(pCreature->AI()))
-        {
-            // After 4.0.1 set run = true
-            pEscortAI->Start(false, pPlayer, pQuest);
-            DoScriptText(SAY_WILLIX_READY, pCreature, pPlayer);
-            pCreature->SetFactionTemporary(FACTION_ESCORT_N_NEUTRAL_PASSIVE, TEMPFACTION_RESTORE_RESPAWN);
-        }
-    }
-
-    return true;
-}
 
 /*######
 ## npc_snufflenose_gopher
@@ -160,109 +174,115 @@ enum
     NPC_SNUFFLENOSE_GOPHER      = 4781,
     GO_BLUELEAF_TUBBER          = 20920,
 };
-
-struct npc_snufflenose_gopherAI : public ScriptedPetAI
+class npc_snufflenose_gopher : public CreatureScript
 {
-    npc_snufflenose_gopherAI(Creature* pCreature) : ScriptedPetAI(pCreature) { Reset(); }
+public:
+    npc_snufflenose_gopher() : CreatureScript("npc_snufflenose_gopher") { }
 
-    bool m_bIsMovementActive;
-
-    ObjectGuid m_targetTubberGuid;
-
-    void Reset() override
+    bool OnEffectDummy(Unit* /*pCaster*/, uint32 uiSpellId, SpellEffectIndex uiEffIndex, Creature* pCreatureTarget, ObjectGuid /*originalCasterGuid*/) override
     {
-        m_bIsMovementActive  = false;
-    }
-
-    void MovementInform(uint32 uiMoveType, uint32 uiPointId) override
-    {
-        if (uiMoveType != POINT_MOTION_TYPE || !uiPointId)
-            return;
-
-        if (GameObject* pGo = m_creature->GetMap()->GetGameObject(m_targetTubberGuid))
+        // always check spellid and effectindex
+        if (uiSpellId == SPELL_SNUFFLENOSE_COMMAND && uiEffIndex == EFFECT_INDEX_0)
         {
-            pGo->SetRespawnTime(5 * MINUTE);
-            pGo->Refresh();
-
-            pGo->RemoveFlag(GAMEOBJECT_FLAGS, GO_FLAG_INTERACT_COND);
-        }
-
-        m_bIsMovementActive = false;
-    }
-
-    // Function to search for new tubber in range
-    void DoFindNewTubber()
-    {
-        GameObjectList lTubbersInRange;
-        GetGameObjectListWithEntryInGrid(lTubbersInRange, m_creature, GO_BLUELEAF_TUBBER, 40.0f);
-
-        if (lTubbersInRange.empty())
-            return;
-
-        lTubbersInRange.sort(ObjectDistanceOrder(m_creature));
-        GameObject* pNearestTubber = nullptr;
-
-        // Always need to find new ones
-        for (GameObjectList::const_iterator itr = lTubbersInRange.begin(); itr != lTubbersInRange.end(); ++itr)
-        {
-            if (!(*itr)->IsSpawned() && (*itr)->HasFlag(GAMEOBJECT_FLAGS, GO_FLAG_INTERACT_COND) && (*itr)->IsWithinLOSInMap(m_creature))
+            if (pCreatureTarget->GetEntry() == NPC_SNUFFLENOSE_GOPHER)
             {
-                pNearestTubber = *itr;
-                break;
+                if (npc_snufflenose_gopherAI* pGopherAI = dynamic_cast<npc_snufflenose_gopherAI*>(pCreatureTarget->AI()))
+                    pGopherAI->DoFindNewTubber();
             }
+
+            // always return true when we are handling this spell and effect
+            return true;
         }
 
-        if (!pNearestTubber)
-            return;
-        m_targetTubberGuid = pNearestTubber->GetObjectGuid();
-
-        float fX, fY, fZ;
-        pNearestTubber->GetContactPoint(m_creature, fX, fY, fZ);
-        m_creature->GetMotionMaster()->MovePoint(1, fX, fY, fZ);
-        m_bIsMovementActive = true;
+        return false;
     }
 
-    void UpdateAI(const uint32 uiDiff) override
+
+
+    UnitAI* GetAI(Creature* pCreature)
     {
-        if (!m_bIsMovementActive)
-            ScriptedPetAI::UpdateAI(uiDiff);
+        return new npc_snufflenose_gopherAI(pCreature);
     }
+
+
+
+    struct npc_snufflenose_gopherAI : public ScriptedPetAI
+    {
+        npc_snufflenose_gopherAI(Creature* pCreature) : ScriptedPetAI(pCreature) { Reset(); }
+
+        bool m_bIsMovementActive;
+
+        ObjectGuid m_targetTubberGuid;
+
+        void Reset() override
+        {
+            m_bIsMovementActive  = false;
+        }
+
+        void MovementInform(uint32 uiMoveType, uint32 uiPointId) override
+        {
+            if (uiMoveType != POINT_MOTION_TYPE || !uiPointId)
+                return;
+
+            if (GameObject* pGo = m_creature->GetMap()->GetGameObject(m_targetTubberGuid))
+            {
+                pGo->SetRespawnTime(5 * MINUTE);
+                pGo->Refresh();
+
+                pGo->RemoveFlag(GAMEOBJECT_FLAGS, GO_FLAG_INTERACT_COND);
+            }
+
+            m_bIsMovementActive = false;
+        }
+
+        // Function to search for new tubber in range
+        void DoFindNewTubber()
+        {
+            GameObjectList lTubbersInRange;
+            GetGameObjectListWithEntryInGrid(lTubbersInRange, m_creature, GO_BLUELEAF_TUBBER, 40.0f);
+
+            if (lTubbersInRange.empty())
+                return;
+
+            lTubbersInRange.sort(ObjectDistanceOrder(m_creature));
+            GameObject* pNearestTubber = nullptr;
+
+            // Always need to find new ones
+            for (GameObjectList::const_iterator itr = lTubbersInRange.begin(); itr != lTubbersInRange.end(); ++itr)
+            {
+                if (!(*itr)->IsSpawned() && (*itr)->HasFlag(GAMEOBJECT_FLAGS, GO_FLAG_INTERACT_COND) && (*itr)->IsWithinLOSInMap(m_creature))
+                {
+                    pNearestTubber = *itr;
+                    break;
+                }
+            }
+
+            if (!pNearestTubber)
+                return;
+            m_targetTubberGuid = pNearestTubber->GetObjectGuid();
+
+            float fX, fY, fZ;
+            pNearestTubber->GetContactPoint(m_creature, fX, fY, fZ);
+            m_creature->GetMotionMaster()->MovePoint(1, fX, fY, fZ);
+            m_bIsMovementActive = true;
+        }
+
+        void UpdateAI(const uint32 uiDiff) override
+        {
+            if (!m_bIsMovementActive)
+                ScriptedPetAI::UpdateAI(uiDiff);
+        }
+    };
+
+
+
 };
 
-UnitAI* GetAI_npc_snufflenose_gopher(Creature* pCreature)
-{
-    return new npc_snufflenose_gopherAI(pCreature);
-}
 
-bool EffectDummyCreature_npc_snufflenose_gopher(Unit* /*pCaster*/, uint32 uiSpellId, SpellEffectIndex uiEffIndex, Creature* pCreatureTarget, ObjectGuid /*originalCasterGuid*/)
-{
-    // always check spellid and effectindex
-    if (uiSpellId == SPELL_SNUFFLENOSE_COMMAND && uiEffIndex == EFFECT_INDEX_0)
-    {
-        if (pCreatureTarget->GetEntry() == NPC_SNUFFLENOSE_GOPHER)
-        {
-            if (npc_snufflenose_gopherAI* pGopherAI = dynamic_cast<npc_snufflenose_gopherAI*>(pCreatureTarget->AI()))
-                pGopherAI->DoFindNewTubber();
-        }
-
-        // always return true when we are handling this spell and effect
-        return true;
-    }
-
-    return false;
-}
 
 void AddSC_razorfen_kraul()
 {
-    Script* pNewScript = new Script;
-    pNewScript->Name = "npc_willix_the_importer";
-    pNewScript->GetAI = &GetAI_npc_willix_the_importer;
-    pNewScript->pQuestAcceptNPC = &QuestAccept_npc_willix_the_importer;
-    pNewScript->RegisterSelf();
+    new npc_willix_the_importer();
+    new npc_snufflenose_gopher();
 
-    pNewScript = new Script;
-    pNewScript->Name = "npc_snufflenose_gopher";
-    pNewScript->GetAI = &GetAI_npc_snufflenose_gopher;
-    pNewScript->pEffectDummyNPC = &EffectDummyCreature_npc_snufflenose_gopher;
-    pNewScript->RegisterSelf();
 }

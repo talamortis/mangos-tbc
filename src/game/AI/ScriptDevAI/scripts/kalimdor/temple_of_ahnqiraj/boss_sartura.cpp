@@ -51,86 +51,95 @@ enum SarturaActions
     SARTURA_BERSERK,
     SARTURA_ACTION_MAX,
 };
-
-struct boss_sarturaAI : public CombatAI
+class boss_sartura : public CreatureScript
 {
-    boss_sarturaAI(Creature* creature) : CombatAI(creature, SARTURA_ACTION_MAX), m_instance(static_cast<ScriptedInstance*>(creature->GetInstanceData()))
+public:
+    boss_sartura() : CreatureScript("boss_sartura") { }
+
+
+    struct boss_sarturaAI : public CombatAI
     {
-        AddTimerlessCombatAction(SARTURA_ENRAGE, true);
-        AddCombatAction(SARTURA_WHIRLWIND, 10000, 20000);
-        AddCombatAction(SARTURA_SUNDERING_CLEAVE, 2000, 5000);
-        AddCombatAction(SARTURA_BERSERK, uint32(10 * MINUTE * IN_MILLISECONDS));
-        Reset();
-    }
-
-    ScriptedInstance* m_instance;
-
-    void Aggro(Unit* /*who*/) override
-    {
-        DoScriptText(SAY_AGGRO, m_creature);
-
-        if (m_instance)
-            m_instance->SetData(TYPE_SARTURA, IN_PROGRESS);
-    }
-
-    void KilledUnit(Unit* /*victim*/) override
-    {
-        DoScriptText(SAY_SLAY, m_creature);
-    }
-
-    void JustDied(Unit* /*killer*/) override
-    {
-        DoScriptText(SAY_DEATH, m_creature);
-
-        if (m_instance)
-            m_instance->SetData(TYPE_SARTURA, DONE);
-    }
-
-    void JustReachedHome() override
-    {
-        if (m_instance)
-            m_instance->SetData(TYPE_SARTURA, FAIL);
-    }
-
-    void ExecuteAction(uint32 action) override
-    {
-        switch (action)
+        boss_sarturaAI(Creature* creature) : CombatAI(creature, SARTURA_ACTION_MAX), m_instance(static_cast<ScriptedInstance*>(creature->GetInstanceData()))
         {
-            case SARTURA_ENRAGE:
+            AddTimerlessCombatAction(SARTURA_ENRAGE, true);
+            AddCombatAction(SARTURA_WHIRLWIND, 10000, 20000);
+            AddCombatAction(SARTURA_SUNDERING_CLEAVE, 2000, 5000);
+            AddCombatAction(SARTURA_BERSERK, uint32(10 * MINUTE * IN_MILLISECONDS));
+            Reset();
+        }
+
+        ScriptedInstance* m_instance;
+
+        void Aggro(Unit* /*who*/) override
+        {
+            DoScriptText(SAY_AGGRO, m_creature);
+
+            if (m_instance)
+                m_instance->SetData(TYPE_SARTURA, IN_PROGRESS);
+        }
+
+        void KilledUnit(Unit* /*victim*/) override
+        {
+            DoScriptText(SAY_SLAY, m_creature);
+        }
+
+        void JustDied(Unit* /*killer*/) override
+        {
+            DoScriptText(SAY_DEATH, m_creature);
+
+            if (m_instance)
+                m_instance->SetData(TYPE_SARTURA, DONE);
+        }
+
+        void JustReachedHome() override
+        {
+            if (m_instance)
+                m_instance->SetData(TYPE_SARTURA, FAIL);
+        }
+
+        void ExecuteAction(uint32 action) override
+        {
+            switch (action)
             {
-                if (m_creature->GetHealthPercent() <= 25.0f)
+                case SARTURA_ENRAGE:
                 {
-                    if (DoCastSpellIfCan(nullptr, SPELL_ENRAGE) == CAST_OK)
+                    if (m_creature->GetHealthPercent() <= 25.0f)
                     {
-                        DoScriptText(EMOTE_FRENZY, m_creature);
-                        SetActionReadyStatus(action, false);
+                        if (DoCastSpellIfCan(nullptr, SPELL_ENRAGE) == CAST_OK)
+                        {
+                            DoScriptText(EMOTE_FRENZY, m_creature);
+                            SetActionReadyStatus(action, false);
+                        }
                     }
+                    break;
                 }
-                break;
-            }
-            case SARTURA_WHIRLWIND:
-            {
-                if (DoCastSpellIfCan(nullptr, SPELL_WHIRLWIND) == CAST_OK)
-                    ResetCombatAction(action, urand(20, 25) * IN_MILLISECONDS);
-                break;
-            }
-            case SARTURA_SUNDERING_CLEAVE:
-            {
-                if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_SUNDERING_CLEAVE) == CAST_OK)
-                    ResetCombatAction(action, urand(2, 5) * IN_MILLISECONDS);
-                break;
-            }
-            case SARTURA_BERSERK:
-            {
-                if (DoCastSpellIfCan(nullptr, SPELL_BERSERK) == CAST_OK)
+                case SARTURA_WHIRLWIND:
                 {
-                    DoScriptText(EMOTE_BERSERK, m_creature);
-                    DisableCombatAction(action);
+                    if (DoCastSpellIfCan(nullptr, SPELL_WHIRLWIND) == CAST_OK)
+                        ResetCombatAction(action, urand(20, 25) * IN_MILLISECONDS);
+                    break;
                 }
-                break;
+                case SARTURA_SUNDERING_CLEAVE:
+                {
+                    if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_SUNDERING_CLEAVE) == CAST_OK)
+                        ResetCombatAction(action, urand(2, 5) * IN_MILLISECONDS);
+                    break;
+                }
+                case SARTURA_BERSERK:
+                {
+                    if (DoCastSpellIfCan(nullptr, SPELL_BERSERK) == CAST_OK)
+                    {
+                        DoScriptText(EMOTE_BERSERK, m_creature);
+                        DisableCombatAction(action);
+                    }
+                    break;
+                }
             }
         }
-    }
+    };
+
+
+
 };
 
 struct AQWhirlwind : public SpellScript
@@ -164,10 +173,7 @@ struct AQWhirlwind : public SpellScript
 
 void AddSC_boss_sartura()
 {
-    Script* pNewScript = new Script;
-    pNewScript->Name = "boss_sartura";
-    pNewScript->GetAI = &GetNewAIInstance<boss_sarturaAI>;
-    pNewScript->RegisterSelf();
+    new boss_sartura();
 
     RegisterSpellScript<AQWhirlwind>("spell_aq_whirlwind");
 }

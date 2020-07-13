@@ -402,936 +402,951 @@ enum IllidanActions
 /*######
 ## boss_illidan_stormrage
 ######*/
-
-struct boss_illidan_stormrageAI : public CombatAI, private DialogueHelper
+class boss_illidan_stormrage : public CreatureScript
 {
-    boss_illidan_stormrageAI(Creature* creature) : CombatAI(creature, ILLIDAN_ACTIONS_MAX),
-        DialogueHelper(aEventDialogue), m_instance(static_cast<instance_black_temple*>(creature->GetInstanceData()))
-    {
-        //TODO: Review timers
-        AddCombatAction(ILLIDAN_ACTION_BERSERK, 1500000u); // 25 minutes
-        AddTimerlessCombatAction(ILLIDAN_ACTION_AKAMA, true);
-        AddTimerlessCombatAction(ILLIDAN_ACTION_PHASE_2, true);
-        AddTimerlessCombatAction(ILLIDAN_ACTION_PHASE_3, false);
-        AddTimerlessCombatAction(ILLIDAN_ACTION_PHASE_5, true);
-        AddCombatAction(ILLIDAN_ACTION_TRANSFORM, true);
-        AddCombatAction(ILLIDAN_ACTION_ENRAGE, true);
-        AddCombatAction(ILLIDAN_ACTION_TRAP, true);
-        AddCombatAction(ILLIDAN_ACTION_SHADOW_DEMON, true);
-        AddCombatAction(ILLIDAN_ACTION_FLAME_BURST, true);
-        AddCombatAction(ILLIDAN_ACTION_SHADOW_BLAST, true);
-        AddCombatAction(ILLIDAN_ACTION_AGONISING_FLAMES, true);
-        AddCombatAction(ILLIDAN_ACTION_EYE_BLAST, true);
-        AddCombatAction(ILLIDAN_ACTION_DARK_BARRAGE, true);
-        AddCombatAction(ILLIDAN_ACTION_FIREBALL, true);
-        AddCombatAction(ILLIDAN_ACTION_SHADOW_FIEND, true);
-        AddCombatAction(ILLIDAN_ACTION_FLAME_CRASH, true);
-        AddCombatAction(ILLIDAN_ACTION_SHEAR, true);
-        AddCombatAction(ILLIDAN_ACTION_DRAW_SOUL, true);
-        AddCustomAction(ILLIDAN_ACTION_PHASE_TRANSITION, true, [&]() { HandlePhaseTransition(); });
+public:
+    boss_illidan_stormrage() : CreatureScript("boss_illidan_stormrage") { }
 
-        SetDeathPrevention(true);
-        if (m_instance)
+    UnitAI* GetAI(Creature* creature)
+    {
+        return new boss_illidan_stormrageAI(creature);
+    }
+
+
+
+    struct boss_illidan_stormrageAI : public CombatAI, private DialogueHelper
+    {
+        boss_illidan_stormrageAI(Creature* creature) : CombatAI(creature, ILLIDAN_ACTIONS_MAX),
+            DialogueHelper(aEventDialogue), m_instance(static_cast<instance_black_temple*>(creature->GetInstanceData()))
         {
-            m_creature->GetCombatManager().SetLeashingCheck([](Unit* unit, float /*x*/, float /*y*/, float /*z*/)
-            {
-                return static_cast<ScriptedInstance*>(unit->GetInstanceData())->GetPlayerInMap(true, false) == nullptr;
-            });
-        }
-        InitializeDialogueHelper(m_instance);
-        Reset();
-    }
+            //TODO: Review timers
+            AddCombatAction(ILLIDAN_ACTION_BERSERK, 1500000u); // 25 minutes
+            AddTimerlessCombatAction(ILLIDAN_ACTION_AKAMA, true);
+            AddTimerlessCombatAction(ILLIDAN_ACTION_PHASE_2, true);
+            AddTimerlessCombatAction(ILLIDAN_ACTION_PHASE_3, false);
+            AddTimerlessCombatAction(ILLIDAN_ACTION_PHASE_5, true);
+            AddCombatAction(ILLIDAN_ACTION_TRANSFORM, true);
+            AddCombatAction(ILLIDAN_ACTION_ENRAGE, true);
+            AddCombatAction(ILLIDAN_ACTION_TRAP, true);
+            AddCombatAction(ILLIDAN_ACTION_SHADOW_DEMON, true);
+            AddCombatAction(ILLIDAN_ACTION_FLAME_BURST, true);
+            AddCombatAction(ILLIDAN_ACTION_SHADOW_BLAST, true);
+            AddCombatAction(ILLIDAN_ACTION_AGONISING_FLAMES, true);
+            AddCombatAction(ILLIDAN_ACTION_EYE_BLAST, true);
+            AddCombatAction(ILLIDAN_ACTION_DARK_BARRAGE, true);
+            AddCombatAction(ILLIDAN_ACTION_FIREBALL, true);
+            AddCombatAction(ILLIDAN_ACTION_SHADOW_FIEND, true);
+            AddCombatAction(ILLIDAN_ACTION_FLAME_CRASH, true);
+            AddCombatAction(ILLIDAN_ACTION_SHEAR, true);
+            AddCombatAction(ILLIDAN_ACTION_DRAW_SOUL, true);
+            AddCustomAction(ILLIDAN_ACTION_PHASE_TRANSITION, true, [&]() { HandlePhaseTransition(); });
 
-    instance_black_temple* m_instance;
-
-    Phase m_phase;
-
-    float m_targetMoveX, m_targetMoveY, m_targetMoveZ;
-
-    uint8 m_flameAzzinothKilled;
-
-    Phase m_prevPhase;                                    // store the previous phase in transition
-    PhaseTransition m_currentTransition;                  // store the current transition between phases
-    uint32 m_phaseTransitionStage;
-    uint8 m_curEyeBlastLoc;
-    ObjectGuid m_curEyeBlastTarget;
-
-    GuidList m_bladesGuidList;
-
-    GuidVector m_cageTrapVisualGuids;
-
-    void Reset() override
-    {
-        CombatAI::Reset();
-
-        m_phase               = PHASE_1_AKAMA;
-        m_currentTransition   = PHASETRANSITION_NONE;
-        m_flameAzzinothKilled = 0;
-        
-        SetMeleeEnabled(true);
-        m_attackDistance = 0.0f;
-
-        m_bladesGuidList.clear();
-
-        // Reset boss
-        m_creature->SetHover(false);
-        m_creature->SetLevitate(false);
-        m_creature->SetImmobilizedState(false);
-        SetCombatMovement(true);
-        m_creature->SetWalk(false, true);
-
-        m_creature->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_NPC);
-        m_creature->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_PLAYER);
-        m_creature->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE);
-        m_creature->SetSheath(SHEATH_STATE_UNARMED);
-        m_creature->HandleEmoteState(0);
-        DoCastSpellIfCan(nullptr, SPELL_KNEEL_INTRO, CAST_TRIGGERED | CAST_AURA_NOT_PRESENT);
-        DoCastSpellIfCan(nullptr, SPELL_PASSIVE_HIT, CAST_TRIGGERED | CAST_AURA_NOT_PRESENT);
-    }
-
-    uint32 GetInitialActionTimer(IllidanActions id)
-    {
-        switch (id)
-        {
-            case ILLIDAN_ACTION_TRANSFORM: return 60000;
-            case ILLIDAN_ACTION_ENRAGE: return 40000;
-            case ILLIDAN_ACTION_TRAP: return 30000;
-            case ILLIDAN_ACTION_SHADOW_DEMON: return 20000;
-            case ILLIDAN_ACTION_FLAME_BURST: return 7500;
-            case ILLIDAN_ACTION_SHADOW_BLAST: return urand(1000, 2000);
-            case ILLIDAN_ACTION_AGONISING_FLAMES: return 25000;
-            case ILLIDAN_ACTION_EYE_BLAST: return 10000;
-            case ILLIDAN_ACTION_DARK_BARRAGE: return 77000;
-            case ILLIDAN_ACTION_FIREBALL: return 0;
-            case ILLIDAN_ACTION_SHADOW_FIEND: return 25000;
-            case ILLIDAN_ACTION_FLAME_CRASH: return urand(25000, 30000);
-            case ILLIDAN_ACTION_SHEAR: return 10000;
-            case ILLIDAN_ACTION_DRAW_SOUL: return 32000;
-            default: return 0;
-        }
-    }
-
-    void GetAIInformation(ChatHandler& reader) override
-    {
-        reader.PSendSysMessage("Boss Illidan, current uiPhase = %u", m_phase);
-    }
-
-    void Aggro(Unit* /*who*/) override
-    {
-        if (m_instance)
-            m_instance->SetData(TYPE_ILLIDAN, IN_PROGRESS);
-        m_creature->PlayMusic(SOUND_KIT_ILLIDAN_AGGRO);
-    }
-
-    void JustReachedHome() override
-    {
-        if (m_instance)
-            m_instance->SetData(TYPE_ILLIDAN, FAIL);
-    }
-
-    void CorpseRemoved(uint32& respawnDelay) override
-    {
-        // Respawn after 10 seconds
-        if (m_instance->GetData(TYPE_ILLIDAN) == FAIL)
-            respawnDelay = 10;
-    }
-
-    void JustDied(Unit* /*killer*/) override
-    {
-        if (m_instance->GetData(TYPE_ILLIDAN) != FAIL) // akama died
-        {
-            m_creature->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE);
-
-            if (m_instance)
-                m_instance->SetData(TYPE_ILLIDAN, DONE);
-        }
-    }
-
-    void KilledUnit(Unit* victim) override
-    {
-        if (victim->GetTypeId() != TYPEID_PLAYER)
-            return;
-
-        DoScriptText(urand(0, 1) ? SAY_KILL1 : SAY_KILL2, m_creature);
-    }
-
-    void ReceiveAIEvent(AIEventType eventType, Unit* /*sender*/, Unit* /*invoker*/, uint32 miscValue) override
-    {
-        if (eventType == AI_EVENT_CUSTOM_A) // encounter wipe
-        {
-            m_creature->ForcedDespawn();
-            if (Creature* akama = m_instance->GetSingleCreatureFromStorage(NPC_AKAMA))
-                akama->ForcedDespawn();
-            if (Creature* akama = m_instance->GetSingleCreatureFromStorage(NPC_MAIEV_SHADOWSONG))
-                akama->ForcedDespawn();
-            DespawnGuids(m_instance->GetIllidanSpawns());
-        }
-        else if (eventType == AI_EVENT_CUSTOM_B) // Demon Transform 1 aura
-        {
-            if (miscValue == 1)
-                m_creature->CastSpell(nullptr, SPELL_DEMON_TRANSFORM_2, TRIGGERED_OLD_TRIGGERED);
-            else if (miscValue == 2)
-            {
-                if (m_phase != PHASE_4_DEMON)
-                    DoScriptText(SAY_MORPH, m_creature);
-            }
-        }
-        else if (eventType == AI_EVENT_CUSTOM_C) // Demon Transform 2 aura
-        {
-            if (miscValue == 2)
-            {
-                if (m_phase != PHASE_4_DEMON)
-                    m_creature->CastSpell(nullptr, SPELL_DEMON_FORM, TRIGGERED_OLD_TRIGGERED);
-                else
-                    m_creature->RemoveAurasDueToSpell(SPELL_DEMON_FORM);
-            }
-            else if (miscValue == 3)
-                m_creature->CastSpell(nullptr, SPELL_DEMON_TRANSFORM_3, TRIGGERED_OLD_TRIGGERED);
-        }
-        else if (eventType == AI_EVENT_CUSTOM_D) // Demon Transform 3 aura end
-        {
-            m_creature->RemoveAurasDueToSpell(SPELL_DEMON_TRANSFORM_2);
-            if (m_phase != PHASE_4_DEMON)
-            {
-                m_prevPhase = m_phase;
-                m_phase = PHASE_4_DEMON;
-            }
-            else
-            {
-                m_phase = m_prevPhase;
-                SetEquipmentSlots(true);
-                m_creature->CastSpell(nullptr, SPELL_PASSIVE_HIT, TRIGGERED_OLD_TRIGGERED);
-            }
-            SetCombatScriptStatus(false);
-            SetCombatMovement(true);
-            SetMeleeEnabled(true);
             SetDeathPrevention(true);
-            PreparePhaseTimers();
-            DoStartMovement(m_creature->GetVictim());
-            // Phase 4 Transition End
-            if (Creature* maiev = m_instance->GetSingleCreatureFromStorage(NPC_MAIEV_SHADOWSONG))
-                SendAIEvent(AI_EVENT_CUSTOM_A, maiev, maiev, m_phase);
-        }
-        else if (eventType == AI_EVENT_CUSTOM_E) // End of Eye Blast
-        {
-            m_creature->SetImmobilizedState(false);
-            if (GetActionReadyStatus(ILLIDAN_ACTION_PHASE_3))
-                return;
-            int32 randVal = urand(1, 2);
-            if (randVal == 2)
-                randVal = -1;
-            m_curEyeBlastLoc = (m_curEyeBlastLoc + randVal + 4) % 4; // make sure he only goes left or right
-            SetCombatScriptStatus(true);
-            m_creature->GetMotionMaster()->MovePoint(POINT_ILLIDAN_FLIGHT_RANDOM, illidanFlightPos[m_curEyeBlastLoc].fX, illidanFlightPos[m_curEyeBlastLoc].fY, illidanFlightPos[m_curEyeBlastLoc].fZ);
-        }
-        else if (eventType == AI_EVENT_CUSTOM_F)
-        {
-            m_creature->CastSpell(nullptr, SPELL_CAGED, TRIGGERED_OLD_TRIGGERED);
-
-            // Cast the visual effects
-            for (uint32 aCagedSummonSpell : aCagedSummonSpells)
-                m_creature->CastSpell(nullptr, aCagedSummonSpell, TRIGGERED_OLD_TRIGGERED);
-
-            for (uint32 i = 0; i < 8; ++i)
-                if (Creature* trigger = m_creature->GetMap()->GetCreature(m_cageTrapVisualGuids[i]))
-                    trigger->CastSpell(nullptr, aCagedVisualSpells[i], TRIGGERED_NONE);
-
-            m_cageTrapVisualGuids.clear();
-        }
-    }
-
-    void JustPreventedDeath(Unit* /*attacker*/) override
-    {
-        if (m_phase == PHASE_4_DEMON)
-            HandlePhaseBehaviour();
-        else
-        {
-            m_creature->InterruptNonMeleeSpells(true);
-            m_creature->StopMoving();
-            m_creature->RemoveAllAurasOnDeath();
-            m_creature->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE);
-            m_creature->ClearAllReactives();
-
-            DoCastSpellIfCan(nullptr, SPELL_DEATH);
-            DoCastSpellIfCan(m_creature, SPELL_TELEPORT_MAIEV, CAST_TRIGGERED);
-            m_creature->GetMotionMaster()->Clear();
-            m_creature->GetMotionMaster()->MoveIdle();
-
-            // Signal Maiev to start the outro dialogue
             if (m_instance)
             {
-                // DespawnGuids(m_instance->GetIllidanSpawns());
-                if (Creature* maiev = m_instance->GetSingleCreatureFromStorage(NPC_MAIEV_SHADOWSONG))
-                    maiev->AI()->KilledUnit(m_creature);
+                m_creature->GetCombatManager().SetLeashingCheck([](Unit* unit, float /*x*/, float /*y*/, float /*z*/)
+                {
+                    return static_cast<ScriptedInstance*>(unit->GetInstanceData())->GetPlayerInMap(true, false) == nullptr;
+                });
+            }
+            InitializeDialogueHelper(m_instance);
+            Reset();
+        }
+
+        instance_black_temple* m_instance;
+
+        Phase m_phase;
+
+        float m_targetMoveX, m_targetMoveY, m_targetMoveZ;
+
+        uint8 m_flameAzzinothKilled;
+
+        Phase m_prevPhase;                                    // store the previous phase in transition
+        PhaseTransition m_currentTransition;                  // store the current transition between phases
+        uint32 m_phaseTransitionStage;
+        uint8 m_curEyeBlastLoc;
+        ObjectGuid m_curEyeBlastTarget;
+
+        GuidList m_bladesGuidList;
+
+        GuidVector m_cageTrapVisualGuids;
+
+        void Reset() override
+        {
+            CombatAI::Reset();
+
+            m_phase               = PHASE_1_AKAMA;
+            m_currentTransition   = PHASETRANSITION_NONE;
+            m_flameAzzinothKilled = 0;
+        
+            SetMeleeEnabled(true);
+            m_attackDistance = 0.0f;
+
+            m_bladesGuidList.clear();
+
+            // Reset boss
+            m_creature->SetHover(false);
+            m_creature->SetLevitate(false);
+            m_creature->SetImmobilizedState(false);
+            SetCombatMovement(true);
+            m_creature->SetWalk(false, true);
+
+            m_creature->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_NPC);
+            m_creature->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_PLAYER);
+            m_creature->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE);
+            m_creature->SetSheath(SHEATH_STATE_UNARMED);
+            m_creature->HandleEmoteState(0);
+            DoCastSpellIfCan(nullptr, SPELL_KNEEL_INTRO, CAST_TRIGGERED | CAST_AURA_NOT_PRESENT);
+            DoCastSpellIfCan(nullptr, SPELL_PASSIVE_HIT, CAST_TRIGGERED | CAST_AURA_NOT_PRESENT);
+        }
+
+        uint32 GetInitialActionTimer(IllidanActions id)
+        {
+            switch (id)
+            {
+                case ILLIDAN_ACTION_TRANSFORM: return 60000;
+                case ILLIDAN_ACTION_ENRAGE: return 40000;
+                case ILLIDAN_ACTION_TRAP: return 30000;
+                case ILLIDAN_ACTION_SHADOW_DEMON: return 20000;
+                case ILLIDAN_ACTION_FLAME_BURST: return 7500;
+                case ILLIDAN_ACTION_SHADOW_BLAST: return urand(1000, 2000);
+                case ILLIDAN_ACTION_AGONISING_FLAMES: return 25000;
+                case ILLIDAN_ACTION_EYE_BLAST: return 10000;
+                case ILLIDAN_ACTION_DARK_BARRAGE: return 77000;
+                case ILLIDAN_ACTION_FIREBALL: return 0;
+                case ILLIDAN_ACTION_SHADOW_FIEND: return 25000;
+                case ILLIDAN_ACTION_FLAME_CRASH: return urand(25000, 30000);
+                case ILLIDAN_ACTION_SHEAR: return 10000;
+                case ILLIDAN_ACTION_DRAW_SOUL: return 32000;
+                default: return 0;
             }
         }
-    }
 
-    void JustDidDialogueStep(int32 entry) override
-    {
-        switch (entry)
+        void GetAIInformation(ChatHandler& reader) override
         {
-            case NPC_AKAMA:
-                m_creature->RemoveAurasDueToSpell(SPELL_KNEEL_INTRO);
-                break;
-            case EMOTE_ONESHOT_QUESTION:
-            case DUMMY_EMOTE_ID_1:
-            case DUMMY_EMOTE_ID_2:
-            case DUMMY_EMOTE_ID_3:
-                //TODO: move to SD2 SQL if emotes can be added
-                m_creature->HandleEmote(EMOTE_ONESHOT_QUESTION);
-                break;
-            case EQUIP_ID_MAIN_HAND:
-                m_creature->SetSheath(SHEATH_STATE_MELEE);
-                break;
-            case NPC_ILLIDAN_STORMRAGE:
-                m_creature->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_NPC);
-                m_creature->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_PLAYER);
-                m_creature->SetInCombatWithZone();
-                AttackClosestEnemy();
-                PreparePhaseTimers(); // Phase 1 start
-                if (m_instance)
-                {
-                    if (Creature* akama = m_instance->GetSingleCreatureFromStorage(NPC_AKAMA))
-                    {
-                        akama->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_NPC);
-                        akama->AI()->AttackStart(m_creature);
-                    }
-                }
-                break;
-            case SAY_AKAMA_LEAVE:
-                if (m_instance)
-                    // Remove Akama from threat list and allow him to fight the Illidari elites
-                    if (Creature* akama = m_instance->GetSingleCreatureFromStorage(NPC_AKAMA))
-                        akama->AI()->SendAIEvent(AI_EVENT_CUSTOM_B, akama, akama);
-                break;
-            case SAY_ILLIDAN_SPEECH_6:
-                m_creature->CastSpell(nullptr, SPELL_EMOTE_TALK_QUESTION, TRIGGERED_NONE);
-                break;
-            case SPELL_SUMMMON_MAIEV:
-                DoCastSpellIfCan(nullptr, SPELL_SUMMMON_MAIEV);
-                break;
-            case EMOTE_ONESHOT_EXCLAMATION:
-                if (m_instance)
-                    if (Creature* maiev = m_instance->GetSingleCreatureFromStorage(NPC_MAIEV_SHADOWSONG))
-                        maiev->HandleEmote(EMOTE_ONESHOT_EXCLAMATION);
-                break;
-            case EMOTE_STATE_READY1H:
-                m_creature->HandleEmote(EMOTE_STATE_READY1H);
-                break;
-            case EMOTE_ONESHOT_YES:
-            case EMOTE_ONESHOT_ROAR:
-                if (m_instance)
-                    if (Creature* maiev = m_instance->GetSingleCreatureFromStorage(NPC_MAIEV_SHADOWSONG))
-                        maiev->HandleEmote(uint32(entry));
-                break;
-            case DUMMY_EMOTE_ID_5:
-                // Resume combat and attack Maiev
+            reader.PSendSysMessage("Boss Illidan, current uiPhase = %u", m_phase);
+        }
+
+        void Aggro(Unit* /*who*/) override
+        {
+            if (m_instance)
+                m_instance->SetData(TYPE_ILLIDAN, IN_PROGRESS);
+            m_creature->PlayMusic(SOUND_KIT_ILLIDAN_AGGRO);
+        }
+
+        void JustReachedHome() override
+        {
+            if (m_instance)
+                m_instance->SetData(TYPE_ILLIDAN, FAIL);
+        }
+
+        void CorpseRemoved(uint32& respawnDelay) override
+        {
+            // Respawn after 10 seconds
+            if (m_instance->GetData(TYPE_ILLIDAN) == FAIL)
+                respawnDelay = 10;
+        }
+
+        void JustDied(Unit* /*killer*/) override
+        {
+            if (m_instance->GetData(TYPE_ILLIDAN) != FAIL) // akama died
+            {
                 m_creature->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE);
+
+                if (m_instance)
+                    m_instance->SetData(TYPE_ILLIDAN, DONE);
+            }
+        }
+
+        void KilledUnit(Unit* victim) override
+        {
+            if (victim->GetTypeId() != TYPEID_PLAYER)
+                return;
+
+            DoScriptText(urand(0, 1) ? SAY_KILL1 : SAY_KILL2, m_creature);
+        }
+
+        void ReceiveAIEvent(AIEventType eventType, Unit* /*sender*/, Unit* /*invoker*/, uint32 miscValue) override
+        {
+            if (eventType == AI_EVENT_CUSTOM_A) // encounter wipe
+            {
+                m_creature->ForcedDespawn();
+                if (Creature* akama = m_instance->GetSingleCreatureFromStorage(NPC_AKAMA))
+                    akama->ForcedDespawn();
+                if (Creature* akama = m_instance->GetSingleCreatureFromStorage(NPC_MAIEV_SHADOWSONG))
+                    akama->ForcedDespawn();
+                DespawnGuids(m_instance->GetIllidanSpawns());
+            }
+            else if (eventType == AI_EVENT_CUSTOM_B) // Demon Transform 1 aura
+            {
+                if (miscValue == 1)
+                    m_creature->CastSpell(nullptr, SPELL_DEMON_TRANSFORM_2, TRIGGERED_OLD_TRIGGERED);
+                else if (miscValue == 2)
+                {
+                    if (m_phase != PHASE_4_DEMON)
+                        DoScriptText(SAY_MORPH, m_creature);
+                }
+            }
+            else if (eventType == AI_EVENT_CUSTOM_C) // Demon Transform 2 aura
+            {
+                if (miscValue == 2)
+                {
+                    if (m_phase != PHASE_4_DEMON)
+                        m_creature->CastSpell(nullptr, SPELL_DEMON_FORM, TRIGGERED_OLD_TRIGGERED);
+                    else
+                        m_creature->RemoveAurasDueToSpell(SPELL_DEMON_FORM);
+                }
+                else if (miscValue == 3)
+                    m_creature->CastSpell(nullptr, SPELL_DEMON_TRANSFORM_3, TRIGGERED_OLD_TRIGGERED);
+            }
+            else if (eventType == AI_EVENT_CUSTOM_D) // Demon Transform 3 aura end
+            {
+                m_creature->RemoveAurasDueToSpell(SPELL_DEMON_TRANSFORM_2);
+                if (m_phase != PHASE_4_DEMON)
+                {
+                    m_prevPhase = m_phase;
+                    m_phase = PHASE_4_DEMON;
+                }
+                else
+                {
+                    m_phase = m_prevPhase;
+                    SetEquipmentSlots(true);
+                    m_creature->CastSpell(nullptr, SPELL_PASSIVE_HIT, TRIGGERED_OLD_TRIGGERED);
+                }
                 SetCombatScriptStatus(false);
                 SetCombatMovement(true);
                 SetMeleeEnabled(true);
-                if (Unit* victim = m_creature->GetVictim())
-                {
-                    m_creature->SetTarget(victim);
-                    DoStartMovement(victim);
-                }
-                m_phase = PHASE_5_MAIEV;
+                SetDeathPrevention(true);
                 PreparePhaseTimers();
-                break;
-            case NPC_MAIEV_SHADOWSONG:
+                DoStartMovement(m_creature->GetVictim());
+                // Phase 4 Transition End
+                if (Creature* maiev = m_instance->GetSingleCreatureFromStorage(NPC_MAIEV_SHADOWSONG))
+                    SendAIEvent(AI_EVENT_CUSTOM_A, maiev, maiev, m_phase);
+            }
+            else if (eventType == AI_EVENT_CUSTOM_E) // End of Eye Blast
+            {
+                m_creature->SetImmobilizedState(false);
+                if (GetActionReadyStatus(ILLIDAN_ACTION_PHASE_3))
+                    return;
+                int32 randVal = urand(1, 2);
+                if (randVal == 2)
+                    randVal = -1;
+                m_curEyeBlastLoc = (m_curEyeBlastLoc + randVal + 4) % 4; // make sure he only goes left or right
+                SetCombatScriptStatus(true);
+                m_creature->GetMotionMaster()->MovePoint(POINT_ILLIDAN_FLIGHT_RANDOM, illidanFlightPos[m_curEyeBlastLoc].fX, illidanFlightPos[m_curEyeBlastLoc].fY, illidanFlightPos[m_curEyeBlastLoc].fZ);
+            }
+            else if (eventType == AI_EVENT_CUSTOM_F)
+            {
+                m_creature->CastSpell(nullptr, SPELL_CAGED, TRIGGERED_OLD_TRIGGERED);
+
+                // Cast the visual effects
+                for (uint32 aCagedSummonSpell : aCagedSummonSpells)
+                    m_creature->CastSpell(nullptr, aCagedSummonSpell, TRIGGERED_OLD_TRIGGERED);
+
+                for (uint32 i = 0; i < 8; ++i)
+                    if (Creature* trigger = m_creature->GetMap()->GetCreature(m_cageTrapVisualGuids[i]))
+                        trigger->CastSpell(nullptr, aCagedVisualSpells[i], TRIGGERED_NONE);
+
+                m_cageTrapVisualGuids.clear();
+            }
+        }
+
+        void JustPreventedDeath(Unit* /*attacker*/) override
+        {
+            if (m_phase == PHASE_4_DEMON)
+                HandlePhaseBehaviour();
+            else
+            {
+                m_creature->InterruptNonMeleeSpells(true);
+                m_creature->StopMoving();
+                m_creature->RemoveAllAurasOnDeath();
+                m_creature->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE);
+                m_creature->ClearAllReactives();
+
+                DoCastSpellIfCan(nullptr, SPELL_DEATH);
+                DoCastSpellIfCan(m_creature, SPELL_TELEPORT_MAIEV, CAST_TRIGGERED);
+                m_creature->GetMotionMaster()->Clear();
+                m_creature->GetMotionMaster()->MoveIdle();
+
+                // Signal Maiev to start the outro dialogue
                 if (m_instance)
-                    if (Creature* maiev = m_instance->GetSingleCreatureFromStorage(NPC_MAIEV_SHADOWSONG))
-                        maiev->AI()->AttackStart(m_creature);
-                break;
-        }
-    }
-
-    void JustSummoned(Creature* summoned) override
-    {
-        switch (summoned->GetEntry())
-        {
-            case NPC_FLAME_CRASH:
-                summoned->SetCanEnterCombat(false);
-                summoned->AI()->SetCombatMovement(false);
-                summoned->CastSpell(nullptr, SPELL_INSTANT_BLADE_BIRTH, TRIGGERED_NONE);
-                summoned->AI()->DoCastSpellIfCan(nullptr, SPELL_FLAME_CRASH_EFFECT, CAST_TRIGGERED | CAST_AURA_NOT_PRESENT);
-                break;
-            case NPC_BLADE_OF_AZZINOTH:
-                summoned->CastSpell(nullptr, SPELL_INSTANT_BLADE_BIRTH, TRIGGERED_NONE);
-                summoned->CastSpell(nullptr, SPELL_RANGE_MARKER, TRIGGERED_OLD_TRIGGERED);
-                summoned->CastSpell(nullptr, SPELL_SUMMON_TEAR_AZZINOTH, TRIGGERED_OLD_TRIGGERED);
-                m_bladesGuidList.push_back(summoned->GetObjectGuid());
-                break;
-            case NPC_ILLIDAN_TARGET:
-                summoned->AI()->SetCombatMovement(false);
-                summoned->AI()->SetReactState(REACT_PASSIVE);
-                summoned->CastSpell(nullptr, SPELL_EYE_BLAST_TRIGGER, TRIGGERED_OLD_TRIGGERED);
-                summoned->SetCanEnterCombat(false);
-                DoCastSpellIfCan(summoned, SPELL_EYE_BLAST_DUMMY);
-                break;
-            case NPC_SHADOW_DEMON:
-                break;
-            case NPC_MAIEV_SHADOWSONG:
-                summoned->SetFacingToObject(m_creature);
-                m_creature->SetTarget(summoned);
-                break;
-            case NPC_CAGE_TRAP_TRIGGER_1:
-            case NPC_CAGE_TRAP_TRIGGER_2:
-            case NPC_CAGE_TRAP_TRIGGER_3:
-            case NPC_CAGE_TRAP_TRIGGER_4:
-            case NPC_CAGE_TRAP_TRIGGER_5:
-            case NPC_CAGE_TRAP_TRIGGER_6:
-            case NPC_CAGE_TRAP_TRIGGER_7:
-            case NPC_CAGE_TRAP_TRIGGER_8:
-                m_cageTrapVisualGuids.push_back(summoned->GetObjectGuid());
-                break;
-        }
-    }
-
-    void HandlePhaseBehaviour()
-    {
-        switch (m_phase)
-        {
-            case PHASE_5_MAIEV:
-            {
-                DisableCombatAction(ILLIDAN_ACTION_ENRAGE);
-                DisableCombatAction(ILLIDAN_ACTION_TRAP);
-            }
-            case PHASE_3_NORMAL:
-            {
-                DoCastSpellIfCan(nullptr, SPELL_DEMON_TRANSFORM_1);
-                m_attackDistance = 80.f;
-                SetCombatScriptStatus(true);
-                SetMeleeEnabled(false);
-                SetCombatMovement(false);
-                SetEquipmentSlots(false, EQUIP_UNEQUIP, EQUIP_UNEQUIP, EQUIP_NO_CHANGE);
-                m_creature->RemoveAurasDueToSpell(SPELL_PASSIVE_HIT);
-                DoResetThreat();
-                break;
-            }
-            case PHASE_4_DEMON:
-            {
-                DoCastSpellIfCan(nullptr, SPELL_DEMON_TRANSFORM_1);
-                m_attackDistance = 0.f;
-                SetCombatScriptStatus(true);
-                SetMeleeEnabled(false);
-                SetCombatMovement(false);
-                DoResetThreat();
-                break;
-            }
-            case PHASE_2_FLIGHT:
-            {
-                m_currentTransition = PHASETRANSITION_LAND;
-                m_phaseTransitionStage = 0;
-                SetCombatScriptStatus(true);
-                ResetTimer(ILLIDAN_ACTION_PHASE_TRANSITION, 1000u);
-                break;
-            }
-            case PHASE_1_AKAMA:
-            {
-                //Do transition movement/summons
-                m_currentTransition = PHASETRANSITION_LIFTOFF;
-                m_phaseTransitionStage = 0;
-                SetCombatScriptStatus(true);
-                ResetTimer(ILLIDAN_ACTION_PHASE_TRANSITION, 1000u);
-                break;
-            }
-        }
-    }
-
-    void PreparePhaseTimers() // called on entering specific phase
-    {
-        switch (m_phase)
-        {
-            case PHASE_1_AKAMA:
-            {
-                ResetCombatAction(ILLIDAN_ACTION_SHADOW_FIEND, GetInitialActionTimer(ILLIDAN_ACTION_SHADOW_FIEND));
-                ResetCombatAction(ILLIDAN_ACTION_FLAME_CRASH, GetInitialActionTimer(ILLIDAN_ACTION_FLAME_CRASH));
-                ResetCombatAction(ILLIDAN_ACTION_SHEAR, GetInitialActionTimer(ILLIDAN_ACTION_SHEAR));
-                ResetCombatAction(ILLIDAN_ACTION_DRAW_SOUL, GetInitialActionTimer(ILLIDAN_ACTION_DRAW_SOUL));
-                break;
-            }
-            case PHASE_2_FLIGHT:
-            {
-                DisableCombatAction(ILLIDAN_ACTION_DRAW_SOUL);
-                DisableCombatAction(ILLIDAN_ACTION_FLAME_CRASH);
-                DisableCombatAction(ILLIDAN_ACTION_SHEAR);
-                DisableCombatAction(ILLIDAN_ACTION_SHADOW_FIEND);
-                ResetCombatAction(ILLIDAN_ACTION_EYE_BLAST, GetInitialActionTimer(ILLIDAN_ACTION_EYE_BLAST));
-                ResetCombatAction(ILLIDAN_ACTION_DARK_BARRAGE, GetInitialActionTimer(ILLIDAN_ACTION_DARK_BARRAGE));
-                ResetCombatAction(ILLIDAN_ACTION_FIREBALL, GetInitialActionTimer(ILLIDAN_ACTION_FIREBALL));
-                break;
-            }
-            case PHASE_4_DEMON:
-            {
-                DisableCombatAction(ILLIDAN_ACTION_DRAW_SOUL);
-                DisableCombatAction(ILLIDAN_ACTION_FLAME_CRASH);
-                DisableCombatAction(ILLIDAN_ACTION_SHEAR);
-                DisableCombatAction(ILLIDAN_ACTION_SHADOW_FIEND);
-                DisableCombatAction(ILLIDAN_ACTION_AGONISING_FLAMES);
-                ResetCombatAction(ILLIDAN_ACTION_FLAME_BURST, GetInitialActionTimer(ILLIDAN_ACTION_FLAME_BURST));
-                ResetCombatAction(ILLIDAN_ACTION_SHADOW_BLAST, GetInitialActionTimer(ILLIDAN_ACTION_SHADOW_BLAST));
-                ResetCombatAction(ILLIDAN_ACTION_SHADOW_DEMON, GetInitialActionTimer(ILLIDAN_ACTION_SHADOW_DEMON));
-                ResetCombatAction(ILLIDAN_ACTION_TRANSFORM, 53000u);
-                break;
-            }
-            case PHASE_5_MAIEV:
-                ResetCombatAction(ILLIDAN_ACTION_ENRAGE, GetInitialActionTimer(ILLIDAN_ACTION_ENRAGE));
-                ResetCombatAction(ILLIDAN_ACTION_TRAP, GetInitialActionTimer(ILLIDAN_ACTION_TRAP));
-                ResetCombatAction(ILLIDAN_ACTION_TRANSFORM, GetInitialActionTimer(ILLIDAN_ACTION_TRANSFORM));
-                // [fallthrough]
-            case PHASE_3_NORMAL:
-            {
-                // phase 2 cleanup
-                DisableCombatAction(ILLIDAN_ACTION_EYE_BLAST);
-                DisableCombatAction(ILLIDAN_ACTION_DARK_BARRAGE);
-                DisableCombatAction(ILLIDAN_ACTION_FIREBALL);
-                // phase 4 cleanup
-                DisableCombatAction(ILLIDAN_ACTION_FLAME_BURST);
-                DisableCombatAction(ILLIDAN_ACTION_SHADOW_BLAST);
-                DisableCombatAction(ILLIDAN_ACTION_SHADOW_DEMON);
-                // phase 3 abilities
-                ResetCombatAction(ILLIDAN_ACTION_DRAW_SOUL, GetInitialActionTimer(ILLIDAN_ACTION_DRAW_SOUL));
-                ResetCombatAction(ILLIDAN_ACTION_FLAME_CRASH, GetInitialActionTimer(ILLIDAN_ACTION_FLAME_CRASH));
-                ResetCombatAction(ILLIDAN_ACTION_SHEAR, GetInitialActionTimer(ILLIDAN_ACTION_SHEAR));
-                ResetCombatAction(ILLIDAN_ACTION_SHADOW_FIEND, GetInitialActionTimer(ILLIDAN_ACTION_SHADOW_FIEND));
-                ResetCombatAction(ILLIDAN_ACTION_AGONISING_FLAMES, GetInitialActionTimer(ILLIDAN_ACTION_AGONISING_FLAMES));
-                ResetCombatAction(ILLIDAN_ACTION_TRANSFORM, GetInitialActionTimer(ILLIDAN_ACTION_TRANSFORM));
-                break;
-            }
-        }
-    }
-
-    void HandlePhaseTransition()
-    {
-        uint32 nextTimer = 0;
-        switch (m_currentTransition)
-        {
-            case PHASETRANSITION_LIFTOFF:
-            {
-                switch (m_phaseTransitionStage)
                 {
-                    case 0:
+                    // DespawnGuids(m_instance->GetIllidanSpawns());
+                    if (Creature* maiev = m_instance->GetSingleCreatureFromStorage(NPC_MAIEV_SHADOWSONG))
+                        maiev->AI()->KilledUnit(m_creature);
+                }
+            }
+        }
+
+        void JustDidDialogueStep(int32 entry) override
+        {
+            switch (entry)
+            {
+                case NPC_AKAMA:
+                    m_creature->RemoveAurasDueToSpell(SPELL_KNEEL_INTRO);
+                    break;
+                case EMOTE_ONESHOT_QUESTION:
+                case DUMMY_EMOTE_ID_1:
+                case DUMMY_EMOTE_ID_2:
+                case DUMMY_EMOTE_ID_3:
+                    //TODO: move to SD2 SQL if emotes can be added
+                    m_creature->HandleEmote(EMOTE_ONESHOT_QUESTION);
+                    break;
+                case EQUIP_ID_MAIN_HAND:
+                    m_creature->SetSheath(SHEATH_STATE_MELEE);
+                    break;
+                case NPC_ILLIDAN_STORMRAGE:
+                    m_creature->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_NPC);
+                    m_creature->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_PLAYER);
+                    m_creature->SetInCombatWithZone();
+                    AttackClosestEnemy();
+                    PreparePhaseTimers(); // Phase 1 start
+                    if (m_instance)
                     {
-                        m_creature->RemoveAllAuras();
-                        m_creature->GetMotionMaster()->Clear(false, true);
-                        m_creature->GetMotionMaster()->MoveIdle();
-                        m_creature->HandleEmote(EMOTE_ONESHOT_LIFTOFF);
-                        m_creature->SetLevitate(true);
-                        m_creature->SetHover(true);
-                        m_creature->SetFacingTo(0.659198f);
+                        if (Creature* akama = m_instance->GetSingleCreatureFromStorage(NPC_AKAMA))
+                        {
+                            akama->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_NPC);
+                            akama->AI()->AttackStart(m_creature);
+                        }
+                    }
+                    break;
+                case SAY_AKAMA_LEAVE:
+                    if (m_instance)
+                        // Remove Akama from threat list and allow him to fight the Illidari elites
+                        if (Creature* akama = m_instance->GetSingleCreatureFromStorage(NPC_AKAMA))
+                            akama->AI()->SendAIEvent(AI_EVENT_CUSTOM_B, akama, akama);
+                    break;
+                case SAY_ILLIDAN_SPEECH_6:
+                    m_creature->CastSpell(nullptr, SPELL_EMOTE_TALK_QUESTION, TRIGGERED_NONE);
+                    break;
+                case SPELL_SUMMMON_MAIEV:
+                    DoCastSpellIfCan(nullptr, SPELL_SUMMMON_MAIEV);
+                    break;
+                case EMOTE_ONESHOT_EXCLAMATION:
+                    if (m_instance)
+                        if (Creature* maiev = m_instance->GetSingleCreatureFromStorage(NPC_MAIEV_SHADOWSONG))
+                            maiev->HandleEmote(EMOTE_ONESHOT_EXCLAMATION);
+                    break;
+                case EMOTE_STATE_READY1H:
+                    m_creature->HandleEmote(EMOTE_STATE_READY1H);
+                    break;
+                case EMOTE_ONESHOT_YES:
+                case EMOTE_ONESHOT_ROAR:
+                    if (m_instance)
+                        if (Creature* maiev = m_instance->GetSingleCreatureFromStorage(NPC_MAIEV_SHADOWSONG))
+                            maiev->HandleEmote(uint32(entry));
+                    break;
+                case DUMMY_EMOTE_ID_5:
+                    // Resume combat and attack Maiev
+                    m_creature->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE);
+                    SetCombatScriptStatus(false);
+                    SetCombatMovement(true);
+                    SetMeleeEnabled(true);
+                    if (Unit* victim = m_creature->GetVictim())
+                    {
+                        m_creature->SetTarget(victim);
+                        DoStartMovement(victim);
+                    }
+                    m_phase = PHASE_5_MAIEV;
+                    PreparePhaseTimers();
+                    break;
+                case NPC_MAIEV_SHADOWSONG:
+                    if (m_instance)
+                        if (Creature* maiev = m_instance->GetSingleCreatureFromStorage(NPC_MAIEV_SHADOWSONG))
+                            maiev->AI()->AttackStart(m_creature);
+                    break;
+            }
+        }
+
+        void JustSummoned(Creature* summoned) override
+        {
+            switch (summoned->GetEntry())
+            {
+                case NPC_FLAME_CRASH:
+                    summoned->SetCanEnterCombat(false);
+                    summoned->AI()->SetCombatMovement(false);
+                    summoned->CastSpell(nullptr, SPELL_INSTANT_BLADE_BIRTH, TRIGGERED_NONE);
+                    summoned->AI()->DoCastSpellIfCan(nullptr, SPELL_FLAME_CRASH_EFFECT, CAST_TRIGGERED | CAST_AURA_NOT_PRESENT);
+                    break;
+                case NPC_BLADE_OF_AZZINOTH:
+                    summoned->CastSpell(nullptr, SPELL_INSTANT_BLADE_BIRTH, TRIGGERED_NONE);
+                    summoned->CastSpell(nullptr, SPELL_RANGE_MARKER, TRIGGERED_OLD_TRIGGERED);
+                    summoned->CastSpell(nullptr, SPELL_SUMMON_TEAR_AZZINOTH, TRIGGERED_OLD_TRIGGERED);
+                    m_bladesGuidList.push_back(summoned->GetObjectGuid());
+                    break;
+                case NPC_ILLIDAN_TARGET:
+                    summoned->AI()->SetCombatMovement(false);
+                    summoned->AI()->SetReactState(REACT_PASSIVE);
+                    summoned->CastSpell(nullptr, SPELL_EYE_BLAST_TRIGGER, TRIGGERED_OLD_TRIGGERED);
+                    summoned->SetCanEnterCombat(false);
+                    DoCastSpellIfCan(summoned, SPELL_EYE_BLAST_DUMMY);
+                    break;
+                case NPC_SHADOW_DEMON:
+                    break;
+                case NPC_MAIEV_SHADOWSONG:
+                    summoned->SetFacingToObject(m_creature);
+                    m_creature->SetTarget(summoned);
+                    break;
+                case NPC_CAGE_TRAP_TRIGGER_1:
+                case NPC_CAGE_TRAP_TRIGGER_2:
+                case NPC_CAGE_TRAP_TRIGGER_3:
+                case NPC_CAGE_TRAP_TRIGGER_4:
+                case NPC_CAGE_TRAP_TRIGGER_5:
+                case NPC_CAGE_TRAP_TRIGGER_6:
+                case NPC_CAGE_TRAP_TRIGGER_7:
+                case NPC_CAGE_TRAP_TRIGGER_8:
+                    m_cageTrapVisualGuids.push_back(summoned->GetObjectGuid());
+                    break;
+            }
+        }
+
+        void HandlePhaseBehaviour()
+        {
+            switch (m_phase)
+            {
+                case PHASE_5_MAIEV:
+                {
+                    DisableCombatAction(ILLIDAN_ACTION_ENRAGE);
+                    DisableCombatAction(ILLIDAN_ACTION_TRAP);
+                }
+                case PHASE_3_NORMAL:
+                {
+                    DoCastSpellIfCan(nullptr, SPELL_DEMON_TRANSFORM_1);
+                    m_attackDistance = 80.f;
+                    SetCombatScriptStatus(true);
+                    SetMeleeEnabled(false);
+                    SetCombatMovement(false);
+                    SetEquipmentSlots(false, EQUIP_UNEQUIP, EQUIP_UNEQUIP, EQUIP_NO_CHANGE);
+                    m_creature->RemoveAurasDueToSpell(SPELL_PASSIVE_HIT);
+                    DoResetThreat();
+                    break;
+                }
+                case PHASE_4_DEMON:
+                {
+                    DoCastSpellIfCan(nullptr, SPELL_DEMON_TRANSFORM_1);
+                    m_attackDistance = 0.f;
+                    SetCombatScriptStatus(true);
+                    SetMeleeEnabled(false);
+                    SetCombatMovement(false);
+                    DoResetThreat();
+                    break;
+                }
+                case PHASE_2_FLIGHT:
+                {
+                    m_currentTransition = PHASETRANSITION_LAND;
+                    m_phaseTransitionStage = 0;
+                    SetCombatScriptStatus(true);
+                    ResetTimer(ILLIDAN_ACTION_PHASE_TRANSITION, 1000u);
+                    break;
+                }
+                case PHASE_1_AKAMA:
+                {
+                    //Do transition movement/summons
+                    m_currentTransition = PHASETRANSITION_LIFTOFF;
+                    m_phaseTransitionStage = 0;
+                    SetCombatScriptStatus(true);
+                    ResetTimer(ILLIDAN_ACTION_PHASE_TRANSITION, 1000u);
+                    break;
+                }
+            }
+        }
+
+        void PreparePhaseTimers() // called on entering specific phase
+        {
+            switch (m_phase)
+            {
+                case PHASE_1_AKAMA:
+                {
+                    ResetCombatAction(ILLIDAN_ACTION_SHADOW_FIEND, GetInitialActionTimer(ILLIDAN_ACTION_SHADOW_FIEND));
+                    ResetCombatAction(ILLIDAN_ACTION_FLAME_CRASH, GetInitialActionTimer(ILLIDAN_ACTION_FLAME_CRASH));
+                    ResetCombatAction(ILLIDAN_ACTION_SHEAR, GetInitialActionTimer(ILLIDAN_ACTION_SHEAR));
+                    ResetCombatAction(ILLIDAN_ACTION_DRAW_SOUL, GetInitialActionTimer(ILLIDAN_ACTION_DRAW_SOUL));
+                    break;
+                }
+                case PHASE_2_FLIGHT:
+                {
+                    DisableCombatAction(ILLIDAN_ACTION_DRAW_SOUL);
+                    DisableCombatAction(ILLIDAN_ACTION_FLAME_CRASH);
+                    DisableCombatAction(ILLIDAN_ACTION_SHEAR);
+                    DisableCombatAction(ILLIDAN_ACTION_SHADOW_FIEND);
+                    ResetCombatAction(ILLIDAN_ACTION_EYE_BLAST, GetInitialActionTimer(ILLIDAN_ACTION_EYE_BLAST));
+                    ResetCombatAction(ILLIDAN_ACTION_DARK_BARRAGE, GetInitialActionTimer(ILLIDAN_ACTION_DARK_BARRAGE));
+                    ResetCombatAction(ILLIDAN_ACTION_FIREBALL, GetInitialActionTimer(ILLIDAN_ACTION_FIREBALL));
+                    break;
+                }
+                case PHASE_4_DEMON:
+                {
+                    DisableCombatAction(ILLIDAN_ACTION_DRAW_SOUL);
+                    DisableCombatAction(ILLIDAN_ACTION_FLAME_CRASH);
+                    DisableCombatAction(ILLIDAN_ACTION_SHEAR);
+                    DisableCombatAction(ILLIDAN_ACTION_SHADOW_FIEND);
+                    DisableCombatAction(ILLIDAN_ACTION_AGONISING_FLAMES);
+                    ResetCombatAction(ILLIDAN_ACTION_FLAME_BURST, GetInitialActionTimer(ILLIDAN_ACTION_FLAME_BURST));
+                    ResetCombatAction(ILLIDAN_ACTION_SHADOW_BLAST, GetInitialActionTimer(ILLIDAN_ACTION_SHADOW_BLAST));
+                    ResetCombatAction(ILLIDAN_ACTION_SHADOW_DEMON, GetInitialActionTimer(ILLIDAN_ACTION_SHADOW_DEMON));
+                    ResetCombatAction(ILLIDAN_ACTION_TRANSFORM, 53000u);
+                    break;
+                }
+                case PHASE_5_MAIEV:
+                    ResetCombatAction(ILLIDAN_ACTION_ENRAGE, GetInitialActionTimer(ILLIDAN_ACTION_ENRAGE));
+                    ResetCombatAction(ILLIDAN_ACTION_TRAP, GetInitialActionTimer(ILLIDAN_ACTION_TRAP));
+                    ResetCombatAction(ILLIDAN_ACTION_TRANSFORM, GetInitialActionTimer(ILLIDAN_ACTION_TRANSFORM));
+                    // [fallthrough]
+                case PHASE_3_NORMAL:
+                {
+                    // phase 2 cleanup
+                    DisableCombatAction(ILLIDAN_ACTION_EYE_BLAST);
+                    DisableCombatAction(ILLIDAN_ACTION_DARK_BARRAGE);
+                    DisableCombatAction(ILLIDAN_ACTION_FIREBALL);
+                    // phase 4 cleanup
+                    DisableCombatAction(ILLIDAN_ACTION_FLAME_BURST);
+                    DisableCombatAction(ILLIDAN_ACTION_SHADOW_BLAST);
+                    DisableCombatAction(ILLIDAN_ACTION_SHADOW_DEMON);
+                    // phase 3 abilities
+                    ResetCombatAction(ILLIDAN_ACTION_DRAW_SOUL, GetInitialActionTimer(ILLIDAN_ACTION_DRAW_SOUL));
+                    ResetCombatAction(ILLIDAN_ACTION_FLAME_CRASH, GetInitialActionTimer(ILLIDAN_ACTION_FLAME_CRASH));
+                    ResetCombatAction(ILLIDAN_ACTION_SHEAR, GetInitialActionTimer(ILLIDAN_ACTION_SHEAR));
+                    ResetCombatAction(ILLIDAN_ACTION_SHADOW_FIEND, GetInitialActionTimer(ILLIDAN_ACTION_SHADOW_FIEND));
+                    ResetCombatAction(ILLIDAN_ACTION_AGONISING_FLAMES, GetInitialActionTimer(ILLIDAN_ACTION_AGONISING_FLAMES));
+                    ResetCombatAction(ILLIDAN_ACTION_TRANSFORM, GetInitialActionTimer(ILLIDAN_ACTION_TRANSFORM));
+                    break;
+                }
+            }
+        }
+
+        void HandlePhaseTransition()
+        {
+            uint32 nextTimer = 0;
+            switch (m_currentTransition)
+            {
+                case PHASETRANSITION_LIFTOFF:
+                {
+                    switch (m_phaseTransitionStage)
+                    {
+                        case 0:
+                        {
+                            m_creature->RemoveAllAuras();
+                            m_creature->GetMotionMaster()->Clear(false, true);
+                            m_creature->GetMotionMaster()->MoveIdle();
+                            m_creature->HandleEmote(EMOTE_ONESHOT_LIFTOFF);
+                            m_creature->SetLevitate(true);
+                            m_creature->SetHover(true);
+                            m_creature->SetFacingTo(0.659198f);
+                            SetCombatMovement(false);
+                            SetMeleeEnabled(false);
+                            m_creature->SetTarget(nullptr);
+                            m_creature->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE);
+                            nextTimer = 3500;
+                            break;
+                        }
+                        case 1:
+                        {
+                            DoScriptText(SAY_TAKEOFF, m_creature);
+                            nextTimer = 3000;
+                            break;
+                        }
+                        case 2: // picks closest trigger out of the 3 and flies towards it
+                        {
+                            GuidVector& lowerTriggers = m_instance->GetIllidanTriggersLower();
+                            Creature* closestTrigger = nullptr;
+                            for (ObjectGuid guid : lowerTriggers)
+                            {
+                                if (Creature* trigger = m_creature->GetMap()->GetCreature(guid))
+                                {
+                                    if (closestTrigger)
+                                    {
+                                        if (closestTrigger->GetDistance(m_creature, true, DIST_CALC_NONE) > trigger->GetDistance(m_creature, true, DIST_CALC_NONE))
+                                            closestTrigger = trigger;
+                                    }
+                                    else
+                                        closestTrigger = trigger;
+                                }
+                            }
+                            float x, y, z;
+                            closestTrigger->GetPosition(x, y, z);
+                            m_creature->GetMotionMaster()->MovePoint(POINT_ILLIDAN_FLIGHT, x, y, z);
+                            break;
+                        }
+                        case 3:
+                        {
+                            if (m_instance)
+                            {
+                                // Need to provide explicit glaive targets
+                                GuidVector targets;
+                                m_instance->GetGlaiveTargetGuidVector(targets);
+                                Creature* glaive1 = m_creature->GetMap()->GetCreature(targets[0]);
+                                if (!glaive1)
+                                    break;
+                                // Summon both blades and remove them from equipment
+                                DoCastSpellIfCan(glaive1, SPELL_THROW_GLAIVE_VISUAL);
+                                nextTimer = 2000;
+                            }
+                            break;
+                        }
+                        case 4:
+                        {
+                            if (m_instance)
+                            {
+                                // Need to provide explicit glaive targets
+                                GuidVector targets;
+                                m_instance->GetGlaiveTargetGuidVector(targets);
+                                Creature* glaive2 = m_creature->GetMap()->GetCreature(targets[1]);
+                                if (!glaive2)
+                                    break;
+                                DoCastSpellIfCan(glaive2, SPELL_THROW_GLAIVE, CAST_TRIGGERED);
+                                SetEquipmentSlots(false, EQUIP_UNEQUIP, EQUIP_UNEQUIP, EQUIP_NO_CHANGE);
+                                m_currentTransition = PHASETRANSITION_NONE;
+                                m_phase = PHASE_2_FLIGHT;
+                                //uint32 firstEyeBlastPos = 0;
+                                //uint32 secondEyeBlastPos = 0;
+                                //for (uint32 i = 1; i < 4; ++i)
+                                //{
+                                //    if (m_creature->GetDistance(illidanFlightPos[firstEyeBlastPos].fX, illidanFlightPos[firstEyeBlastPos].fY, illidanFlightPos[firstEyeBlastPos].fZ, DIST_CALC_NONE)
+                                //        > m_creature->GetDistance(illidanFlightPos[i].fX, illidanFlightPos[i].fY, illidanFlightPos[i].fZ, DIST_CALC_NONE))
+                                //    {
+                                //        if (m_creature->GetDistance(illidanFlightPos[secondEyeBlastPos].fX, illidanFlightPos[secondEyeBlastPos].fY, illidanFlightPos[secondEyeBlastPos].fZ, DIST_CALC_NONE)
+                                //            > m_creature->GetDistance(illidanFlightPos[firstEyeBlastPos].fX, illidanFlightPos[firstEyeBlastPos].fY, illidanFlightPos[firstEyeBlastPos].fZ, DIST_CALC_NONE))
+                                //        {
+                                //            secondEyeBlastPos = firstEyeBlastPos;
+                                //        }
+                                //        firstEyeBlastPos = i;
+                                //    }
+                                //    else if (m_creature->GetDistance(illidanFlightPos[secondEyeBlastPos].fX, illidanFlightPos[secondEyeBlastPos].fY, illidanFlightPos[secondEyeBlastPos].fZ, DIST_CALC_NONE)
+                                //        > m_creature->GetDistance(illidanFlightPos[i].fX, illidanFlightPos[i].fY, illidanFlightPos[i].fZ, DIST_CALC_NONE))
+                                //    {
+                                //        secondEyeBlastPos = i;
+                                //    }
+                                //}
+                                // m_curEyeBlastLoc = urand(0, 1) ? firstEyeBlastPos : secondEyeBlastPos;
+                                m_curEyeBlastLoc = urand(0, 3);
+                                m_creature->GetMotionMaster()->MovePoint(POINT_ILLIDAN_FLIGHT_RANDOM, illidanFlightPos[m_curEyeBlastLoc].fX, illidanFlightPos[m_curEyeBlastLoc].fY, illidanFlightPos[m_curEyeBlastLoc].fZ);
+                                PreparePhaseTimers();
+                            }
+                            break;
+                        }
+                    }
+                    ++m_phaseTransitionStage;
+                    break;
+                }
+                case PHASETRANSITION_LAND:
+                {
+                    switch (m_phaseTransitionStage)
+                    {
+                        case 0:
+                        {
+                            m_creature->SetImmobilizedState(false);
+                            m_creature->SetTarget(nullptr);
+                            m_creature->GetMotionMaster()->MovePoint(POINT_ILLIDAN_LANDING, aCenterLoc[0].fX, aCenterLoc[0].fY, aCenterLoc[0].fZ);
+                            break;
+                        }
+                        case 1:
+                        {
+                            // Despawn the blades
+                            for (GuidList::const_iterator itr = m_bladesGuidList.begin(); itr != m_bladesGuidList.end(); ++itr)
+                            {
+                                if (Creature* blade = m_creature->GetMap()->GetCreature(*itr))
+                                {
+                                    blade->CastSpell(m_creature, SPELL_GLAIVE_RETURNS, TRIGGERED_OLD_TRIGGERED);
+                                    blade->ForcedDespawn(500);
+                                }
+                            }
+                            nextTimer = 500;
+                            break;
+                        }
+                        case 2:
+                        {
+                            m_creature->PlaySpellVisual(7668);
+                            nextTimer = 500;
+                            break;
+                        }
+                        case 3:
+                        {
+                            // Set the equipment and land
+                            SetEquipmentSlots(true);
+                            nextTimer = 3000;
+                            break;
+                        }
+                        case 4:
+                        {
+                            m_creature->SetLevitate(false);
+                            m_creature->SetHover(false);
+                            m_creature->HandleEmote(EMOTE_ONESHOT_LAND);
+                            nextTimer = 3000;
+                            break;
+                        }
+                        case 5:
+                        {
+                            // Start phase 3
+                            DoResetThreat();
+                            m_phase = PHASE_3_NORMAL;
+                            m_currentTransition = PHASETRANSITION_NONE;
+
+                            SetCombatScriptStatus(false);
+                            SetCombatMovement(true);
+                            SetMeleeEnabled(true);
+                            m_creature->SetImmobilizedState(false);
+                            if (m_creature->GetVictim())
+                            {
+                                m_creature->SetTarget(m_creature->GetVictim());
+                                DoStartMovement(m_creature->GetVictim());
+                            }
+                            m_creature->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE);
+                            nextTimer = 0;
+                            PreparePhaseTimers();
+                            break;
+                        }
+                    }
+                    ++m_phaseTransitionStage;
+                    break;
+                }
+                case PHASETRANSITION_MAIEV:
+                {
+                    //TODO
+                    break;
+                }
+            }
+            if (nextTimer)
+                ResetTimer(ILLIDAN_ACTION_PHASE_TRANSITION, nextTimer);
+        }
+
+        void MovementInform(uint32 moveType, uint32 pointId) override
+        {
+            if (moveType == POINT_MOTION_TYPE)
+            {
+                if (pointId == POINT_ILLIDAN_FLIGHT)
+                {
+                    DoScriptText(SAY_SUMMONFLAMES, m_creature);
+                    m_creature->SetFacingTo(4.670939f); // sets facing to world trigger in sniff - maybe change to this?
+                    ResetTimer(ILLIDAN_ACTION_PHASE_TRANSITION, 1200u);
+                }
+                else if (pointId == POINT_ILLIDAN_FLIGHT_RANDOM)
+                {
+                    SetCombatScriptStatus(false);
+                    m_creature->SetImmobilizedState(true);
+                }
+                else if (pointId == POINT_ILLIDAN_LANDING)
+                {
+                    m_creature->SetFacingTo(6.230825f);
+                    ResetTimer(ILLIDAN_ACTION_PHASE_TRANSITION, 1500u);
+                }
+            }
+        }
+
+        void SummonedMovementInform(Creature* summoned, uint32 /*moveType*/, uint32 pointId) override
+        {
+            if (summoned->GetEntry() == NPC_ILLIDAN_TARGET)
+            {
+                switch (summoned->GetMotionMaster()->GetPathId())
+                {
+                    case 1: if (pointId == 13) summoned->ForcedDespawn(); break;
+                    case 2: if (pointId == 12) summoned->ForcedDespawn(); break;
+                    case 3: if (pointId == 13) summoned->ForcedDespawn(); break;
+                    case 4: if (pointId == 14) summoned->ForcedDespawn(); break;
+                }
+            }
+        }
+
+        // Wrapper to start the combat dialogue
+        void DoStartCombatEvent() { StartNextDialogueText(NPC_AKAMA); }
+
+        // Wrapper to land Illidan when both flames are killed
+        void DoInformFlameKilled()
+        {
+            // Land Illidan if both Flames are killed
+            ++m_flameAzzinothKilled;
+
+            if (m_flameAzzinothKilled == MAX_FLAME_AZZINOTH)
+            {
+                SetActionReadyStatus(ILLIDAN_ACTION_PHASE_3, true);
+            }
+        }
+
+        // Wrapper to handle the Eye Blast cast
+        bool DoCastEyeBlastIfCan()
+        {
+            if (!CanExecuteCombatAction())
+                return false;
+
+            DoScriptText(SAY_EYE_BLAST, m_creature);
+
+            // Set spawn and target loc
+            m_creature->SummonCreature(NPC_ILLIDAN_TARGET, aEyeBlastPos[m_curEyeBlastLoc].fX, aEyeBlastPos[m_curEyeBlastLoc].fY, aEyeBlastPos[m_curEyeBlastLoc].fZ, 0, TEMPSPAWN_TIMED_DESPAWN, 15000, true, true, m_curEyeBlastLoc + 1);
+            return true;
+        }
+
+        void ExecuteAction(uint32 action) override
+        {
+            switch (action)
+            {
+                case ILLIDAN_ACTION_BERSERK:
+                {
+                    if (DoCastSpellIfCan(nullptr, SPELL_BERSERK) == CAST_OK)
+                    {
+                        DoScriptText(SAY_BERSERK, m_creature);
+                        DisableCombatAction(action);
+                    }
+                    return;
+                }
+                case ILLIDAN_ACTION_AKAMA:
+                {
+                    if (m_creature->GetHealthPercent() > 90.0f)
+                        return;
+                    m_creature->PlayMusic(SOUND_KIT_ILLIDAN_90);
+                    StartNextDialogueText(SAY_ILLIDAN_MINION);
+                    SetActionReadyStatus(action, false);
+                    return;
+                }
+                case ILLIDAN_ACTION_PHASE_2:
+                {
+                    if (m_creature->GetHealthPercent() > 65.0f)
+                        return;
+                    m_creature->PlayMusic(SOUND_KIT_ILLIDAN_TAKEOFF);
+                    HandlePhaseBehaviour(); // Phase 2 transition start
+                    SetActionReadyStatus(action, false);
+                    return;
+                }
+                case ILLIDAN_ACTION_PHASE_3:
+                {
+                    m_creature->PlayMusic(SOUND_KIT_ILLIDAN_P3);
+                    HandlePhaseBehaviour(); // Phase 3 transition start
+                    SetActionReadyStatus(action, false);
+                    return;
+                }
+                case ILLIDAN_ACTION_PHASE_5:
+                {
+                    if (m_creature->GetHealthPercent() > 30.0f)
+                        return;
+                    if (m_phase == PHASE_4_DEMON) // return to normal form first
+                    {
+                        HandlePhaseBehaviour();
+                        return;
+                    }
+                    if (DoCastSpellIfCan(nullptr, SPELL_SHADOW_PRISON) == CAST_OK) // Phase 5 transition start
+                    {
+                        m_creature->PlayMusic(SOUND_KIT_ILLIDAN_P5);
+                        StartNextDialogueText(DUMMY_EMOTE_ID_4);
+                        SetCombatScriptStatus(true);
+                        m_creature->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE);
+
                         SetCombatMovement(false);
                         SetMeleeEnabled(false);
                         m_creature->SetTarget(nullptr);
-                        m_creature->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE);
-                        nextTimer = 3500;
-                        break;
-                    }
-                    case 1:
-                    {
-                        DoScriptText(SAY_TAKEOFF, m_creature);
-                        nextTimer = 3000;
-                        break;
-                    }
-                    case 2: // picks closest trigger out of the 3 and flies towards it
-                    {
-                        GuidVector& lowerTriggers = m_instance->GetIllidanTriggersLower();
-                        Creature* closestTrigger = nullptr;
-                        for (ObjectGuid guid : lowerTriggers)
-                        {
-                            if (Creature* trigger = m_creature->GetMap()->GetCreature(guid))
-                            {
-                                if (closestTrigger)
-                                {
-                                    if (closestTrigger->GetDistance(m_creature, true, DIST_CALC_NONE) > trigger->GetDistance(m_creature, true, DIST_CALC_NONE))
-                                        closestTrigger = trigger;
-                                }
-                                else
-                                    closestTrigger = trigger;
-                            }
-                        }
-                        float x, y, z;
-                        closestTrigger->GetPosition(x, y, z);
-                        m_creature->GetMotionMaster()->MovePoint(POINT_ILLIDAN_FLIGHT, x, y, z);
-                        break;
-                    }
-                    case 3:
-                    {
-                        if (m_instance)
-                        {
-                            // Need to provide explicit glaive targets
-                            GuidVector targets;
-                            m_instance->GetGlaiveTargetGuidVector(targets);
-                            Creature* glaive1 = m_creature->GetMap()->GetCreature(targets[0]);
-                            if (!glaive1)
-                                break;
-                            // Summon both blades and remove them from equipment
-                            DoCastSpellIfCan(glaive1, SPELL_THROW_GLAIVE_VISUAL);
-                            nextTimer = 2000;
-                        }
-                        break;
-                    }
-                    case 4:
-                    {
-                        if (m_instance)
-                        {
-                            // Need to provide explicit glaive targets
-                            GuidVector targets;
-                            m_instance->GetGlaiveTargetGuidVector(targets);
-                            Creature* glaive2 = m_creature->GetMap()->GetCreature(targets[1]);
-                            if (!glaive2)
-                                break;
-                            DoCastSpellIfCan(glaive2, SPELL_THROW_GLAIVE, CAST_TRIGGERED);
-                            SetEquipmentSlots(false, EQUIP_UNEQUIP, EQUIP_UNEQUIP, EQUIP_NO_CHANGE);
-                            m_currentTransition = PHASETRANSITION_NONE;
-                            m_phase = PHASE_2_FLIGHT;
-                            //uint32 firstEyeBlastPos = 0;
-                            //uint32 secondEyeBlastPos = 0;
-                            //for (uint32 i = 1; i < 4; ++i)
-                            //{
-                            //    if (m_creature->GetDistance(illidanFlightPos[firstEyeBlastPos].fX, illidanFlightPos[firstEyeBlastPos].fY, illidanFlightPos[firstEyeBlastPos].fZ, DIST_CALC_NONE)
-                            //        > m_creature->GetDistance(illidanFlightPos[i].fX, illidanFlightPos[i].fY, illidanFlightPos[i].fZ, DIST_CALC_NONE))
-                            //    {
-                            //        if (m_creature->GetDistance(illidanFlightPos[secondEyeBlastPos].fX, illidanFlightPos[secondEyeBlastPos].fY, illidanFlightPos[secondEyeBlastPos].fZ, DIST_CALC_NONE)
-                            //            > m_creature->GetDistance(illidanFlightPos[firstEyeBlastPos].fX, illidanFlightPos[firstEyeBlastPos].fY, illidanFlightPos[firstEyeBlastPos].fZ, DIST_CALC_NONE))
-                            //        {
-                            //            secondEyeBlastPos = firstEyeBlastPos;
-                            //        }
-                            //        firstEyeBlastPos = i;
-                            //    }
-                            //    else if (m_creature->GetDistance(illidanFlightPos[secondEyeBlastPos].fX, illidanFlightPos[secondEyeBlastPos].fY, illidanFlightPos[secondEyeBlastPos].fZ, DIST_CALC_NONE)
-                            //        > m_creature->GetDistance(illidanFlightPos[i].fX, illidanFlightPos[i].fY, illidanFlightPos[i].fZ, DIST_CALC_NONE))
-                            //    {
-                            //        secondEyeBlastPos = i;
-                            //    }
-                            //}
-                            // m_curEyeBlastLoc = urand(0, 1) ? firstEyeBlastPos : secondEyeBlastPos;
-                            m_curEyeBlastLoc = urand(0, 3);
-                            m_creature->GetMotionMaster()->MovePoint(POINT_ILLIDAN_FLIGHT_RANDOM, illidanFlightPos[m_curEyeBlastLoc].fX, illidanFlightPos[m_curEyeBlastLoc].fY, illidanFlightPos[m_curEyeBlastLoc].fZ);
-                            PreparePhaseTimers();
-                        }
-                        break;
-                    }
-                }
-                ++m_phaseTransitionStage;
-                break;
-            }
-            case PHASETRANSITION_LAND:
-            {
-                switch (m_phaseTransitionStage)
-                {
-                    case 0:
-                    {
-                        m_creature->SetImmobilizedState(false);
-                        m_creature->SetTarget(nullptr);
-                        m_creature->GetMotionMaster()->MovePoint(POINT_ILLIDAN_LANDING, aCenterLoc[0].fX, aCenterLoc[0].fY, aCenterLoc[0].fZ);
-                        break;
-                    }
-                    case 1:
-                    {
-                        // Despawn the blades
-                        for (GuidList::const_iterator itr = m_bladesGuidList.begin(); itr != m_bladesGuidList.end(); ++itr)
-                        {
-                            if (Creature* blade = m_creature->GetMap()->GetCreature(*itr))
-                            {
-                                blade->CastSpell(m_creature, SPELL_GLAIVE_RETURNS, TRIGGERED_OLD_TRIGGERED);
-                                blade->ForcedDespawn(500);
-                            }
-                        }
-                        nextTimer = 500;
-                        break;
-                    }
-                    case 2:
-                    {
-                        m_creature->PlaySpellVisual(7668);
-                        nextTimer = 500;
-                        break;
-                    }
-                    case 3:
-                    {
-                        // Set the equipment and land
-                        SetEquipmentSlots(true);
-                        nextTimer = 3000;
-                        break;
-                    }
-                    case 4:
-                    {
-                        m_creature->SetLevitate(false);
-                        m_creature->SetHover(false);
-                        m_creature->HandleEmote(EMOTE_ONESHOT_LAND);
-                        nextTimer = 3000;
-                        break;
-                    }
-                    case 5:
-                    {
-                        // Start phase 3
-                        DoResetThreat();
-                        m_phase = PHASE_3_NORMAL;
-                        m_currentTransition = PHASETRANSITION_NONE;
+                        m_creature->GetMotionMaster()->Clear();
+                        m_creature->GetMotionMaster()->MoveIdle();
 
-                        SetCombatScriptStatus(false);
-                        SetCombatMovement(true);
-                        SetMeleeEnabled(true);
-                        m_creature->SetImmobilizedState(false);
-                        if (m_creature->GetVictim())
-                        {
-                            m_creature->SetTarget(m_creature->GetVictim());
-                            DoStartMovement(m_creature->GetVictim());
-                        }
-                        m_creature->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE);
-                        nextTimer = 0;
-                        PreparePhaseTimers();
-                        break;
+                        m_phase = PHASE_TRANSITION;
+                        SetActionReadyStatus(action, false);
                     }
-                }
-                ++m_phaseTransitionStage;
-                break;
-            }
-            case PHASETRANSITION_MAIEV:
-            {
-                //TODO
-                break;
-            }
-        }
-        if (nextTimer)
-            ResetTimer(ILLIDAN_ACTION_PHASE_TRANSITION, nextTimer);
-    }
-
-    void MovementInform(uint32 moveType, uint32 pointId) override
-    {
-        if (moveType == POINT_MOTION_TYPE)
-        {
-            if (pointId == POINT_ILLIDAN_FLIGHT)
-            {
-                DoScriptText(SAY_SUMMONFLAMES, m_creature);
-                m_creature->SetFacingTo(4.670939f); // sets facing to world trigger in sniff - maybe change to this?
-                ResetTimer(ILLIDAN_ACTION_PHASE_TRANSITION, 1200u);
-            }
-            else if (pointId == POINT_ILLIDAN_FLIGHT_RANDOM)
-            {
-                SetCombatScriptStatus(false);
-                m_creature->SetImmobilizedState(true);
-            }
-            else if (pointId == POINT_ILLIDAN_LANDING)
-            {
-                m_creature->SetFacingTo(6.230825f);
-                ResetTimer(ILLIDAN_ACTION_PHASE_TRANSITION, 1500u);
-            }
-        }
-    }
-
-    void SummonedMovementInform(Creature* summoned, uint32 /*moveType*/, uint32 pointId) override
-    {
-        if (summoned->GetEntry() == NPC_ILLIDAN_TARGET)
-        {
-            switch (summoned->GetMotionMaster()->GetPathId())
-            {
-                case 1: if (pointId == 13) summoned->ForcedDespawn(); break;
-                case 2: if (pointId == 12) summoned->ForcedDespawn(); break;
-                case 3: if (pointId == 13) summoned->ForcedDespawn(); break;
-                case 4: if (pointId == 14) summoned->ForcedDespawn(); break;
-            }
-        }
-    }
-
-    // Wrapper to start the combat dialogue
-    void DoStartCombatEvent() { StartNextDialogueText(NPC_AKAMA); }
-
-    // Wrapper to land Illidan when both flames are killed
-    void DoInformFlameKilled()
-    {
-        // Land Illidan if both Flames are killed
-        ++m_flameAzzinothKilled;
-
-        if (m_flameAzzinothKilled == MAX_FLAME_AZZINOTH)
-        {
-            SetActionReadyStatus(ILLIDAN_ACTION_PHASE_3, true);
-        }
-    }
-
-    // Wrapper to handle the Eye Blast cast
-    bool DoCastEyeBlastIfCan()
-    {
-        if (!CanExecuteCombatAction())
-            return false;
-
-        DoScriptText(SAY_EYE_BLAST, m_creature);
-
-        // Set spawn and target loc
-        m_creature->SummonCreature(NPC_ILLIDAN_TARGET, aEyeBlastPos[m_curEyeBlastLoc].fX, aEyeBlastPos[m_curEyeBlastLoc].fY, aEyeBlastPos[m_curEyeBlastLoc].fZ, 0, TEMPSPAWN_TIMED_DESPAWN, 15000, true, true, m_curEyeBlastLoc + 1);
-        return true;
-    }
-
-    void ExecuteAction(uint32 action) override
-    {
-        switch (action)
-        {
-            case ILLIDAN_ACTION_BERSERK:
-            {
-                if (DoCastSpellIfCan(nullptr, SPELL_BERSERK) == CAST_OK)
-                {
-                    DoScriptText(SAY_BERSERK, m_creature);
-                    DisableCombatAction(action);
-                }
-                return;
-            }
-            case ILLIDAN_ACTION_AKAMA:
-            {
-                if (m_creature->GetHealthPercent() > 90.0f)
-                    return;
-                m_creature->PlayMusic(SOUND_KIT_ILLIDAN_90);
-                StartNextDialogueText(SAY_ILLIDAN_MINION);
-                SetActionReadyStatus(action, false);
-                return;
-            }
-            case ILLIDAN_ACTION_PHASE_2:
-            {
-                if (m_creature->GetHealthPercent() > 65.0f)
-                    return;
-                m_creature->PlayMusic(SOUND_KIT_ILLIDAN_TAKEOFF);
-                HandlePhaseBehaviour(); // Phase 2 transition start
-                SetActionReadyStatus(action, false);
-                return;
-            }
-            case ILLIDAN_ACTION_PHASE_3:
-            {
-                m_creature->PlayMusic(SOUND_KIT_ILLIDAN_P3);
-                HandlePhaseBehaviour(); // Phase 3 transition start
-                SetActionReadyStatus(action, false);
-                return;
-            }
-            case ILLIDAN_ACTION_PHASE_5:
-            {
-                if (m_creature->GetHealthPercent() > 30.0f)
-                    return;
-                if (m_phase == PHASE_4_DEMON) // return to normal form first
-                {
-                    HandlePhaseBehaviour();
                     return;
                 }
-                if (DoCastSpellIfCan(nullptr, SPELL_SHADOW_PRISON) == CAST_OK) // Phase 5 transition start
+                case ILLIDAN_ACTION_TRANSFORM:
                 {
-                    m_creature->PlayMusic(SOUND_KIT_ILLIDAN_P5);
-                    StartNextDialogueText(DUMMY_EMOTE_ID_4);
-                    SetCombatScriptStatus(true);
-                    m_creature->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE);
-
-                    SetCombatMovement(false);
-                    SetMeleeEnabled(false);
-                    m_creature->SetTarget(nullptr);
-                    m_creature->GetMotionMaster()->Clear();
-                    m_creature->GetMotionMaster()->MoveIdle();
-
-                    m_phase = PHASE_TRANSITION;
-                    SetActionReadyStatus(action, false);
+                    HandlePhaseBehaviour(); // Phase 4 transition start
+                    return;
                 }
-                return;
-            }
-            case ILLIDAN_ACTION_TRANSFORM:
-            {
-                HandlePhaseBehaviour(); // Phase 4 transition start
-                return;
-            }
-            case ILLIDAN_ACTION_TRAP:
-            {
-                if (DoCastSpellIfCan(nullptr, SPELL_CAGE_TRAP) == CAST_OK)
-                    ResetCombatAction(action, 45000u);
-                return;
-            }
-            case ILLIDAN_ACTION_ENRAGE:
-            {
-                if (DoCastSpellIfCan(nullptr, SPELL_FRENZY) == CAST_OK)
+                case ILLIDAN_ACTION_TRAP:
                 {
-                    DoScriptText(SAY_FRENZY, m_creature);
-                    DisableCombatAction(action);
+                    if (DoCastSpellIfCan(nullptr, SPELL_CAGE_TRAP) == CAST_OK)
+                        ResetCombatAction(action, 45000u);
+                    return;
                 }
-                return;
-            }
-            case ILLIDAN_ACTION_SHADOW_DEMON:
-            {
-                if (DoCastSpellIfCan(nullptr, SPELL_SUMMON_SHADOW_DEMONS) == CAST_OK)
-                    DisableCombatAction(action);
-                return;
-            }
-            case ILLIDAN_ACTION_FLAME_BURST:
-            {
-                if (DoCastSpellIfCan(nullptr, SPELL_FLAME_BURST) == CAST_OK)
-                    ResetCombatAction(action, 20000u);
-                return;
-            }
-            case ILLIDAN_ACTION_SHADOW_BLAST:
-            {
-                if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_SHADOW_BLAST) == CAST_OK)
-                    ResetCombatAction(action, 2500u);
-                return;
-            }
-            case ILLIDAN_ACTION_AGONISING_FLAMES:
-            {
-                if (DoCastSpellIfCan(nullptr, SPELL_AGONIZING_FLAMES) == CAST_OK)
-                    ResetCombatAction(action, 24000u);
-                return;
-            }
-            case ILLIDAN_ACTION_EYE_BLAST:
-            {
-                if (DoCastEyeBlastIfCan())
+                case ILLIDAN_ACTION_ENRAGE:
                 {
-                    ResetCombatAction(action, urand(37000, 65000));
-                    ResetCombatAction(ILLIDAN_ACTION_FIREBALL, 15000u);     // Check this
+                    if (DoCastSpellIfCan(nullptr, SPELL_FRENZY) == CAST_OK)
+                    {
+                        DoScriptText(SAY_FRENZY, m_creature);
+                        DisableCombatAction(action);
+                    }
+                    return;
                 }
-                return;
-            }
-            case ILLIDAN_ACTION_DARK_BARRAGE:
-            {
-                if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, nullptr, SELECT_FLAG_PLAYER))
-                    if (DoCastSpellIfCan(target, SPELL_DARK_BARRAGE) == CAST_OK)
-                        ResetCombatAction(action, urand(43000, 60000));
-                return;
-            }
-            case ILLIDAN_ACTION_FIREBALL:
-            {
-                if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, nullptr, SELECT_FLAG_PLAYER))
-                    if (DoCastSpellIfCan(target, SPELL_FIREBALL) == CAST_OK)
-                        ResetCombatAction(action, urand(2500, 3000));
-                return;
-            }
-#ifndef NO_SHADOWFIEND
-            case ILLIDAN_ACTION_SHADOW_FIEND:
-            {
-                if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, SPELL_PARASITIC_SHADOWFIEND, SELECT_FLAG_PLAYER))
-                    if (DoCastSpellIfCan(target, SPELL_PARASITIC_SHADOWFIEND) == CAST_OK)
-                        ResetCombatAction(action, 25000u);
-                return;
-            }
-#endif // !NO_SHEAR
-            case ILLIDAN_ACTION_FLAME_CRASH:
-            {
-                if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_FLAME_CRASH) == CAST_OK)
-                    ResetCombatAction(action, urand(26000, 35000));
-                return;
-            }
-#ifndef NO_SHEAR
-            case ILLIDAN_ACTION_SHEAR:
-            {
-                if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_SHEAR) == CAST_OK)
-                    ResetCombatAction(action, urand(12000, 15000));
-                return;
-            }
-#endif // !NO_SHEAR
-            case ILLIDAN_ACTION_DRAW_SOUL:
-            {
-                if (DoCastSpellIfCan(nullptr, SPELL_DRAW_SOUL) == CAST_OK)
-                    ResetCombatAction(action, 32000u);
-                return;
+                case ILLIDAN_ACTION_SHADOW_DEMON:
+                {
+                    if (DoCastSpellIfCan(nullptr, SPELL_SUMMON_SHADOW_DEMONS) == CAST_OK)
+                        DisableCombatAction(action);
+                    return;
+                }
+                case ILLIDAN_ACTION_FLAME_BURST:
+                {
+                    if (DoCastSpellIfCan(nullptr, SPELL_FLAME_BURST) == CAST_OK)
+                        ResetCombatAction(action, 20000u);
+                    return;
+                }
+                case ILLIDAN_ACTION_SHADOW_BLAST:
+                {
+                    if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_SHADOW_BLAST) == CAST_OK)
+                        ResetCombatAction(action, 2500u);
+                    return;
+                }
+                case ILLIDAN_ACTION_AGONISING_FLAMES:
+                {
+                    if (DoCastSpellIfCan(nullptr, SPELL_AGONIZING_FLAMES) == CAST_OK)
+                        ResetCombatAction(action, 24000u);
+                    return;
+                }
+                case ILLIDAN_ACTION_EYE_BLAST:
+                {
+                    if (DoCastEyeBlastIfCan())
+                    {
+                        ResetCombatAction(action, urand(37000, 65000));
+                        ResetCombatAction(ILLIDAN_ACTION_FIREBALL, 15000u);     // Check this
+                    }
+                    return;
+                }
+                case ILLIDAN_ACTION_DARK_BARRAGE:
+                {
+                    if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, nullptr, SELECT_FLAG_PLAYER))
+                        if (DoCastSpellIfCan(target, SPELL_DARK_BARRAGE) == CAST_OK)
+                            ResetCombatAction(action, urand(43000, 60000));
+                    return;
+                }
+                case ILLIDAN_ACTION_FIREBALL:
+                {
+                    if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, nullptr, SELECT_FLAG_PLAYER))
+                        if (DoCastSpellIfCan(target, SPELL_FIREBALL) == CAST_OK)
+                            ResetCombatAction(action, urand(2500, 3000));
+                    return;
+                }
+    #ifndef NO_SHADOWFIEND
+                case ILLIDAN_ACTION_SHADOW_FIEND:
+                {
+                    if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, SPELL_PARASITIC_SHADOWFIEND, SELECT_FLAG_PLAYER))
+                        if (DoCastSpellIfCan(target, SPELL_PARASITIC_SHADOWFIEND) == CAST_OK)
+                            ResetCombatAction(action, 25000u);
+                    return;
+                }
+    #endif // !NO_SHEAR
+                case ILLIDAN_ACTION_FLAME_CRASH:
+                {
+                    if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_FLAME_CRASH) == CAST_OK)
+                        ResetCombatAction(action, urand(26000, 35000));
+                    return;
+                }
+    #ifndef NO_SHEAR
+                case ILLIDAN_ACTION_SHEAR:
+                {
+                    if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_SHEAR) == CAST_OK)
+                        ResetCombatAction(action, urand(12000, 15000));
+                    return;
+                }
+    #endif // !NO_SHEAR
+                case ILLIDAN_ACTION_DRAW_SOUL:
+                {
+                    if (DoCastSpellIfCan(nullptr, SPELL_DRAW_SOUL) == CAST_OK)
+                        ResetCombatAction(action, 32000u);
+                    return;
+                }
             }
         }
-    }
 
-    void UpdateAI(const uint32 diff) override
-    {
-        DialogueUpdate(diff);
-        CombatAI::UpdateAI(diff);
-    }
+        void UpdateAI(const uint32 diff) override
+        {
+            DialogueUpdate(diff);
+            CombatAI::UpdateAI(diff);
+        }
+    };
+
+
+
 };
 
 /*######
@@ -1353,365 +1368,386 @@ enum AkamaActions
     AKAMA_OUTRO_DELAY,
     AKAMA_OUTRO_ACTIONS,
 };
-
-struct npc_akama_illidanAI : public CombatAI, private DialogueHelper
+class npc_akama_illidan : public CreatureScript
 {
-    npc_akama_illidanAI(Creature* creature) : CombatAI(creature, AKAMA_ACTION_MAX),
-        DialogueHelper(aIntroDialogue), m_instance(static_cast<instance_black_temple*>(creature->GetInstanceData())), m_akamaStage(AKAMA_STAGE_ILLIDAN), m_outroStage(0)
+public:
+    npc_akama_illidan() : CreatureScript("npc_akama_illidan") { }
+
+    bool OnGossipSelect(Player* player, Creature* creature, uint32 /*sender*/, uint32 action) override
     {
-        AddCombatAction(AKAMA_ACTION_CHAIN_LIGHTNING, true);
-        AddCombatAction(AKAMA_ACTION_HEAL, 0u);
-        AddCustomAction(AKAMA_SUMMON_ILLIDARI, true, [&]()
+        if (action == GOSSIP_ACTION_INFO_DEF + 1 || action == GOSSIP_ACTION_INFO_DEF + 2)
         {
-            for (const Locations& aIllidariElitesPo : aIllidariElitesPos)
-                m_creature->SummonCreature(NPC_ILLIDARI_ELITE, aIllidariElitesPo.fX, aIllidariElitesPo.fY, aIllidariElitesPo.fZ, 0, TEMPSPAWN_DEAD_DESPAWN, 0);
+            player->CLOSE_GOSSIP_MENU();
 
-            ResetTimer(AKAMA_SUMMON_ILLIDARI, urand(35000, 50000));
-        });
-        AddCustomAction(AKAMA_OUTRO_DELAY, true, [&]()
-        {
-            m_creature->GetMotionMaster()->MoveWaypoint(PATH_ID_AKAMA_BACK_UP);
-        });
-        AddCustomAction(AKAMA_OUTRO_ACTIONS, true, [&]()
-        {
-            HandleOutro();
-        });
-        InitializeDialogueHelper(m_instance);
-        m_creature->SetNoThreatState(true);
-        Reset();
-    }
-
-    instance_black_temple* m_instance;
-
-    uint32 m_akamaStage;
-
-    bool m_bFightMinions;
-    bool m_bIsIntroFinished;
-
-    GuidVector m_summons;
-
-    uint32 m_outroStage;
-
-    void Reset() override
-    {
-        CombatAI::Reset();
-        m_bFightMinions = false;
-        m_bIsIntroFinished = false;
-    }
-
-    void ReceiveAIEvent(AIEventType eventType, Unit* /*sender*/, Unit* /*invoker*/, uint32 /*miscValue*/) override
-    {
-        if (eventType == AI_EVENT_CUSTOM_A) // council died
-        {
-            m_creature->NearTeleportTo(609.772f, 308.456f, 271.826f, 2.373648f);
-            m_creature->SetWalk(false);
-            m_creature->GetMotionMaster()->MoveWaypoint(PATH_ID_AKAMA_COUNCIL_DEAD);
-            m_creature->RemoveFlag(UNIT_NPC_FLAGS, UNIT_NPC_FLAG_GOSSIP);
-            m_akamaStage = AKAMA_STAGE_COUNCIL;
+            if (npc_akama_illidanAI* pAkamaAI = dynamic_cast<npc_akama_illidanAI*>(creature->AI()))
+                pAkamaAI->DoResumeEvent();
         }
-        else if (eventType == AI_EVENT_CUSTOM_B) // go fight illidari downstairs
+
+        return true;
+    }
+
+
+
+    bool OnGossipHello(Player* player, Creature* creature) override
+    {
+        // Before climbing the stairs
+        if (creature->GetPositionZ() < 300.0f)
         {
-            SetCombatScriptStatus(true);
-            m_creature->CombatStop(true);
-            SetReactState(REACT_DEFENSIVE);
-            m_creature->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_NPC);
-            m_creature->GetMotionMaster()->MoveWaypoint(PATH_ID_AKAMA_FIGHT_ILLIDARI);
+            player->ADD_GOSSIP_ITEM_ID(GOSSIP_ICON_CHAT, GOSSIP_ITEM_PREPARE, GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF + 2);
+            player->SEND_GOSSIP_MENU(TEXT_ID_AKAMA_ILLIDAN_PREPARE, creature->GetObjectGuid());
         }
-        else if (eventType == AI_EVENT_CUSTOM_C)
-        {
-            DespawnGuids(m_summons);
-            m_creature->CombatStop(true);
-            ResetTimer(AKAMA_OUTRO_DELAY, 2000u);
-        }
-    }
-
-    void JustRespawned() override
-    {
-        ScriptedAI::JustRespawned();
-        SetCombatScriptStatus(false);
-        m_creature->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_NPC);
-        SetReactState(REACT_AGGRESSIVE);
-        m_instance->DoTeleportAkamaIfCan();
-    }
-
-    void CorpseRemoved(uint32& respawnDelay) override
-    {
-        // Respawn after 10 seconds
-        if (m_instance->GetData(TYPE_ILLIDAN) == FAIL)
-            respawnDelay = 10;
-        else if (m_instance->GetData(TYPE_ILLIDAN) == DONE)
-            respawnDelay = 720000;
-    }
-
-    void MovementInform(uint32 moveType, uint32 pointId) override
-    {
-        if (moveType == WAYPOINT_MOTION_TYPE)
-        {
-            switch (m_creature->GetMotionMaster()->GetPathId())
-            {
-                case PATH_ID_AKAMA_COUNCIL_DEAD:
-                {
-                    if (pointId == POINT_AKAMA_COUNCIL_DEAD_END)
-                    {
-                        DoScriptText(SAY_AKAMA_COUNCIL_DEAD, m_creature);
-                        m_creature->SetFlag(UNIT_NPC_FLAGS, UNIT_NPC_FLAG_GOSSIP);
-                        m_creature->GetMotionMaster()->Clear(false, true);
-                        m_creature->GetMotionMaster()->MoveIdle();
-                    }
-                    break;
-                }
-                case PATH_ID_AKAMA_COUNCIL_PRE_DOOR:
-                {
-                    if (pointId == POINT_AKAMA_DOOR_STOP)
-                    {
-                        m_creature->GetMotionMaster()->Clear(false, true);
-                        m_creature->GetMotionMaster()->MoveIdle();
-                        if (m_instance)
-                        {
-                            if (Creature* trigger = m_instance->GetSingleCreatureFromStorage(NPC_ILLIDAN_DOOR_TRIGGER))
-                                m_creature->SetFacingToObject(trigger);
-                        }
-                        StartNextDialogueText(DUMMY_EMOTE_ID_1);
-                    }
-                    break;
-                }
-                case PATH_ID_AKAMA_COUNCIL_POST_DOOR:
-                {
-                    if (pointId == POINT_AKAMA_ILLIDAN_STOP)
-                    {
-                        m_creature->GetMotionMaster()->Clear(false, true);
-                        m_creature->GetMotionMaster()->MoveIdle();
-                        m_creature->SetFlag(UNIT_NPC_FLAGS, UNIT_NPC_FLAG_GOSSIP);
-                        if (m_instance)
-                        {
-                            if (Creature* illidan = m_instance->GetSingleCreatureFromStorage(NPC_ILLIDAN_STORMRAGE))
-                                m_creature->SetFacingToObject(illidan);
-                        }
-                        DoScriptText(SAY_AKAMA_BEWARE, m_creature);
-                        m_akamaStage = AKAMA_STAGE_ILLIDAN;
-                    }
-                    break;
-                }
-                case PATH_ID_AKAMA_ILLIDAN:
-                {
-                    if (m_instance)
-                    {
-                        m_creature->GetMotionMaster()->Clear(false, true);
-                        m_creature->GetMotionMaster()->MoveIdle();
-                        if (Creature* illidan = m_instance->GetSingleCreatureFromStorage(NPC_ILLIDAN_STORMRAGE))
-                        {
-                            if (boss_illidan_stormrageAI* illidanAI = dynamic_cast<boss_illidan_stormrageAI*>(illidan->AI()))
-                                illidanAI->DoStartCombatEvent();
-
-                            m_creature->SetFacingToObject(illidan);
-                        }
-                    }
-                    break;
-                }
-                case PATH_ID_AKAMA_FIGHT_ILLIDARI:
-                {
-                    if (pointId == POINT_AKAMA_ILLDARI)
-                    {
-                        m_creature->GetMotionMaster()->Clear(false, true);
-                        m_creature->GetMotionMaster()->MoveIdle();
-                        m_bFightMinions = true;
-                        ResetTimer(AKAMA_SUMMON_ILLIDARI, 2000);
-                        ResetCombatAction(AKAMA_ACTION_CHAIN_LIGHTNING, urand(5000, 10000));
-                        SetCombatScriptStatus(false);
-                        SetReactState(REACT_AGGRESSIVE);
-                        m_creature->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_NPC);
-                    }
-                    break;
-                }
-                case PATH_ID_AKAMA_BACK_UP:
-                {
-                    if (pointId == POINT_AKAMA_BACK_UP)
-                    {
-                        m_creature->GetMotionMaster()->Clear(false, true);
-                        m_creature->GetMotionMaster()->MoveIdle();
-                        if (m_instance)
-                        {
-                            // Move to a close point to Illidan
-                            if (Creature* illidan = m_instance->GetSingleCreatureFromStorage(NPC_ILLIDAN_STORMRAGE))
-                            {
-                                float fX, fY, fZ;
-                                illidan->GetContactPoint(m_creature, fX, fY, fZ);
-                                m_creature->GetMotionMaster()->MovePoint(POINT_AKAMA_ILLIDAN_CLOSE, fX, fY, fZ);
-                            }
-                        }
-                    }
-                    break;
-                }
-            }
-        }
-        else if (moveType == POINT_MOTION_TYPE && pointId == POINT_AKAMA_ILLIDAN_CLOSE)
-            HandleOutro();
-    }
-
-    void JustDidDialogueStep(int32 iEntry) override
-    {
-        switch (iEntry)
-        {
-            case SPELL_AKAMA_DOOR_FAIL:
-                DoCastSpellIfCan(m_creature, SPELL_AKAMA_DOOR_FAIL);
-                break;
-            case NPC_SPIRIT_OF_OLUM:
-                m_creature->SummonCreature(NPC_SPIRIT_OF_OLUM,  751.6437f, 297.2233f, 312.2083f, 6.03f, TEMPSPAWN_TIMED_DESPAWN, 50000);
-                m_creature->SummonCreature(NPC_SPIRIT_OF_UDALO, 751.4565f, 311.0107f, 312.19f, 0.0f, TEMPSPAWN_TIMED_DESPAWN, 50000);
-                break; 
-            case SPELL_AKAMA_DOOR_CHANNEL:
-                DoCastSpellIfCan(m_creature, SPELL_AKAMA_DOOR_CHANNEL);
-                if (m_instance)
-                {
-                    if (Creature* olum = m_instance->GetSingleCreatureFromStorage(NPC_SPIRIT_OF_OLUM))
-                        olum->CastSpell(nullptr, SPELL_DEATHSWORN_DOOR_CHANNEL, TRIGGERED_OLD_TRIGGERED);
-                    if (Creature* udalo = m_instance->GetSingleCreatureFromStorage(NPC_SPIRIT_OF_UDALO))
-                        udalo->CastSpell(nullptr, SPELL_DEATHSWORN_DOOR_CHANNEL, TRIGGERED_OLD_TRIGGERED);
-                }
-                m_creature->PlayMusic(SOUND_KIT_AKAMA_CHANNEL_DOOR);
-                break;
-            case GO_ILLIDAN_GATE:
-                if (m_instance)
-                {
-                    if (Creature* trigger = m_instance->GetSingleCreatureFromStorage(NPC_ILLIDAN_DOOR_TRIGGER))
-                        trigger->CastSpell(trigger, SPELL_ARCANE_EXPL_VISUAL, TRIGGERED_OLD_TRIGGERED);
-
-                    m_instance->DoUseDoorOrButton(GO_ILLIDAN_GATE);
-                }
-                break;
-            case EMOTE_ONESHOT_SALUTE:
-                if (m_instance)
-                {
-                    if (Creature* olum = m_instance->GetSingleCreatureFromStorage(NPC_SPIRIT_OF_OLUM))
-                        olum->HandleEmote(EMOTE_ONESHOT_SALUTE);
-                    if (Creature* udalo = m_instance->GetSingleCreatureFromStorage(NPC_SPIRIT_OF_UDALO))
-                        udalo->HandleEmote(EMOTE_ONESHOT_SALUTE);
-                }
-                break;
-            case NPC_SPIRIT_OF_UDALO:
-                m_creature->GetMotionMaster()->MoveWaypoint(PATH_ID_AKAMA_COUNCIL_POST_DOOR);
-                break;
-            case DUMMY_EMOTE_ID_1:
-                break;
-        }
-    }
-
-    void HandleOutro()
-    {
-        uint32 timer = 0;
-        switch (m_outroStage)
-        {
-            case 0:
-                if (m_instance)
-                {
-                    if (Creature* illidan = m_instance->GetSingleCreatureFromStorage(NPC_ILLIDAN_STORMRAGE))
-                        m_creature->SetFacingToObject(illidan);
-                }
-                DoScriptText(SAY_AKAMA_EPILOGUE_5, m_creature);
-                timer = 3500;
-                break;
-            case 1:
-                m_creature->HandleEmote(EMOTE_ONESHOT_SALUTE);
-                timer = 2500;
-                break;
-            case 2:
-                m_creature->HandleEmote(EMOTE_STATE_READY1H);
-                timer = 2500;
-                break;
-            case 3:
-                m_creature->CastSpell(nullptr, SPELL_AKAMA_DESPAWN, TRIGGERED_NONE);
-                m_creature->ForcedDespawn(1000); // move to spell script when they are nicer
-                break;
-        }
-        ++m_outroStage;
-        if (timer)
-            ResetTimer(AKAMA_OUTRO_ACTIONS, timer);
-    }
-
-    void JustSummoned(Creature* summoned) override
-    {
-        switch (summoned->GetEntry())
-        {
-            case NPC_ILLIDARI_ELITE:
-                summoned->AI()->AttackStart(m_creature);
-                break;
-            case NPC_SPIRIT_OF_OLUM:
-            case NPC_SPIRIT_OF_UDALO:
-                summoned->RemoveFlag(UNIT_NPC_FLAGS, UNIT_NPC_FLAG_GOSSIP);
-                break;
-        }
-        m_summons.push_back(summoned->GetObjectGuid());
-    }
-
-    // Wrapper to handle event resume
-    void DoResumeEvent()
-    {
-        m_creature->RemoveFlag(UNIT_NPC_FLAGS, UNIT_NPC_FLAG_GOSSIP);
-        if (m_akamaStage == AKAMA_STAGE_COUNCIL)
-            m_creature->GetMotionMaster()->MoveWaypoint(PATH_ID_AKAMA_COUNCIL_PRE_DOOR);
+        // Before starting combat
         else
         {
-            m_creature->SetWalk(false);
-            m_creature->GetMotionMaster()->MoveWaypoint(PATH_ID_AKAMA_ILLIDAN);
+            player->ADD_GOSSIP_ITEM_ID(GOSSIP_ICON_CHAT, GOSSIP_ITEM_START_EVENT, GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF + 2);
+            player->SEND_GOSSIP_MENU(TEXT_ID_AKAMA_ILLIDAN_START, creature->GetObjectGuid());
         }
+
+        return true;
     }
 
-    void ExecuteAction(uint32 action) override
+
+
+    UnitAI* GetAI(Creature* creature)
     {
-        switch (action)
+        return new npc_akama_illidanAI(creature);
+    }
+
+
+
+    struct npc_akama_illidanAI : public CombatAI, private DialogueHelper
+    {
+        npc_akama_illidanAI(Creature* creature) : CombatAI(creature, AKAMA_ACTION_MAX),
+            DialogueHelper(aIntroDialogue), m_instance(static_cast<instance_black_temple*>(creature->GetInstanceData())), m_akamaStage(AKAMA_STAGE_ILLIDAN), m_outroStage(0)
         {
-            case AKAMA_ACTION_HEAL:
-                if (m_creature->GetHealthPercent() < 10.0f)
-                {
-                    if (DoCastSpellIfCan(m_creature, SPELL_HEALING_POTION) == CAST_OK)
-                        ResetCombatAction(action, 30000);
-                }
-                break;
-            case AKAMA_ACTION_CHAIN_LIGHTNING:
-                if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_CHAIN_LIGHTNING) == CAST_OK)
-                        ResetCombatAction(action, urand(2000, 4000));
-                break;
+            AddCombatAction(AKAMA_ACTION_CHAIN_LIGHTNING, true);
+            AddCombatAction(AKAMA_ACTION_HEAL, 0u);
+            AddCustomAction(AKAMA_SUMMON_ILLIDARI, true, [&]()
+            {
+                for (const Locations& aIllidariElitesPo : aIllidariElitesPos)
+                    m_creature->SummonCreature(NPC_ILLIDARI_ELITE, aIllidariElitesPo.fX, aIllidariElitesPo.fY, aIllidariElitesPo.fZ, 0, TEMPSPAWN_DEAD_DESPAWN, 0);
+
+                ResetTimer(AKAMA_SUMMON_ILLIDARI, urand(35000, 50000));
+            });
+            AddCustomAction(AKAMA_OUTRO_DELAY, true, [&]()
+            {
+                m_creature->GetMotionMaster()->MoveWaypoint(PATH_ID_AKAMA_BACK_UP);
+            });
+            AddCustomAction(AKAMA_OUTRO_ACTIONS, true, [&]()
+            {
+                HandleOutro();
+            });
+            InitializeDialogueHelper(m_instance);
+            m_creature->SetNoThreatState(true);
+            Reset();
         }
-    }
 
-    void UpdateAI(const uint32 diff) override
-    {
-        DialogueUpdate(diff);
+        instance_black_temple* m_instance;
 
-        CombatAI::UpdateAI(diff);
-    }
+        uint32 m_akamaStage;
+
+        bool m_bFightMinions;
+        bool m_bIsIntroFinished;
+
+        GuidVector m_summons;
+
+        uint32 m_outroStage;
+
+        void Reset() override
+        {
+            CombatAI::Reset();
+            m_bFightMinions = false;
+            m_bIsIntroFinished = false;
+        }
+
+        void ReceiveAIEvent(AIEventType eventType, Unit* /*sender*/, Unit* /*invoker*/, uint32 /*miscValue*/) override
+        {
+            if (eventType == AI_EVENT_CUSTOM_A) // council died
+            {
+                m_creature->NearTeleportTo(609.772f, 308.456f, 271.826f, 2.373648f);
+                m_creature->SetWalk(false);
+                m_creature->GetMotionMaster()->MoveWaypoint(PATH_ID_AKAMA_COUNCIL_DEAD);
+                m_creature->RemoveFlag(UNIT_NPC_FLAGS, UNIT_NPC_FLAG_GOSSIP);
+                m_akamaStage = AKAMA_STAGE_COUNCIL;
+            }
+            else if (eventType == AI_EVENT_CUSTOM_B) // go fight illidari downstairs
+            {
+                SetCombatScriptStatus(true);
+                m_creature->CombatStop(true);
+                SetReactState(REACT_DEFENSIVE);
+                m_creature->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_NPC);
+                m_creature->GetMotionMaster()->MoveWaypoint(PATH_ID_AKAMA_FIGHT_ILLIDARI);
+            }
+            else if (eventType == AI_EVENT_CUSTOM_C)
+            {
+                DespawnGuids(m_summons);
+                m_creature->CombatStop(true);
+                ResetTimer(AKAMA_OUTRO_DELAY, 2000u);
+            }
+        }
+
+        void JustRespawned() override
+        {
+            ScriptedAI::JustRespawned();
+            SetCombatScriptStatus(false);
+            m_creature->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_NPC);
+            SetReactState(REACT_AGGRESSIVE);
+            m_instance->DoTeleportAkamaIfCan();
+        }
+
+        void CorpseRemoved(uint32& respawnDelay) override
+        {
+            // Respawn after 10 seconds
+            if (m_instance->GetData(TYPE_ILLIDAN) == FAIL)
+                respawnDelay = 10;
+            else if (m_instance->GetData(TYPE_ILLIDAN) == DONE)
+                respawnDelay = 720000;
+        }
+
+        void MovementInform(uint32 moveType, uint32 pointId) override
+        {
+            if (moveType == WAYPOINT_MOTION_TYPE)
+            {
+                switch (m_creature->GetMotionMaster()->GetPathId())
+                {
+                    case PATH_ID_AKAMA_COUNCIL_DEAD:
+                    {
+                        if (pointId == POINT_AKAMA_COUNCIL_DEAD_END)
+                        {
+                            DoScriptText(SAY_AKAMA_COUNCIL_DEAD, m_creature);
+                            m_creature->SetFlag(UNIT_NPC_FLAGS, UNIT_NPC_FLAG_GOSSIP);
+                            m_creature->GetMotionMaster()->Clear(false, true);
+                            m_creature->GetMotionMaster()->MoveIdle();
+                        }
+                        break;
+                    }
+                    case PATH_ID_AKAMA_COUNCIL_PRE_DOOR:
+                    {
+                        if (pointId == POINT_AKAMA_DOOR_STOP)
+                        {
+                            m_creature->GetMotionMaster()->Clear(false, true);
+                            m_creature->GetMotionMaster()->MoveIdle();
+                            if (m_instance)
+                            {
+                                if (Creature* trigger = m_instance->GetSingleCreatureFromStorage(NPC_ILLIDAN_DOOR_TRIGGER))
+                                    m_creature->SetFacingToObject(trigger);
+                            }
+                            StartNextDialogueText(DUMMY_EMOTE_ID_1);
+                        }
+                        break;
+                    }
+                    case PATH_ID_AKAMA_COUNCIL_POST_DOOR:
+                    {
+                        if (pointId == POINT_AKAMA_ILLIDAN_STOP)
+                        {
+                            m_creature->GetMotionMaster()->Clear(false, true);
+                            m_creature->GetMotionMaster()->MoveIdle();
+                            m_creature->SetFlag(UNIT_NPC_FLAGS, UNIT_NPC_FLAG_GOSSIP);
+                            if (m_instance)
+                            {
+                                if (Creature* illidan = m_instance->GetSingleCreatureFromStorage(NPC_ILLIDAN_STORMRAGE))
+                                    m_creature->SetFacingToObject(illidan);
+                            }
+                            DoScriptText(SAY_AKAMA_BEWARE, m_creature);
+                            m_akamaStage = AKAMA_STAGE_ILLIDAN;
+                        }
+                        break;
+                    }
+                    case PATH_ID_AKAMA_ILLIDAN:
+                    {
+                        if (m_instance)
+                        {
+                            m_creature->GetMotionMaster()->Clear(false, true);
+                            m_creature->GetMotionMaster()->MoveIdle();
+                            if (Creature* illidan = m_instance->GetSingleCreatureFromStorage(NPC_ILLIDAN_STORMRAGE))
+                            {
+                                if (boss_illidan_stormrageAI* illidanAI = dynamic_cast<boss_illidan_stormrageAI*>(illidan->AI()))
+                                    illidanAI->DoStartCombatEvent();
+
+                                m_creature->SetFacingToObject(illidan);
+                            }
+                        }
+                        break;
+                    }
+                    case PATH_ID_AKAMA_FIGHT_ILLIDARI:
+                    {
+                        if (pointId == POINT_AKAMA_ILLDARI)
+                        {
+                            m_creature->GetMotionMaster()->Clear(false, true);
+                            m_creature->GetMotionMaster()->MoveIdle();
+                            m_bFightMinions = true;
+                            ResetTimer(AKAMA_SUMMON_ILLIDARI, 2000);
+                            ResetCombatAction(AKAMA_ACTION_CHAIN_LIGHTNING, urand(5000, 10000));
+                            SetCombatScriptStatus(false);
+                            SetReactState(REACT_AGGRESSIVE);
+                            m_creature->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_NPC);
+                        }
+                        break;
+                    }
+                    case PATH_ID_AKAMA_BACK_UP:
+                    {
+                        if (pointId == POINT_AKAMA_BACK_UP)
+                        {
+                            m_creature->GetMotionMaster()->Clear(false, true);
+                            m_creature->GetMotionMaster()->MoveIdle();
+                            if (m_instance)
+                            {
+                                // Move to a close point to Illidan
+                                if (Creature* illidan = m_instance->GetSingleCreatureFromStorage(NPC_ILLIDAN_STORMRAGE))
+                                {
+                                    float fX, fY, fZ;
+                                    illidan->GetContactPoint(m_creature, fX, fY, fZ);
+                                    m_creature->GetMotionMaster()->MovePoint(POINT_AKAMA_ILLIDAN_CLOSE, fX, fY, fZ);
+                                }
+                            }
+                        }
+                        break;
+                    }
+                }
+            }
+            else if (moveType == POINT_MOTION_TYPE && pointId == POINT_AKAMA_ILLIDAN_CLOSE)
+                HandleOutro();
+        }
+
+        void JustDidDialogueStep(int32 iEntry) override
+        {
+            switch (iEntry)
+            {
+                case SPELL_AKAMA_DOOR_FAIL:
+                    DoCastSpellIfCan(m_creature, SPELL_AKAMA_DOOR_FAIL);
+                    break;
+                case NPC_SPIRIT_OF_OLUM:
+                    m_creature->SummonCreature(NPC_SPIRIT_OF_OLUM,  751.6437f, 297.2233f, 312.2083f, 6.03f, TEMPSPAWN_TIMED_DESPAWN, 50000);
+                    m_creature->SummonCreature(NPC_SPIRIT_OF_UDALO, 751.4565f, 311.0107f, 312.19f, 0.0f, TEMPSPAWN_TIMED_DESPAWN, 50000);
+                    break; 
+                case SPELL_AKAMA_DOOR_CHANNEL:
+                    DoCastSpellIfCan(m_creature, SPELL_AKAMA_DOOR_CHANNEL);
+                    if (m_instance)
+                    {
+                        if (Creature* olum = m_instance->GetSingleCreatureFromStorage(NPC_SPIRIT_OF_OLUM))
+                            olum->CastSpell(nullptr, SPELL_DEATHSWORN_DOOR_CHANNEL, TRIGGERED_OLD_TRIGGERED);
+                        if (Creature* udalo = m_instance->GetSingleCreatureFromStorage(NPC_SPIRIT_OF_UDALO))
+                            udalo->CastSpell(nullptr, SPELL_DEATHSWORN_DOOR_CHANNEL, TRIGGERED_OLD_TRIGGERED);
+                    }
+                    m_creature->PlayMusic(SOUND_KIT_AKAMA_CHANNEL_DOOR);
+                    break;
+                case GO_ILLIDAN_GATE:
+                    if (m_instance)
+                    {
+                        if (Creature* trigger = m_instance->GetSingleCreatureFromStorage(NPC_ILLIDAN_DOOR_TRIGGER))
+                            trigger->CastSpell(trigger, SPELL_ARCANE_EXPL_VISUAL, TRIGGERED_OLD_TRIGGERED);
+
+                        m_instance->DoUseDoorOrButton(GO_ILLIDAN_GATE);
+                    }
+                    break;
+                case EMOTE_ONESHOT_SALUTE:
+                    if (m_instance)
+                    {
+                        if (Creature* olum = m_instance->GetSingleCreatureFromStorage(NPC_SPIRIT_OF_OLUM))
+                            olum->HandleEmote(EMOTE_ONESHOT_SALUTE);
+                        if (Creature* udalo = m_instance->GetSingleCreatureFromStorage(NPC_SPIRIT_OF_UDALO))
+                            udalo->HandleEmote(EMOTE_ONESHOT_SALUTE);
+                    }
+                    break;
+                case NPC_SPIRIT_OF_UDALO:
+                    m_creature->GetMotionMaster()->MoveWaypoint(PATH_ID_AKAMA_COUNCIL_POST_DOOR);
+                    break;
+                case DUMMY_EMOTE_ID_1:
+                    break;
+            }
+        }
+
+        void HandleOutro()
+        {
+            uint32 timer = 0;
+            switch (m_outroStage)
+            {
+                case 0:
+                    if (m_instance)
+                    {
+                        if (Creature* illidan = m_instance->GetSingleCreatureFromStorage(NPC_ILLIDAN_STORMRAGE))
+                            m_creature->SetFacingToObject(illidan);
+                    }
+                    DoScriptText(SAY_AKAMA_EPILOGUE_5, m_creature);
+                    timer = 3500;
+                    break;
+                case 1:
+                    m_creature->HandleEmote(EMOTE_ONESHOT_SALUTE);
+                    timer = 2500;
+                    break;
+                case 2:
+                    m_creature->HandleEmote(EMOTE_STATE_READY1H);
+                    timer = 2500;
+                    break;
+                case 3:
+                    m_creature->CastSpell(nullptr, SPELL_AKAMA_DESPAWN, TRIGGERED_NONE);
+                    m_creature->ForcedDespawn(1000); // move to spell script when they are nicer
+                    break;
+            }
+            ++m_outroStage;
+            if (timer)
+                ResetTimer(AKAMA_OUTRO_ACTIONS, timer);
+        }
+
+        void JustSummoned(Creature* summoned) override
+        {
+            switch (summoned->GetEntry())
+            {
+                case NPC_ILLIDARI_ELITE:
+                    summoned->AI()->AttackStart(m_creature);
+                    break;
+                case NPC_SPIRIT_OF_OLUM:
+                case NPC_SPIRIT_OF_UDALO:
+                    summoned->RemoveFlag(UNIT_NPC_FLAGS, UNIT_NPC_FLAG_GOSSIP);
+                    break;
+            }
+            m_summons.push_back(summoned->GetObjectGuid());
+        }
+
+        // Wrapper to handle event resume
+        void DoResumeEvent()
+        {
+            m_creature->RemoveFlag(UNIT_NPC_FLAGS, UNIT_NPC_FLAG_GOSSIP);
+            if (m_akamaStage == AKAMA_STAGE_COUNCIL)
+                m_creature->GetMotionMaster()->MoveWaypoint(PATH_ID_AKAMA_COUNCIL_PRE_DOOR);
+            else
+            {
+                m_creature->SetWalk(false);
+                m_creature->GetMotionMaster()->MoveWaypoint(PATH_ID_AKAMA_ILLIDAN);
+            }
+        }
+
+        void ExecuteAction(uint32 action) override
+        {
+            switch (action)
+            {
+                case AKAMA_ACTION_HEAL:
+                    if (m_creature->GetHealthPercent() < 10.0f)
+                    {
+                        if (DoCastSpellIfCan(m_creature, SPELL_HEALING_POTION) == CAST_OK)
+                            ResetCombatAction(action, 30000);
+                    }
+                    break;
+                case AKAMA_ACTION_CHAIN_LIGHTNING:
+                    if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_CHAIN_LIGHTNING) == CAST_OK)
+                            ResetCombatAction(action, urand(2000, 4000));
+                    break;
+            }
+        }
+
+        void UpdateAI(const uint32 diff) override
+        {
+            DialogueUpdate(diff);
+
+            CombatAI::UpdateAI(diff);
+        }
+    };
+
+
+
 };
 
-bool GossipHello_npc_akama_illidan(Player* player, Creature* creature)
-{
-    // Before climbing the stairs
-    if (creature->GetPositionZ() < 300.0f)
-    {
-        player->ADD_GOSSIP_ITEM_ID(GOSSIP_ICON_CHAT, GOSSIP_ITEM_PREPARE, GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF + 2);
-        player->SEND_GOSSIP_MENU(TEXT_ID_AKAMA_ILLIDAN_PREPARE, creature->GetObjectGuid());
-    }
-    // Before starting combat
-    else
-    {
-        player->ADD_GOSSIP_ITEM_ID(GOSSIP_ICON_CHAT, GOSSIP_ITEM_START_EVENT, GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF + 2);
-        player->SEND_GOSSIP_MENU(TEXT_ID_AKAMA_ILLIDAN_START, creature->GetObjectGuid());
-    }
 
-    return true;
-}
-
-bool GossipSelect_npc_akama_illidan(Player* player, Creature* creature, uint32 /*sender*/, uint32 action)
-{
-    if (action == GOSSIP_ACTION_INFO_DEF + 1 || action == GOSSIP_ACTION_INFO_DEF + 2)
-    {
-        player->CLOSE_GOSSIP_MENU();
-
-        if (npc_akama_illidanAI* pAkamaAI = dynamic_cast<npc_akama_illidanAI*>(creature->AI()))
-            pAkamaAI->DoResumeEvent();
-    }
-
-    return true;
-}
 
 /*######
 ## boss_maiev
@@ -1725,226 +1761,256 @@ enum MaievActions
     MAIEV_ACTION_MAX,
     MAIEV_ACTION_TRAP,
 };
-
-struct boss_maievAI : public CombatAI, private DialogueHelper
+class boss_maiev_shadowsong : public CreatureScript
 {
-    boss_maievAI(Creature* creature) : CombatAI(creature, MAIEV_ACTION_MAX), DialogueHelper(aEpilogueDialogue), m_instance(static_cast<ScriptedInstance*>(creature->GetInstanceData())), m_outro(false)
+public:
+    boss_maiev_shadowsong() : CreatureScript("boss_maiev_shadowsong") { }
+
+    UnitAI* GetAI_boss_maiev(Creature* creature)
     {
-        AddCombatAction(MAIEV_ACTION_SHADOW_STRIKE, 4000, 8000);
-        AddCombatAction(MAIEV_ACTION_THROW_DAGGER, 6000, 10000);
-        AddCombatAction(MAIEV_ACTION_TAUNT, 40000, 60000);
-        AddCustomAction(MAIEV_ACTION_TRAP, true, [&]()
+        return new boss_maievAI(creature);
+    }
+
+
+
+    struct boss_maievAI : public CombatAI, private DialogueHelper
+    {
+        boss_maievAI(Creature* creature) : CombatAI(creature, MAIEV_ACTION_MAX), DialogueHelper(aEpilogueDialogue), m_instance(static_cast<ScriptedInstance*>(creature->GetInstanceData())), m_outro(false)
         {
-            // Yell only the first time
-            if (!m_hasYelledTrap)
+            AddCombatAction(MAIEV_ACTION_SHADOW_STRIKE, 4000, 8000);
+            AddCombatAction(MAIEV_ACTION_THROW_DAGGER, 6000, 10000);
+            AddCombatAction(MAIEV_ACTION_TAUNT, 40000, 60000);
+            AddCustomAction(MAIEV_ACTION_TRAP, true, [&]()
             {
-                DoScriptText(SAY_MAIEV_TRAP, m_creature);
-                m_hasYelledTrap = true;
-            }
-            SetCombatScriptStatus(false);
-            SetMeleeEnabled(true);
-            SetCombatMovement(true);
-            DoCastSpellIfCan(nullptr, SPELL_CAGE_TRAP_SUMMON);
-        });
-        InitializeDialogueHelper(m_instance);
-
-        // Not sure if this is correct, but she seems to ignore all the shadow damage inflicted
-        m_creature->ApplySpellImmune(nullptr, IMMUNITY_SCHOOL, SPELL_SCHOOL_MASK_SHADOW, true);
-        SetDeathPrevention(true);
-        SetReactState(REACT_DEFENSIVE);
-        m_creature->SetNoThreatState(true);
-    }
-
-    ScriptedInstance* m_instance;
-
-    bool m_hasYelledTrap;
-    bool m_outro;
-
-    void Reset() override
-    {
-        m_hasYelledTrap = false;
-        CombatAI::Reset();
-    }
-
-    uint32 GetSubsequentActionTimer(MaievActions id)
-    {
-        switch (id)
-        {
-            case MAIEV_ACTION_SHADOW_STRIKE: return urand(12000, 16000);
-            case MAIEV_ACTION_THROW_DAGGER: return urand(6000, 10000);
-            case MAIEV_ACTION_TAUNT: return urand(40000, 60000);
-            default: return 0;
-        }
-    }
-
-    void ReceiveAIEvent(AIEventType eventType, Unit* /*sender*/, Unit* /*invoker*/, uint32 miscValue) override
-    {
-        if (eventType == AI_EVENT_CUSTOM_A) // illidan transitioned
-        {
-            if (miscValue == PHASE_4_DEMON)
-            {
-                m_attackDistance = 20.f;
-                m_moveFurther = true;
-                DoStartMovement(m_creature->GetVictim());
-                ResetCombatAction(MAIEV_ACTION_THROW_DAGGER, urand(4000, 8000));
-                DisableCombatAction(MAIEV_ACTION_SHADOW_STRIKE);
-            }
-            else
-            {
-                m_attackDistance = 0.f;
-                m_moveFurther = false;
-                DoStartMovement(m_creature->GetVictim());
-                ResetCombatAction(MAIEV_ACTION_SHADOW_STRIKE, urand(4000, 8000));
-                DisableCombatAction(MAIEV_ACTION_THROW_DAGGER);
-            }
-        }
-    }
-
-    void KilledUnit(Unit* victim) override
-    {
-        // Dummy function - used to start the epilogue
-        if (victim->GetEntry() == NPC_ILLIDAN_STORMRAGE)
-        {
-            m_outro = true;
-            SetCombatScriptStatus(true);
-            SetMeleeEnabled(false);
-            SetCombatMovement(false);
-            StartNextDialogueText(SAY_MAIEV_EPILOGUE_1);
-        }
-    }
-
-    void JustPreventedDeath(Unit* /*attacker*/) override
-    {
-        if (m_outro)
-            return;
-        m_creature->CastSpell(nullptr, SPELL_MAIEV_DOWN, TRIGGERED_OLD_TRIGGERED);
-        SetDeathPrevention(true);
-    }
-
-    // Custom evade - don't allow her to return to home position
-    void EnterEvadeMode() override
-    {
-        m_creature->RemoveAllAurasOnEvade();
-        m_creature->CombatStop(true);
-        m_creature->LoadCreatureAddon(true);
-
-        m_creature->SetLootRecipient(nullptr);
-
-        Reset();
-    }
-
-    void JustDidDialogueStep(int32 entry) override
-    {
-        switch (entry)
-        {
-            case NPC_ILLIDAN_STORMRAGE:
-                if (m_instance)
+                // Yell only the first time
+                if (!m_hasYelledTrap)
                 {
-                    if (Creature* illidan = m_instance->GetSingleCreatureFromStorage(NPC_ILLIDAN_STORMRAGE))
-                        illidan->CastSpell(nullptr, SPELL_QUIET_SUICIDE, TRIGGERED_OLD_TRIGGERED);
-                    if (Creature* akama = m_instance->GetSingleCreatureFromStorage(NPC_AKAMA))
-                        SendAIEvent(AI_EVENT_CUSTOM_C, m_creature, akama);
+                    DoScriptText(SAY_MAIEV_TRAP, m_creature);
+                    m_hasYelledTrap = true;
                 }
-                break;
-            case SPELL_TELEPORT_VISUAL:
-                m_creature->CastSpell(nullptr, SPELL_TELEPORT_VISUAL, TRIGGERED_NONE);
-                m_creature->ForcedDespawn(500);
-                break;
-        }
-    }
+                SetCombatScriptStatus(false);
+                SetMeleeEnabled(true);
+                SetCombatMovement(true);
+                DoCastSpellIfCan(nullptr, SPELL_CAGE_TRAP_SUMMON);
+            });
+            InitializeDialogueHelper(m_instance);
 
-    void SpellHit(Unit* /*caster*/, SpellEntry const* spellInfo) override
-    {
-        if (spellInfo->Id == SPELL_CAGE_TRAP)
-        {
-            SetCombatScriptStatus(true);
-            SetMeleeEnabled(false);
-            SetCombatMovement(false, true);
-            m_creature->SetTarget(nullptr);
-            ResetTimer(MAIEV_ACTION_TRAP, 2500);
+            // Not sure if this is correct, but she seems to ignore all the shadow damage inflicted
+            m_creature->ApplySpellImmune(nullptr, IMMUNITY_SCHOOL, SPELL_SCHOOL_MASK_SHADOW, true);
+            SetDeathPrevention(true);
+            SetReactState(REACT_DEFENSIVE);
+            m_creature->SetNoThreatState(true);
         }
-    }
 
-    void ExecuteAction(uint32 action) override
-    {
-        switch (action)
+        ScriptedInstance* m_instance;
+
+        bool m_hasYelledTrap;
+        bool m_outro;
+
+        void Reset() override
         {
-            case MAIEV_ACTION_SHADOW_STRIKE:
+            m_hasYelledTrap = false;
+            CombatAI::Reset();
+        }
+
+        uint32 GetSubsequentActionTimer(MaievActions id)
+        {
+            switch (id)
             {
-                if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_SHADOW_STRIKE) == CAST_OK)
-                    ResetCombatAction(action, GetSubsequentActionTimer(MaievActions(action)));
-                return;
+                case MAIEV_ACTION_SHADOW_STRIKE: return urand(12000, 16000);
+                case MAIEV_ACTION_THROW_DAGGER: return urand(6000, 10000);
+                case MAIEV_ACTION_TAUNT: return urand(40000, 60000);
+                default: return 0;
             }
-            case MAIEV_ACTION_THROW_DAGGER:
+        }
+
+        void ReceiveAIEvent(AIEventType eventType, Unit* /*sender*/, Unit* /*invoker*/, uint32 miscValue) override
+        {
+            if (eventType == AI_EVENT_CUSTOM_A) // illidan transitioned
             {
-                if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_THROW_DAGGER) == CAST_OK)
-                    ResetCombatAction(action, GetSubsequentActionTimer(MaievActions(action)));
-                return;
-            }
-            case MAIEV_ACTION_TAUNT:
-            {
-                switch (urand(0, 2))
+                if (miscValue == PHASE_4_DEMON)
                 {
-                    case 0: DoScriptText(SAY_MAIEV_TAUNT_1, m_creature); break;
-                    case 1: DoScriptText(SAY_MAIEV_TAUNT_2, m_creature); break;
-                    case 2: DoScriptText(SAY_MAIEV_TAUNT_3, m_creature); break;
+                    m_attackDistance = 20.f;
+                    m_moveFurther = true;
+                    DoStartMovement(m_creature->GetVictim());
+                    ResetCombatAction(MAIEV_ACTION_THROW_DAGGER, urand(4000, 8000));
+                    DisableCombatAction(MAIEV_ACTION_SHADOW_STRIKE);
                 }
-                ResetCombatAction(action, GetSubsequentActionTimer(MaievActions(action)));
-                return;
+                else
+                {
+                    m_attackDistance = 0.f;
+                    m_moveFurther = false;
+                    DoStartMovement(m_creature->GetVictim());
+                    ResetCombatAction(MAIEV_ACTION_SHADOW_STRIKE, urand(4000, 8000));
+                    DisableCombatAction(MAIEV_ACTION_THROW_DAGGER);
+                }
             }
         }
-    }
 
-    void UpdateAI(const uint32 diff) override
-    {
-        DialogueUpdate(diff);
-        CombatAI::UpdateAI(diff);
-    }
+        void KilledUnit(Unit* victim) override
+        {
+            // Dummy function - used to start the epilogue
+            if (victim->GetEntry() == NPC_ILLIDAN_STORMRAGE)
+            {
+                m_outro = true;
+                SetCombatScriptStatus(true);
+                SetMeleeEnabled(false);
+                SetCombatMovement(false);
+                StartNextDialogueText(SAY_MAIEV_EPILOGUE_1);
+            }
+        }
+
+        void JustPreventedDeath(Unit* /*attacker*/) override
+        {
+            if (m_outro)
+                return;
+            m_creature->CastSpell(nullptr, SPELL_MAIEV_DOWN, TRIGGERED_OLD_TRIGGERED);
+            SetDeathPrevention(true);
+        }
+
+        // Custom evade - don't allow her to return to home position
+        void EnterEvadeMode() override
+        {
+            m_creature->RemoveAllAurasOnEvade();
+            m_creature->CombatStop(true);
+            m_creature->LoadCreatureAddon(true);
+
+            m_creature->SetLootRecipient(nullptr);
+
+            Reset();
+        }
+
+        void JustDidDialogueStep(int32 entry) override
+        {
+            switch (entry)
+            {
+                case NPC_ILLIDAN_STORMRAGE:
+                    if (m_instance)
+                    {
+                        if (Creature* illidan = m_instance->GetSingleCreatureFromStorage(NPC_ILLIDAN_STORMRAGE))
+                            illidan->CastSpell(nullptr, SPELL_QUIET_SUICIDE, TRIGGERED_OLD_TRIGGERED);
+                        if (Creature* akama = m_instance->GetSingleCreatureFromStorage(NPC_AKAMA))
+                            SendAIEvent(AI_EVENT_CUSTOM_C, m_creature, akama);
+                    }
+                    break;
+                case SPELL_TELEPORT_VISUAL:
+                    m_creature->CastSpell(nullptr, SPELL_TELEPORT_VISUAL, TRIGGERED_NONE);
+                    m_creature->ForcedDespawn(500);
+                    break;
+            }
+        }
+
+        void SpellHit(Unit* /*caster*/, SpellEntry const* spellInfo) override
+        {
+            if (spellInfo->Id == SPELL_CAGE_TRAP)
+            {
+                SetCombatScriptStatus(true);
+                SetMeleeEnabled(false);
+                SetCombatMovement(false, true);
+                m_creature->SetTarget(nullptr);
+                ResetTimer(MAIEV_ACTION_TRAP, 2500);
+            }
+        }
+
+        void ExecuteAction(uint32 action) override
+        {
+            switch (action)
+            {
+                case MAIEV_ACTION_SHADOW_STRIKE:
+                {
+                    if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_SHADOW_STRIKE) == CAST_OK)
+                        ResetCombatAction(action, GetSubsequentActionTimer(MaievActions(action)));
+                    return;
+                }
+                case MAIEV_ACTION_THROW_DAGGER:
+                {
+                    if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_THROW_DAGGER) == CAST_OK)
+                        ResetCombatAction(action, GetSubsequentActionTimer(MaievActions(action)));
+                    return;
+                }
+                case MAIEV_ACTION_TAUNT:
+                {
+                    switch (urand(0, 2))
+                    {
+                        case 0: DoScriptText(SAY_MAIEV_TAUNT_1, m_creature); break;
+                        case 1: DoScriptText(SAY_MAIEV_TAUNT_2, m_creature); break;
+                        case 2: DoScriptText(SAY_MAIEV_TAUNT_3, m_creature); break;
+                    }
+                    ResetCombatAction(action, GetSubsequentActionTimer(MaievActions(action)));
+                    return;
+                }
+            }
+        }
+
+        void UpdateAI(const uint32 diff) override
+        {
+            DialogueUpdate(diff);
+            CombatAI::UpdateAI(diff);
+        }
+    };
+
+
+
 };
 
 /*######
 ## npc_cage_trap_trigger
 ######*/
-
-struct npc_cage_trap_triggerAI : public ScriptedAI
+class mob_cage_trap_trigger : public CreatureScript
 {
-    npc_cage_trap_triggerAI(Creature* creature) : ScriptedAI(creature), m_activated(false) { Reset(); }
+public:
+    mob_cage_trap_trigger() : CreatureScript("mob_cage_trap_trigger") { }
 
-    bool m_activated;
-    bool m_active;
-
-    void Reset() override
+    UnitAI* GetAI_npc_cage_trap_trigger(Creature* creature)
     {
-        m_active = false;
+        return new npc_cage_trap_triggerAI(creature);
     }
 
-    void AttackStart(Unit* /*who*/) override { }
 
-    void CorpseRemoved(uint32& /*delay*/) override
+
+    struct npc_cage_trap_triggerAI : public ScriptedAI
     {
-        if (GameObject* trap = GetClosestGameObjectWithEntry(m_creature, GO_CAGE_TRAP, 3.f))
+        npc_cage_trap_triggerAI(Creature* creature) : ScriptedAI(creature), m_activated(false) { Reset(); }
+
+        bool m_activated;
+        bool m_active;
+
+        void Reset() override
         {
-            trap->SetLootState(GO_JUST_DEACTIVATED);
-            trap->Delete();
+            m_active = false;
         }
-    }
 
-    void MoveInLineOfSight(Unit* /*who*/) override
-    {
-        if (!m_activated)
-            return;
+        void AttackStart(Unit* /*who*/) override { }
 
-        // post 2.3
-        //if (!m_active && who->GetEntry() == NPC_ILLIDAN_STORMRAGE && m_creature->IsWithinDistInMap(who, 3.0f))
-        //{
-        //    m_creature->CastSpell(nullptr, SPELL_CAGE_TRAP_DUMMY, TRIGGERED_OLD_TRIGGERED);
+        void CorpseRemoved(uint32& /*delay*/) override
+        {
+            if (GameObject* trap = GetClosestGameObjectWithEntry(m_creature, GO_CAGE_TRAP, 3.f))
+            {
+                trap->SetLootState(GO_JUST_DEACTIVATED);
+                trap->Delete();
+            }
+        }
 
-        //    m_active = true;
-        //    m_creature->ForcedDespawn(15000);
-        //}
-    }
+        void MoveInLineOfSight(Unit* /*who*/) override
+        {
+            if (!m_activated)
+                return;
 
-    void UpdateAI(const uint32 /*diff*/) override { }
+            // post 2.3
+            //if (!m_active && who->GetEntry() == NPC_ILLIDAN_STORMRAGE && m_creature->IsWithinDistInMap(who, 3.0f))
+            //{
+            //    m_creature->CastSpell(nullptr, SPELL_CAGE_TRAP_DUMMY, TRIGGERED_OLD_TRIGGERED);
+
+            //    m_active = true;
+            //    m_creature->ForcedDespawn(15000);
+            //}
+        }
+
+        void UpdateAI(const uint32 /*diff*/) override { }
+    };
+
+
+
 };
 
 /*######
@@ -2086,291 +2152,288 @@ struct npc_flame_of_azzinothAI : public CombatAI
 /*######
 ## npc_shadow_demon
 ######*/
-
-struct npc_shadow_demonAI : public ScriptedAI
+class mob_shadow_demon : public CreatureScript
 {
-    npc_shadow_demonAI(Creature* creature) : ScriptedAI(creature)
+public:
+    mob_shadow_demon() : CreatureScript("mob_shadow_demon") { }
+
+    UnitAI* GetAI_npc_shadow_demon(Creature* creature)
     {
-        SetReactState(REACT_AGGRESSIVE);
-        m_creature->SetCorpseDelay(5);
-        m_creature->SetWalk(false);
-        Reset();
+        return new npc_shadow_demonAI(creature);
     }
 
-    ObjectGuid m_targetGuid;
 
-    void Reset() override {}
 
-    void AttackStart(Unit* who) override
+    struct npc_shadow_demonAI : public ScriptedAI
     {
-        // Function used to set target only - the npc doesn't really attack
-        m_targetGuid = who->GetObjectGuid();
-    }
-
-    void JustRespawned() override
-    {
-        ScriptedAI::JustRespawned();
-        m_creature->CastSpell(nullptr, SPELL_SHADOW_DEMON_PASSIVE, TRIGGERED_OLD_TRIGGERED);
-        FindNewTarget();
-    }
-
-    void JustDied(Unit* /*killer*/) override
-    {
-        if (Player* player = m_creature->GetMap()->GetPlayer(m_targetGuid))
-            player->RemoveAurasByCasterSpell(SPELL_PARALYZE, m_creature->GetObjectGuid());
-    }
-
-    void ReceiveAIEvent(AIEventType eventType, Unit* /*sender*/, Unit* /*invoker*/, uint32 /*miscValue*/) override
-    {
-        if (eventType == AI_EVENT_CUSTOM_A && m_creature->IsAlive()) // Channel ended for any reason
-            m_targetGuid = ObjectGuid(); // find new target on next AI update
-    }
-
-    void FindNewTarget()
-    {
-        Unit* illidan = m_creature->GetSpawner();
-        if (illidan && illidan->GetTypeId() == TYPEID_UNIT)
+        npc_shadow_demonAI(Creature* creature) : ScriptedAI(creature)
         {
-            if (Unit* target = static_cast<Creature*>(illidan)->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, SPELL_PARALYZE, SELECT_FLAG_PLAYER))
-            {
-                // Dummy attack function - used only to set the target
-                AttackStart(target);
-                m_creature->CastSpell(target, SPELL_PARALYZE, TRIGGERED_OLD_TRIGGERED);
+            SetReactState(REACT_AGGRESSIVE);
+            m_creature->SetCorpseDelay(5);
+            m_creature->SetWalk(false);
+            Reset();
+        }
 
-                // Move towards target (which is stunned)
-                float x, y, z;
-                target->GetContactPoint(m_creature, x, y, z);
-                m_creature->GetMotionMaster()->MovePoint(1, x, y, z);
+        ObjectGuid m_targetGuid;
+
+        void Reset() override {}
+
+        void AttackStart(Unit* who) override
+        {
+            // Function used to set target only - the npc doesn't really attack
+            m_targetGuid = who->GetObjectGuid();
+        }
+
+        void JustRespawned() override
+        {
+            ScriptedAI::JustRespawned();
+            m_creature->CastSpell(nullptr, SPELL_SHADOW_DEMON_PASSIVE, TRIGGERED_OLD_TRIGGERED);
+            FindNewTarget();
+        }
+
+        void JustDied(Unit* /*killer*/) override
+        {
+            if (Player* player = m_creature->GetMap()->GetPlayer(m_targetGuid))
+                player->RemoveAurasByCasterSpell(SPELL_PARALYZE, m_creature->GetObjectGuid());
+        }
+
+        void ReceiveAIEvent(AIEventType eventType, Unit* /*sender*/, Unit* /*invoker*/, uint32 /*miscValue*/) override
+        {
+            if (eventType == AI_EVENT_CUSTOM_A && m_creature->IsAlive()) // Channel ended for any reason
+                m_targetGuid = ObjectGuid(); // find new target on next AI update
+        }
+
+        void FindNewTarget()
+        {
+            Unit* illidan = m_creature->GetSpawner();
+            if (illidan && illidan->GetTypeId() == TYPEID_UNIT)
+            {
+                if (Unit* target = static_cast<Creature*>(illidan)->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, SPELL_PARALYZE, SELECT_FLAG_PLAYER))
+                {
+                    // Dummy attack function - used only to set the target
+                    AttackStart(target);
+                    m_creature->CastSpell(target, SPELL_PARALYZE, TRIGGERED_OLD_TRIGGERED);
+
+                    // Move towards target (which is stunned)
+                    float x, y, z;
+                    target->GetContactPoint(m_creature, x, y, z);
+                    m_creature->GetMotionMaster()->MovePoint(1, x, y, z);
+                }
             }
         }
-    }
 
-    void MovementInform(uint32 movementType, uint32 pointId) override
-    {
-        if (movementType != POINT_MOTION_TYPE || !pointId)
-            return;
-
-        if (!m_creature->IsAlive())
+        void MovementInform(uint32 movementType, uint32 pointId) override
         {
-            sLog.outCustomLog("Why did shadow demon movement trigger?");
-            // sLog.traceLog();
-            return;
+            if (movementType != POINT_MOTION_TYPE || !pointId)
+                return;
+
+            if (!m_creature->IsAlive())
+            {
+                sLog.outCustomLog("Why did shadow demon movement trigger?");
+                // sLog.traceLog();
+                return;
+            }
+
+            if (Player* player = m_creature->GetMap()->GetPlayer(m_targetGuid))
+                DoCastSpellIfCan(player, SPELL_CONSUME_SOUL); // will find new target on channel interrupt
         }
 
-        if (Player* player = m_creature->GetMap()->GetPlayer(m_targetGuid))
-            DoCastSpellIfCan(player, SPELL_CONSUME_SOUL); // will find new target on channel interrupt
-    }
+        void UpdateAI(const uint32 /*diff*/) override
+        {
+            if (!m_targetGuid)
+                FindNewTarget();
+        }
+    };
 
-    void UpdateAI(const uint32 /*diff*/) override
-    {
-        if (!m_targetGuid)
-            FindNewTarget();
-    }
+
+
 };
 
 /*######
 ## npc_blade_of_azzinoth
 ######*/
-
-struct npc_blade_of_azzinothAI : public ScriptedAI
+class mob_blade_of_azzinoth : public CreatureScript
 {
-    npc_blade_of_azzinothAI(Creature* creature) : ScriptedAI(creature), m_instance(static_cast<ScriptedInstance*>(creature->GetInstanceData()))
+public:
+    mob_blade_of_azzinoth() : CreatureScript("mob_blade_of_azzinoth") { }
+
+    UnitAI* GetAI_npc_blade_of_azzinoth(Creature* creature)
     {
-        Reset();
+        return new npc_blade_of_azzinothAI(creature);
     }
 
-    ScriptedInstance* m_instance;
 
-    void Reset() override {}
 
-    // Do-Nothing-But-Stand-There
-    void AttackStart(Unit* /*who*/) override { }
-    void MoveInLineOfSight(Unit* /*who*/) override { }
-
-    void JustSummoned(Creature* summoned) override
+    struct npc_blade_of_azzinothAI : public ScriptedAI
     {
-        // Summon a Flame pear each blade
-        if (summoned->GetEntry() == NPC_FLAME_OF_AZZINOTH)
-            DoCastSpellIfCan(summoned, SPELL_AZZINOTH_CHANNEL);
-    }
-
-    void SummonedCreatureJustDied(Creature* summoned) override
-    {
-        // Inform Illidan when a flame is killed
-        if (summoned->GetEntry() == NPC_FLAME_OF_AZZINOTH)
+        npc_blade_of_azzinothAI(Creature* creature) : ScriptedAI(creature), m_instance(static_cast<ScriptedInstance*>(creature->GetInstanceData()))
         {
-            if (!m_instance)
-                return;
-
-            // For some reason it doesn't work with Spell Hit for SPELL_GLAIVE_RETURNS script effect, so we need to inform him manually
-            if (Creature* illidan = m_instance->GetSingleCreatureFromStorage(NPC_ILLIDAN_STORMRAGE))
-            {
-                if (boss_illidan_stormrageAI* illidanAI = dynamic_cast<boss_illidan_stormrageAI*>(illidan->AI()))
-                    illidanAI->DoInformFlameKilled();
-            }
+            Reset();
         }
-    }
 
-    void UpdateAI(const uint32 /*diff*/) override { }
-};
+        ScriptedInstance* m_instance;
 
-struct npc_parasitic_shadowfiendAI : public ScriptedAI, public TimerManager
-{
-    npc_parasitic_shadowfiendAI(Creature* creature) : ScriptedAI(creature), m_instance(static_cast<ScriptedInstance*>(creature->GetInstanceData()))
-    {
-        SetReactState(REACT_PASSIVE);
-        AddCustomAction(1, 2000u, [&]()
+        void Reset() override {}
+
+        // Do-Nothing-But-Stand-There
+        void AttackStart(Unit* /*who*/) override { }
+        void MoveInLineOfSight(Unit* /*who*/) override { }
+
+        void JustSummoned(Creature* summoned) override
         {
-            if (Creature* illidan = m_instance->GetSingleCreatureFromStorage(NPC_ILLIDAN_STORMRAGE))
+            // Summon a Flame pear each blade
+            if (summoned->GetEntry() == NPC_FLAME_OF_AZZINOTH)
+                DoCastSpellIfCan(summoned, SPELL_AZZINOTH_CHANNEL);
+        }
+
+        void SummonedCreatureJustDied(Creature* summoned) override
+        {
+            // Inform Illidan when a flame is killed
+            if (summoned->GetEntry() == NPC_FLAME_OF_AZZINOTH)
             {
-                if (!illidan->IsInCombat())
-                {
-                    m_creature->ForcedDespawn();
+                if (!m_instance)
                     return;
-                }
-                SetReactState(REACT_AGGRESSIVE);
-                m_params.skip.guid = m_creature->GetSpawnerGuid();
-                if (Unit* target = illidan->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, nullptr, SELECT_FLAG_PLAYER | SELECT_FLAG_SKIP_CUSTOM, m_params))
+
+                // For some reason it doesn't work with Spell Hit for SPELL_GLAIVE_RETURNS script effect, so we need to inform him manually
+                if (Creature* illidan = m_instance->GetSingleCreatureFromStorage(NPC_ILLIDAN_STORMRAGE))
                 {
-                    m_creature->AI()->AttackStart(target);
-                    m_creature->AddThreat(target, 100000.f);
+                    if (boss_illidan_stormrageAI* illidanAI = dynamic_cast<boss_illidan_stormrageAI*>(illidan->AI()))
+                        illidanAI->DoInformFlameKilled();
                 }
-                m_creature->SetInCombatWithZone();
             }
-            else m_creature->ForcedDespawn();
-        });
-    }
+        }
 
-    ScriptedInstance* m_instance;
-    SelectAttackingTargetParams m_params;
+        void UpdateAI(const uint32 /*diff*/) override { }
+    };
 
-    void Reset() override {}
 
-    void JustRespawned() override
+
+};
+class npc_parasitic_shadowfiend : public CreatureScript
+{
+public:
+    npc_parasitic_shadowfiend() : CreatureScript("npc_parasitic_shadowfiend") { }
+
+    UnitAI* GetAI(Creature* creature)
     {
-        ScriptedAI::JustRespawned();
-        DoCastSpellIfCan(nullptr, SPELL_SHADOWFORM_PARASITE, CAST_TRIGGERED | CAST_AURA_NOT_PRESENT);
-        DoCastSpellIfCan(nullptr, SPELL_PARASITIC_SHADOWFIEND_P, CAST_TRIGGERED | CAST_AURA_NOT_PRESENT);
-        m_creature->SetCorpseDelay(1);
+        return new npc_parasitic_shadowfiendAI(creature);
     }
 
-    void ReceiveAIEvent(AIEventType eventType, Unit* /*sender*/, Unit* /*invoker*/, uint32 /*miscValue*/) override
+
+
+    struct npc_parasitic_shadowfiendAI : public ScriptedAI, public TimerManager
     {
-        if (eventType == AI_EVENT_CUSTOM_A) // Parasitic Shadowfiend hit target
-            m_creature->ForcedDespawn();
+        npc_parasitic_shadowfiendAI(Creature* creature) : ScriptedAI(creature), m_instance(static_cast<ScriptedInstance*>(creature->GetInstanceData()))
+        {
+            SetReactState(REACT_PASSIVE);
+            AddCustomAction(1, 2000u, [&]()
+            {
+                if (Creature* illidan = m_instance->GetSingleCreatureFromStorage(NPC_ILLIDAN_STORMRAGE))
+                {
+                    if (!illidan->IsInCombat())
+                    {
+                        m_creature->ForcedDespawn();
+                        return;
+                    }
+                    SetReactState(REACT_AGGRESSIVE);
+                    m_params.skip.guid = m_creature->GetSpawnerGuid();
+                    if (Unit* target = illidan->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, nullptr, SELECT_FLAG_PLAYER | SELECT_FLAG_SKIP_CUSTOM, m_params))
+                    {
+                        m_creature->AI()->AttackStart(target);
+                        m_creature->AddThreat(target, 100000.f);
+                    }
+                    m_creature->SetInCombatWithZone();
+                }
+                else m_creature->ForcedDespawn();
+            });
+        }
+
+        ScriptedInstance* m_instance;
+        SelectAttackingTargetParams m_params;
+
+        void Reset() override {}
+
+        void JustRespawned() override
+        {
+            ScriptedAI::JustRespawned();
+            DoCastSpellIfCan(nullptr, SPELL_SHADOWFORM_PARASITE, CAST_TRIGGERED | CAST_AURA_NOT_PRESENT);
+            DoCastSpellIfCan(nullptr, SPELL_PARASITIC_SHADOWFIEND_P, CAST_TRIGGERED | CAST_AURA_NOT_PRESENT);
+            m_creature->SetCorpseDelay(1);
+        }
+
+        void ReceiveAIEvent(AIEventType eventType, Unit* /*sender*/, Unit* /*invoker*/, uint32 /*miscValue*/) override
+        {
+            if (eventType == AI_EVENT_CUSTOM_A) // Parasitic Shadowfiend hit target
+                m_creature->ForcedDespawn();
+        }
+
+        void UpdateAI(const uint32 diff)
+        {
+            UpdateTimers(diff);
+            ScriptedAI::UpdateAI(diff);
+        }
+    };
+
+
+
+};
+class go_cage_trap : public GameObjectScript
+{
+public:
+    go_cage_trap() : GameObjectScript("go_cage_trap") { }
+
+    bool OnGameObjectUse(Player* /*player*/, GameObject* go) override
+    {
+        Creature* trapTrigger = GetClosestCreatureWithEntry(go, NPC_CAGE_TRAP_DISTURB_TRIGGER, 3.f);
+        if (trapTrigger)
+        {
+            // pre 2.3
+            Creature* illidan = GetClosestCreatureWithEntry(go, NPC_ILLIDAN_STORMRAGE, 5.f);
+            if (illidan && static_cast<boss_illidan_stormrageAI*>(illidan->AI())->m_phase != PHASE_4_DEMON && !static_cast<boss_illidan_stormrageAI*>(illidan->AI())->GetCombatScriptStatus())
+            {
+                trapTrigger->CastSpell(nullptr, SPELL_CAGE_TRAP_DUMMY, TRIGGERED_OLD_TRIGGERED);
+                trapTrigger->ForcedDespawn(15000);
+            }
+            // post 2.3
+            // static_cast<npc_cage_trap_triggerAI*>(trapTrigger->AI())->m_activated = true;
+        }
+        return true;
     }
 
-    void UpdateAI(const uint32 diff)
-    {
-        UpdateTimers(diff);
-        ScriptedAI::UpdateAI(diff);
-    }
+
+
 };
 
-bool GOUse_go_cage_trap(Player* /*player*/, GameObject* go)
+
+
+class mob_flame_of_azzinoth : public CreatureScript
 {
-    Creature* trapTrigger = GetClosestCreatureWithEntry(go, NPC_CAGE_TRAP_DISTURB_TRIGGER, 3.f);
-    if (trapTrigger)
+public:
+    mob_flame_of_azzinoth() : CreatureScript("mob_flame_of_azzinoth") { }
+
+    UnitAI* GetAI(Creature* creature)
     {
-        // pre 2.3
-        Creature* illidan = GetClosestCreatureWithEntry(go, NPC_ILLIDAN_STORMRAGE, 5.f);
-        if (illidan && static_cast<boss_illidan_stormrageAI*>(illidan->AI())->m_phase != PHASE_4_DEMON && !static_cast<boss_illidan_stormrageAI*>(illidan->AI())->GetCombatScriptStatus())
-        {
-            trapTrigger->CastSpell(nullptr, SPELL_CAGE_TRAP_DUMMY, TRIGGERED_OLD_TRIGGERED);
-            trapTrigger->ForcedDespawn(15000);
-        }
-        // post 2.3
-        // static_cast<npc_cage_trap_triggerAI*>(trapTrigger->AI())->m_activated = true;
+        return new npc_flame_of_azzinothAI(creature);
     }
-    return true;
-}
 
-UnitAI* GetAI_boss_illidan_stormrage(Creature* creature)
-{
-    return new boss_illidan_stormrageAI(creature);
-}
 
-UnitAI* GetAI_npc_akama_illidan(Creature* creature)
-{
-    return new npc_akama_illidanAI(creature);
-}
 
-UnitAI* GetAI_boss_maiev(Creature* creature)
-{
-    return new boss_maievAI(creature);
-}
+};
 
-UnitAI* GetAI_mob_flame_of_azzinoth(Creature* creature)
-{
-    return new npc_flame_of_azzinothAI(creature);
-}
 
-UnitAI* GetAI_npc_cage_trap_trigger(Creature* creature)
-{
-    return new npc_cage_trap_triggerAI(creature);
-}
 
-UnitAI* GetAI_npc_shadow_demon(Creature* creature)
-{
-    return new npc_shadow_demonAI(creature);
-}
 
-UnitAI* GetAI_npc_blade_of_azzinoth(Creature* creature)
-{
-    return new npc_blade_of_azzinothAI(creature);
-}
-
-UnitAI* GetAI_npc_parasitic_shadowfiend(Creature* creature)
-{
-    return new npc_parasitic_shadowfiendAI(creature);
-}
 
 void AddSC_boss_illidan()
 {
-    Script* pNewScript = new Script;
-    pNewScript->Name = "boss_illidan_stormrage";
-    pNewScript->GetAI = &GetAI_boss_illidan_stormrage;
-    pNewScript->RegisterSelf();
+    new boss_illidan_stormrage();
+    new npc_akama_illidan();
+    new boss_maiev_shadowsong();
+    new mob_flame_of_azzinoth();
+    new mob_blade_of_azzinoth();
+    new mob_cage_trap_trigger();
+    new mob_shadow_demon();
+    new npc_parasitic_shadowfiend();
+    new go_cage_trap();
 
-    pNewScript = new Script;
-    pNewScript->Name = "npc_akama_illidan";
-    pNewScript->GetAI = &GetAI_npc_akama_illidan;
-    pNewScript->pGossipHello = &GossipHello_npc_akama_illidan;
-    pNewScript->pGossipSelect = &GossipSelect_npc_akama_illidan;
-    pNewScript->RegisterSelf();
-
-    pNewScript = new Script;
-    pNewScript->Name = "boss_maiev_shadowsong";
-    pNewScript->GetAI = &GetAI_boss_maiev;
-    pNewScript->RegisterSelf();
-
-    pNewScript = new Script;
-    pNewScript->Name = "mob_flame_of_azzinoth";
-    pNewScript->GetAI = &GetAI_mob_flame_of_azzinoth;
-    pNewScript->RegisterSelf();
-
-    pNewScript = new Script;
-    pNewScript->Name = "mob_blade_of_azzinoth";
-    pNewScript->GetAI = &GetAI_npc_blade_of_azzinoth;
-    pNewScript->RegisterSelf();
-
-    pNewScript = new Script;
-    pNewScript->Name = "mob_cage_trap_trigger";
-    pNewScript->GetAI = &GetAI_npc_cage_trap_trigger;
-    pNewScript->RegisterSelf();
-
-    pNewScript = new Script;
-    pNewScript->Name = "mob_shadow_demon";
-    pNewScript->GetAI = &GetAI_npc_shadow_demon;
-    pNewScript->RegisterSelf();
-
-    pNewScript = new Script;
-    pNewScript->Name = "npc_parasitic_shadowfiend";
-    pNewScript->GetAI = &GetAI_npc_parasitic_shadowfiend;
-    pNewScript->RegisterSelf();
-
-    pNewScript = new Script;
-    pNewScript->Name = "go_cage_trap";
-    pNewScript->pGOUse = &GOUse_go_cage_trap;
-    pNewScript->RegisterSelf();
 }

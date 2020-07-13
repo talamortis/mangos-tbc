@@ -73,294 +73,303 @@ enum RagnarosActions
     RAGNAROS_ACTION_MAX,
     RAGNAROS_ENTER_COMBAT,
 };
-
-struct boss_ragnarosAI : public CombatAI
+class boss_ragnaros : public CreatureScript
 {
-    boss_ragnarosAI(Creature* creature) : CombatAI(creature, RAGNAROS_ACTION_MAX), m_instance(static_cast<instance_molten_core*>(creature->GetInstanceData()))
+public:
+    boss_ragnaros() : CreatureScript("boss_ragnaros") { }
+
+    UnitAI* GetAI(Creature* creature)
     {
-        AddCustomAction(RAGNAROS_ENTER_COMBAT, true, [&]() { HandleEnterCombat(); });
-        AddCombatAction(RAGNAROS_PHASE_TRANSITION, uint32(3 * MINUTE * IN_MILLISECONDS));
-        AddCombatAction(RAGNAROS_WRATH_OF_RAGNAROS, 30000u);
-        AddCombatAction(RAGNAROS_MIGHT_OF_RAGNAROS, 11000u);
-        AddCombatAction(RAGNAROS_MAGMA_BLAST, 2000u);
-        AddCombatAction(RAGNAROS_LAVA_BURST, uint32(20 * IN_MILLISECONDS));
-        m_bHasAggroYelled = false;
+        return new boss_ragnarosAI(creature);
     }
 
-    instance_molten_core* m_instance;
 
-    uint32 m_uiAddCount;
-    uint32 m_phase;
-    int32 m_rangeCheckState;
 
-    bool m_bHasAggroYelled;
-    bool m_bHasYelledMagmaBurst;
-    bool m_bHasSubmergedOnce;
-
-    GuidVector m_spawns;
-
-    void Reset() override
+    struct boss_ragnarosAI : public CombatAI
     {
-        CombatAI::Reset();
-        m_uiAddCount = 0;
-        m_phase = PHASE_EMERGED;
-        m_rangeCheckState       = -1;
-
-        m_bHasYelledMagmaBurst = false;
-        m_bHasSubmergedOnce = false;
-
-        m_creature->SetImmobilizedState(true);
-
-        m_creature->HandleEmote(EMOTE_STATE_STAND);
-        m_creature->RemoveAurasDueToSpell(SPELL_RAGNA_SUBMERGE);
-        m_creature->RemoveAurasDueToSpell(SPELL_SUBMERGE_EFFECT);
-
-        DoCastSpellIfCan(nullptr, SPELL_MELT_WEAPON, CAST_TRIGGERED | CAST_AURA_NOT_PRESENT);
-        DoCastSpellIfCan(nullptr, SPELL_ELEMENTAL_FIRE, CAST_TRIGGERED | CAST_AURA_NOT_PRESENT);
-
-        DespawnGuids(m_spawns);
-    }
-
-    void KilledUnit(Unit* victim) override
-    {
-        if (victim->GetTypeId() != TYPEID_PLAYER)
-            return;
-
-        if (urand(0, 3))
-            return;
-
-        DoScriptText(SAY_KILL, m_creature);
-    }
-
-    void JustDied(Unit* /*killer*/) override
-    {
-        if (m_instance)
-            m_instance->SetData(TYPE_RAGNAROS, DONE);
-    }
-
-    void Aggro(Unit* who) override
-    {
-        if (who->GetTypeId() == TYPEID_UNIT && who->GetEntry() == NPC_MAJORDOMO)
-            return;
-
-        if (m_instance)
-            m_instance->SetData(TYPE_RAGNAROS, IN_PROGRESS);
-    }
-
-    void EnterEvadeMode() override
-    {
-        if (m_instance)
-            m_instance->SetData(TYPE_RAGNAROS, FAIL);
-
-        // Reset flag if Ragnaros had been submerged
-        if (m_phase != PHASE_EMERGED)
-            DoCastSpellIfCan(m_creature, SPELL_RAGNA_EMERGE);
-        if (m_creature->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE))
-            m_creature->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE);
-
-        ScriptedAI::EnterEvadeMode();
-    }
-
-    void SummonedCreatureJustDied(Creature* summoned) override
-    {
-        // If all Sons of Flame are dead, trigger emerge
-        if (summoned->GetEntry() == NPC_SON_OF_FLAME)
+        boss_ragnarosAI(Creature* creature) : CombatAI(creature, RAGNAROS_ACTION_MAX), m_instance(static_cast<instance_molten_core*>(creature->GetInstanceData()))
         {
-            m_uiAddCount--;
-
-            // If last add killed then emerge soonish
-            if (m_uiAddCount == 0)
-                ReduceTimer(RAGNAROS_PHASE_TRANSITION, 1000);
+            AddCustomAction(RAGNAROS_ENTER_COMBAT, true, [&]() { HandleEnterCombat(); });
+            AddCombatAction(RAGNAROS_PHASE_TRANSITION, uint32(3 * MINUTE * IN_MILLISECONDS));
+            AddCombatAction(RAGNAROS_WRATH_OF_RAGNAROS, 30000u);
+            AddCombatAction(RAGNAROS_MIGHT_OF_RAGNAROS, 11000u);
+            AddCombatAction(RAGNAROS_MAGMA_BLAST, 2000u);
+            AddCombatAction(RAGNAROS_LAVA_BURST, uint32(20 * IN_MILLISECONDS));
+            m_bHasAggroYelled = false;
         }
-    }
 
-    void JustSummoned(Creature* summoned) override
-    {
-        if (summoned->GetEntry() == NPC_SON_OF_FLAME)
+        instance_molten_core* m_instance;
+
+        uint32 m_uiAddCount;
+        uint32 m_phase;
+        int32 m_rangeCheckState;
+
+        bool m_bHasAggroYelled;
+        bool m_bHasYelledMagmaBurst;
+        bool m_bHasSubmergedOnce;
+
+        GuidVector m_spawns;
+
+        void Reset() override
         {
-            summoned->AI()->DoCastSpellIfCan(nullptr, SPELL_DOUBLE_ATTACK, CAST_TRIGGERED | CAST_AURA_NOT_PRESENT);
-            summoned->AI()->DoCastSpellIfCan(nullptr, SPELL_LAVA_SHIELD, CAST_TRIGGERED | CAST_AURA_NOT_PRESENT);
-            summoned->SetInCombatWithZone();
-            summoned->AI()->AttackClosestEnemy();
+            CombatAI::Reset();
+            m_uiAddCount = 0;
+            m_phase = PHASE_EMERGED;
+            m_rangeCheckState       = -1;
+
+            m_bHasYelledMagmaBurst = false;
+            m_bHasSubmergedOnce = false;
+
+            m_creature->SetImmobilizedState(true);
+
+            m_creature->HandleEmote(EMOTE_STATE_STAND);
+            m_creature->RemoveAurasDueToSpell(SPELL_RAGNA_SUBMERGE);
+            m_creature->RemoveAurasDueToSpell(SPELL_SUBMERGE_EFFECT);
+
+            DoCastSpellIfCan(nullptr, SPELL_MELT_WEAPON, CAST_TRIGGERED | CAST_AURA_NOT_PRESENT);
+            DoCastSpellIfCan(nullptr, SPELL_ELEMENTAL_FIRE, CAST_TRIGGERED | CAST_AURA_NOT_PRESENT);
+
+            DespawnGuids(m_spawns);
         }
-        else if (summoned->GetEntry() == NPC_FLAME_OF_RAGNAROS)
-            summoned->CastSpell(nullptr, SPELL_INTENSE_HEAT, TRIGGERED_OLD_TRIGGERED, nullptr, nullptr, m_creature->GetObjectGuid());
 
-        m_spawns.push_back(summoned->GetObjectGuid());
-    }
-
-    void SpellHitTarget(Unit* target, const SpellEntry* spellInfo, SpellMissInfo /*missInfo*/) override
-    {
-        if (spellInfo->Id == SPELL_WRATH_OF_RAGNAROS)
-            m_creature->getThreatManager().modifyThreatPercent(target, -100);
-        // As Majordomo is now killed, the last timer (until attacking) must be handled with ragnaros script
-        else if (spellInfo->Id == SPELL_ELEMENTAL_FIRE_KILL && target->GetTypeId() == TYPEID_UNIT && target->GetEntry() == NPC_MAJORDOMO)
-            ResetTimer(RAGNAROS_ENTER_COMBAT, 10000);
-    }
-
-    void HandleEnterCombat()
-    {
-        // Introduction
-        if (!m_bHasAggroYelled)
+        void KilledUnit(Unit* victim) override
         {
-            ResetTimer(RAGNAROS_ENTER_COMBAT, 3000);
-            m_bHasAggroYelled = true;
-            DoScriptText(SAY_ARRIVAL5_RAG, m_creature);
+            if (victim->GetTypeId() != TYPEID_PLAYER)
+                return;
+
+            if (urand(0, 3))
+                return;
+
+            DoScriptText(SAY_KILL, m_creature);
         }
-        else
+
+        void JustDied(Unit* /*killer*/) override
         {
-            // If we don't remove this passive flag, he will be unattackable after evading, this way he will enter combat
-            m_creature->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_PLAYER);
             if (m_instance)
-            {
-                m_creature->SetInCombatWithZone();
-                AttackClosestEnemy();
-            }
+                m_instance->SetData(TYPE_RAGNAROS, DONE);
         }
 
-    }
-
-    void HandlePhaseTransition()
-    {
-        switch (m_phase)
+        void Aggro(Unit* who) override
         {
-            case PHASE_EMERGED:
-            {
-                // Submerge and attack again after 90 secs
-                DoCastSpellIfCan(m_creature, SPELL_RAGNA_SUBMERGE_VISUAL, CAST_TRIGGERED);
-                m_creature->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE);
+            if (who->GetTypeId() == TYPEID_UNIT && who->GetEntry() == NPC_MAJORDOMO)
+                return;
 
-                // Say dependend if first time or not
-                DoScriptText(!m_bHasSubmergedOnce ? SAY_REINFORCEMENTS_1 : SAY_REINFORCEMENTS_2, m_creature);
-                m_bHasSubmergedOnce = true;
+            if (m_instance)
+                m_instance->SetData(TYPE_RAGNAROS, IN_PROGRESS);
+        }
 
-                // Summon 8 elementals around the boss
-                if (DoCastSpellIfCan(nullptr, SPELL_SUMMON_SONS_FLAME) == CAST_OK)
-                    m_uiAddCount = NB_ADDS_IN_SUBMERGE;
+        void EnterEvadeMode() override
+        {
+            if (m_instance)
+                m_instance->SetData(TYPE_RAGNAROS, FAIL);
 
-                ResetCombatAction(RAGNAROS_PHASE_TRANSITION, 1000);
-                m_phase = PHASE_SUBMERGING;
-                DisableCombatAction(RAGNAROS_WRATH_OF_RAGNAROS);
-                DisableCombatAction(RAGNAROS_MIGHT_OF_RAGNAROS);
-                DisableCombatAction(RAGNAROS_MAGMA_BLAST);
-                DisableCombatAction(RAGNAROS_LAVA_BURST);
-                SetMeleeEnabled(false);
-                break;
-            }
-            case PHASE_SUBMERGING:
-            {
-                m_creature->HandleEmote(EMOTE_STATE_SUBMERGED);
-                DoCastSpellIfCan(nullptr, SPELL_RAGNA_SUBMERGE, CAST_TRIGGERED);
-                DoCastSpellIfCan(nullptr, SPELL_SUBMERGE_EFFECT, CAST_TRIGGERED);
-                ResetCombatAction(RAGNAROS_PHASE_TRANSITION, 90 * IN_MILLISECONDS);
-                m_phase = PHASE_SUBMERGED;
-                break;
-            }
-            case PHASE_SUBMERGED:
-            {
-                // Become emerged again
-                m_creature->HandleEmote(EMOTE_STATE_STAND);
-                m_creature->RemoveAurasDueToSpell(SPELL_RAGNA_SUBMERGE);
-                m_creature->RemoveAurasDueToSpell(SPELL_SUBMERGE_EFFECT);
-                m_creature->RemoveAurasDueToSpell(SPELL_RAGNA_SUBMERGE_VISUAL);
-                ResetCombatAction(RAGNAROS_PHASE_TRANSITION, 500);
-                m_phase = PHASE_EMERGING;
-                break;
-            }
-            case PHASE_EMERGING:
-            {
+            // Reset flag if Ragnaros had been submerged
+            if (m_phase != PHASE_EMERGED)
                 DoCastSpellIfCan(m_creature, SPELL_RAGNA_EMERGE);
+            if (m_creature->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE))
                 m_creature->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE);
-                m_phase = PHASE_EMERGED;
-                ResetCombatAction(RAGNAROS_PHASE_TRANSITION, 3 * MINUTE * IN_MILLISECONDS);
-                ResetCombatAction(RAGNAROS_WRATH_OF_RAGNAROS, 20000);
-                ResetCombatAction(RAGNAROS_MIGHT_OF_RAGNAROS, urand(11000, 30000));
-                ResetCombatAction(RAGNAROS_MAGMA_BLAST, 3000);
-                ResetCombatAction(RAGNAROS_LAVA_BURST, urand(5000, 25000));
-                SetMeleeEnabled(true);
-                break;
+
+            ScriptedAI::EnterEvadeMode();
+        }
+
+        void SummonedCreatureJustDied(Creature* summoned) override
+        {
+            // If all Sons of Flame are dead, trigger emerge
+            if (summoned->GetEntry() == NPC_SON_OF_FLAME)
+            {
+                m_uiAddCount--;
+
+                // If last add killed then emerge soonish
+                if (m_uiAddCount == 0)
+                    ReduceTimer(RAGNAROS_PHASE_TRANSITION, 1000);
             }
         }
-    }
 
-    void ExecuteAction(uint32 action) override
-    {
-        switch (action)
+        void JustSummoned(Creature* summoned) override
         {
-            case RAGNAROS_PHASE_TRANSITION:
+            if (summoned->GetEntry() == NPC_SON_OF_FLAME)
             {
-                HandlePhaseTransition();
-                break;
+                summoned->AI()->DoCastSpellIfCan(nullptr, SPELL_DOUBLE_ATTACK, CAST_TRIGGERED | CAST_AURA_NOT_PRESENT);
+                summoned->AI()->DoCastSpellIfCan(nullptr, SPELL_LAVA_SHIELD, CAST_TRIGGERED | CAST_AURA_NOT_PRESENT);
+                summoned->SetInCombatWithZone();
+                summoned->AI()->AttackClosestEnemy();
             }
-            case RAGNAROS_WRATH_OF_RAGNAROS:
+            else if (summoned->GetEntry() == NPC_FLAME_OF_RAGNAROS)
+                summoned->CastSpell(nullptr, SPELL_INTENSE_HEAT, TRIGGERED_OLD_TRIGGERED, nullptr, nullptr, m_creature->GetObjectGuid());
+
+            m_spawns.push_back(summoned->GetObjectGuid());
+        }
+
+        void SpellHitTarget(Unit* target, const SpellEntry* spellInfo, SpellMissInfo /*missInfo*/) override
+        {
+            if (spellInfo->Id == SPELL_WRATH_OF_RAGNAROS)
+                m_creature->getThreatManager().modifyThreatPercent(target, -100);
+            // As Majordomo is now killed, the last timer (until attacking) must be handled with ragnaros script
+            else if (spellInfo->Id == SPELL_ELEMENTAL_FIRE_KILL && target->GetTypeId() == TYPEID_UNIT && target->GetEntry() == NPC_MAJORDOMO)
+                ResetTimer(RAGNAROS_ENTER_COMBAT, 10000);
+        }
+
+        void HandleEnterCombat()
+        {
+            // Introduction
+            if (!m_bHasAggroYelled)
             {
-                if (DoCastSpellIfCan(nullptr, SPELL_WRATH_OF_RAGNAROS) == CAST_OK)
+                ResetTimer(RAGNAROS_ENTER_COMBAT, 3000);
+                m_bHasAggroYelled = true;
+                DoScriptText(SAY_ARRIVAL5_RAG, m_creature);
+            }
+            else
+            {
+                // If we don't remove this passive flag, he will be unattackable after evading, this way he will enter combat
+                m_creature->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_PLAYER);
+                if (m_instance)
                 {
-                    DoScriptText(SAY_WRATH, m_creature);
-                    ResetCombatAction(action, 25000);
+                    m_creature->SetInCombatWithZone();
+                    AttackClosestEnemy();
                 }
-                break;
             }
-            case RAGNAROS_MIGHT_OF_RAGNAROS:
+
+        }
+
+        void HandlePhaseTransition()
+        {
+            switch (m_phase)
             {
-                if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, SPELL_MIGHT_OF_RAGNAROS, SELECT_FLAG_POWER_MANA))
+                case PHASE_EMERGED:
                 {
-                    if (DoCastSpellIfCan(target, SPELL_MIGHT_OF_RAGNAROS) == CAST_OK)
+                    // Submerge and attack again after 90 secs
+                    DoCastSpellIfCan(m_creature, SPELL_RAGNA_SUBMERGE_VISUAL, CAST_TRIGGERED);
+                    m_creature->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE);
+
+                    // Say dependend if first time or not
+                    DoScriptText(!m_bHasSubmergedOnce ? SAY_REINFORCEMENTS_1 : SAY_REINFORCEMENTS_2, m_creature);
+                    m_bHasSubmergedOnce = true;
+
+                    // Summon 8 elementals around the boss
+                    if (DoCastSpellIfCan(nullptr, SPELL_SUMMON_SONS_FLAME) == CAST_OK)
+                        m_uiAddCount = NB_ADDS_IN_SUBMERGE;
+
+                    ResetCombatAction(RAGNAROS_PHASE_TRANSITION, 1000);
+                    m_phase = PHASE_SUBMERGING;
+                    DisableCombatAction(RAGNAROS_WRATH_OF_RAGNAROS);
+                    DisableCombatAction(RAGNAROS_MIGHT_OF_RAGNAROS);
+                    DisableCombatAction(RAGNAROS_MAGMA_BLAST);
+                    DisableCombatAction(RAGNAROS_LAVA_BURST);
+                    SetMeleeEnabled(false);
+                    break;
+                }
+                case PHASE_SUBMERGING:
+                {
+                    m_creature->HandleEmote(EMOTE_STATE_SUBMERGED);
+                    DoCastSpellIfCan(nullptr, SPELL_RAGNA_SUBMERGE, CAST_TRIGGERED);
+                    DoCastSpellIfCan(nullptr, SPELL_SUBMERGE_EFFECT, CAST_TRIGGERED);
+                    ResetCombatAction(RAGNAROS_PHASE_TRANSITION, 90 * IN_MILLISECONDS);
+                    m_phase = PHASE_SUBMERGED;
+                    break;
+                }
+                case PHASE_SUBMERGED:
+                {
+                    // Become emerged again
+                    m_creature->HandleEmote(EMOTE_STATE_STAND);
+                    m_creature->RemoveAurasDueToSpell(SPELL_RAGNA_SUBMERGE);
+                    m_creature->RemoveAurasDueToSpell(SPELL_SUBMERGE_EFFECT);
+                    m_creature->RemoveAurasDueToSpell(SPELL_RAGNA_SUBMERGE_VISUAL);
+                    ResetCombatAction(RAGNAROS_PHASE_TRANSITION, 500);
+                    m_phase = PHASE_EMERGING;
+                    break;
+                }
+                case PHASE_EMERGING:
+                {
+                    DoCastSpellIfCan(m_creature, SPELL_RAGNA_EMERGE);
+                    m_creature->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE);
+                    m_phase = PHASE_EMERGED;
+                    ResetCombatAction(RAGNAROS_PHASE_TRANSITION, 3 * MINUTE * IN_MILLISECONDS);
+                    ResetCombatAction(RAGNAROS_WRATH_OF_RAGNAROS, 20000);
+                    ResetCombatAction(RAGNAROS_MIGHT_OF_RAGNAROS, urand(11000, 30000));
+                    ResetCombatAction(RAGNAROS_MAGMA_BLAST, 3000);
+                    ResetCombatAction(RAGNAROS_LAVA_BURST, urand(5000, 25000));
+                    SetMeleeEnabled(true);
+                    break;
+                }
+            }
+        }
+
+        void ExecuteAction(uint32 action) override
+        {
+            switch (action)
+            {
+                case RAGNAROS_PHASE_TRANSITION:
+                {
+                    HandlePhaseTransition();
+                    break;
+                }
+                case RAGNAROS_WRATH_OF_RAGNAROS:
+                {
+                    if (DoCastSpellIfCan(nullptr, SPELL_WRATH_OF_RAGNAROS) == CAST_OK)
                     {
-                        DoScriptText(SAY_HAMMER, m_creature);
-                        ResetCombatAction(action, urand(11000, 30000));
+                        DoScriptText(SAY_WRATH, m_creature);
+                        ResetCombatAction(action, 25000);
                     }
+                    break;
                 }
-                break;
-            }
-            case RAGNAROS_MAGMA_BLAST:
-            {
-                uint32 timer = 500;
-                // If victim exists we have a target in melee range
-                if (m_creature->GetVictim() && m_creature->CanReachWithMeleeAttack(m_creature->GetVictim()))
-                    m_rangeCheckState = -1;
-                // Spam Waterbolt spell when not tanked
-                else
+                case RAGNAROS_MIGHT_OF_RAGNAROS:
                 {
-                    ++m_rangeCheckState;
-                    if (m_rangeCheckState > 1)
+                    if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, SPELL_MIGHT_OF_RAGNAROS, SELECT_FLAG_POWER_MANA))
                     {
-                        if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, SPELL_MAGMA_BLAST, SELECT_FLAG_PLAYER))
+                        if (DoCastSpellIfCan(target, SPELL_MIGHT_OF_RAGNAROS) == CAST_OK)
                         {
-                            if (DoCastSpellIfCan(target, SPELL_MAGMA_BLAST) == CAST_OK)
+                            DoScriptText(SAY_HAMMER, m_creature);
+                            ResetCombatAction(action, urand(11000, 30000));
+                        }
+                    }
+                    break;
+                }
+                case RAGNAROS_MAGMA_BLAST:
+                {
+                    uint32 timer = 500;
+                    // If victim exists we have a target in melee range
+                    if (m_creature->GetVictim() && m_creature->CanReachWithMeleeAttack(m_creature->GetVictim()))
+                        m_rangeCheckState = -1;
+                    // Spam Waterbolt spell when not tanked
+                    else
+                    {
+                        ++m_rangeCheckState;
+                        if (m_rangeCheckState > 1)
+                        {
+                            if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, SPELL_MAGMA_BLAST, SELECT_FLAG_PLAYER))
                             {
-                                //if (!m_bHasYelledMagmaBurst)
-                                //{
-                                //    DoScriptText(SAY_MAGMABURST, m_creature);
-                                //    m_bHasYelledMagmaBurst = true;
-                                //}
-                                timer = 2500;
+                                if (DoCastSpellIfCan(target, SPELL_MAGMA_BLAST) == CAST_OK)
+                                {
+                                    //if (!m_bHasYelledMagmaBurst)
+                                    //{
+                                    //    DoScriptText(SAY_MAGMABURST, m_creature);
+                                    //    m_bHasYelledMagmaBurst = true;
+                                    //}
+                                    timer = 2500;
+                                }
                             }
                         }
                     }
+                    ResetCombatAction(action, timer);
+                    break;
                 }
-                ResetCombatAction(action, timer);
-                break;
-            }
-            case RAGNAROS_LAVA_BURST:
-            {
-                if (DoCastSpellIfCan(nullptr, SPELL_LAVA_BURST) == CAST_OK)
-                    ResetCombatAction(action, urand(5000, 25000)); // Upper value is guess work based on videos. It could be up to 45 secs
-                break;
+                case RAGNAROS_LAVA_BURST:
+                {
+                    if (DoCastSpellIfCan(nullptr, SPELL_LAVA_BURST) == CAST_OK)
+                        ResetCombatAction(action, urand(5000, 25000)); // Upper value is guess work based on videos. It could be up to 45 secs
+                    break;
+                }
             }
         }
-    }
+    };
+
+
+
 };
 
-UnitAI* GetAI_boss_ragnaros(Creature* creature)
-{
-    return new boss_ragnarosAI(creature);
-}
 
 void AddSC_boss_ragnaros()
 {
-    Script* pNewScript = new Script;
-    pNewScript->Name = "boss_ragnaros";
-    pNewScript->GetAI = &GetAI_boss_ragnaros;
-    pNewScript->RegisterSelf();
+    new boss_ragnaros();
+
 }

@@ -41,81 +41,90 @@ enum GehennasActions
     GEHENNAS_SHADOW_BOLT_TARGET,
     GEHENNAS_ACTION_MAX,
 };
-
-struct boss_gehennasAI : public CombatAI
+class boss_gehennas : public CreatureScript
 {
-    boss_gehennasAI(Creature* creature) : CombatAI(creature, GEHENNAS_ACTION_MAX), m_instance(static_cast<ScriptedInstance*>(creature->GetInstanceData()))
+public:
+    boss_gehennas() : CreatureScript("boss_gehennas") { }
+
+    UnitAI* GetAI(Creature* creature)
     {
-        AddCombatAction(GEHENNAS_GEHENNAS_CURSE, 5 * IN_MILLISECONDS, 10 * IN_MILLISECONDS);
-        AddCombatAction(GEHENNAS_RAIN_OF_FIRE, 6 * IN_MILLISECONDS, 12 * IN_MILLISECONDS);
-        AddCombatAction(GEHENNAS_SHADOW_BOLT_RANDOM, 3 * IN_MILLISECONDS, 6 * IN_MILLISECONDS);
-        AddCombatAction(GEHENNAS_SHADOW_BOLT_TARGET, 3 * IN_MILLISECONDS, 6 * IN_MILLISECONDS);
-        Reset();
+        return new boss_gehennasAI(creature);
     }
 
-    ScriptedInstance* m_instance;
 
-    void Aggro(Unit* /*who*/) override
-    {
-        if (m_instance)
-            m_instance->SetData(TYPE_GEHENNAS, IN_PROGRESS);
-    }
 
-    void JustDied(Unit* /*killer*/) override
+    struct boss_gehennasAI : public CombatAI
     {
-        if (m_instance)
-            m_instance->SetData(TYPE_GEHENNAS, DONE);
-    }
-
-    void JustReachedHome() override
-    {
-        if (m_instance)
-            m_instance->SetData(TYPE_GEHENNAS, FAIL);
-    }
-
-    void ExecuteAction(uint32 action) override
-    {
-        switch (action)
+        boss_gehennasAI(Creature* creature) : CombatAI(creature, GEHENNAS_ACTION_MAX), m_instance(static_cast<ScriptedInstance*>(creature->GetInstanceData()))
         {
-            case GEHENNAS_GEHENNAS_CURSE:
+            AddCombatAction(GEHENNAS_GEHENNAS_CURSE, 5 * IN_MILLISECONDS, 10 * IN_MILLISECONDS);
+            AddCombatAction(GEHENNAS_RAIN_OF_FIRE, 6 * IN_MILLISECONDS, 12 * IN_MILLISECONDS);
+            AddCombatAction(GEHENNAS_SHADOW_BOLT_RANDOM, 3 * IN_MILLISECONDS, 6 * IN_MILLISECONDS);
+            AddCombatAction(GEHENNAS_SHADOW_BOLT_TARGET, 3 * IN_MILLISECONDS, 6 * IN_MILLISECONDS);
+            Reset();
+        }
+
+        ScriptedInstance* m_instance;
+
+        void Aggro(Unit* /*who*/) override
+        {
+            if (m_instance)
+                m_instance->SetData(TYPE_GEHENNAS, IN_PROGRESS);
+        }
+
+        void JustDied(Unit* /*killer*/) override
+        {
+            if (m_instance)
+                m_instance->SetData(TYPE_GEHENNAS, DONE);
+        }
+
+        void JustReachedHome() override
+        {
+            if (m_instance)
+                m_instance->SetData(TYPE_GEHENNAS, FAIL);
+        }
+
+        void ExecuteAction(uint32 action) override
+        {
+            switch (action)
             {
-                if (DoCastSpellIfCan(nullptr, SPELL_GEHENNAS_CURSE) == CAST_OK)
-                    ResetCombatAction(action, urand(25 * IN_MILLISECONDS, 30 * IN_MILLISECONDS));
-                break;
-            }
-            case GEHENNAS_RAIN_OF_FIRE:
-            {
-                if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, SPELL_RAIN_OF_FIRE, SELECT_FLAG_PLAYER))
-                    if (DoCastSpellIfCan(target, SPELL_RAIN_OF_FIRE) == CAST_OK)
-                        ResetCombatAction(action, urand(6 * IN_MILLISECONDS, 12 * IN_MILLISECONDS));
-                break;
-            }
-            case GEHENNAS_SHADOW_BOLT_RANDOM:
-            {
-                if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, SPELL_SHADOW_BOLT_RANDOM, SELECT_FLAG_PLAYER))
-                    if (DoCastSpellIfCan(target, SPELL_SHADOW_BOLT_RANDOM) == CAST_OK)
+                case GEHENNAS_GEHENNAS_CURSE:
+                {
+                    if (DoCastSpellIfCan(nullptr, SPELL_GEHENNAS_CURSE) == CAST_OK)
+                        ResetCombatAction(action, urand(25 * IN_MILLISECONDS, 30 * IN_MILLISECONDS));
+                    break;
+                }
+                case GEHENNAS_RAIN_OF_FIRE:
+                {
+                    if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, SPELL_RAIN_OF_FIRE, SELECT_FLAG_PLAYER))
+                        if (DoCastSpellIfCan(target, SPELL_RAIN_OF_FIRE) == CAST_OK)
+                            ResetCombatAction(action, urand(6 * IN_MILLISECONDS, 12 * IN_MILLISECONDS));
+                    break;
+                }
+                case GEHENNAS_SHADOW_BOLT_RANDOM:
+                {
+                    if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, SPELL_SHADOW_BOLT_RANDOM, SELECT_FLAG_PLAYER))
+                        if (DoCastSpellIfCan(target, SPELL_SHADOW_BOLT_RANDOM) == CAST_OK)
+                            ResetCombatAction(action, urand(3 * IN_MILLISECONDS, 6 * IN_MILLISECONDS));
+                    break;
+                }
+                case GEHENNAS_SHADOW_BOLT_TARGET:
+                {
+                    if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_SHADOW_BOLT_TARGET) == CAST_OK)
                         ResetCombatAction(action, urand(3 * IN_MILLISECONDS, 6 * IN_MILLISECONDS));
-                break;
-            }
-            case GEHENNAS_SHADOW_BOLT_TARGET:
-            {
-                if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_SHADOW_BOLT_TARGET) == CAST_OK)
-                    ResetCombatAction(action, urand(3 * IN_MILLISECONDS, 6 * IN_MILLISECONDS));
-                break;
+                    break;
+                }
             }
         }
-    }
+    };
+
+
+
 };
 
-UnitAI* GetAI_boss_gehennas(Creature* creature)
-{
-    return new boss_gehennasAI(creature);
-}
 
 void AddSC_boss_gehennas()
 {
-    Script* pNewScript = new Script;
-    pNewScript->Name = "boss_gehennas";
-    pNewScript->GetAI = &GetAI_boss_gehennas;
-    pNewScript->RegisterSelf();
+    new boss_gehennas();
+
 }

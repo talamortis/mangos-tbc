@@ -1100,18 +1100,5 @@ bool ProcessEventId_naxxramas(uint32 eventId, Object* source, Object* /*target*/
 
 void AddSC_instance_naxxramas()
 {
-    Script* newScript = new Script;
-    newScript->Name = "instance_naxxramas";
-    newScript->GetInstanceData = &GetInstanceData_instance_naxxramas;
-    newScript->RegisterSelf();
 
-    newScript = new Script;
-    newScript->Name = "at_naxxramas";
-    newScript->pAreaTrigger = &AreaTrigger_at_naxxramas;
-    newScript->RegisterSelf();
-
-    newScript = new Script;
-    newScript->Name = "event_naxxramas";
-    newScript->pProcessEventId = &ProcessEventId_naxxramas;
-    newScript->RegisterSelf();
 }

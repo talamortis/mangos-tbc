@@ -171,36 +171,47 @@ void instance_razorfen_downs::DoSpawnWaveIfCan(GameObject* pGo)
     SetData(TYPE_TUTEN_KASH, IN_PROGRESS);
     pGo->SetFlag(GAMEOBJECT_FLAGS, GO_FLAG_NO_INTERACT);
 }
-
-InstanceData* GetInstanceData_instance_razorfen_downs(Map* pMap)
+class instance_razorfen_downs : public InstanceMapScript
 {
-    return new instance_razorfen_downs(pMap);
-}
+public:
+    instance_razorfen_downs() : InstanceMapScript("instance_razorfen_downs") { }
 
-bool ProcessEventId_event_go_tutenkash_gong(uint32 /*uiEventId*/, Object* pSource, Object* pTarget, bool /*bIsStart*/)
-{
-    if (pSource->GetTypeId() == TYPEID_PLAYER && pTarget->GetTypeId() == TYPEID_GAMEOBJECT)
+    InstanceData* GetInstanceScript(Map* pMap) const override
     {
-        instance_razorfen_downs* pInstance = (instance_razorfen_downs*)((Player*)pSource)->GetInstanceData();
-        if (!pInstance)
-            return true;
-
-        pInstance->DoSpawnWaveIfCan((GameObject*)pTarget);
-        return true;
+        return new instance_razorfen_downs(pMap);
     }
 
-    return false;
-}
+
+
+
+};
+class event_go_tutenkash_gong : public UnknownScript
+{
+public:
+    event_go_tutenkash_gong() : UnknownScript("event_go_tutenkash_gong") { }
+
+    bool OnProcessEvent(uint32 /*uiEventId*/, Object* pSource, Object* pTarget, bool /*bIsStart*/) override
+    {
+        if (pSource->GetTypeId() == TYPEID_PLAYER && pTarget->GetTypeId() == TYPEID_GAMEOBJECT)
+        {
+            instance_razorfen_downs* pInstance = (instance_razorfen_downs*)((Player*)pSource)->GetInstanceData();
+            if (!pInstance)
+                return true;
+
+            pInstance->DoSpawnWaveIfCan((GameObject*)pTarget);
+            return true;
+        }
+
+        return false;
+    }
+
+
+
+};
 
 void AddSC_instance_razorfen_downs()
 {
-    Script* pNewScript = new Script;
-    pNewScript->Name = "instance_razorfen_downs";
-    pNewScript->GetInstanceData = &GetInstanceData_instance_razorfen_downs;
-    pNewScript->RegisterSelf();
+    new instance_razorfen_downs();
+    new event_go_tutenkash_gong();
 
-    pNewScript = new Script;
-    pNewScript->Name = "event_go_tutenkash_gong";
-    pNewScript->pProcessEventId = &ProcessEventId_event_go_tutenkash_gong;
-    pNewScript->RegisterSelf();
 }

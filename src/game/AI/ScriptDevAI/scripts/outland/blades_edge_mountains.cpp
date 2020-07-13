@@ -79,161 +79,172 @@ enum
 };
 
 static const uint32 aNetherDrakeEntries[MAX_ENTRIES] = {NPC_PROTO, NPC_ADOLESCENT, NPC_MATURE, NPC_NIHIL};
-
-struct mobs_nether_drakeAI : public ScriptedAI
+class mobs_nether_drake : public CreatureScript
 {
-    mobs_nether_drakeAI(Creature* pCreature) : ScriptedAI(pCreature) { Reset(); }
+public:
+    mobs_nether_drake() : CreatureScript("mobs_nether_drake") { }
 
-    bool m_bIsNihil;
-    uint32 m_uiNihilSpeechTimer;
-    uint32 m_uiNihilSpeechPhase;
-
-    uint32 m_uiArcaneBlastTimer;
-    uint32 m_uiManaBurnTimer;
-    uint32 m_uiIntangiblePresenceTimer;
-
-    void Reset() override
+    UnitAI* GetAI(Creature* pCreature)
     {
-        m_bIsNihil                  = false;
-        m_uiNihilSpeechTimer        = 3000;
-        m_uiNihilSpeechPhase        = 0;
-
-        m_uiArcaneBlastTimer        = 7500;
-        m_uiManaBurnTimer           = 10000;
-        m_uiIntangiblePresenceTimer = 15000;
-
-        DoCastSpellIfCan(nullptr, SPELL_RESISTANCES, CAST_TRIGGERED | CAST_AURA_NOT_PRESENT);
+        return new mobs_nether_drakeAI(pCreature);
     }
 
-    void MoveInLineOfSight(Unit* pWho) override
+
+
+    struct mobs_nether_drakeAI : public ScriptedAI
     {
-        if (m_creature->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NON_ATTACKABLE))
-            return;
+        mobs_nether_drakeAI(Creature* pCreature) : ScriptedAI(pCreature) { Reset(); }
 
-        ScriptedAI::MoveInLineOfSight(pWho);
-    }
+        bool m_bIsNihil;
+        uint32 m_uiNihilSpeechTimer;
+        uint32 m_uiNihilSpeechPhase;
 
-    // in case creature was not summoned (not expected)
-    void MovementInform(uint32 uiMoveType, uint32 uiPointId) override
-    {
-        if (uiMoveType != POINT_MOTION_TYPE)
-            return;
+        uint32 m_uiArcaneBlastTimer;
+        uint32 m_uiManaBurnTimer;
+        uint32 m_uiIntangiblePresenceTimer;
 
-        if (uiPointId)
-            m_creature->ForcedDespawn();
-    }
-
-    void SpellHit(Unit* pCaster, const SpellEntry* pSpell) override
-    {
-        if (pSpell->Id == SPELL_T_PHASE_MODULATOR && pCaster->GetTypeId() == TYPEID_PLAYER)
+        void Reset() override
         {
-            // we are nihil, so say before transform
-            if (m_creature->GetEntry() == NPC_NIHIL)
+            m_bIsNihil                  = false;
+            m_uiNihilSpeechTimer        = 3000;
+            m_uiNihilSpeechPhase        = 0;
+
+            m_uiArcaneBlastTimer        = 7500;
+            m_uiManaBurnTimer           = 10000;
+            m_uiIntangiblePresenceTimer = 15000;
+
+            DoCastSpellIfCan(nullptr, SPELL_RESISTANCES, CAST_TRIGGERED | CAST_AURA_NOT_PRESENT);
+        }
+
+        void MoveInLineOfSight(Unit* pWho) override
+        {
+            if (m_creature->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NON_ATTACKABLE))
+                return;
+
+            ScriptedAI::MoveInLineOfSight(pWho);
+        }
+
+        // in case creature was not summoned (not expected)
+        void MovementInform(uint32 uiMoveType, uint32 uiPointId) override
+        {
+            if (uiMoveType != POINT_MOTION_TYPE)
+                return;
+
+            if (uiPointId)
+                m_creature->ForcedDespawn();
+        }
+
+        void SpellHit(Unit* pCaster, const SpellEntry* pSpell) override
+        {
+            if (pSpell->Id == SPELL_T_PHASE_MODULATOR && pCaster->GetTypeId() == TYPEID_PLAYER)
             {
-                DoScriptText(SAY_NIHIL_INTERRUPT, m_creature);
-                m_creature->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NON_ATTACKABLE);
-                m_bIsNihil = false;
-            }
-
-            // choose a new entry
-            uint8 uiIndex = urand(0, MAX_ENTRIES - 1);
-
-            // If we choose the same entry, try again
-            while (aNetherDrakeEntries[uiIndex] == m_creature->GetEntry())
-                uiIndex = urand(0, MAX_ENTRIES - 1);
-
-            m_creature->CastSpell(nullptr, 35426, TRIGGERED_OLD_TRIGGERED); // arcane explosion visual
-            if (m_creature->UpdateEntry(aNetherDrakeEntries[uiIndex]))
-            {
-                // Nihil does only dialogue
-                if (aNetherDrakeEntries[uiIndex] == NPC_NIHIL)
+                // we are nihil, so say before transform
+                if (m_creature->GetEntry() == NPC_NIHIL)
                 {
-                    EnterEvadeMode();
-                    m_creature->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NON_ATTACKABLE);
-                    m_bIsNihil = true;
+                    DoScriptText(SAY_NIHIL_INTERRUPT, m_creature);
+                    m_creature->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NON_ATTACKABLE);
+                    m_bIsNihil = false;
+                }
+
+                // choose a new entry
+                uint8 uiIndex = urand(0, MAX_ENTRIES - 1);
+
+                // If we choose the same entry, try again
+                while (aNetherDrakeEntries[uiIndex] == m_creature->GetEntry())
+                    uiIndex = urand(0, MAX_ENTRIES - 1);
+
+                m_creature->CastSpell(nullptr, 35426, TRIGGERED_OLD_TRIGGERED); // arcane explosion visual
+                if (m_creature->UpdateEntry(aNetherDrakeEntries[uiIndex]))
+                {
+                    // Nihil does only dialogue
+                    if (aNetherDrakeEntries[uiIndex] == NPC_NIHIL)
+                    {
+                        EnterEvadeMode();
+                        m_creature->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NON_ATTACKABLE);
+                        m_bIsNihil = true;
+                    }
+                    else
+                        AttackStart(pCaster);
+                }
+            }
+        }
+
+        void UpdateAI(const uint32 uiDiff) override
+        {
+            if (m_bIsNihil)
+            {
+                if (m_uiNihilSpeechTimer < uiDiff)
+                {
+                    switch (m_uiNihilSpeechPhase)
+                    {
+                        case 0:
+                            DoScriptText(SAY_NIHIL_1, m_creature);
+                            break;
+                        case 1:
+                            DoScriptText(SAY_NIHIL_2, m_creature);
+                            break;
+                        case 2:
+                            DoScriptText(SAY_NIHIL_3, m_creature);
+                            break;
+                        case 3:
+                            DoScriptText(SAY_NIHIL_4, m_creature);
+                            break;
+                        case 4:
+                            m_creature->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE);
+                            // take off to location above
+                            m_creature->SetLevitate(true);
+                            m_creature->SetByteFlag(UNIT_FIELD_BYTES_1, 3, UNIT_BYTE1_FLAG_FLY_ANIM);
+                            m_creature->GetMotionMaster()->MovePoint(1, m_creature->GetPositionX() + 50.0f, m_creature->GetPositionY(), m_creature->GetPositionZ() + 50.0f);
+                            break;
+                    }
+                    ++m_uiNihilSpeechPhase;
+                    m_uiNihilSpeechTimer = 5000;
                 }
                 else
-                    AttackStart(pCaster);
-            }
-        }
-    }
+                    m_uiNihilSpeechTimer -= uiDiff;
 
-    void UpdateAI(const uint32 uiDiff) override
-    {
-        if (m_bIsNihil)
-        {
-            if (m_uiNihilSpeechTimer < uiDiff)
+                // anything below here is not interesting for Nihil, so skip it
+                return;
+            }
+
+            if (!m_creature->SelectHostileTarget() || !m_creature->GetVictim())
+                return;
+
+            if (m_uiIntangiblePresenceTimer < uiDiff)
             {
-                switch (m_uiNihilSpeechPhase)
-                {
-                    case 0:
-                        DoScriptText(SAY_NIHIL_1, m_creature);
-                        break;
-                    case 1:
-                        DoScriptText(SAY_NIHIL_2, m_creature);
-                        break;
-                    case 2:
-                        DoScriptText(SAY_NIHIL_3, m_creature);
-                        break;
-                    case 3:
-                        DoScriptText(SAY_NIHIL_4, m_creature);
-                        break;
-                    case 4:
-                        m_creature->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE);
-                        // take off to location above
-                        m_creature->SetLevitate(true);
-                        m_creature->SetByteFlag(UNIT_FIELD_BYTES_1, 3, UNIT_BYTE1_FLAG_FLY_ANIM);
-                        m_creature->GetMotionMaster()->MovePoint(1, m_creature->GetPositionX() + 50.0f, m_creature->GetPositionY(), m_creature->GetPositionZ() + 50.0f);
-                        break;
-                }
-                ++m_uiNihilSpeechPhase;
-                m_uiNihilSpeechTimer = 5000;
+                if (DoCastSpellIfCan(m_creature, SPELL_INTANGIBLE_PRESENCE) == CAST_OK)
+                    m_uiIntangiblePresenceTimer = urand(15000, 30000);
             }
             else
-                m_uiNihilSpeechTimer -= uiDiff;
+                m_uiIntangiblePresenceTimer -= uiDiff;
 
-            // anything below here is not interesting for Nihil, so skip it
-            return;
-        }
-
-        if (!m_creature->SelectHostileTarget() || !m_creature->GetVictim())
-            return;
-
-        if (m_uiIntangiblePresenceTimer < uiDiff)
-        {
-            if (DoCastSpellIfCan(m_creature, SPELL_INTANGIBLE_PRESENCE) == CAST_OK)
-                m_uiIntangiblePresenceTimer = urand(15000, 30000);
-        }
-        else
-            m_uiIntangiblePresenceTimer -= uiDiff;
-
-        if (m_uiManaBurnTimer < uiDiff)
-        {
-            if (Unit* pTarget = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, SPELL_MANA_BURN, SELECT_FLAG_POWER_MANA))
+            if (m_uiManaBurnTimer < uiDiff)
             {
-                if (DoCastSpellIfCan(pTarget, SPELL_MANA_BURN) == CAST_OK)
-                    m_uiManaBurnTimer = urand(8000, 16000);
+                if (Unit* pTarget = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, SPELL_MANA_BURN, SELECT_FLAG_POWER_MANA))
+                {
+                    if (DoCastSpellIfCan(pTarget, SPELL_MANA_BURN) == CAST_OK)
+                        m_uiManaBurnTimer = urand(8000, 16000);
+                }
             }
-        }
-        else
-            m_uiManaBurnTimer -= uiDiff;
+            else
+                m_uiManaBurnTimer -= uiDiff;
 
-        if (m_uiArcaneBlastTimer < uiDiff)
-        {
-            if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_ARCANE_BLAST) == CAST_OK)
-                m_uiArcaneBlastTimer = urand(2500, 7500);
-        }
-        else
-            m_uiArcaneBlastTimer -= uiDiff;
+            if (m_uiArcaneBlastTimer < uiDiff)
+            {
+                if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_ARCANE_BLAST) == CAST_OK)
+                    m_uiArcaneBlastTimer = urand(2500, 7500);
+            }
+            else
+                m_uiArcaneBlastTimer -= uiDiff;
 
-        DoMeleeAttackIfReady();
-    }
+            DoMeleeAttackIfReady();
+        }
+    };
+
+
+
 };
 
-UnitAI* GetAI_mobs_nether_drake(Creature* pCreature)
-{
-    return new mobs_nether_drakeAI(pCreature);
-}
 
 /*######
 ## npc_daranelle
@@ -245,33 +256,44 @@ enum
     SPELL_LASHHAN_CHANNEL       = 36904,
     SPELL_DISPELLING_ANALYSIS   = 37028
 };
-
-struct npc_daranelleAI : public ScriptedAI
+class npc_daranelle : public CreatureScript
 {
-    npc_daranelleAI(Creature* pCreature) : ScriptedAI(pCreature) {Reset();}
+public:
+    npc_daranelle() : CreatureScript("npc_daranelle") { }
 
-    void Reset() override { }
-
-    void MoveInLineOfSight(Unit* pWho) override
+    UnitAI* GetAI(Creature* pCreature)
     {
-        if (pWho->GetTypeId() == TYPEID_PLAYER)
-        {
-            if (pWho->HasAura(SPELL_LASHHAN_CHANNEL, EFFECT_INDEX_0) && m_creature->IsWithinDistInMap(pWho, 10.0f))
-            {
-                DoScriptText(SAY_SPELL_INFLUENCE, m_creature, pWho);
-
-                m_creature->CastSpell(pWho, SPELL_DISPELLING_ANALYSIS, TRIGGERED_NONE);
-            }
-        }
-
-        ScriptedAI::MoveInLineOfSight(pWho);
+        return new npc_daranelleAI(pCreature);
     }
+
+
+
+    struct npc_daranelleAI : public ScriptedAI
+    {
+        npc_daranelleAI(Creature* pCreature) : ScriptedAI(pCreature) {Reset();}
+
+        void Reset() override { }
+
+        void MoveInLineOfSight(Unit* pWho) override
+        {
+            if (pWho->GetTypeId() == TYPEID_PLAYER)
+            {
+                if (pWho->HasAura(SPELL_LASHHAN_CHANNEL, EFFECT_INDEX_0) && m_creature->IsWithinDistInMap(pWho, 10.0f))
+                {
+                    DoScriptText(SAY_SPELL_INFLUENCE, m_creature, pWho);
+
+                    m_creature->CastSpell(pWho, SPELL_DISPELLING_ANALYSIS, TRIGGERED_NONE);
+                }
+            }
+
+            ScriptedAI::MoveInLineOfSight(pWho);
+        }
+    };
+
+
+
 };
 
-UnitAI* GetAI_npc_daranelle(Creature* pCreature)
-{
-    return new npc_daranelleAI(pCreature);
-}
 
 /*######
 ## npc_bloodmaul_stout_trigger
@@ -290,112 +312,123 @@ enum
 };
 
 static const uint32 aOgreEntries[] = {19995, 19998, 20334, 20723, 20726, 20730, 20731, 20732, 21296};
-
-struct npc_bloodmaul_stout_triggerAI : public ScriptedAI
+class npc_bloodmaul_stout_trigger : public CreatureScript
 {
-    npc_bloodmaul_stout_triggerAI(Creature* pCreature) : ScriptedAI(pCreature) { Reset(); }
+public:
+    npc_bloodmaul_stout_trigger() : CreatureScript("npc_bloodmaul_stout_trigger") { }
 
-    uint32 m_uiStartTimer;
-    bool m_bHasValidOgre;
-
-    ObjectGuid m_selectedOgreGuid;
-
-    void Reset() override
+    UnitAI* GetAI(Creature* pCreature)
     {
-        m_uiStartTimer = 1000;
-        m_bHasValidOgre = false;
+        return new npc_bloodmaul_stout_triggerAI(pCreature);
     }
 
-    void MoveInLineOfSight(Unit* pWho) override
+
+
+    struct npc_bloodmaul_stout_triggerAI : public ScriptedAI
     {
-        if (m_bHasValidOgre && pWho->GetObjectGuid() == m_selectedOgreGuid && m_creature->IsWithinDistInMap(pWho, 3.5f))
+        npc_bloodmaul_stout_triggerAI(Creature* pCreature) : ScriptedAI(pCreature) { Reset(); }
+
+        uint32 m_uiStartTimer;
+        bool m_bHasValidOgre;
+
+        ObjectGuid m_selectedOgreGuid;
+
+        void Reset() override
         {
-            // Handle interaction and run home with EAI
-            m_creature->AI()->SendAIEvent(AI_EVENT_CUSTOM_EVENTAI_A, m_creature, (Creature*)pWho);
-
-            // Give kill credit to the summoner player
-            if (m_creature->IsTemporarySummon())
-            {
-                if (Player* pSummoner = m_creature->GetMap()->GetPlayer(m_creature->GetSpawnerGuid()))
-                    pSummoner->KilledMonsterCredit(m_creature->GetEntry(), m_creature->GetObjectGuid());
-            }
-
-            if (GameObject* tankard = GetClosestGameObjectWithEntry(m_creature, GO_TANKARD, 2.0f))
-            {
-                tankard->AddObjectToRemoveList();
-                m_creature->ForcedDespawn(2000);
-            }
-
+            m_uiStartTimer = 1000;
             m_bHasValidOgre = false;
         }
-    }
 
-    void UpdateAI(const uint32 uiDiff) override
-    {
-        if (m_uiStartTimer)
+        void MoveInLineOfSight(Unit* pWho) override
         {
-            if (m_uiStartTimer <= uiDiff)
+            if (m_bHasValidOgre && pWho->GetObjectGuid() == m_selectedOgreGuid && m_creature->IsWithinDistInMap(pWho, 3.5f))
             {
-                // get all the ogres in range
-                std::list<Creature*> lOgreList;
-                for (unsigned int aOgreEntrie : aOgreEntries)
-                    GetCreatureListWithEntryInGrid(lOgreList, m_creature, aOgreEntrie, 30.0f);
+                // Handle interaction and run home with EAI
+                m_creature->AI()->SendAIEvent(AI_EVENT_CUSTOM_EVENTAI_A, m_creature, (Creature*)pWho);
 
-                if (lOgreList.empty())
+                // Give kill credit to the summoner player
+                if (m_creature->IsTemporarySummon())
                 {
-                    m_uiStartTimer = 5000;
-                    return;
+                    if (Player* pSummoner = m_creature->GetMap()->GetPlayer(m_creature->GetSpawnerGuid()))
+                        pSummoner->KilledMonsterCredit(m_creature->GetEntry(), m_creature->GetObjectGuid());
                 }
 
-                // sort by distance and get only the closest
-                lOgreList.sort(ObjectDistanceOrder(m_creature));
-
-                std::list<Creature*>::const_iterator ogreItr = lOgreList.begin();
-                Creature* pOgre = nullptr;
-
-                do
+                if (GameObject* tankard = GetClosestGameObjectWithEntry(m_creature, GO_TANKARD, 2.0f))
                 {
-                    if ((*ogreItr)->IsAlive() && !(*ogreItr)->HasAura(SPELL_INTOXICATION))
-                        pOgre = *ogreItr;
-
-                    ++ogreItr;
-                }
-                while (!pOgre && ogreItr != lOgreList.end());
-
-                if (!pOgre)
-                {
-                    m_uiStartTimer = 5000;
-                    return;
+                    tankard->AddObjectToRemoveList();
+                    m_creature->ForcedDespawn(2000);
                 }
 
-                // Move ogre to the point
-                float fX, fY, fZ;
-                pOgre->GetMotionMaster()->MoveIdle();
-                pOgre->SetWalk(false, true);
-                m_creature->GetContactPoint(pOgre, fX, fY, fZ);
-                pOgre->GetMotionMaster()->MovePoint(0, fX, fY, fZ);
-
-                switch (urand(0, 2))
-                {
-                    case 0: DoScriptText(SAY_BREW_1, pOgre); break;
-                    case 1: DoScriptText(SAY_BREW_2, pOgre); break;
-                    case 2: DoScriptText(SAY_BREW_3, pOgre); break;
-                }
-
-                m_selectedOgreGuid = pOgre->GetObjectGuid();
-                m_uiStartTimer = 0;
-                m_bHasValidOgre = true;
+                m_bHasValidOgre = false;
             }
-            else
-                m_uiStartTimer -= uiDiff;
         }
-    }
+
+        void UpdateAI(const uint32 uiDiff) override
+        {
+            if (m_uiStartTimer)
+            {
+                if (m_uiStartTimer <= uiDiff)
+                {
+                    // get all the ogres in range
+                    std::list<Creature*> lOgreList;
+                    for (unsigned int aOgreEntrie : aOgreEntries)
+                        GetCreatureListWithEntryInGrid(lOgreList, m_creature, aOgreEntrie, 30.0f);
+
+                    if (lOgreList.empty())
+                    {
+                        m_uiStartTimer = 5000;
+                        return;
+                    }
+
+                    // sort by distance and get only the closest
+                    lOgreList.sort(ObjectDistanceOrder(m_creature));
+
+                    std::list<Creature*>::const_iterator ogreItr = lOgreList.begin();
+                    Creature* pOgre = nullptr;
+
+                    do
+                    {
+                        if ((*ogreItr)->IsAlive() && !(*ogreItr)->HasAura(SPELL_INTOXICATION))
+                            pOgre = *ogreItr;
+
+                        ++ogreItr;
+                    }
+                    while (!pOgre && ogreItr != lOgreList.end());
+
+                    if (!pOgre)
+                    {
+                        m_uiStartTimer = 5000;
+                        return;
+                    }
+
+                    // Move ogre to the point
+                    float fX, fY, fZ;
+                    pOgre->GetMotionMaster()->MoveIdle();
+                    pOgre->SetWalk(false, true);
+                    m_creature->GetContactPoint(pOgre, fX, fY, fZ);
+                    pOgre->GetMotionMaster()->MovePoint(0, fX, fY, fZ);
+
+                    switch (urand(0, 2))
+                    {
+                        case 0: DoScriptText(SAY_BREW_1, pOgre); break;
+                        case 1: DoScriptText(SAY_BREW_2, pOgre); break;
+                        case 2: DoScriptText(SAY_BREW_3, pOgre); break;
+                    }
+
+                    m_selectedOgreGuid = pOgre->GetObjectGuid();
+                    m_uiStartTimer = 0;
+                    m_bHasValidOgre = true;
+                }
+                else
+                    m_uiStartTimer -= uiDiff;
+            }
+        }
+    };
+
+
+
 };
 
-UnitAI* GetAI_npc_bloodmaul_stout_trigger(Creature* pCreature)
-{
-    return new npc_bloodmaul_stout_triggerAI(pCreature);
-}
 
 /*######
 ## npc_simon_game_bunny
@@ -518,340 +551,357 @@ static const SimonGame aApexisGameData[4] =
     {COLOR_IDX_RED,     SPELL_BUTTON_PUSH_RED,      SPELL_INTROSPECTION_RED,    SOUND_ID_RED},
     {COLOR_IDX_YELLOW,  SPELL_BUTTON_PUSH_YELLOW,   SPELL_INTROSPECTION_YELLOW, SOUND_ID_YELLOW}
 };
-
-struct npc_simon_game_bunnyAI : public ScriptedAI
+class npc_simon_game_bunny : public CreatureScript
 {
-    npc_simon_game_bunnyAI(Creature* pCreature) : ScriptedAI(pCreature)
+public:
+    npc_simon_game_bunny() : CreatureScript("npc_simon_game_bunny") { }
+
+    bool OnEffectScriptEffect(Unit* pCaster, uint32 uiSpellId, SpellEffectIndex uiEffIndex, Creature* pCreatureTarget, ObjectGuid originalCasterGuid) override
     {
-        m_bIsLargeEvent = m_creature->GetEntry() == NPC_SIMON_GAME_BUNNY_LARGE;
-        Reset();
-    }
-
-    uint8 m_uiGamePhase;
-
-    uint32 m_uiLevelCount;
-    uint32 m_uiLevelStage;
-    uint32 m_uiPlayerStage;
-
-    std::vector<uint8> m_vColors;
-    bool m_bIsLargeEvent;
-    bool m_bIsEventStarted;
-
-    ObjectGuid m_masterPlayerGuid;
-
-    void Reset() override
-    {
-        m_uiGamePhase  = PHASE_INACTIVE;
-        m_bIsEventStarted = false;
-
-        m_uiLevelCount = 0;
-        m_uiLevelStage = 0;
-        m_uiPlayerStage = 0;
-
-        m_creature->RemoveAllAurasOnDeath(); // cleans up all auras
-    }
-
-    void GetAIInformation(ChatHandler& reader) override
-    {
-        reader.PSendSysMessage("Simon Game Bunny, current game phase = %u, current level = %u", uint32(m_uiGamePhase), m_uiLevelCount);
-    }
-
-    // Prepare levels
-    void DoPrepareLevel()
-    {
-        // this visual is cast only after the first level
-        if (m_uiLevelCount)
-            DoCastSpellIfCan(m_creature, SPELL_VISUAL_GAME_START, CAST_TRIGGERED);
-        // this part is done only on the first tick
-        else
+        if ((uiSpellId == SPELL_INTROSPECTION_BLUE || uiSpellId == SPELL_INTROSPECTION_GREEN || uiSpellId == SPELL_INTROSPECTION_RED ||
+                uiSpellId == SPELL_INTROSPECTION_YELLOW) && uiEffIndex == EFFECT_INDEX_1)
         {
-            // lock apexis
-            DoCastSpellIfCan(m_creature, SPELL_SWITCHED_ON, CAST_TRIGGERED);
-            DoCastSpellIfCan(m_creature, SPELL_PRE_EVENT_TIMER, CAST_TRIGGERED | CAST_AURA_NOT_PRESENT);
+            if ((pCreatureTarget->GetEntry() == NPC_SIMON_GAME_BUNNY || pCreatureTarget->GetEntry() == NPC_SIMON_GAME_BUNNY_LARGE)
+                    && pCaster->GetTypeId() == TYPEID_PLAYER && originalCasterGuid.IsGameObject())
+                pCreatureTarget->AI()->SendAIEvent(AI_EVENT_CUSTOM_C, pCaster, pCreatureTarget, uiSpellId);
+
+            return true;
         }
 
-        // prepare the buttons and summon the visual auras
-        DoCastSpellIfCan(nullptr, m_bIsLargeEvent ? SPELL_PRE_GAME_BLUE_LARGE : SPELL_PRE_GAME_BLUE_AURA, CAST_TRIGGERED);
-        DoCastSpellIfCan(nullptr, m_bIsLargeEvent ? SPELL_PRE_GAME_GREEN_LARGE : SPELL_PRE_GAME_GREEN_AURA, CAST_TRIGGERED);
-        DoCastSpellIfCan(nullptr, m_bIsLargeEvent ? SPELL_PRE_GAME_RED_LARGE : SPELL_PRE_GAME_RED_AURA, CAST_TRIGGERED);
-        DoCastSpellIfCan(nullptr, m_bIsLargeEvent ? SPELL_PRE_GAME_YELLOW_LARGE : SPELL_PRE_GAME_YELLOW_AURA, CAST_TRIGGERED);
-
-        m_vColors.clear();
-        ++m_uiLevelCount;
+        return false;
     }
 
-    // Setup the color sequence
-    void DoSetupLevel()
+
+
+    bool OnEffectDummy(Unit* pCaster, uint32 uiSpellId, SpellEffectIndex uiEffIndex, Creature* pCreatureTarget, ObjectGuid /*originalCasterGuid*/) override
     {
-        uint8 uiIndex = urand(COLOR_IDX_BLUE, COLOR_IDX_YELLOW);
-        m_vColors.push_back(uiIndex);
+        if (pCreatureTarget->GetEntry() != NPC_SIMON_GAME_BUNNY && pCreatureTarget->GetEntry() != NPC_SIMON_GAME_BUNNY_LARGE)
+            return false;
 
-        DoCastSpellIfCan(m_creature, aApexisGameData[uiIndex].m_uiVisual, CAST_TRIGGERED);
-        DoPlaySoundToSet(m_creature, aApexisGameData[uiIndex].m_uiSoundId);
-    }
-
-    // Setup the player level - called at the beginning at each player level
-    void DoSetupPlayerLevel()
-    {
-        // allow the buttons to be used and despawn the visual auras
-        DoCastSpellIfCan(nullptr, SPELL_GAME_START_RED, CAST_TRIGGERED);
-        DoCastSpellIfCan(nullptr, SPELL_GAME_START_BLUE, CAST_TRIGGERED);
-        DoCastSpellIfCan(nullptr, SPELL_GAME_START_GREEN, CAST_TRIGGERED);
-        DoCastSpellIfCan(nullptr, SPELL_GAME_START_YELLOW, CAST_TRIGGERED);
-    }
-
-    // Complete level - called when one level is completed succesfully
-    void DoCompleteLevel()
-    {
-        // lock the buttons
-        DoCastSpellIfCan(m_creature, SPELL_GAME_END_RED, CAST_TRIGGERED);
-        DoCastSpellIfCan(m_creature, SPELL_GAME_END_BLUE, CAST_TRIGGERED);
-        DoCastSpellIfCan(m_creature, SPELL_GAME_END_GREEN, CAST_TRIGGERED);
-        DoCastSpellIfCan(m_creature, SPELL_GAME_END_YELLOW, CAST_TRIGGERED);
-
-        if (m_bIsLargeEvent)
+        if (uiSpellId == SPELL_PRE_EVENT_TIMER && uiEffIndex == EFFECT_INDEX_0)
         {
-            if (m_uiLevelCount == SIMON_BIG_LEVEL_SUMMON)
+            pCreatureTarget->AI()->SendAIEvent(AI_EVENT_CUSTOM_B, pCaster, pCreatureTarget);
+            return true;
+        }
+
+        return false;
+    }
+
+
+
+    UnitAI* GetAI(Creature* pCreature)
+    {
+        return new npc_simon_game_bunnyAI(pCreature);
+    }
+
+
+
+    struct npc_simon_game_bunnyAI : public ScriptedAI
+    {
+        npc_simon_game_bunnyAI(Creature* pCreature) : ScriptedAI(pCreature)
+        {
+            m_bIsLargeEvent = m_creature->GetEntry() == NPC_SIMON_GAME_BUNNY_LARGE;
+            Reset();
+        }
+
+        uint8 m_uiGamePhase;
+
+        uint32 m_uiLevelCount;
+        uint32 m_uiLevelStage;
+        uint32 m_uiPlayerStage;
+
+        std::vector<uint8> m_vColors;
+        bool m_bIsLargeEvent;
+        bool m_bIsEventStarted;
+
+        ObjectGuid m_masterPlayerGuid;
+
+        void Reset() override
+        {
+            m_uiGamePhase  = PHASE_INACTIVE;
+            m_bIsEventStarted = false;
+
+            m_uiLevelCount = 0;
+            m_uiLevelStage = 0;
+            m_uiPlayerStage = 0;
+
+            m_creature->RemoveAllAurasOnDeath(); // cleans up all auras
+        }
+
+        void GetAIInformation(ChatHandler& reader) override
+        {
+            reader.PSendSysMessage("Simon Game Bunny, current game phase = %u, current level = %u", uint32(m_uiGamePhase), m_uiLevelCount);
+        }
+
+        // Prepare levels
+        void DoPrepareLevel()
+        {
+            // this visual is cast only after the first level
+            if (m_uiLevelCount)
+                DoCastSpellIfCan(m_creature, SPELL_VISUAL_GAME_START, CAST_TRIGGERED);
+            // this part is done only on the first tick
+            else
             {
-                BuffPlayers(SPELL_APEXIS_VIBRATIONS);
-                if (Player* player = m_creature->GetMap()->GetPlayer(m_masterPlayerGuid))
-                    player->CastSpell(player, SPELL_SIMON_GROUP_REWARD, TRIGGERED_OLD_TRIGGERED);
-                DoCompleteGame();
+                // lock apexis
+                DoCastSpellIfCan(m_creature, SPELL_SWITCHED_ON, CAST_TRIGGERED);
+                DoCastSpellIfCan(m_creature, SPELL_PRE_EVENT_TIMER, CAST_TRIGGERED | CAST_AURA_NOT_PRESENT);
             }
-        }
-        else
-        {
-            // Complete game if all the levels
-            switch (m_uiLevelCount)
-            {
-                case SIMON_LEVEL_VIBRATIONS:
-                    BuffPlayers(SPELL_APEXIS_VIBRATIONS);
-                    break;
-                case SIMON_LEVEL_EMANATIONS:
-                    BuffPlayers(SPELL_APEXIS_EMANATIONS);
-                    break;
-                case SIMON_LEVEL_ENLIGHTENMENT:
-                    BuffPlayers(SPELL_APEXIS_ENLIGHTENMENT);
-                    DoCompleteGame();
-                    break;
-                default: break;
-            }
-        }
-    }
 
-    void BuffPlayers(uint32 buffId)
-    {
-        if (m_bIsLargeEvent)
+            // prepare the buttons and summon the visual auras
+            DoCastSpellIfCan(nullptr, m_bIsLargeEvent ? SPELL_PRE_GAME_BLUE_LARGE : SPELL_PRE_GAME_BLUE_AURA, CAST_TRIGGERED);
+            DoCastSpellIfCan(nullptr, m_bIsLargeEvent ? SPELL_PRE_GAME_GREEN_LARGE : SPELL_PRE_GAME_GREEN_AURA, CAST_TRIGGERED);
+            DoCastSpellIfCan(nullptr, m_bIsLargeEvent ? SPELL_PRE_GAME_RED_LARGE : SPELL_PRE_GAME_RED_AURA, CAST_TRIGGERED);
+            DoCastSpellIfCan(nullptr, m_bIsLargeEvent ? SPELL_PRE_GAME_YELLOW_LARGE : SPELL_PRE_GAME_YELLOW_AURA, CAST_TRIGGERED);
+
+            m_vColors.clear();
+            ++m_uiLevelCount;
+        }
+
+        // Setup the color sequence
+        void DoSetupLevel()
         {
-            if (Player* pPlayer = m_creature->GetMap()->GetPlayer(m_masterPlayerGuid))
+            uint8 uiIndex = urand(COLOR_IDX_BLUE, COLOR_IDX_YELLOW);
+            m_vColors.push_back(uiIndex);
+
+            DoCastSpellIfCan(m_creature, aApexisGameData[uiIndex].m_uiVisual, CAST_TRIGGERED);
+            DoPlaySoundToSet(m_creature, aApexisGameData[uiIndex].m_uiSoundId);
+        }
+
+        // Setup the player level - called at the beginning at each player level
+        void DoSetupPlayerLevel()
+        {
+            // allow the buttons to be used and despawn the visual auras
+            DoCastSpellIfCan(nullptr, SPELL_GAME_START_RED, CAST_TRIGGERED);
+            DoCastSpellIfCan(nullptr, SPELL_GAME_START_BLUE, CAST_TRIGGERED);
+            DoCastSpellIfCan(nullptr, SPELL_GAME_START_GREEN, CAST_TRIGGERED);
+            DoCastSpellIfCan(nullptr, SPELL_GAME_START_YELLOW, CAST_TRIGGERED);
+        }
+
+        // Complete level - called when one level is completed succesfully
+        void DoCompleteLevel()
+        {
+            // lock the buttons
+            DoCastSpellIfCan(m_creature, SPELL_GAME_END_RED, CAST_TRIGGERED);
+            DoCastSpellIfCan(m_creature, SPELL_GAME_END_BLUE, CAST_TRIGGERED);
+            DoCastSpellIfCan(m_creature, SPELL_GAME_END_GREEN, CAST_TRIGGERED);
+            DoCastSpellIfCan(m_creature, SPELL_GAME_END_YELLOW, CAST_TRIGGERED);
+
+            if (m_bIsLargeEvent)
             {
-                if (Group* pGroup = pPlayer->GetGroup())
+                if (m_uiLevelCount == SIMON_BIG_LEVEL_SUMMON)
                 {
-                    for (GroupReference* pRef = pGroup->GetFirstMember(); pRef != nullptr; pRef = pRef->next())
-                    {
-                        if (Player* pMember = pRef->getSource())
-                        {
-                            // distance check - they need to be close to the Apexis
-                            if (!pMember->IsWithinDistInMap(m_creature, 20.0f))
-                                continue;
+                    BuffPlayers(SPELL_APEXIS_VIBRATIONS);
+                    if (Player* player = m_creature->GetMap()->GetPlayer(m_masterPlayerGuid))
+                        player->CastSpell(player, SPELL_SIMON_GROUP_REWARD, TRIGGERED_OLD_TRIGGERED);
+                    DoCompleteGame();
+                }
+            }
+            else
+            {
+                // Complete game if all the levels
+                switch (m_uiLevelCount)
+                {
+                    case SIMON_LEVEL_VIBRATIONS:
+                        BuffPlayers(SPELL_APEXIS_VIBRATIONS);
+                        break;
+                    case SIMON_LEVEL_EMANATIONS:
+                        BuffPlayers(SPELL_APEXIS_EMANATIONS);
+                        break;
+                    case SIMON_LEVEL_ENLIGHTENMENT:
+                        BuffPlayers(SPELL_APEXIS_ENLIGHTENMENT);
+                        DoCompleteGame();
+                        break;
+                    default: break;
+                }
+            }
+        }
 
-                            DoCastSpellIfCan(pMember, buffId, CAST_TRIGGERED);
+        void BuffPlayers(uint32 buffId)
+        {
+            if (m_bIsLargeEvent)
+            {
+                if (Player* pPlayer = m_creature->GetMap()->GetPlayer(m_masterPlayerGuid))
+                {
+                    if (Group* pGroup = pPlayer->GetGroup())
+                    {
+                        for (GroupReference* pRef = pGroup->GetFirstMember(); pRef != nullptr; pRef = pRef->next())
+                        {
+                            if (Player* pMember = pRef->getSource())
+                            {
+                                // distance check - they need to be close to the Apexis
+                                if (!pMember->IsWithinDistInMap(m_creature, 20.0f))
+                                    continue;
+
+                                DoCastSpellIfCan(pMember, buffId, CAST_TRIGGERED);
+                            }
                         }
                     }
+                    else
+                        DoCastSpellIfCan(pPlayer, buffId, CAST_TRIGGERED);
                 }
-                else
+            }
+            else
+            {
+                if (Player* pPlayer = m_creature->GetMap()->GetPlayer(m_masterPlayerGuid))
                     DoCastSpellIfCan(pPlayer, buffId, CAST_TRIGGERED);
             }
         }
-        else
+
+        // Complete event - called when the game has been completed succesfully
+        void DoCompleteGame()
         {
-            if (Player* pPlayer = m_creature->GetMap()->GetPlayer(m_masterPlayerGuid))
-                DoCastSpellIfCan(pPlayer, buffId, CAST_TRIGGERED);
+            // cleanup event after quest is finished
+            DoCastSpellIfCan(m_creature, SPELL_SWITCHED_OFF, CAST_TRIGGERED);
+            DoPlaySoundToSet(m_creature, SOUND_ID_DISABLE_NODE);
+            Reset();
         }
-    }
 
-    // Complete event - called when the game has been completed succesfully
-    void DoCompleteGame()
-    {
-        // cleanup event after quest is finished
-        DoCastSpellIfCan(m_creature, SPELL_SWITCHED_OFF, CAST_TRIGGERED);
-        DoPlaySoundToSet(m_creature, SOUND_ID_DISABLE_NODE);
-        Reset();
-    }
-
-    // Cleanup event - called when event fails
-    void DoCleanupGame()
-    {
-        if (m_bIsLargeEvent)
-            if (Player* player = m_creature->GetMap()->GetPlayer(m_masterPlayerGuid))
-                player->CastSpell(player, SPELL_SIMON_GROUP_REWARD, TRIGGERED_OLD_TRIGGERED);
-
-        // lock the buttons
-        DoCastSpellIfCan(m_creature, SPELL_GAME_END_RED, CAST_TRIGGERED);
-        DoCastSpellIfCan(m_creature, SPELL_GAME_END_BLUE, CAST_TRIGGERED);
-        DoCastSpellIfCan(m_creature, SPELL_GAME_END_GREEN, CAST_TRIGGERED);
-        DoCastSpellIfCan(m_creature, SPELL_GAME_END_YELLOW, CAST_TRIGGERED);
-
-        //  unlock apexis and despawn
-        DoCastSpellIfCan(m_creature, SPELL_SWITCHED_OFF, CAST_TRIGGERED);
-        DoPlaySoundToSet(m_creature, SOUND_ID_DISABLE_NODE);
-        Reset();
-    }
-
-    void ReceiveAIEvent(AIEventType eventType, Unit* /*pSender*/, Unit* pInvoker, uint32 uiMiscValue) override
-    {
-        switch (m_uiGamePhase)
+        // Cleanup event - called when event fails
+        void DoCleanupGame()
         {
-            case PHASE_INACTIVE:
-                if (eventType == AI_EVENT_CUSTOM_A && !m_bIsEventStarted)
-                {
-                    m_uiGamePhase = PHASE_LEVEL_PREPARE;
-                    m_masterPlayerGuid = pInvoker->GetObjectGuid();
-                    m_uiLevelCount = 0;
-                    DoPrepareLevel();
-                    m_bIsEventStarted = true;
+            if (m_bIsLargeEvent)
+                if (Player* player = m_creature->GetMap()->GetPlayer(m_masterPlayerGuid))
+                    player->CastSpell(player, SPELL_SIMON_GROUP_REWARD, TRIGGERED_OLD_TRIGGERED);
+
+            // lock the buttons
+            DoCastSpellIfCan(m_creature, SPELL_GAME_END_RED, CAST_TRIGGERED);
+            DoCastSpellIfCan(m_creature, SPELL_GAME_END_BLUE, CAST_TRIGGERED);
+            DoCastSpellIfCan(m_creature, SPELL_GAME_END_GREEN, CAST_TRIGGERED);
+            DoCastSpellIfCan(m_creature, SPELL_GAME_END_YELLOW, CAST_TRIGGERED);
+
+            //  unlock apexis and despawn
+            DoCastSpellIfCan(m_creature, SPELL_SWITCHED_OFF, CAST_TRIGGERED);
+            DoPlaySoundToSet(m_creature, SOUND_ID_DISABLE_NODE);
+            Reset();
+        }
+
+        void ReceiveAIEvent(AIEventType eventType, Unit* /*pSender*/, Unit* pInvoker, uint32 uiMiscValue) override
+        {
+            switch (m_uiGamePhase)
+            {
+                case PHASE_INACTIVE:
+                    if (eventType == AI_EVENT_CUSTOM_A && !m_bIsEventStarted)
+                    {
+                        m_uiGamePhase = PHASE_LEVEL_PREPARE;
+                        m_masterPlayerGuid = pInvoker->GetObjectGuid();
+                        m_uiLevelCount = 0;
+                        DoPrepareLevel();
+                        m_bIsEventStarted = true;
+                        break;
+                    }
+                case PHASE_LEVEL_PREPARE:
+                    // delay before each level - handled by big timer aura
+                    if (eventType == AI_EVENT_CUSTOM_A)
+                        m_uiGamePhase = PHASE_AI_GAME;
                     break;
-                }
-            case PHASE_LEVEL_PREPARE:
-                // delay before each level - handled by big timer aura
-                if (eventType == AI_EVENT_CUSTOM_A)
-                    m_uiGamePhase = PHASE_AI_GAME;
-                break;
-            case PHASE_AI_GAME:
-                // AI game - handled by small timer aura
-                if (eventType == AI_EVENT_CUSTOM_B)
-                {
-                    // Move to next phase if the level is setup
-                    if (m_uiLevelStage == m_uiLevelCount)
+                case PHASE_AI_GAME:
+                    // AI game - handled by small timer aura
+                    if (eventType == AI_EVENT_CUSTOM_B)
                     {
-                        m_uiGamePhase = PHASE_PLAYER_PREPARE;
-                        m_uiLevelStage = 0;
-                        return;
-                    }
-
-                    DoSetupLevel();
-                    ++m_uiLevelStage;
-                }
-                break;
-            case PHASE_PLAYER_PREPARE:
-                // Player prepare - handled by small timer aura
-                if (eventType == AI_EVENT_CUSTOM_B)
-                {
-                    DoCastSpellIfCan(m_creature, SPELL_VISUAL_LEVEL_START, CAST_TRIGGERED);
-                    DoSetupPlayerLevel();
-
-                    m_uiGamePhase = PHASE_PLAYER_GAME;
-                    m_uiPlayerStage = 0;
-                }
-                break;
-            case PHASE_PLAYER_GAME:
-                // Player game - listen to the player moves
-                if (eventType == AI_EVENT_CUSTOM_C)
-                {
-                    // good button pressed
-                    m_uiPlayerStage = 0;
-                    if (uiMiscValue == aApexisGameData[m_vColors[m_uiLevelStage]].m_uiIntrospection)
-                    {
-                        DoCastSpellIfCan(m_creature, SPELL_GOOD_PRESS, CAST_TRIGGERED);
-                        DoCastSpellIfCan(m_creature, aApexisGameData[m_vColors[m_uiLevelStage]].m_uiVisual, CAST_TRIGGERED);
-
-                        DoPlaySoundToSet(m_creature, aApexisGameData[m_vColors[m_uiLevelStage]].m_uiSoundId);
-
-                        // increase the level stage and reset the event counter
-                        ++m_uiLevelStage;
-
-                        // if all buttons were pressed succesfully, then move to next level
-                        if (m_uiLevelStage == m_vColors.size())
+                        // Move to next phase if the level is setup
+                        if (m_uiLevelStage == m_uiLevelCount)
                         {
-                            DoCompleteLevel();
-
+                            m_uiGamePhase = PHASE_PLAYER_PREPARE;
                             m_uiLevelStage = 0;
-                            m_uiGamePhase = PHASE_LEVEL_FINISHED;
+                            return;
                         }
-                        // cast tick sound
-                        else
-                            DoCastSpellIfCan(pInvoker, m_bIsLargeEvent ? SPELL_VISUAL_GAME_TICK_LARGE : SPELL_VISUAL_GAME_TICK, CAST_TRIGGERED);
+
+                        DoSetupLevel();
+                        ++m_uiLevelStage;
                     }
-                    // bad button pressed
-                    else
+                    break;
+                case PHASE_PLAYER_PREPARE:
+                    // Player prepare - handled by small timer aura
+                    if (eventType == AI_EVENT_CUSTOM_B)
                     {
-                        DoCastSpellIfCan(pInvoker, SPELL_BAD_PRESS, CAST_TRIGGERED);
-                        if (!m_bIsLargeEvent && !pInvoker->IsAlive()) // if player got killed on small event
+                        DoCastSpellIfCan(m_creature, SPELL_VISUAL_LEVEL_START, CAST_TRIGGERED);
+                        DoSetupPlayerLevel();
+
+                        m_uiGamePhase = PHASE_PLAYER_GAME;
+                        m_uiPlayerStage = 0;
+                    }
+                    break;
+                case PHASE_PLAYER_GAME:
+                    // Player game - listen to the player moves
+                    if (eventType == AI_EVENT_CUSTOM_C)
+                    {
+                        // good button pressed
+                        m_uiPlayerStage = 0;
+                        if (uiMiscValue == aApexisGameData[m_vColors[m_uiLevelStage]].m_uiIntrospection)
+                        {
+                            DoCastSpellIfCan(m_creature, SPELL_GOOD_PRESS, CAST_TRIGGERED);
+                            DoCastSpellIfCan(m_creature, aApexisGameData[m_vColors[m_uiLevelStage]].m_uiVisual, CAST_TRIGGERED);
+
+                            DoPlaySoundToSet(m_creature, aApexisGameData[m_vColors[m_uiLevelStage]].m_uiSoundId);
+
+                            // increase the level stage and reset the event counter
+                            ++m_uiLevelStage;
+
+                            // if all buttons were pressed succesfully, then move to next level
+                            if (m_uiLevelStage == m_vColors.size())
+                            {
+                                DoCompleteLevel();
+
+                                m_uiLevelStage = 0;
+                                m_uiGamePhase = PHASE_LEVEL_FINISHED;
+                            }
+                            // cast tick sound
+                            else
+                                DoCastSpellIfCan(pInvoker, m_bIsLargeEvent ? SPELL_VISUAL_GAME_TICK_LARGE : SPELL_VISUAL_GAME_TICK, CAST_TRIGGERED);
+                        }
+                        // bad button pressed
+                        else
+                        {
+                            DoCastSpellIfCan(pInvoker, SPELL_BAD_PRESS, CAST_TRIGGERED);
+                            if (!m_bIsLargeEvent && !pInvoker->IsAlive()) // if player got killed on small event
+                            {
+                                DoCastSpellIfCan(m_creature, SPELL_VISUAL_GAME_FAILED, CAST_TRIGGERED);
+                                DoCleanupGame();
+                            }
+                        }
+                    }
+                    // AI ticks which handle the player timeout
+                    else if (eventType == AI_EVENT_CUSTOM_B)
+                    {
+                        // if it takes too much time, the event will fail
+                        if (m_uiPlayerStage == MAX_SIMON_FAIL_TIMER)
                         {
                             DoCastSpellIfCan(m_creature, SPELL_VISUAL_GAME_FAILED, CAST_TRIGGERED);
                             DoCleanupGame();
+                            return;
                         }
+
+                        // Not sure if this is right, but we need to keep the buttons unlocked on every tick
+                        DoSetupPlayerLevel();
+                        ++m_uiPlayerStage;
                     }
-                }
-                // AI ticks which handle the player timeout
-                else if (eventType == AI_EVENT_CUSTOM_B)
-                {
-                    // if it takes too much time, the event will fail
-                    if (m_uiPlayerStage == MAX_SIMON_FAIL_TIMER)
+                    break;
+                case PHASE_LEVEL_FINISHED:
+                    // small delay until the next level
+                    if (eventType == AI_EVENT_CUSTOM_A)
                     {
-                        DoCastSpellIfCan(m_creature, SPELL_VISUAL_GAME_FAILED, CAST_TRIGGERED);
-                        DoCleanupGame();
-                        return;
+                        DoPrepareLevel();
+                        m_uiGamePhase = PHASE_LEVEL_PREPARE;
                     }
-
-                    // Not sure if this is right, but we need to keep the buttons unlocked on every tick
-                    DoSetupPlayerLevel();
-                    ++m_uiPlayerStage;
-                }
-                break;
-            case PHASE_LEVEL_FINISHED:
-                // small delay until the next level
-                if (eventType == AI_EVENT_CUSTOM_A)
-                {
-                    DoPrepareLevel();
-                    m_uiGamePhase = PHASE_LEVEL_PREPARE;
-                }
-                break;
+                    break;
+            }
         }
-    }
 
-    void AttackStart(Unit* /*pWho*/) override { }
-    void MoveInLineOfSight(Unit* /*pWho*/) override { }
+        void AttackStart(Unit* /*pWho*/) override { }
+        void MoveInLineOfSight(Unit* /*pWho*/) override { }
 
-    void UpdateAI(const uint32 /*uiDiff*/) override
-    {
+        void UpdateAI(const uint32 /*uiDiff*/) override
+        {
 
-    }
+        }
+    };
+
+
+
 };
 
-UnitAI* GetAI_npc_simon_game_bunny(Creature* pCreature)
-{
-    return new npc_simon_game_bunnyAI(pCreature);
-}
 
-bool EffectDummyCreature_npc_simon_game_bunny(Unit* pCaster, uint32 uiSpellId, SpellEffectIndex uiEffIndex, Creature* pCreatureTarget, ObjectGuid /*originalCasterGuid*/)
-{
-    if (pCreatureTarget->GetEntry() != NPC_SIMON_GAME_BUNNY && pCreatureTarget->GetEntry() != NPC_SIMON_GAME_BUNNY_LARGE)
-        return false;
 
-    if (uiSpellId == SPELL_PRE_EVENT_TIMER && uiEffIndex == EFFECT_INDEX_0)
-    {
-        pCreatureTarget->AI()->SendAIEvent(AI_EVENT_CUSTOM_B, pCaster, pCreatureTarget);
-        return true;
-    }
-
-    return false;
-}
-
-bool EffectScriptEffectCreature_npc_simon_game_bunny(Unit* pCaster, uint32 uiSpellId, SpellEffectIndex uiEffIndex, Creature* pCreatureTarget, ObjectGuid originalCasterGuid)
-{
-    if ((uiSpellId == SPELL_INTROSPECTION_BLUE || uiSpellId == SPELL_INTROSPECTION_GREEN || uiSpellId == SPELL_INTROSPECTION_RED ||
-            uiSpellId == SPELL_INTROSPECTION_YELLOW) && uiEffIndex == EFFECT_INDEX_1)
-    {
-        if ((pCreatureTarget->GetEntry() == NPC_SIMON_GAME_BUNNY || pCreatureTarget->GetEntry() == NPC_SIMON_GAME_BUNNY_LARGE)
-                && pCaster->GetTypeId() == TYPEID_PLAYER && originalCasterGuid.IsGameObject())
-            pCreatureTarget->AI()->SendAIEvent(AI_EVENT_CUSTOM_C, pCaster, pCreatureTarget, uiSpellId);
-
-        return true;
-    }
-
-    return false;
-}
 
 /*######
 ## npc_light_orb_collector
@@ -864,86 +914,97 @@ enum
 
     MAX_PULL_DISTANCE           = 20,
 };
-
-struct npc_light_orb_collectorAI : public ScriptedAI
+class npc_light_orb_collector : public CreatureScript
 {
-    npc_light_orb_collectorAI(Creature* pCreature) : ScriptedAI(pCreature) { Reset(); }
+public:
+    npc_light_orb_collector() : CreatureScript("npc_light_orb_collector") { }
 
-    ObjectGuid m_selectedOrbGuid;
-    bool m_bOrbPulled;
-
-    uint32 m_uiStartTimer;
-
-    void Reset() override
+    UnitAI* GetAI(Creature* pCreature)
     {
-        m_bOrbPulled    = false;
-        m_uiStartTimer  = 0;
+        return new npc_light_orb_collectorAI(pCreature);
     }
 
-    void MoveInLineOfSight(Unit* pWho) override
+
+
+    struct npc_light_orb_collectorAI : public ScriptedAI
     {
-        if (pWho->GetTypeId() != TYPEID_UNIT || pWho->GetEntry() != NPC_LIGHT_ORB_MINI)
-            return;
+        npc_light_orb_collectorAI(Creature* pCreature) : ScriptedAI(pCreature) { Reset(); }
 
-        // Select an nearby orb to collect
-        if (!m_uiStartTimer && !m_bOrbPulled)
+        ObjectGuid m_selectedOrbGuid;
+        bool m_bOrbPulled;
+
+        uint32 m_uiStartTimer;
+
+        void Reset() override
         {
-            if (m_creature->GetDistance(pWho) <= MAX_PULL_DISTANCE)
+            m_bOrbPulled    = false;
+            m_uiStartTimer  = 0;
+        }
+
+        void MoveInLineOfSight(Unit* pWho) override
+        {
+            if (pWho->GetTypeId() != TYPEID_UNIT || pWho->GetEntry() != NPC_LIGHT_ORB_MINI)
+                return;
+
+            // Select an nearby orb to collect
+            if (!m_uiStartTimer && !m_bOrbPulled)
             {
-                m_selectedOrbGuid = pWho->GetObjectGuid();
-                m_uiStartTimer = 2000;
+                if (m_creature->GetDistance(pWho) <= MAX_PULL_DISTANCE)
+                {
+                    m_selectedOrbGuid = pWho->GetObjectGuid();
+                    m_uiStartTimer = 2000;
+                }
+            }
+            else if (m_bOrbPulled && pWho->GetObjectGuid() == m_selectedOrbGuid && m_creature->IsWithinDistInMap(pWho, 3.5f))
+            {
+                // Despawn the collected orb if close enough
+                ((Creature*)pWho)->ForcedDespawn();
+
+                // Give kill credit to the player
+                if (m_creature->IsTemporarySummon())
+                {
+                    if (Player* pSummoner = m_creature->GetMap()->GetPlayer(m_creature->GetSpawnerGuid()))
+                        pSummoner->KilledMonsterCredit(NPC_KILL_CREDIT_TRIGGER, m_creature->GetObjectGuid());
+                }
+
+                // Despawn collector
+                m_creature->ForcedDespawn();
             }
         }
-        else if (m_bOrbPulled && pWho->GetObjectGuid() == m_selectedOrbGuid && m_creature->IsWithinDistInMap(pWho, 3.5f))
+
+        void UpdateAI(const uint32 uiDiff) override
         {
-            // Despawn the collected orb if close enough
-            ((Creature*)pWho)->ForcedDespawn();
-
-            // Give kill credit to the player
-            if (m_creature->IsTemporarySummon())
+            if (m_uiStartTimer)
             {
-                if (Player* pSummoner = m_creature->GetMap()->GetPlayer(m_creature->GetSpawnerGuid()))
-                    pSummoner->KilledMonsterCredit(NPC_KILL_CREDIT_TRIGGER, m_creature->GetObjectGuid());
+                // Start collecting after some delay
+                if (m_uiStartTimer <= uiDiff)
+                {
+                    Creature* pSelectedOrb = m_creature->GetMap()->GetCreature(m_selectedOrbGuid);
+                    if (!pSelectedOrb)
+                        return;
+
+                    // Orb is pulled fast
+                    pSelectedOrb->SetWalk(false);
+
+                    // Move orb to the collector
+                    float fX, fY, fZ;
+                    pSelectedOrb->GetMotionMaster()->MoveIdle();
+                    m_creature->GetContactPoint(pSelectedOrb, fX, fY, fZ);
+                    pSelectedOrb->GetMotionMaster()->MovePoint(0, fX, fY, fZ);
+
+                    m_bOrbPulled = true;
+                    m_uiStartTimer = 0;
+                }
+                else
+                    m_uiStartTimer -= uiDiff;
             }
-
-            // Despawn collector
-            m_creature->ForcedDespawn();
         }
-    }
+    };
 
-    void UpdateAI(const uint32 uiDiff) override
-    {
-        if (m_uiStartTimer)
-        {
-            // Start collecting after some delay
-            if (m_uiStartTimer <= uiDiff)
-            {
-                Creature* pSelectedOrb = m_creature->GetMap()->GetCreature(m_selectedOrbGuid);
-                if (!pSelectedOrb)
-                    return;
 
-                // Orb is pulled fast
-                pSelectedOrb->SetWalk(false);
 
-                // Move orb to the collector
-                float fX, fY, fZ;
-                pSelectedOrb->GetMotionMaster()->MoveIdle();
-                m_creature->GetContactPoint(pSelectedOrb, fX, fY, fZ);
-                pSelectedOrb->GetMotionMaster()->MovePoint(0, fX, fY, fZ);
-
-                m_bOrbPulled = true;
-                m_uiStartTimer = 0;
-            }
-            else
-                m_uiStartTimer -= uiDiff;
-        }
-    }
 };
 
-UnitAI* GetAI_npc_light_orb_collector(Creature* pCreature)
-{
-    return new npc_light_orb_collectorAI(pCreature);
-}
 
 /*######
 ## npc_obelisk_trigger
@@ -1090,11 +1151,19 @@ struct npc_obelisk_triggerAI : public ScriptedAI
 
     }
 };
-
-UnitAI* GetAI_obelisk_triggerAI(Creature* pCreature)
+class npc_obelisk_trigger : public CreatureScript
 {
-    return new npc_obelisk_triggerAI(pCreature);
-}
+public:
+    npc_obelisk_trigger() : CreatureScript("npc_obelisk_trigger") { }
+
+    UnitAI* GetAI_obelisk_triggerAI(Creature* pCreature)
+    {
+        return new npc_obelisk_triggerAI(pCreature);
+    }
+
+
+
+};
 
 /*######
 ## npc_vimgol
@@ -1181,241 +1250,271 @@ struct npc_vimgol_AI : public ScriptedAI
         DoMeleeAttackIfReady();
     }
 };
-
-UnitAI* GetAI_npc_vimgol(Creature* pCreature)
+class npc_vimgol : public CreatureScript
 {
-    return new npc_vimgol_AI(pCreature);
-}
+public:
+    npc_vimgol() : CreatureScript("npc_vimgol") { }
+
+    UnitAI* GetAI(Creature* pCreature)
+    {
+        return new npc_vimgol_AI(pCreature);
+    }
+
+
+
+};
 
 /*######
 ## npc_vimgol_visual_bunny
 ######*/
-
-struct npc_vimgol_visual_bunnyAI : public ScriptedAI
+class npc_vimgol_visual_bunny : public CreatureScript
 {
-    npc_vimgol_visual_bunnyAI(Creature* pCreature) : ScriptedAI(pCreature)
+public:
+    npc_vimgol_visual_bunny() : CreatureScript("npc_vimgol_visual_bunny") { }
+
+    UnitAI* GetAI(Creature* pCreature)
     {
-        m_pMap = (ScriptedMap*)pCreature->GetInstanceData();
+        return new npc_vimgol_visual_bunnyAI(pCreature);
+    }
 
-        GuidVector bunnyGuids;
 
-        if (m_pMap)
+
+    struct npc_vimgol_visual_bunnyAI : public ScriptedAI
+    {
+        npc_vimgol_visual_bunnyAI(Creature* pCreature) : ScriptedAI(pCreature)
         {
-            m_pMap->GetCreatureGuidVectorFromStorage(m_creature->GetEntry(), bunnyGuids);
+            m_pMap = (ScriptedMap*)pCreature->GetInstanceData();
 
-            for (auto it = bunnyGuids.begin(); it != bunnyGuids.end(); ++it)
-                if ((*it) == m_creature->GetObjectGuid())
-                    m_uiBunnyId = std::distance(bunnyGuids.begin(), it);
-        }
+            GuidVector bunnyGuids;
 
-        Reset();
-    }
-
-    ScriptedMap* m_pMap;
-
-    uint8 m_uiBunnyId;
-    uint32 m_uiCastTimer;
-
-    void Reset() override
-    {
-        m_uiCastTimer = 0;
-    }
-
-    uint32 GetScriptData() override
-    {
-        return m_uiBunnyId;
-    }
-
-    void UpdateAI(const uint32 uiDiff) override
-    {
-        if (m_uiCastTimer <= uiDiff)
-        {
-            switch (m_uiBunnyId)
+            if (m_pMap)
             {
-                case 0:
-                    DoCastSpellIfCan(m_creature, SPELL_VIMGOL_POP_TEST_A);
-                    break;
-                case 1:
-                    DoCastSpellIfCan(m_creature, SPELL_VIMGOL_POP_TEST_B);
-                    break;
-                case 2:
-                    DoCastSpellIfCan(m_creature, SPELL_VIMGOL_POP_TEST_C);
-                    break;
-                case 3:
-                    DoCastSpellIfCan(m_creature, SPELL_VIMGOL_POP_TEST_D);
-                    break;
-                case 4:
-                    DoCastSpellIfCan(m_creature, SPELL_VIMGOL_POP_TEST_E);
-                    break;
+                m_pMap->GetCreatureGuidVectorFromStorage(m_creature->GetEntry(), bunnyGuids);
+
+                for (auto it = bunnyGuids.begin(); it != bunnyGuids.end(); ++it)
+                    if ((*it) == m_creature->GetObjectGuid())
+                        m_uiBunnyId = std::distance(bunnyGuids.begin(), it);
             }
 
-            m_uiCastTimer = 4000;
+            Reset();
         }
-        else
-            m_uiCastTimer -= uiDiff;
-    }
+
+        ScriptedMap* m_pMap;
+
+        uint8 m_uiBunnyId;
+        uint32 m_uiCastTimer;
+
+        void Reset() override
+        {
+            m_uiCastTimer = 0;
+        }
+
+        uint32 GetScriptData() override
+        {
+            return m_uiBunnyId;
+        }
+
+        void UpdateAI(const uint32 uiDiff) override
+        {
+            if (m_uiCastTimer <= uiDiff)
+            {
+                switch (m_uiBunnyId)
+                {
+                    case 0:
+                        DoCastSpellIfCan(m_creature, SPELL_VIMGOL_POP_TEST_A);
+                        break;
+                    case 1:
+                        DoCastSpellIfCan(m_creature, SPELL_VIMGOL_POP_TEST_B);
+                        break;
+                    case 2:
+                        DoCastSpellIfCan(m_creature, SPELL_VIMGOL_POP_TEST_C);
+                        break;
+                    case 3:
+                        DoCastSpellIfCan(m_creature, SPELL_VIMGOL_POP_TEST_D);
+                        break;
+                    case 4:
+                        DoCastSpellIfCan(m_creature, SPELL_VIMGOL_POP_TEST_E);
+                        break;
+                }
+
+                m_uiCastTimer = 4000;
+            }
+            else
+                m_uiCastTimer -= uiDiff;
+        }
+    };
+
+
+
 };
 
-UnitAI* GetAI_npc_vimgol_visual_bunny(Creature* pCreature)
-{
-    return new npc_vimgol_visual_bunnyAI(pCreature);
-}
 
 /*######
 ## npc_vimgol_middle_bunny
 ######*/
-
-struct npc_vimgol_middle_bunnyAI : public ScriptedAI
+class npc_vimgol_middle_bunny : public CreatureScript
 {
-    npc_vimgol_middle_bunnyAI(Creature* pCreature) : ScriptedAI(pCreature)
+public:
+    npc_vimgol_middle_bunny() : CreatureScript("npc_vimgol_middle_bunny") { }
+
+    UnitAI* GetAI(Creature* pCreature)
     {
-        m_pMap = (ScriptedMap*)pCreature->GetInstanceData();
-
-        if (m_pMap)
-            m_pMap->GetCreatureGuidVectorFromStorage(NPC_VIMGOL_VISUAL_BUNNY, m_uiBunnyGuids);
-
-        Reset();
+        return new npc_vimgol_middle_bunnyAI(pCreature);
     }
 
-    ScriptedMap* m_pMap;
-    GuidVector m_uiBunnyGuids;
 
-    bool m_uiSpawned;
-    bool m_uiActiveCircles[5];
-    uint32 m_uiScanTimer;
-    uint8 m_uiBeamTimer;
-    uint8 m_uiFireballSkipCounter;
 
-    void Reset() override
+    struct npc_vimgol_middle_bunnyAI : public ScriptedAI
     {
-        m_uiSpawned = false;
-
-        for (bool& m_uiActiveCircle : m_uiActiveCircles)
-            m_uiActiveCircle = false;
-
-        m_uiScanTimer = 0;
-        m_uiBeamTimer = 5;
-        m_uiFireballSkipCounter = 0;
-    }
-
-    uint8 playersInsideCircles()
-    {
-        uint32 tmpAuras[5] =
+        npc_vimgol_middle_bunnyAI(Creature* pCreature) : ScriptedAI(pCreature)
         {
-            SPELL_VIMGOL_POP_TEST_A, SPELL_VIMGOL_POP_TEST_B, SPELL_VIMGOL_POP_TEST_C,
-            SPELL_VIMGOL_POP_TEST_D, SPELL_VIMGOL_POP_TEST_E
-        };
-        uint8 tmpCounter = 0;
+            m_pMap = (ScriptedMap*)pCreature->GetInstanceData();
 
-        if (m_uiBunnyGuids.size() < 5 && m_pMap)
-        {
-            m_uiBunnyGuids.clear();
-            m_pMap->GetCreatureGuidVectorFromStorage(NPC_VIMGOL_VISUAL_BUNNY, m_uiBunnyGuids);
+            if (m_pMap)
+                m_pMap->GetCreatureGuidVectorFromStorage(NPC_VIMGOL_VISUAL_BUNNY, m_uiBunnyGuids);
+
+            Reset();
         }
 
-        for (bool& m_uiActiveCircle : m_uiActiveCircles)
-            m_uiActiveCircle = false;
+        ScriptedMap* m_pMap;
+        GuidVector m_uiBunnyGuids;
 
-        std::list<Player*> playerList;
-        GetPlayerListWithEntryInWorld(playerList, m_creature, 30);
-        for (auto& itr : playerList)
+        bool m_uiSpawned;
+        bool m_uiActiveCircles[5];
+        uint32 m_uiScanTimer;
+        uint8 m_uiBeamTimer;
+        uint8 m_uiFireballSkipCounter;
+
+        void Reset() override
         {
-            if (!itr->HasAura(SPELL_VIMGOL_POP_TEST_A) && !itr->HasAura(SPELL_VIMGOL_POP_TEST_B) && !itr->HasAura(SPELL_VIMGOL_POP_TEST_C) &&
-                    !itr->HasAura(SPELL_VIMGOL_POP_TEST_D) && !itr->HasAura(SPELL_VIMGOL_POP_TEST_E))
-                continue;
+            m_uiSpawned = false;
 
-            for (auto it = m_uiBunnyGuids.begin(); it != m_uiBunnyGuids.end(); ++it)
+            for (bool& m_uiActiveCircle : m_uiActiveCircles)
+                m_uiActiveCircle = false;
+
+            m_uiScanTimer = 0;
+            m_uiBeamTimer = 5;
+            m_uiFireballSkipCounter = 0;
+        }
+
+        uint8 playersInsideCircles()
+        {
+            uint32 tmpAuras[5] =
             {
-                for (unsigned int tmpAura : tmpAuras)
+                SPELL_VIMGOL_POP_TEST_A, SPELL_VIMGOL_POP_TEST_B, SPELL_VIMGOL_POP_TEST_C,
+                SPELL_VIMGOL_POP_TEST_D, SPELL_VIMGOL_POP_TEST_E
+            };
+            uint8 tmpCounter = 0;
+
+            if (m_uiBunnyGuids.size() < 5 && m_pMap)
+            {
+                m_uiBunnyGuids.clear();
+                m_pMap->GetCreatureGuidVectorFromStorage(NPC_VIMGOL_VISUAL_BUNNY, m_uiBunnyGuids);
+            }
+
+            for (bool& m_uiActiveCircle : m_uiActiveCircles)
+                m_uiActiveCircle = false;
+
+            std::list<Player*> playerList;
+            GetPlayerListWithEntryInWorld(playerList, m_creature, 30);
+            for (auto& itr : playerList)
+            {
+                if (!itr->HasAura(SPELL_VIMGOL_POP_TEST_A) && !itr->HasAura(SPELL_VIMGOL_POP_TEST_B) && !itr->HasAura(SPELL_VIMGOL_POP_TEST_C) &&
+                        !itr->HasAura(SPELL_VIMGOL_POP_TEST_D) && !itr->HasAura(SPELL_VIMGOL_POP_TEST_E))
+                    continue;
+
+                for (auto it = m_uiBunnyGuids.begin(); it != m_uiBunnyGuids.end(); ++it)
                 {
-                    if (!itr->GetAura(tmpAura, SpellEffectIndex(0)))
-                        continue;
+                    for (unsigned int tmpAura : tmpAuras)
+                    {
+                        if (!itr->GetAura(tmpAura, SpellEffectIndex(0)))
+                            continue;
 
-                    if ((*it) != itr->GetAura(tmpAura, SpellEffectIndex(0))->GetCasterGuid())
-                        continue;
+                        if ((*it) != itr->GetAura(tmpAura, SpellEffectIndex(0))->GetCasterGuid())
+                            continue;
 
-                    m_uiActiveCircles[std::distance(m_uiBunnyGuids.begin(), it)] = true;
+                        m_uiActiveCircles[std::distance(m_uiBunnyGuids.begin(), it)] = true;
+                    }
                 }
             }
+
+            for (bool m_uiActiveCircle : m_uiActiveCircles)
+                if (m_uiActiveCircle)
+                    ++tmpCounter;
+
+            return tmpCounter;
         }
 
-        for (bool m_uiActiveCircle : m_uiActiveCircles)
-            if (m_uiActiveCircle)
-                ++tmpCounter;
-
-        return tmpCounter;
-    }
-
-    void CastBunnySpell(Creature* pTarget, uint32 uSpell)
-    {
-        if (!uSpell)
-            return;
-
-        std::list<Creature*> creatureList;
-        GetCreatureListWithEntryInGrid(creatureList, m_creature, NPC_VIMGOL_VISUAL_BUNNY, 200.0f);
-        for (auto& bunny : creatureList)
-            for (auto it = m_uiBunnyGuids.begin(); it != m_uiBunnyGuids.end(); ++it)
-                if ((*it) == bunny->GetObjectGuid())
-                    if (m_uiActiveCircles[std::distance(m_uiBunnyGuids.begin(), it)])
-                        bunny->CastSpell(pTarget ? pTarget : bunny, uSpell, TRIGGERED_OLD_TRIGGERED);
-    }
-
-    void JustSummoned(Creature* pSummoned) override
-    {
-        pSummoned->CastSpell(pSummoned, SPELL_SUMMONED_DEMON, TRIGGERED_OLD_TRIGGERED);
-        CastBunnySpell(nullptr, SPELL_PENTAGRAM_BEAM);
-        m_uiSpawned = true;
-
-        for (bool& m_uiActiveCircle : m_uiActiveCircles)
-            m_uiActiveCircle = false;
-    }
-
-    void UpdateAI(const uint32 uiDiff) override
-    {
-        if (m_uiScanTimer <= uiDiff)
+        void CastBunnySpell(Creature* pTarget, uint32 uSpell)
         {
-            m_uiScanTimer = 1000;
+            if (!uSpell)
+                return;
 
-            if (m_uiSpawned)
+            std::list<Creature*> creatureList;
+            GetCreatureListWithEntryInGrid(creatureList, m_creature, NPC_VIMGOL_VISUAL_BUNNY, 200.0f);
+            for (auto& bunny : creatureList)
+                for (auto it = m_uiBunnyGuids.begin(); it != m_uiBunnyGuids.end(); ++it)
+                    if ((*it) == bunny->GetObjectGuid())
+                        if (m_uiActiveCircles[std::distance(m_uiBunnyGuids.begin(), it)])
+                            bunny->CastSpell(pTarget ? pTarget : bunny, uSpell, TRIGGERED_OLD_TRIGGERED);
+        }
+
+        void JustSummoned(Creature* pSummoned) override
+        {
+            pSummoned->CastSpell(pSummoned, SPELL_SUMMONED_DEMON, TRIGGERED_OLD_TRIGGERED);
+            CastBunnySpell(nullptr, SPELL_PENTAGRAM_BEAM);
+            m_uiSpawned = true;
+
+            for (bool& m_uiActiveCircle : m_uiActiveCircles)
+                m_uiActiveCircle = false;
+        }
+
+        void UpdateAI(const uint32 uiDiff) override
+        {
+            if (m_uiScanTimer <= uiDiff)
             {
-                if (Creature* pVimgol = GetClosestCreatureWithEntry(m_creature, NPC_VIMGOL_THE_VILE, 40.0f, true))
+                m_uiScanTimer = 1000;
+
+                if (m_uiSpawned)
                 {
-                    m_uiFireballSkipCounter++;
-                    if (m_uiFireballSkipCounter == 3)
+                    if (Creature* pVimgol = GetClosestCreatureWithEntry(m_creature, NPC_VIMGOL_THE_VILE, 40.0f, true))
                     {
-                        CastBunnySpell(pVimgol, SPELL_INTERRUPT_UNHOLY_GROWTH);
-                        m_uiFireballSkipCounter = 0;
+                        m_uiFireballSkipCounter++;
+                        if (m_uiFireballSkipCounter == 3)
+                        {
+                            CastBunnySpell(pVimgol, SPELL_INTERRUPT_UNHOLY_GROWTH);
+                            m_uiFireballSkipCounter = 0;
+                        }
+                        if (playersInsideCircles() == 5)
+                            pVimgol->InterruptSpell(CURRENT_GENERIC_SPELL);
                     }
-                    if (playersInsideCircles() == 5)
-                        pVimgol->InterruptSpell(CURRENT_GENERIC_SPELL);
+                    else
+                    {
+                        m_uiSpawned = false;
+                        m_uiScanTimer = 30000;
+                    }
                 }
                 else
                 {
-                    m_uiSpawned = false;
-                    m_uiScanTimer = 30000;
+                    if (playersInsideCircles() == 5)
+                        m_creature->SummonCreature(NPC_VIMGOL_THE_VILE, m_creature->GetPositionX(), m_creature->GetPositionY(), m_creature->GetPositionZ(), m_creature->GetOrientation(), TEMPSPAWN_TIMED_OOC_OR_DEAD_DESPAWN, 90000);
+                    if (m_uiBeamTimer == 0)
+                    {
+                        CastBunnySpell(nullptr, SPELL_PENTAGRAM_BEAM);
+                        m_uiBeamTimer = 5;
+                    }
+                    m_uiBeamTimer--;
                 }
             }
             else
-            {
-                if (playersInsideCircles() == 5)
-                    m_creature->SummonCreature(NPC_VIMGOL_THE_VILE, m_creature->GetPositionX(), m_creature->GetPositionY(), m_creature->GetPositionZ(), m_creature->GetOrientation(), TEMPSPAWN_TIMED_OOC_OR_DEAD_DESPAWN, 90000);
-                if (m_uiBeamTimer == 0)
-                {
-                    CastBunnySpell(nullptr, SPELL_PENTAGRAM_BEAM);
-                    m_uiBeamTimer = 5;
-                }
-                m_uiBeamTimer--;
-            }
+                m_uiScanTimer -= uiDiff;
         }
-        else
-            m_uiScanTimer -= uiDiff;
-    }
+    };
+
+
+
 };
 
-UnitAI* GetAI_npc_vimgol_middle_bunny(Creature* pCreature)
-{
-    return new npc_vimgol_middle_bunnyAI(pCreature);
-}
 
 /*######
 ## npc_bird_spirit
@@ -1425,85 +1524,96 @@ enum
 {
     NPC_TASKMASTER = 22160,
 };
-
-struct npc_bird_spiritAI : public ScriptedAI
+class npc_bird_spirit : public CreatureScript
 {
-    npc_bird_spiritAI(Creature* pCreature) : ScriptedAI(pCreature) { Reset(); }
+public:
+    npc_bird_spirit() : CreatureScript("npc_bird_spirit") { }
 
-    uint8 m_uiPhase;
-    uint32 m_uiTimer;
-    ObjectGuid m_taskmasterGuid;
-
-    void Reset() override
+    UnitAI* GetAI(Creature* pCreature)
     {
-        m_uiTimer = 2000;
-        m_uiPhase = 0;
+        return new npc_bird_spiritAI(pCreature);
     }
 
-    void JustRespawned() override
+
+
+    struct npc_bird_spiritAI : public ScriptedAI
     {
-        Creature* taskmaster = GetClosestCreatureWithEntry(m_creature, NPC_TASKMASTER, 15.f);
-        if (taskmaster) // should always be valid - spell checks for it
+        npc_bird_spiritAI(Creature* pCreature) : ScriptedAI(pCreature) { Reset(); }
+
+        uint8 m_uiPhase;
+        uint32 m_uiTimer;
+        ObjectGuid m_taskmasterGuid;
+
+        void Reset() override
         {
-            m_creature->SetWalk(false, true);
-            m_taskmasterGuid = taskmaster->GetObjectGuid();
+            m_uiTimer = 2000;
+            m_uiPhase = 0;
         }
-    }
 
-    void MovementInform(uint32 /*uiMovementType*/, uint32 uiData) override
-    {
-        switch (uiData)
+        void JustRespawned() override
         {
-            case 1: m_uiTimer = 2000; break;
-            case 2: m_uiTimer = 2000; break;
-        }
-    }
-
-    void UpdateAI(const uint32 uiDiff) override
-    {
-        if (m_uiTimer)
-        {
-            if (m_uiTimer <= uiDiff)
+            Creature* taskmaster = GetClosestCreatureWithEntry(m_creature, NPC_TASKMASTER, 15.f);
+            if (taskmaster) // should always be valid - spell checks for it
             {
-                switch (m_uiPhase)
+                m_creature->SetWalk(false, true);
+                m_taskmasterGuid = taskmaster->GetObjectGuid();
+            }
+        }
+
+        void MovementInform(uint32 /*uiMovementType*/, uint32 uiData) override
+        {
+            switch (uiData)
+            {
+                case 1: m_uiTimer = 2000; break;
+                case 2: m_uiTimer = 2000; break;
+            }
+        }
+
+        void UpdateAI(const uint32 uiDiff) override
+        {
+            if (m_uiTimer)
+            {
+                if (m_uiTimer <= uiDiff)
                 {
-                    case 0:
+                    switch (m_uiPhase)
                     {
-                        if (Creature* taskM = m_creature->GetMap()->GetCreature(m_taskmasterGuid))
-                            m_creature->GetMotionMaster()->MovePoint(1, taskM->GetPositionX(), taskM->GetPositionY(), taskM->GetPositionZ());
-                        m_uiTimer = 0;
-                        m_uiPhase++;
-                        break;
-                    }
-                    case 1:
-                    {
-                        m_creature->SetSelectionGuid(m_creature->GetSpawnerGuid());
-                        if (Unit* summoner = m_creature->GetMap()->GetUnit(m_creature->GetSpawnerGuid()))
-                            m_creature->GetMotionMaster()->MovePoint(2, summoner->GetPositionX(), summoner->GetPositionY(), summoner->GetPositionZ());
-                        m_uiTimer = 0;
-                        m_uiPhase++;
-                        break;
-                    }
-                    case 2:
-                    {
-                        TemporarySpawn* summon = (TemporarySpawn*)m_creature;
-                        summon->UnSummon();
-                        m_uiTimer = 0;
-                        m_uiPhase++;
-                        break;
+                        case 0:
+                        {
+                            if (Creature* taskM = m_creature->GetMap()->GetCreature(m_taskmasterGuid))
+                                m_creature->GetMotionMaster()->MovePoint(1, taskM->GetPositionX(), taskM->GetPositionY(), taskM->GetPositionZ());
+                            m_uiTimer = 0;
+                            m_uiPhase++;
+                            break;
+                        }
+                        case 1:
+                        {
+                            m_creature->SetSelectionGuid(m_creature->GetSpawnerGuid());
+                            if (Unit* summoner = m_creature->GetMap()->GetUnit(m_creature->GetSpawnerGuid()))
+                                m_creature->GetMotionMaster()->MovePoint(2, summoner->GetPositionX(), summoner->GetPositionY(), summoner->GetPositionZ());
+                            m_uiTimer = 0;
+                            m_uiPhase++;
+                            break;
+                        }
+                        case 2:
+                        {
+                            TemporarySpawn* summon = (TemporarySpawn*)m_creature;
+                            summon->UnSummon();
+                            m_uiTimer = 0;
+                            m_uiPhase++;
+                            break;
+                        }
                     }
                 }
+                else
+                    m_uiTimer -= uiDiff;
             }
-            else
-                m_uiTimer -= uiDiff;
         }
-    }
+    };
+
+
+
 };
 
-UnitAI* GetAI_npc_bird_spirit(Creature* pCreature)
-{
-    return new npc_bird_spiritAI(pCreature);
-}
 
 /*######
 ## npc_bloodmaul_dire_wolf
@@ -1519,80 +1629,94 @@ enum
 
     FACTION_FRIENDLY                    = 35,
 };
-
-struct npc_bloodmaul_dire_wolfAI : public ScriptedAI
+class npc_bloodmaul_dire_wolf : public CreatureScript
 {
-    npc_bloodmaul_dire_wolfAI(Creature* pCreature) : ScriptedAI(pCreature) { Reset(); }
+public:
+    npc_bloodmaul_dire_wolf() : CreatureScript("npc_bloodmaul_dire_wolf") { }
 
-    uint32 m_uiUnfriendlyTimer;
-    uint32 m_uiRendTimer;
-
-    void Reset() override
+    bool OnEffectScriptEffect(Unit* pCaster, uint32 uiSpellId, SpellEffectIndex uiEffIndex, Creature* pCreatureTarget, ObjectGuid /*originalCasterGuid*/) override
     {
-        m_uiUnfriendlyTimer = 0;
-        m_uiRendTimer       = urand(3000, 6000);
-    }
-
-    void ReceiveAIEvent(AIEventType eventType, Unit* /*pSender*/, Unit* /*pInvoker*/, uint32 /*uiMiscValue*/) override
-    {
-        if (eventType == AI_EVENT_CUSTOM_A)
-            m_uiUnfriendlyTimer = 60000;
-    }
-
-    void UpdateAI(const uint32 uiDiff) override
-    {
-        // Reset npc on timer
-        if (m_uiUnfriendlyTimer)
+        if (uiSpellId == SPELL_RINAS_DIMINUTION_POWDER && uiEffIndex == EFFECT_INDEX_1 && pCreatureTarget->GetEntry() == NPC_BLOODMAUL_DIRE_WOLF)
         {
-            if (m_uiUnfriendlyTimer <= uiDiff)
-                EnterEvadeMode();
+            // Check if creature already has aura. ToDo: check for Hibernating creatures
+            if (pCreatureTarget->HasAura(SPELL_RINAS_DIMINUTION_POWDER))
+                return true;
+
+            // give kill credit, change to friendly and inform the creautre about the reset timer
+            ((Player*)pCaster)->KilledMonsterCredit(NPC_DIRE_WOLF_TRIGGER);
+            pCreatureTarget->SetFactionTemporary(FACTION_FRIENDLY, TEMPFACTION_RESTORE_REACH_HOME);
+
+            // Note: we can't remove all auras because it will also remove the current aura; so currently we only remove periodic damage auras
+            // This might be wrong and we might need to change this to something like "RemoveAllAurasExceptId(...)"
+            pCreatureTarget->RemoveSpellsCausingAura(SPELL_AURA_PERIODIC_DAMAGE);
+            pCreatureTarget->CombatStop(true);
+
+            pCreatureTarget->AI()->SendAIEvent(AI_EVENT_CUSTOM_A, pCaster, pCreatureTarget);
+            return true;
+        }
+
+        return false;
+    }
+
+
+
+    UnitAI* GetAI(Creature* pCreature)
+    {
+        return new npc_bloodmaul_dire_wolfAI(pCreature);
+    }
+
+
+
+    struct npc_bloodmaul_dire_wolfAI : public ScriptedAI
+    {
+        npc_bloodmaul_dire_wolfAI(Creature* pCreature) : ScriptedAI(pCreature) { Reset(); }
+
+        uint32 m_uiUnfriendlyTimer;
+        uint32 m_uiRendTimer;
+
+        void Reset() override
+        {
+            m_uiUnfriendlyTimer = 0;
+            m_uiRendTimer       = urand(3000, 6000);
+        }
+
+        void ReceiveAIEvent(AIEventType eventType, Unit* /*pSender*/, Unit* /*pInvoker*/, uint32 /*uiMiscValue*/) override
+        {
+            if (eventType == AI_EVENT_CUSTOM_A)
+                m_uiUnfriendlyTimer = 60000;
+        }
+
+        void UpdateAI(const uint32 uiDiff) override
+        {
+            // Reset npc on timer
+            if (m_uiUnfriendlyTimer)
+            {
+                if (m_uiUnfriendlyTimer <= uiDiff)
+                    EnterEvadeMode();
+                else
+                    m_uiUnfriendlyTimer -= uiDiff;
+            }
+
+            if (!m_creature->SelectHostileTarget() || !m_creature->GetVictim())
+                return;
+
+            if (m_uiRendTimer < uiDiff)
+            {
+                if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_REND) == CAST_OK)
+                    m_uiRendTimer = urand(8000, 13000);
+            }
             else
-                m_uiUnfriendlyTimer -= uiDiff;
+                m_uiRendTimer -= uiDiff;
+
+            DoMeleeAttackIfReady();
         }
+    };
 
-        if (!m_creature->SelectHostileTarget() || !m_creature->GetVictim())
-            return;
 
-        if (m_uiRendTimer < uiDiff)
-        {
-            if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_REND) == CAST_OK)
-                m_uiRendTimer = urand(8000, 13000);
-        }
-        else
-            m_uiRendTimer -= uiDiff;
 
-        DoMeleeAttackIfReady();
-    }
 };
 
-UnitAI* GetAI_npc_bloodmaul_dire_wolf(Creature* pCreature)
-{
-    return new npc_bloodmaul_dire_wolfAI(pCreature);
-}
 
-bool EffectScriptEffectCreature_spell_diminution_powder(Unit* pCaster, uint32 uiSpellId, SpellEffectIndex uiEffIndex, Creature* pCreatureTarget, ObjectGuid /*originalCasterGuid*/)
-{
-    if (uiSpellId == SPELL_RINAS_DIMINUTION_POWDER && uiEffIndex == EFFECT_INDEX_1 && pCreatureTarget->GetEntry() == NPC_BLOODMAUL_DIRE_WOLF)
-    {
-        // Check if creature already has aura. ToDo: check for Hibernating creatures
-        if (pCreatureTarget->HasAura(SPELL_RINAS_DIMINUTION_POWDER))
-            return true;
-
-        // give kill credit, change to friendly and inform the creautre about the reset timer
-        ((Player*)pCaster)->KilledMonsterCredit(NPC_DIRE_WOLF_TRIGGER);
-        pCreatureTarget->SetFactionTemporary(FACTION_FRIENDLY, TEMPFACTION_RESTORE_REACH_HOME);
-
-        // Note: we can't remove all auras because it will also remove the current aura; so currently we only remove periodic damage auras
-        // This might be wrong and we might need to change this to something like "RemoveAllAurasExceptId(...)"
-        pCreatureTarget->RemoveSpellsCausingAura(SPELL_AURA_PERIODIC_DAMAGE);
-        pCreatureTarget->CombatStop(true);
-
-        pCreatureTarget->AI()->SendAIEvent(AI_EVENT_CUSTOM_A, pCaster, pCreatureTarget);
-        return true;
-    }
-
-    return false;
-}
 
 /*######
 ## mobs_grishna_arrakoa
@@ -1624,35 +1748,43 @@ enum
     // NPC_WHISPER_RAVEN_GOD_TEMPLATE  = 21851,
     NPC_VISION_RAVEN_GOD_TEMPLATE   = 21861,
 };
-
-bool AreaTrigger_at_raven_prophecy(Player* pPlayer, AreaTriggerEntry const* pAt)
+class mobs_grishna_arrakoa : public CreatureScript
 {
-    if (/*pPlayer->isGameMaster() ||*/ pPlayer->IsAlive() &&
-                                       pPlayer->HasAura(UNDERSTAND_RAVENSPEECH_AURA) &&
-        pPlayer->GetQuestStatus(QUEST_WHISPERS_OF_THE_RAVEN_GOD) == QUEST_STATUS_INCOMPLETE)
-    {
-        auto prophecyIterator = prophecies.find(pAt->id);
-        if (prophecyIterator != prophecies.end())
-        {
-            Prophecy prophecy = prophecyIterator->second;
-            //The quest required IDs are negative when they are game object so we must negate the game object ID
-            if (pPlayer->GetReqKillOrCastCurrentCount(QUEST_WHISPERS_OF_THE_RAVEN_GOD, prophecy.creature) == 0)
-            {
-                if (Creature* whisper = ((ScriptedMap*)pPlayer->GetInstanceData())->GetSingleCreatureFromStorage(NPC_WHISPER_RAVEN_GOD_TEMPLATE))
-                {
-                    if (pPlayer->SummonCreature(NPC_VISION_RAVEN_GOD_TEMPLATE, prophecy.x, prophecy.y, prophecy.z, prophecy.o, TEMPSPAWN_TIMED_DESPAWN, 6000))
-                    {
-                        DoScriptText(prophecy.text, whisper, pPlayer);
+public:
+    mobs_grishna_arrakoa() : CreatureScript("mobs_grishna_arrakoa") { }
 
-                        //giving credit for the game object automatically negates the id, so we don't have to negate it 
-                        pPlayer->KilledMonsterCredit(prophecy.creature);
+    bool OnTrigger(Player* pPlayer, AreaTriggerEntry const* pAt) override
+    {
+        if (/*pPlayer->isGameMaster() ||*/ pPlayer->IsAlive() &&
+                                           pPlayer->HasAura(UNDERSTAND_RAVENSPEECH_AURA) &&
+            pPlayer->GetQuestStatus(QUEST_WHISPERS_OF_THE_RAVEN_GOD) == QUEST_STATUS_INCOMPLETE)
+        {
+            auto prophecyIterator = prophecies.find(pAt->id);
+            if (prophecyIterator != prophecies.end())
+            {
+                Prophecy prophecy = prophecyIterator->second;
+                //The quest required IDs are negative when they are game object so we must negate the game object ID
+                if (pPlayer->GetReqKillOrCastCurrentCount(QUEST_WHISPERS_OF_THE_RAVEN_GOD, prophecy.creature) == 0)
+                {
+                    if (Creature* whisper = ((ScriptedMap*)pPlayer->GetInstanceData())->GetSingleCreatureFromStorage(NPC_WHISPER_RAVEN_GOD_TEMPLATE))
+                    {
+                        if (pPlayer->SummonCreature(NPC_VISION_RAVEN_GOD_TEMPLATE, prophecy.x, prophecy.y, prophecy.z, prophecy.o, TEMPSPAWN_TIMED_DESPAWN, 6000))
+                        {
+                            DoScriptText(prophecy.text, whisper, pPlayer);
+
+                            //giving credit for the game object automatically negates the id, so we don't have to negate it 
+                            pPlayer->KilledMonsterCredit(prophecy.creature);
+                        }
                     }
                 }
             }
         }
+        return false;
     }
-    return false;
-}
+
+
+
+};
 
 /*######
 ## npc_frequency_scanner
@@ -1809,16 +1941,32 @@ struct npc_frequency_scanner : public ScriptedAI
         }        
     }
 };
-
-UnitAI* GetAI_npc_frequency_scanner(Creature* creature)
+class npc_frequency_scanner : public CreatureScript
 {
-    return new npc_frequency_scanner(creature);
-}
+public:
+    npc_frequency_scanner() : CreatureScript("npc_frequency_scanner") { }
 
-GameObjectAI* GetGOAI_go_aura_generator_000(GameObject* go)
+    UnitAI* GetAI(Creature* creature)
+    {
+        return new npc_frequency_scanner(creature);
+    }
+
+
+
+};
+class go_aura_generator_000 : public GameObjectScript
 {
-    return new go_aura_generator_000AI(go);
-}
+public:
+    go_aura_generator_000() : GameObjectScript("go_aura_generator_000") { }
+
+    GameObjectAI* GetGOAI(GameObject* go)
+    {
+        return new go_aura_generator_000AI(go);
+    }
+
+
+
+};
 
 /*######
 ## npc_fel_cannon
@@ -1925,11 +2073,19 @@ struct npc_fel_cannon : public Scripted_NoMovementAI
         }
     }
 };
-
-UnitAI* GetAI_npc_fel_cannon(Creature* pCreature)
+class npc_fel_cannon : public CreatureScript
 {
-    return new npc_fel_cannon(pCreature);
-}
+public:
+    npc_fel_cannon() : CreatureScript("npc_fel_cannon") { }
+
+    UnitAI* GetAI(Creature* pCreature)
+    {
+        return new npc_fel_cannon(pCreature);
+    }
+
+
+
+};
 
 /*######
 ## npc_warp_gate
@@ -2108,11 +2264,19 @@ struct npc_warp_gate : public Scripted_NoMovementAI
         }
     }
 };
-
-UnitAI* GetAI_npc_warp_gate(Creature* pCreature)
+class npc_warp_gate : public CreatureScript
 {
-    return new npc_warp_gate(pCreature);
-}
+public:
+    npc_warp_gate() : CreatureScript("npc_warp_gate") { }
+
+    UnitAI* GetAI(Creature* pCreature)
+    {
+        return new npc_warp_gate(pCreature);
+    }
+
+
+
+};
 
 /*######
 ## npc_soulgrinder
@@ -2144,276 +2308,295 @@ enum
     SAY_SKULLOC_SOULGRINDER = -1015016,
     SAY_FAIL_QUEST          = -1015017,
 };
-
-bool ProcessEventId_Soulgrinder(uint32 /*uiEventId*/, Object* pSource, Object* /*pTarget*/, bool /*bIsStart*/)
+class event_into_the_soulgrinder : public UnknownScript
 {
-    if (GetClosestCreatureWithEntry((WorldObject*)pSource, NPC_SOULGRINDER, 20))
-    {
-        return false;
-    }
-    Player* player = (Player*)pSource;
-    player->SummonCreature(NPC_SOULGRINDER, 3535.111f, 5590.628f, 0.3859383f, 0.7853982f, TEMPSPAWN_TIMED_OR_CORPSE_DESPAWN, 265000);
-    return true;
-}
+public:
+    event_into_the_soulgrinder() : UnknownScript("event_into_the_soulgrinder") { }
 
-struct npc_soulgrinderAI : public ScriptedAI
+    bool OnProcessEvent(uint32 /*uiEventId*/, Object* pSource, Object* /*pTarget*/, bool /*bIsStart*/) override
+    {
+        if (GetClosestCreatureWithEntry((WorldObject*)pSource, NPC_SOULGRINDER, 20))
+        {
+            return false;
+        }
+        Player* player = (Player*)pSource;
+        player->SummonCreature(NPC_SOULGRINDER, 3535.111f, 5590.628f, 0.3859383f, 0.7853982f, TEMPSPAWN_TIMED_OR_CORPSE_DESPAWN, 265000);
+        return true;
+    }
+
+
+
+};
+class npc_soulgrinder : public CreatureScript
 {
-    npc_soulgrinderAI(Creature* pCreature) : ScriptedAI(pCreature)
+public:
+    npc_soulgrinder() : CreatureScript("npc_soulgrinder") { }
+
+    UnitAI* GetAI(Creature* pCreature)
     {
-        SetReactState(REACT_PASSIVE);
-        m_uiTimer = 7000; // need to be set once, without regard for combat
-        m_uiPhase = 0;
-        m_uiOgreCounter = 0;
-        m_ogreAttackTimer = 0;
-        Reset();
+        return new npc_soulgrinderAI(pCreature);
     }
 
-    uint8 m_uiPhase;
-    uint32 m_uiTimer;
-    uint8 m_uiOgreCounter;
-    uint32 m_ogreAttackTimer;
-    GuidVector m_ogreSpirits;
-    GuidVector m_soulgrinderDummies;
-    ObjectGuid m_skullocSoulgrinder;
 
-    void Reset() override
+
+    struct npc_soulgrinderAI : public ScriptedAI
     {
-
-    }
-
-    void JustRespawned() override
-    {
-        // 26 spawns that are spawned immediately with this NPC
-        m_creature->SummonCreature(NPC_OGRE_SPIRIT, 3574.525f, 5624.78f,  -9.746364f, 5.707227f, TEMPSPAWN_CORPSE_DESPAWN, 1000);
-        m_creature->SummonCreature(NPC_OGRE_SPIRIT, 3558.613f, 5543.979f, -2.24089f, 0.9948376f, TEMPSPAWN_CORPSE_DESPAWN, 1000);
-        m_creature->SummonCreature(NPC_OGRE_SPIRIT, 3542.293f, 5546.184f, -2.307737f, 5.096361f, TEMPSPAWN_CORPSE_DESPAWN, 1000);
-        m_creature->SummonCreature(NPC_OGRE_SPIRIT, 3507.783f, 5607.564f, -2.115761f, 2.146755f, TEMPSPAWN_CORPSE_DESPAWN, 1000);
-        m_creature->SummonCreature(NPC_OGRE_SPIRIT, 3525.318f, 5624.862f, -5.340961f, 0.2792527f, TEMPSPAWN_CORPSE_DESPAWN, 1000);
-        m_creature->SummonCreature(NPC_OGRE_SPIRIT, 3573.157f, 5592.371f, -4.614707f, 2.984513f, TEMPSPAWN_CORPSE_DESPAWN, 1000);
-        m_creature->SummonCreature(NPC_OGRE_SPIRIT, 3542.814f, 5622.923f, -3.886532f, 0.1919862f, TEMPSPAWN_CORPSE_DESPAWN, 1000);
-        m_creature->SummonCreature(NPC_OGRE_SPIRIT, 3574.056f, 5574.628f, -5.577652f, 0.2792527f, TEMPSPAWN_CORPSE_DESPAWN, 1000);
-        m_creature->SummonCreature(NPC_OGRE_SPIRIT, 3559.653f, 5559.587f, -2.850421f, 3.01942f, TEMPSPAWN_CORPSE_DESPAWN, 1000);
-        m_creature->SummonCreature(NPC_OGRE_SPIRIT, 3574.718f, 5609.495f, -3.285291f, 1.32645f, TEMPSPAWN_CORPSE_DESPAWN, 1000);
-        m_creature->SummonCreature(NPC_OGRE_SPIRIT, 3541.38f,  5559.73f,  -2.665792f, 2.827433f, TEMPSPAWN_CORPSE_DESPAWN, 1000);
-        m_creature->SummonCreature(NPC_OGRE_SPIRIT, 3542.222f, 5573.395f, -2.64414f, 4.276057f, TEMPSPAWN_CORPSE_DESPAWN, 1000);
-        m_creature->SummonCreature(NPC_OGRE_SPIRIT, 3557.254f, 5591.203f, -2.993953f, 3.01942f, TEMPSPAWN_CORPSE_DESPAWN, 1000);
-        m_creature->SummonCreature(NPC_OGRE_SPIRIT, 3558.495f, 5577.132f, -3.076451f, 3.892084f, TEMPSPAWN_CORPSE_DESPAWN, 1000);
-        m_creature->SummonCreature(NPC_OGRE_SPIRIT, 3557.081f, 5612.431f, -4.562363f, 1.518436f, TEMPSPAWN_CORPSE_DESPAWN, 1000);
-        m_creature->SummonCreature(NPC_OGRE_SPIRIT, 3542.203f, 5608.064f, -3.378048f, 0.1570796f, TEMPSPAWN_CORPSE_DESPAWN, 1000);
-        m_creature->SummonCreature(NPC_OGRE_SPIRIT, 3558.009f, 5626.f   , -5.146327f, 3.857178f, TEMPSPAWN_CORPSE_DESPAWN, 1000);
-        m_creature->SummonCreature(NPC_OGRE_SPIRIT, 3524.67f,  5608.019f, -3.321486f, 2.042035f, TEMPSPAWN_CORPSE_DESPAWN, 1000);
-        m_creature->SummonCreature(NPC_OGRE_SPIRIT, 3510.031f, 5575.792f, -1.80589f, 4.904375f, TEMPSPAWN_CORPSE_DESPAWN, 1000);
-        m_creature->SummonCreature(NPC_OGRE_SPIRIT, 3508.348f, 5589.707f, -0.8961017f, 1.623156f, TEMPSPAWN_CORPSE_DESPAWN, 1000);
-        m_creature->SummonCreature(NPC_OGRE_SPIRIT, 3507.988f, 5561.777f,  1.993673f, 2.80998f, TEMPSPAWN_CORPSE_DESPAWN, 1000);
-        m_creature->SummonCreature(NPC_OGRE_SPIRIT, 3509.509f, 5625.191f, -4.461998f, 0.06981317f, TEMPSPAWN_CORPSE_DESPAWN, 1000);
-        m_creature->SummonCreature(NPC_OGRE_SPIRIT, 3525.131f, 5573.122f, -1.622976f, 6.126106f, TEMPSPAWN_CORPSE_DESPAWN, 1000);
-        m_creature->SummonCreature(NPC_OGRE_SPIRIT, 3493.974f, 5594.064f, -0.03712566f, 2.670354f, TEMPSPAWN_CORPSE_DESPAWN, 1000);
-        m_creature->SummonCreature(NPC_OGRE_SPIRIT, 3526.678f, 5560.159f, -0.8016807f, 0.9424778f, TEMPSPAWN_CORPSE_DESPAWN, 1000);
-        m_creature->SummonCreature(NPC_OGRE_SPIRIT, 3574.228f, 5559.057f, -6.009155f, 6.021386f, TEMPSPAWN_CORPSE_DESPAWN, 1000);
-    }
-
-    void JustSummoned(Creature* summoned) override
-    {
-        switch (summoned->GetEntry())
+        npc_soulgrinderAI(Creature* pCreature) : ScriptedAI(pCreature)
         {
-            case NPC_OGRE_SPIRIT:
-                m_ogreSpirits.push_back(summoned->GetObjectGuid());
-                break;
-            case NPC_SKULLOC_SOULGRINDER:
-                m_skullocSoulgrinder = summoned->GetObjectGuid();
-                break;
-            case NPC_SOULGRINDER_BUNNY:
-                m_soulgrinderDummies.push_back(summoned->GetObjectGuid());
-                break;
+            SetReactState(REACT_PASSIVE);
+            m_uiTimer = 7000; // need to be set once, without regard for combat
+            m_uiPhase = 0;
+            m_uiOgreCounter = 0;
+            m_ogreAttackTimer = 0;
+            Reset();
         }
-    }
 
-    void JustDied(Unit* /*pKiller*/) override
-    {
-        for (ObjectGuid& guid : m_soulgrinderDummies)
-            if (Creature* dummy = m_creature->GetMap()->GetCreature(guid))
-                dummy->ForcedDespawn();
+        uint8 m_uiPhase;
+        uint32 m_uiTimer;
+        uint8 m_uiOgreCounter;
+        uint32 m_ogreAttackTimer;
+        GuidVector m_ogreSpirits;
+        GuidVector m_soulgrinderDummies;
+        ObjectGuid m_skullocSoulgrinder;
 
-        for (ObjectGuid& guid : m_ogreSpirits)
-            if (Creature* spirit = m_creature->GetMap()->GetCreature(guid))
-                spirit->ForcedDespawn();
-
-        if (Player* summoner = m_creature->GetMap()->GetPlayer(m_creature->GetSpawnerGuid()))
-            summoner->FailQuest(11000);
-
-        if (Creature* gronn = m_creature->GetMap()->GetCreature(m_skullocSoulgrinder))
+        void Reset() override
         {
-            DoScriptText(SAY_FAIL_QUEST, gronn);
-            gronn->ForcedDespawn();
-        }
-    }
 
-    void SummonedCreatureJustDied(Creature* pSummoned) override
-    {
-        if (pSummoned->GetEntry() == NPC_SKULLOC_SOULGRINDER)
+        }
+
+        void JustRespawned() override
+        {
+            // 26 spawns that are spawned immediately with this NPC
+            m_creature->SummonCreature(NPC_OGRE_SPIRIT, 3574.525f, 5624.78f,  -9.746364f, 5.707227f, TEMPSPAWN_CORPSE_DESPAWN, 1000);
+            m_creature->SummonCreature(NPC_OGRE_SPIRIT, 3558.613f, 5543.979f, -2.24089f, 0.9948376f, TEMPSPAWN_CORPSE_DESPAWN, 1000);
+            m_creature->SummonCreature(NPC_OGRE_SPIRIT, 3542.293f, 5546.184f, -2.307737f, 5.096361f, TEMPSPAWN_CORPSE_DESPAWN, 1000);
+            m_creature->SummonCreature(NPC_OGRE_SPIRIT, 3507.783f, 5607.564f, -2.115761f, 2.146755f, TEMPSPAWN_CORPSE_DESPAWN, 1000);
+            m_creature->SummonCreature(NPC_OGRE_SPIRIT, 3525.318f, 5624.862f, -5.340961f, 0.2792527f, TEMPSPAWN_CORPSE_DESPAWN, 1000);
+            m_creature->SummonCreature(NPC_OGRE_SPIRIT, 3573.157f, 5592.371f, -4.614707f, 2.984513f, TEMPSPAWN_CORPSE_DESPAWN, 1000);
+            m_creature->SummonCreature(NPC_OGRE_SPIRIT, 3542.814f, 5622.923f, -3.886532f, 0.1919862f, TEMPSPAWN_CORPSE_DESPAWN, 1000);
+            m_creature->SummonCreature(NPC_OGRE_SPIRIT, 3574.056f, 5574.628f, -5.577652f, 0.2792527f, TEMPSPAWN_CORPSE_DESPAWN, 1000);
+            m_creature->SummonCreature(NPC_OGRE_SPIRIT, 3559.653f, 5559.587f, -2.850421f, 3.01942f, TEMPSPAWN_CORPSE_DESPAWN, 1000);
+            m_creature->SummonCreature(NPC_OGRE_SPIRIT, 3574.718f, 5609.495f, -3.285291f, 1.32645f, TEMPSPAWN_CORPSE_DESPAWN, 1000);
+            m_creature->SummonCreature(NPC_OGRE_SPIRIT, 3541.38f,  5559.73f,  -2.665792f, 2.827433f, TEMPSPAWN_CORPSE_DESPAWN, 1000);
+            m_creature->SummonCreature(NPC_OGRE_SPIRIT, 3542.222f, 5573.395f, -2.64414f, 4.276057f, TEMPSPAWN_CORPSE_DESPAWN, 1000);
+            m_creature->SummonCreature(NPC_OGRE_SPIRIT, 3557.254f, 5591.203f, -2.993953f, 3.01942f, TEMPSPAWN_CORPSE_DESPAWN, 1000);
+            m_creature->SummonCreature(NPC_OGRE_SPIRIT, 3558.495f, 5577.132f, -3.076451f, 3.892084f, TEMPSPAWN_CORPSE_DESPAWN, 1000);
+            m_creature->SummonCreature(NPC_OGRE_SPIRIT, 3557.081f, 5612.431f, -4.562363f, 1.518436f, TEMPSPAWN_CORPSE_DESPAWN, 1000);
+            m_creature->SummonCreature(NPC_OGRE_SPIRIT, 3542.203f, 5608.064f, -3.378048f, 0.1570796f, TEMPSPAWN_CORPSE_DESPAWN, 1000);
+            m_creature->SummonCreature(NPC_OGRE_SPIRIT, 3558.009f, 5626.f   , -5.146327f, 3.857178f, TEMPSPAWN_CORPSE_DESPAWN, 1000);
+            m_creature->SummonCreature(NPC_OGRE_SPIRIT, 3524.67f,  5608.019f, -3.321486f, 2.042035f, TEMPSPAWN_CORPSE_DESPAWN, 1000);
+            m_creature->SummonCreature(NPC_OGRE_SPIRIT, 3510.031f, 5575.792f, -1.80589f, 4.904375f, TEMPSPAWN_CORPSE_DESPAWN, 1000);
+            m_creature->SummonCreature(NPC_OGRE_SPIRIT, 3508.348f, 5589.707f, -0.8961017f, 1.623156f, TEMPSPAWN_CORPSE_DESPAWN, 1000);
+            m_creature->SummonCreature(NPC_OGRE_SPIRIT, 3507.988f, 5561.777f,  1.993673f, 2.80998f, TEMPSPAWN_CORPSE_DESPAWN, 1000);
+            m_creature->SummonCreature(NPC_OGRE_SPIRIT, 3509.509f, 5625.191f, -4.461998f, 0.06981317f, TEMPSPAWN_CORPSE_DESPAWN, 1000);
+            m_creature->SummonCreature(NPC_OGRE_SPIRIT, 3525.131f, 5573.122f, -1.622976f, 6.126106f, TEMPSPAWN_CORPSE_DESPAWN, 1000);
+            m_creature->SummonCreature(NPC_OGRE_SPIRIT, 3493.974f, 5594.064f, -0.03712566f, 2.670354f, TEMPSPAWN_CORPSE_DESPAWN, 1000);
+            m_creature->SummonCreature(NPC_OGRE_SPIRIT, 3526.678f, 5560.159f, -0.8016807f, 0.9424778f, TEMPSPAWN_CORPSE_DESPAWN, 1000);
+            m_creature->SummonCreature(NPC_OGRE_SPIRIT, 3574.228f, 5559.057f, -6.009155f, 6.021386f, TEMPSPAWN_CORPSE_DESPAWN, 1000);
+        }
+
+        void JustSummoned(Creature* summoned) override
+        {
+            switch (summoned->GetEntry())
+            {
+                case NPC_OGRE_SPIRIT:
+                    m_ogreSpirits.push_back(summoned->GetObjectGuid());
+                    break;
+                case NPC_SKULLOC_SOULGRINDER:
+                    m_skullocSoulgrinder = summoned->GetObjectGuid();
+                    break;
+                case NPC_SOULGRINDER_BUNNY:
+                    m_soulgrinderDummies.push_back(summoned->GetObjectGuid());
+                    break;
+            }
+        }
+
+        void JustDied(Unit* /*pKiller*/) override
         {
             for (ObjectGuid& guid : m_soulgrinderDummies)
                 if (Creature* dummy = m_creature->GetMap()->GetCreature(guid))
                     dummy->ForcedDespawn();
 
-            m_creature->ForcedDespawn();
-        }
-    }
+            for (ObjectGuid& guid : m_ogreSpirits)
+                if (Creature* spirit = m_creature->GetMap()->GetCreature(guid))
+                    spirit->ForcedDespawn();
 
-    void SummonedCreatureDespawn(Creature* pSummoned) override
-    {
-        if (pSummoned == m_creature)
-        {
-            for (ObjectGuid& guid : m_soulgrinderDummies)
-                if (Creature* dummy = m_creature->GetMap()->GetCreature(guid))
-                    dummy->ForcedDespawn();
+            if (Player* summoner = m_creature->GetMap()->GetPlayer(m_creature->GetSpawnerGuid()))
+                summoner->FailQuest(11000);
 
             if (Creature* gronn = m_creature->GetMap()->GetCreature(m_skullocSoulgrinder))
-                if (gronn->IsAlive())
-                    gronn->ForcedDespawn();
-        }
-    }
-
-    void SpawnCreature()
-    {
-        if (Creature* ogre = m_creature->GetMap()->GetCreature(m_ogreSpirits[m_uiOgreCounter]))
-        {
-            ogre->AI()->SetReactState(REACT_DEFENSIVE);
-            ogre->CastSpell(ogre, SPELL_SOULGRINDER_GHOST_TRANSFORM, TRIGGERED_NONE);
-            ogre->CastSpell(ogre, SPELL_SPIRIT_PARTICLES_PURPLE, TRIGGERED_NONE);
-            ogre->CastSpell(ogre, SPELL_SOULGRINDER_GHOST_SPAWN_IN, TRIGGERED_NONE);
-            ogre->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE);
-            ogre->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_PLAYER);
-            ogre->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_NPC);
-            m_ogreAttackTimer = urand(2000,4000);
-        }
-    }
-
-    void UpdateAI(const uint32 uiDiff) override
-    {
-        if (m_ogreAttackTimer) // Spirits attack 2 seconds after being "spawned in"
-        {
-            if (m_ogreAttackTimer <= uiDiff)
             {
-                m_ogreAttackTimer = 0;
-                if (Creature* ogre = m_creature->GetMap()->GetCreature(m_ogreSpirits[m_uiOgreCounter - 1]))
-                {
-                    ogre->AI()->AttackStart(m_creature);
-                    ogre->AI()->SetReactState(REACT_AGGRESSIVE);
-                }
+                DoScriptText(SAY_FAIL_QUEST, gronn);
+                gronn->ForcedDespawn();
             }
-            else
-                m_ogreAttackTimer -= uiDiff;
         }
 
-        if (m_uiTimer)
+        void SummonedCreatureJustDied(Creature* pSummoned) override
         {
-            if (m_uiTimer <= uiDiff)
+            if (pSummoned->GetEntry() == NPC_SKULLOC_SOULGRINDER)
             {
-                switch (m_uiPhase)
-                {
-                    case 0:
-                    {
-                        SpawnCreature();
-                        m_uiTimer = 6000;
-                        m_uiOgreCounter++;
-                        if (m_uiOgreCounter == 2)
-                        {
-                            Creature * bunny = m_creature->SummonCreature(NPC_SOULGRINDER_BUNNY, 3491.224f, 5529.023f, 17.14335f, 6.195919f, TEMPSPAWN_MANUAL_DESPAWN, 0);
-                            Creature * gronn = m_creature->SummonCreature(NPC_SKULLOC_SOULGRINDER, 3478.563f, 5550.74f, 7.838801f, 0.3665192f, TEMPSPAWN_TIMED_OOC_OR_DEAD_DESPAWN, 300000);
-                            bunny->CastSpell(m_creature, SPELL_BEAM, TRIGGERED_NONE);
-                            gronn->GetMotionMaster()->MoveIdle();
-                            gronn->CastSpell(gronn, SPELL_SHADOWFORM_1, TRIGGERED_NONE);
-                        }
-                        else if (m_uiOgreCounter == 8)
-                        {
-                            Creature * bunny = m_creature->SummonCreature(NPC_SOULGRINDER_BUNNY, 3464.954f, 5564.684f, 17.99977f, 5.67232f, TEMPSPAWN_MANUAL_DESPAWN, 0);
-                            bunny->CastSpell(m_creature, SPELL_BEAM, TRIGGERED_NONE);
-                            if (Creature* gronn = m_creature->GetMap()->GetCreature(m_skullocSoulgrinder))
-                            {
-                                gronn->CastSpell(gronn, SPELL_SHADOWFORM_2, TRIGGERED_NONE);
-                                gronn->CastSpell(gronn, SPELL_SHADOWFORM_TEST, TRIGGERED_NONE);
-                            }
-                        }
-                        else if (m_uiOgreCounter == 14)
-                        {
-                            Creature * bunny = m_creature->SummonCreature(NPC_SOULGRINDER_BUNNY, 3515.02f, 5524.39f, 16.8927f, 3.560477f, TEMPSPAWN_MANUAL_DESPAWN, 0);
-                            bunny->CastSpell(m_creature, SPELL_BEAM, TRIGGERED_NONE);
-                            if (Creature* gronn = m_creature->GetMap()->GetCreature(m_skullocSoulgrinder))
-                            {
-                                gronn->CastSpell(gronn, SPELL_SHADOWFORM_3, TRIGGERED_NONE);
-                                gronn->CastSpell(gronn, SPELL_SHADOWFORM_TEST, TRIGGERED_NONE);
-                            }
-                        }
-                        else if (m_uiOgreCounter == 20)
-                        {
-                            Creature * bunny = m_creature->SummonCreature(NPC_SOULGRINDER_BUNNY, 3468.82f, 5581.41f, 17.5205f, 0.0174533f, TEMPSPAWN_MANUAL_DESPAWN, 0);
-                            bunny->CastSpell(m_creature, SPELL_BEAM, TRIGGERED_NONE);
-                            if (Creature* gronn = m_creature->GetMap()->GetCreature(m_skullocSoulgrinder))
-                            {
-                                gronn->RemoveAurasDueToSpell(SPELL_SHADOWFORM_1);
-                                gronn->RemoveAurasDueToSpell(SPELL_SHADOWFORM_2);
-                                gronn->RemoveAurasDueToSpell(SPELL_SHADOWFORM_3);
-                                gronn->CastSpell(gronn, SPELL_SHADOWFORM_4, TRIGGERED_NONE);
-                                gronn->CastSpell(gronn, SPELL_SHADOWFORM_TEST, TRIGGERED_NONE);
-                            }
-                        }
-                        else if (m_uiOgreCounter == 25)
-                        {
-                            for (ObjectGuid& guid : m_soulgrinderDummies)
-                                if (Creature* dummy = m_creature->GetMap()->GetCreature(guid))
-                                    dummy->InterruptSpell(CURRENT_CHANNELED_SPELL);
+                for (ObjectGuid& guid : m_soulgrinderDummies)
+                    if (Creature* dummy = m_creature->GetMap()->GetCreature(guid))
+                        dummy->ForcedDespawn();
 
-                            for (ObjectGuid& guid : m_ogreSpirits)
-                                if (Creature* spirit = m_creature->GetMap()->GetCreature(guid))
-                                    spirit->ForcedDespawn();
+                m_creature->ForcedDespawn();
+            }
+        }
+
+        void SummonedCreatureDespawn(Creature* pSummoned) override
+        {
+            if (pSummoned == m_creature)
+            {
+                for (ObjectGuid& guid : m_soulgrinderDummies)
+                    if (Creature* dummy = m_creature->GetMap()->GetCreature(guid))
+                        dummy->ForcedDespawn();
+
+                if (Creature* gronn = m_creature->GetMap()->GetCreature(m_skullocSoulgrinder))
+                    if (gronn->IsAlive())
+                        gronn->ForcedDespawn();
+            }
+        }
+
+        void SpawnCreature()
+        {
+            if (Creature* ogre = m_creature->GetMap()->GetCreature(m_ogreSpirits[m_uiOgreCounter]))
+            {
+                ogre->AI()->SetReactState(REACT_DEFENSIVE);
+                ogre->CastSpell(ogre, SPELL_SOULGRINDER_GHOST_TRANSFORM, TRIGGERED_NONE);
+                ogre->CastSpell(ogre, SPELL_SPIRIT_PARTICLES_PURPLE, TRIGGERED_NONE);
+                ogre->CastSpell(ogre, SPELL_SOULGRINDER_GHOST_SPAWN_IN, TRIGGERED_NONE);
+                ogre->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE);
+                ogre->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_PLAYER);
+                ogre->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_NPC);
+                m_ogreAttackTimer = urand(2000,4000);
+            }
+        }
+
+        void UpdateAI(const uint32 uiDiff) override
+        {
+            if (m_ogreAttackTimer) // Spirits attack 2 seconds after being "spawned in"
+            {
+                if (m_ogreAttackTimer <= uiDiff)
+                {
+                    m_ogreAttackTimer = 0;
+                    if (Creature* ogre = m_creature->GetMap()->GetCreature(m_ogreSpirits[m_uiOgreCounter - 1]))
+                    {
+                        ogre->AI()->AttackStart(m_creature);
+                        ogre->AI()->SetReactState(REACT_AGGRESSIVE);
+                    }
+                }
+                else
+                    m_ogreAttackTimer -= uiDiff;
+            }
+
+            if (m_uiTimer)
+            {
+                if (m_uiTimer <= uiDiff)
+                {
+                    switch (m_uiPhase)
+                    {
+                        case 0:
+                        {
+                            SpawnCreature();
+                            m_uiTimer = 6000;
+                            m_uiOgreCounter++;
+                            if (m_uiOgreCounter == 2)
+                            {
+                                Creature * bunny = m_creature->SummonCreature(NPC_SOULGRINDER_BUNNY, 3491.224f, 5529.023f, 17.14335f, 6.195919f, TEMPSPAWN_MANUAL_DESPAWN, 0);
+                                Creature * gronn = m_creature->SummonCreature(NPC_SKULLOC_SOULGRINDER, 3478.563f, 5550.74f, 7.838801f, 0.3665192f, TEMPSPAWN_TIMED_OOC_OR_DEAD_DESPAWN, 300000);
+                                bunny->CastSpell(m_creature, SPELL_BEAM, TRIGGERED_NONE);
+                                gronn->GetMotionMaster()->MoveIdle();
+                                gronn->CastSpell(gronn, SPELL_SHADOWFORM_1, TRIGGERED_NONE);
+                            }
+                            else if (m_uiOgreCounter == 8)
+                            {
+                                Creature * bunny = m_creature->SummonCreature(NPC_SOULGRINDER_BUNNY, 3464.954f, 5564.684f, 17.99977f, 5.67232f, TEMPSPAWN_MANUAL_DESPAWN, 0);
+                                bunny->CastSpell(m_creature, SPELL_BEAM, TRIGGERED_NONE);
+                                if (Creature* gronn = m_creature->GetMap()->GetCreature(m_skullocSoulgrinder))
+                                {
+                                    gronn->CastSpell(gronn, SPELL_SHADOWFORM_2, TRIGGERED_NONE);
+                                    gronn->CastSpell(gronn, SPELL_SHADOWFORM_TEST, TRIGGERED_NONE);
+                                }
+                            }
+                            else if (m_uiOgreCounter == 14)
+                            {
+                                Creature * bunny = m_creature->SummonCreature(NPC_SOULGRINDER_BUNNY, 3515.02f, 5524.39f, 16.8927f, 3.560477f, TEMPSPAWN_MANUAL_DESPAWN, 0);
+                                bunny->CastSpell(m_creature, SPELL_BEAM, TRIGGERED_NONE);
+                                if (Creature* gronn = m_creature->GetMap()->GetCreature(m_skullocSoulgrinder))
+                                {
+                                    gronn->CastSpell(gronn, SPELL_SHADOWFORM_3, TRIGGERED_NONE);
+                                    gronn->CastSpell(gronn, SPELL_SHADOWFORM_TEST, TRIGGERED_NONE);
+                                }
+                            }
+                            else if (m_uiOgreCounter == 20)
+                            {
+                                Creature * bunny = m_creature->SummonCreature(NPC_SOULGRINDER_BUNNY, 3468.82f, 5581.41f, 17.5205f, 0.0174533f, TEMPSPAWN_MANUAL_DESPAWN, 0);
+                                bunny->CastSpell(m_creature, SPELL_BEAM, TRIGGERED_NONE);
+                                if (Creature* gronn = m_creature->GetMap()->GetCreature(m_skullocSoulgrinder))
+                                {
+                                    gronn->RemoveAurasDueToSpell(SPELL_SHADOWFORM_1);
+                                    gronn->RemoveAurasDueToSpell(SPELL_SHADOWFORM_2);
+                                    gronn->RemoveAurasDueToSpell(SPELL_SHADOWFORM_3);
+                                    gronn->CastSpell(gronn, SPELL_SHADOWFORM_4, TRIGGERED_NONE);
+                                    gronn->CastSpell(gronn, SPELL_SHADOWFORM_TEST, TRIGGERED_NONE);
+                                }
+                            }
+                            else if (m_uiOgreCounter == 25)
+                            {
+                                for (ObjectGuid& guid : m_soulgrinderDummies)
+                                    if (Creature* dummy = m_creature->GetMap()->GetCreature(guid))
+                                        dummy->InterruptSpell(CURRENT_CHANNELED_SPELL);
+
+                                for (ObjectGuid& guid : m_ogreSpirits)
+                                    if (Creature* spirit = m_creature->GetMap()->GetCreature(guid))
+                                        spirit->ForcedDespawn();
                             
-                            m_creature->CastSpell(nullptr, SPELL_SCARE_SOULGRINDER_GHOST, TRIGGERED_NONE);
+                                m_creature->CastSpell(nullptr, SPELL_SCARE_SOULGRINDER_GHOST, TRIGGERED_NONE);
+                                if (Creature* gronn = m_creature->GetMap()->GetCreature(m_skullocSoulgrinder))
+                                {
+                                    gronn->RemoveAurasDueToSpell(SPELL_SHADOWFORM_4);
+                                    gronn->CastSpell(gronn, SPELL_SHADOWFORM_4, TRIGGERED_NONE);
+                                    gronn->CastSpell(gronn, SPELL_SHADOWFORM_TEST, TRIGGERED_NONE);
+                                    m_creature->CastSpell(gronn, SPELL_BEAM, TRIGGERED_NONE);
+                                }
+                                m_uiTimer = 4000;
+                                m_uiPhase++;
+                            }
+                            return;
+                        }
+                        case 1:
+                        {
+                            if (Creature* gronn = m_creature->GetMap()->GetCreature(m_skullocSoulgrinder))
+                            {
+                                DoScriptText(SAY_SKULLOC_SOULGRINDER, gronn);
+                                gronn->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_PLAYER);
+                                gronn->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE);
+                            }
+                            m_uiTimer = 6000;
+                            m_uiPhase++;
+                            return;
+                        }
+                        case 2:
+                        {
                             if (Creature* gronn = m_creature->GetMap()->GetCreature(m_skullocSoulgrinder))
                             {
                                 gronn->RemoveAurasDueToSpell(SPELL_SHADOWFORM_4);
-                                gronn->CastSpell(gronn, SPELL_SHADOWFORM_4, TRIGGERED_NONE);
-                                gronn->CastSpell(gronn, SPELL_SHADOWFORM_TEST, TRIGGERED_NONE);
-                                m_creature->CastSpell(gronn, SPELL_BEAM, TRIGGERED_NONE);
+                                m_creature->InterruptSpell(CURRENT_CHANNELED_SPELL);
                             }
-                            m_uiTimer = 4000;
-                            m_uiPhase++;
+                            m_uiTimer = 0;
                         }
-                        return;
-                    }
-                    case 1:
-                    {
-                        if (Creature* gronn = m_creature->GetMap()->GetCreature(m_skullocSoulgrinder))
-                        {
-                            DoScriptText(SAY_SKULLOC_SOULGRINDER, gronn);
-                            gronn->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_PLAYER);
-                            gronn->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE);
-                        }
-                        m_uiTimer = 6000;
-                        m_uiPhase++;
-                        return;
-                    }
-                    case 2:
-                    {
-                        if (Creature* gronn = m_creature->GetMap()->GetCreature(m_skullocSoulgrinder))
-                        {
-                            gronn->RemoveAurasDueToSpell(SPELL_SHADOWFORM_4);
-                            m_creature->InterruptSpell(CURRENT_CHANNELED_SPELL);
-                        }
-                        m_uiTimer = 0;
                     }
                 }
+                else
+                    m_uiTimer -= uiDiff;
             }
-            else
-                m_uiTimer -= uiDiff;
         }
-    }
+    };
+
+
+
 };
 
-UnitAI* GetAI_npc_soulgrinder(Creature* pCreature)
-{
-    return new npc_soulgrinderAI(pCreature);
-}
 
 /*######
 ## npc_supplicant
@@ -2461,329 +2644,348 @@ enum
     PHASE_MASS_KNEEL_TO_PLAYER = 4,
     PHASE_DRUMMER = 5
 };
-
-bool QuestRewarded_into_the_soulgrinder(Player* player, Creature* pCreature, Quest const* pQuest)
+class npc_mogdorg_the_wizened : public CreatureScript
 {
-    ScriptedInstance* pInstance = (ScriptedInstance*)pCreature->GetInstanceData();
+public:
+    npc_mogdorg_the_wizened() : CreatureScript("npc_mogdorg_the_wizened") { }
 
-    if (!pInstance)
+    bool OnQuestReward(Player* player, Creature* pCreature, Quest const* pQuest) override
+    {
+        ScriptedInstance* pInstance = (ScriptedInstance*)pCreature->GetInstanceData();
+
+        if (!pInstance)
+            return true;
+
+        if (pQuest->GetQuestId() == QUEST_INTO_THE_SOULGRINDER)
+        {
+            DoScriptText(SAY_MOGDORG_1, pCreature, player);
+            player->CastSpell(player, SPELL_OGRE_FORCE_REACTION, TRIGGERED_OLD_TRIGGERED);
+            player->GetMap()->ScriptsStart(sRelayScripts, DBSCRIPT_SPAWN_OGRES, player, pCreature);
+        }
+
         return true;
-
-    if (pQuest->GetQuestId() == QUEST_INTO_THE_SOULGRINDER)
-    {
-        DoScriptText(SAY_MOGDORG_1, pCreature, player);
-        player->CastSpell(player, SPELL_OGRE_FORCE_REACTION, TRIGGERED_OLD_TRIGGERED);
-        player->GetMap()->ScriptsStart(sRelayScripts, DBSCRIPT_SPAWN_OGRES, player, pCreature);
     }
 
-    return true;
-}
 
-struct npc_supplicantAI : public ScriptedAI
+
+};
+class npc_supplicant : public CreatureScript
 {
-    npc_supplicantAI(Creature* pCreature) : ScriptedAI(pCreature)
+public:
+    npc_supplicant() : CreatureScript("npc_supplicant") { }
+
+    UnitAI* GetAI(Creature* pCreature)
     {
-        m_summonerGuid = m_creature->GetSpawnerGuid();
-        m_last = static_cast<uint32>(-1);
-        Reset();
+        return new npc_supplicantAI(pCreature);
     }
 
-    ObjectGuid m_summonerGuid; // player who summoned this
 
-    uint32 m_timer;
-    uint32 m_randomStuffTimer;
-    uint32 m_drinkTimer;
-    uint32 m_randomSoundTimer;
 
-    uint8 m_phase;
-
-    GuidVector m_supplicants;
-    int32 m_last;
-
-    void Reset() override
+    struct npc_supplicantAI : public ScriptedAI
     {
-        m_timer = 0;
-        m_randomStuffTimer = 0;
-        m_drinkTimer = 0;
-        m_randomSoundTimer = 0;
-
-        m_phase = PHASE_MASS_KNEEL_TO_PLAYER;
-    }
-
-    void ReceiveAIEvent(AIEventType eventType, Unit* pSender, Unit* /*pInvoker*/, uint32 /*uiMiscValue*/) override
-    {
-        if (pSender != m_creature) // Sender should always be the creature itself
-            return;
-
-        if (eventType == AI_EVENT_CUSTOM_A) // Start doing random dance/turn/roar etc.
+        npc_supplicantAI(Creature* pCreature) : ScriptedAI(pCreature)
         {
-            std::list<Creature*> list;
-            GetCreatureListWithEntryInGrid(list, m_creature, NPC_BLOODMAUL_SUPPLICANT, 10.f); // guesswork
-            GetCreatureListWithEntryInGrid(list, m_creature, NPC_BLADESPIRE_SUPPLICANT, 10.f);
-
-            for (Creature* supplicant : list)
-                m_supplicants.push_back(supplicant->GetObjectGuid());
-
-            m_phase = PHASE_TURN_TO_OGRE;
-            m_timer = 1;
-            m_randomStuffTimer = 1;
+            m_summonerGuid = m_creature->GetSpawnerGuid();
+            m_last = static_cast<uint32>(-1);
+            Reset();
         }
-        else if (eventType == AI_EVENT_CUSTOM_B) // Initial kneel
+
+        ObjectGuid m_summonerGuid; // player who summoned this
+
+        uint32 m_timer;
+        uint32 m_randomStuffTimer;
+        uint32 m_drinkTimer;
+        uint32 m_randomSoundTimer;
+
+        uint8 m_phase;
+
+        GuidVector m_supplicants;
+        int32 m_last;
+
+        void Reset() override
         {
-            if (Unit* summoner = ((TemporarySpawn*)m_creature)->GetSpawner())
-                m_creature->SetFacingToObject(summoner);
+            m_timer = 0;
+            m_randomStuffTimer = 0;
+            m_drinkTimer = 0;
+            m_randomSoundTimer = 0;
+
+            m_phase = PHASE_MASS_KNEEL_TO_PLAYER;
         }
-        else if (eventType == AI_EVENT_CUSTOM_C) // Drummers
+
+        void ReceiveAIEvent(AIEventType eventType, Unit* pSender, Unit* /*pInvoker*/, uint32 /*uiMiscValue*/) override
         {
-            m_phase = PHASE_DRUMMER;
-            m_timer = 1;
-            // Equip should change after the initial kneel
-            m_creature->SetVirtualItem(VIRTUAL_ITEM_SLOT_0, DRUMMER_EQUIP);
-        }
-        else if (eventType == AI_EVENT_CUSTOM_D) // Ogres making random sounds
-        {
-            m_randomSoundTimer = urand(4000, 15000);
-        }
-    }
+            if (pSender != m_creature) // Sender should always be the creature itself
+                return;
 
-    void MoveInLineOfSight(Unit* pWho) override
-    {
-        if (pWho->GetObjectGuid() != m_summonerGuid)
-            return;
-
-        if (m_phase == PHASE_MASS_KNEEL_TO_PLAYER || m_phase == PHASE_KNEEL_TO_PLAYER || m_phase == PHASE_UNKNEEL_TO_PLAYER || m_phase == PHASE_DRUMMER)
-            return;
-
-        if (m_creature->IsWithinDistInMap(pWho, 7.0f))
-        {
-            ResetOgreState(true);
-
-            m_creature->SetFacingToObject(pWho);
-
-            if (urand(0, 100) <= 5)
+            if (eventType == AI_EVENT_CUSTOM_A) // Start doing random dance/turn/roar etc.
             {
-                switch (urand(0, 4))
-                {
-                case 0:
-                    DoScriptText(SAY_SUPPLICANT_LOS_1, m_creature, pWho);
-                    break;
-                case 1:
-                    DoScriptText(SAY_SUPPLICANT_LOS_2, m_creature, pWho);
-                    break;
-                case 2:
-                    DoScriptText(SAY_SUPPLICANT_LOS_3, m_creature, pWho);
-                    break;
-                case 3:
-                    DoScriptText(SAY_SUPPLICANT_LOS_4, m_creature, pWho);
-                    break;
-                case 4:
-                    DoScriptText(SAY_SUPPLICANT_LOS_5, m_creature, pWho);
-                    break;
-                default:
-                    m_creature->MonsterSay("Error", 0);
-                    break;
-                }
+                std::list<Creature*> list;
+                GetCreatureListWithEntryInGrid(list, m_creature, NPC_BLOODMAUL_SUPPLICANT, 10.f); // guesswork
+                GetCreatureListWithEntryInGrid(list, m_creature, NPC_BLADESPIRE_SUPPLICANT, 10.f);
+
+                for (Creature* supplicant : list)
+                    m_supplicants.push_back(supplicant->GetObjectGuid());
+
+                m_phase = PHASE_TURN_TO_OGRE;
+                m_timer = 1;
+                m_randomStuffTimer = 1;
             }
-
-            m_phase = PHASE_KNEEL_TO_PLAYER;
-            m_timer = 1500;
-        }
-    }
-
-    void ReceiveEmote(Player* pPlayer, uint32 uiEmote) override
-    {
-        if (pPlayer->GetObjectGuid() != m_summonerGuid)
-            return;
-
-        switch (uiEmote)
-        {
-        case TEXTEMOTE_DANCE:
-            m_creature->HandleEmote(EMOTE_ONESHOT_DANCE);
-            break;
-        case TEXTEMOTE_WAVE:
-            m_creature->HandleEmote(EMOTE_ONESHOT_WAVE);
-            break;
-        case TEXTEMOTE_ROAR:
-            m_creature->HandleEmote(EMOTE_ONESHOT_ROAR);
-            break;
-        case TEXTEMOTE_POINT:
-            DoScriptText(SAY_EMOTE_RESPONSE_POINT, m_creature, pPlayer);
-            break;
-        case TEXTEMOTE_KISS:
-            DoScriptText(SAY_EMOTE_RESPONSE_KISS, m_creature, pPlayer);
-            break;
-        case TEXTEMOTE_ANGRY:
-            DoScriptText(SAY_EMOTE_RESPONSE_ANGRY, m_creature, pPlayer);
-            break;
-        case TEXTEMOTE_FART:
-            DoScriptText(SAY_EMOTE_RESPONSE_FART_1, m_creature, pPlayer);
-            DoScriptText(SAY_EMOTE_RESPONSE_FART_2, m_creature, pPlayer);
-            break;
-        }
-    }
-
-    void UpdateAI(const uint32 uiDiff) override
-    {
-        if (m_timer)
-        {
-            if (m_timer <= uiDiff)
+            else if (eventType == AI_EVENT_CUSTOM_B) // Initial kneel
             {
-                switch (m_phase)
-                {
-                case PHASE_KNEEL_TO_PLAYER:
-                {
-                    m_randomStuffTimer = 0;
-                    m_creature->SetStandState(UNIT_STAND_STATE_KNEEL);
-
-                    m_phase = PHASE_UNKNEEL_TO_PLAYER;
-                    m_timer = 15000;
-                    break;
-                }
-                case PHASE_UNKNEEL_TO_PLAYER:
-                {
-                    m_creature->SetStandState(UNIT_STAND_STATE_STAND);
-
-                    m_phase = PHASE_TURN_TO_OGRE;
-                    m_timer = 1200;
-                    m_randomStuffTimer = 5000;
-
-                    break;
-                }
-                case PHASE_TURN_TO_OGRE:
-                {
-                    m_creature->HandleEmoteState(EMOTE_STATE_NONE); // Stop dancing
-
-                    // turn to random ogre
-                    if (m_supplicants.size() > 1) // safeguard
-                    {
-                        uint32 random = urand(0, m_supplicants.size() - 1);
-                        if (random == m_last)
-                            m_last = (m_last + 1) % (m_supplicants.size() - 1);
-                        if (Creature* supplicant = m_creature->GetMap()->GetCreature(m_supplicants[random]))
-                            m_creature->SetFacingToObject(supplicant);
-                        m_last = random;
-                    }
-                    else if (m_supplicants.size() == 1 && m_last == -1) // only need to do this once
-                    {
-                        if (Creature* supplicant = m_creature->GetMap()->GetCreature(m_supplicants[0]))
-                            m_creature->SetFacingToObject(supplicant);
-                        m_last = 0;
-                    }
-
-                    m_timer = urand(3600, 45000);
-                    break;
-                }
-                case PHASE_DRUMMER:
-                {
-                    if (Creature* drumBunny = GetClosestCreatureWithEntry(m_creature, NPC_OGRE_DRUM_BUNNY, 10))
-                    {
-                        m_creature->SetFacingToObject(drumBunny);
-                        m_creature->HandleEmote(EMOTE_ONESHOT_CUSTOMSPELL01);
-                    }
-
-                    m_timer = urand(3600, 7300);
-                    break;
-                }
-                }
+                if (Unit* summoner = ((TemporarySpawn*)m_creature)->GetSpawner())
+                    m_creature->SetFacingToObject(summoner);
             }
-            else
-                m_timer -= uiDiff;
-
-            if (m_randomStuffTimer)
+            else if (eventType == AI_EVENT_CUSTOM_C) // Drummers
             {
-                if (m_randomStuffTimer <= uiDiff)
-                {
-                    ResetOgreState(false);
+                m_phase = PHASE_DRUMMER;
+                m_timer = 1;
+                // Equip should change after the initial kneel
+                m_creature->SetVirtualItem(VIRTUAL_ITEM_SLOT_0, DRUMMER_EQUIP);
+            }
+            else if (eventType == AI_EVENT_CUSTOM_D) // Ogres making random sounds
+            {
+                m_randomSoundTimer = urand(4000, 15000);
+            }
+        }
 
-                    // Do random stuff
+        void MoveInLineOfSight(Unit* pWho) override
+        {
+            if (pWho->GetObjectGuid() != m_summonerGuid)
+                return;
+
+            if (m_phase == PHASE_MASS_KNEEL_TO_PLAYER || m_phase == PHASE_KNEEL_TO_PLAYER || m_phase == PHASE_UNKNEEL_TO_PLAYER || m_phase == PHASE_DRUMMER)
+                return;
+
+            if (m_creature->IsWithinDistInMap(pWho, 7.0f))
+            {
+                ResetOgreState(true);
+
+                m_creature->SetFacingToObject(pWho);
+
+                if (urand(0, 100) <= 5)
+                {
                     switch (urand(0, 4))
                     {
                     case 0:
-                        m_creature->HandleEmoteState(EMOTE_STATE_DANCE);
+                        DoScriptText(SAY_SUPPLICANT_LOS_1, m_creature, pWho);
                         break;
                     case 1:
-                        m_creature->SetVirtualItem(VIRTUAL_ITEM_SLOT_0, MUG_EQUIP);
-                        m_creature->CastSpell(m_creature, SPELL_BLOODMAUL_INTOXICATION_VISUAL, TRIGGERED_NONE);
-                        m_drinkTimer = 1;
+                        DoScriptText(SAY_SUPPLICANT_LOS_2, m_creature, pWho);
                         break;
                     case 2:
-                        m_creature->HandleEmote(EMOTE_ONESHOT_ROAR);
-                        if (urand(0, 100) <= 20)
-                            m_creature->PlayDistanceSound(ROAR_SOUND);
+                        DoScriptText(SAY_SUPPLICANT_LOS_3, m_creature, pWho);
                         break;
                     case 3:
-                        m_creature->HandleEmote(EMOTE_ONESHOT_CHEER);
-                        if (urand(0, 100) <= 20)
-                            m_creature->PlayDistanceSound(CHEER_SOUND);
+                        DoScriptText(SAY_SUPPLICANT_LOS_4, m_creature, pWho);
                         break;
                     case 4:
-                        m_creature->HandleEmote(EMOTE_ONESHOT_TALK);
+                        DoScriptText(SAY_SUPPLICANT_LOS_5, m_creature, pWho);
                         break;
                     default:
                         m_creature->MonsterSay("Error", 0);
                         break;
                     }
-
-                    m_randomStuffTimer = urand(4800, 16000);
                 }
-                else
-                    m_randomStuffTimer -= uiDiff;
-            }
 
-            if (m_drinkTimer)
-            {
-                if (m_drinkTimer <= uiDiff)
-                {
-                    m_creature->HandleEmote(EMOTE_ONESHOT_EAT_NOSHEATHE);
-                    m_drinkTimer = 1200;
-                }
-                else
-                    m_drinkTimer -= uiDiff;
-            }
-
-            if (m_randomSoundTimer)
-            {
-                if (m_randomSoundTimer <= uiDiff)
-                {
-                    switch (urand(1, 4))
-                    {
-                    case 1:
-                        m_creature->PlayDirectSound(RANDOM_SOUND_1);
-                        break;
-                    case 2:
-                        m_creature->PlayDirectSound(RANDOM_SOUND_2);
-                        break;
-                    case 3:
-                        m_creature->PlayDirectSound(RANDOM_SOUND_3);
-                        break;
-                    case 4:
-                        m_creature->PlayDirectSound(RANDOM_SOUND_4);
-                        break;
-                    }
-                    m_randomSoundTimer = urand(10000, 37000);
-                }
-                else
-                    m_randomSoundTimer -= uiDiff;
+                m_phase = PHASE_KNEEL_TO_PLAYER;
+                m_timer = 1500;
             }
         }
-    }
 
-    void ResetOgreState(bool stopRandomStuff)
-    {
-        if (stopRandomStuff)
-            m_randomStuffTimer = 0;
+        void ReceiveEmote(Player* pPlayer, uint32 uiEmote) override
+        {
+            if (pPlayer->GetObjectGuid() != m_summonerGuid)
+                return;
 
-        m_creature->HandleEmoteState(EMOTE_STATE_NONE); // Stop dancing
-        m_drinkTimer = 0; // Stop drinking
-        m_creature->LoadEquipment(m_creature->GetCreatureInfo()->EquipmentTemplateId, true); // Set default equipment
-        m_creature->RemoveAurasDueToSpell(SPELL_BLOODMAUL_INTOXICATION_VISUAL); // Remove intoxication aura
-    }
+            switch (uiEmote)
+            {
+            case TEXTEMOTE_DANCE:
+                m_creature->HandleEmote(EMOTE_ONESHOT_DANCE);
+                break;
+            case TEXTEMOTE_WAVE:
+                m_creature->HandleEmote(EMOTE_ONESHOT_WAVE);
+                break;
+            case TEXTEMOTE_ROAR:
+                m_creature->HandleEmote(EMOTE_ONESHOT_ROAR);
+                break;
+            case TEXTEMOTE_POINT:
+                DoScriptText(SAY_EMOTE_RESPONSE_POINT, m_creature, pPlayer);
+                break;
+            case TEXTEMOTE_KISS:
+                DoScriptText(SAY_EMOTE_RESPONSE_KISS, m_creature, pPlayer);
+                break;
+            case TEXTEMOTE_ANGRY:
+                DoScriptText(SAY_EMOTE_RESPONSE_ANGRY, m_creature, pPlayer);
+                break;
+            case TEXTEMOTE_FART:
+                DoScriptText(SAY_EMOTE_RESPONSE_FART_1, m_creature, pPlayer);
+                DoScriptText(SAY_EMOTE_RESPONSE_FART_2, m_creature, pPlayer);
+                break;
+            }
+        }
+
+        void UpdateAI(const uint32 uiDiff) override
+        {
+            if (m_timer)
+            {
+                if (m_timer <= uiDiff)
+                {
+                    switch (m_phase)
+                    {
+                    case PHASE_KNEEL_TO_PLAYER:
+                    {
+                        m_randomStuffTimer = 0;
+                        m_creature->SetStandState(UNIT_STAND_STATE_KNEEL);
+
+                        m_phase = PHASE_UNKNEEL_TO_PLAYER;
+                        m_timer = 15000;
+                        break;
+                    }
+                    case PHASE_UNKNEEL_TO_PLAYER:
+                    {
+                        m_creature->SetStandState(UNIT_STAND_STATE_STAND);
+
+                        m_phase = PHASE_TURN_TO_OGRE;
+                        m_timer = 1200;
+                        m_randomStuffTimer = 5000;
+
+                        break;
+                    }
+                    case PHASE_TURN_TO_OGRE:
+                    {
+                        m_creature->HandleEmoteState(EMOTE_STATE_NONE); // Stop dancing
+
+                        // turn to random ogre
+                        if (m_supplicants.size() > 1) // safeguard
+                        {
+                            uint32 random = urand(0, m_supplicants.size() - 1);
+                            if (random == m_last)
+                                m_last = (m_last + 1) % (m_supplicants.size() - 1);
+                            if (Creature* supplicant = m_creature->GetMap()->GetCreature(m_supplicants[random]))
+                                m_creature->SetFacingToObject(supplicant);
+                            m_last = random;
+                        }
+                        else if (m_supplicants.size() == 1 && m_last == -1) // only need to do this once
+                        {
+                            if (Creature* supplicant = m_creature->GetMap()->GetCreature(m_supplicants[0]))
+                                m_creature->SetFacingToObject(supplicant);
+                            m_last = 0;
+                        }
+
+                        m_timer = urand(3600, 45000);
+                        break;
+                    }
+                    case PHASE_DRUMMER:
+                    {
+                        if (Creature* drumBunny = GetClosestCreatureWithEntry(m_creature, NPC_OGRE_DRUM_BUNNY, 10))
+                        {
+                            m_creature->SetFacingToObject(drumBunny);
+                            m_creature->HandleEmote(EMOTE_ONESHOT_CUSTOMSPELL01);
+                        }
+
+                        m_timer = urand(3600, 7300);
+                        break;
+                    }
+                    }
+                }
+                else
+                    m_timer -= uiDiff;
+
+                if (m_randomStuffTimer)
+                {
+                    if (m_randomStuffTimer <= uiDiff)
+                    {
+                        ResetOgreState(false);
+
+                        // Do random stuff
+                        switch (urand(0, 4))
+                        {
+                        case 0:
+                            m_creature->HandleEmoteState(EMOTE_STATE_DANCE);
+                            break;
+                        case 1:
+                            m_creature->SetVirtualItem(VIRTUAL_ITEM_SLOT_0, MUG_EQUIP);
+                            m_creature->CastSpell(m_creature, SPELL_BLOODMAUL_INTOXICATION_VISUAL, TRIGGERED_NONE);
+                            m_drinkTimer = 1;
+                            break;
+                        case 2:
+                            m_creature->HandleEmote(EMOTE_ONESHOT_ROAR);
+                            if (urand(0, 100) <= 20)
+                                m_creature->PlayDistanceSound(ROAR_SOUND);
+                            break;
+                        case 3:
+                            m_creature->HandleEmote(EMOTE_ONESHOT_CHEER);
+                            if (urand(0, 100) <= 20)
+                                m_creature->PlayDistanceSound(CHEER_SOUND);
+                            break;
+                        case 4:
+                            m_creature->HandleEmote(EMOTE_ONESHOT_TALK);
+                            break;
+                        default:
+                            m_creature->MonsterSay("Error", 0);
+                            break;
+                        }
+
+                        m_randomStuffTimer = urand(4800, 16000);
+                    }
+                    else
+                        m_randomStuffTimer -= uiDiff;
+                }
+
+                if (m_drinkTimer)
+                {
+                    if (m_drinkTimer <= uiDiff)
+                    {
+                        m_creature->HandleEmote(EMOTE_ONESHOT_EAT_NOSHEATHE);
+                        m_drinkTimer = 1200;
+                    }
+                    else
+                        m_drinkTimer -= uiDiff;
+                }
+
+                if (m_randomSoundTimer)
+                {
+                    if (m_randomSoundTimer <= uiDiff)
+                    {
+                        switch (urand(1, 4))
+                        {
+                        case 1:
+                            m_creature->PlayDirectSound(RANDOM_SOUND_1);
+                            break;
+                        case 2:
+                            m_creature->PlayDirectSound(RANDOM_SOUND_2);
+                            break;
+                        case 3:
+                            m_creature->PlayDirectSound(RANDOM_SOUND_3);
+                            break;
+                        case 4:
+                            m_creature->PlayDirectSound(RANDOM_SOUND_4);
+                            break;
+                        }
+                        m_randomSoundTimer = urand(10000, 37000);
+                    }
+                    else
+                        m_randomSoundTimer -= uiDiff;
+                }
+            }
+        }
+
+        void ResetOgreState(bool stopRandomStuff)
+        {
+            if (stopRandomStuff)
+                m_randomStuffTimer = 0;
+
+            m_creature->HandleEmoteState(EMOTE_STATE_NONE); // Stop dancing
+            m_drinkTimer = 0; // Stop drinking
+            m_creature->LoadEquipment(m_creature->GetCreatureInfo()->EquipmentTemplateId, true); // Set default equipment
+            m_creature->RemoveAurasDueToSpell(SPELL_BLOODMAUL_INTOXICATION_VISUAL); // Remove intoxication aura
+        }
+    };
+
+
+
 };
 
-UnitAI* GetAI_npc_supplicant(Creature* pCreature)
-{
-    return new npc_supplicantAI(pCreature);
-}
 
 /*######
 ## npc_spirit_prisoner_of_bladespire
@@ -2815,11 +3017,19 @@ struct npc_spirit_prisoner_of_bladespire : public ScriptedAI
             m_creature->ForcedDespawn();
     }
 };
-
-UnitAI* GetAI_npc_spirit_prisoner_of_bladespire(Creature* pCreature)
+class npc_spirit_prisoner_of_bladespire : public CreatureScript
 {
-    return new npc_spirit_prisoner_of_bladespire(pCreature);
-}
+public:
+    npc_spirit_prisoner_of_bladespire() : CreatureScript("npc_spirit_prisoner_of_bladespire") { }
+
+    UnitAI* GetAI(Creature* pCreature)
+    {
+        return new npc_spirit_prisoner_of_bladespire(pCreature);
+    }
+
+
+
+};
 
 /*######
 ## npc_deadsoul_orb
@@ -2922,11 +3132,19 @@ struct npc_deadsoul_orb : public ScriptedAI
         }
     }
 };
-
-UnitAI* GetAI_npc_deadsoul_orb(Creature* pCreature)
+class npc_deadsoul_orb : public CreatureScript
 {
-    return new npc_deadsoul_orb(pCreature);
-}
+public:
+    npc_deadsoul_orb() : CreatureScript("npc_deadsoul_orb") { }
+
+    UnitAI* GetAI(Creature* pCreature)
+    {
+        return new npc_deadsoul_orb(pCreature);
+    }
+
+
+
+};
 
 /*######
 ## npc_evergrove_druid
@@ -2941,131 +3159,145 @@ enum
     DBSCRIPT_LANDING_SCRIPT = 10074,
     DBSCRIPT_FLY_OFF_SCRIPT = 10075
 };
-
-struct npc_evergrove_druidAI : public ScriptedAI
+class npc_evergrove_druid : public CreatureScript
 {
-    npc_evergrove_druidAI(Creature* pCreature) : ScriptedAI(pCreature), m_summoner(nullptr), returnTimer(0), landingDone(false), alreadySummoned(false)
+public:
+    npc_evergrove_druid() : CreatureScript("npc_evergrove_druid") { }
+
+    bool OnQuestAccept(Player* player, Creature* creature, const Quest* /*quest*/) override
     {
+        // As soon as the player has accepted a quest, return to spawn again
+        if (npc_evergrove_druidAI* druidAI = dynamic_cast<npc_evergrove_druidAI*>(creature->AI()))
+            druidAI->ReturnToSpawn(player);
+
+        return true;
     }
 
-    Player* m_summoner;
-    uint32 returnTimer;
-    bool landingDone;
-    bool alreadySummoned;
 
-    void Reset() override {}
 
-    void JustRespawned() override
+    UnitAI* GetAI(Creature* creature)
     {
-        landingDone = false;
-        alreadySummoned = false;
-        returnTimer = 0;
+        return new npc_evergrove_druidAI(creature);
     }
 
-    void SpellHit(Unit* caster, const SpellEntry* spell) override
+
+
+    struct npc_evergrove_druidAI : public ScriptedAI
     {
-        if (alreadySummoned)
-            return;
-
-        if (caster->GetTypeId() != TYPEID_PLAYER)
-            return;
-
-        if (spell->Id == SPELL_DRUID_SIGNAL)
+        npc_evergrove_druidAI(Creature* pCreature) : ScriptedAI(pCreature), m_summoner(nullptr), returnTimer(0), landingDone(false), alreadySummoned(false)
         {
-            alreadySummoned = true;
-            m_summoner = (Player*)caster;
-            m_creature->CastSpell(m_creature, SPELL_EVERGROVE_DRUID_TRANSFORM_CROW, TRIGGERED_NONE);
-            m_creature->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE);
-            m_creature->GetMotionMaster()->MoveFollow(caster, 1.f, 0.f);
         }
-    }
 
-    void MoveInLineOfSight(Unit* who) override
-    {
-        if (landingDone)
-            return;
+        Player* m_summoner;
+        uint32 returnTimer;
+        bool landingDone;
+        bool alreadySummoned;
 
-        if (who->GetTypeId() != TYPEID_PLAYER)
-            return;
+        void Reset() override {}
 
-        if (who != m_summoner)
-            return;
-
-        if (m_creature->IsWithinDistInMap(who, 5.0f))
+        void JustRespawned() override
         {
-            landingDone = true;
-            returnTimer = 120000;
-
-            m_creature->GetMotionMaster()->MoveIdle();
-            m_creature->SetLevitate(true);
-            m_creature->SetHover(false);
-            m_creature->SetCanFly(false);
-            m_creature->GetMap()->ScriptsStart(sRelayScripts, DBSCRIPT_LANDING_SCRIPT, m_creature, who);
+            landingDone = false;
+            alreadySummoned = false;
+            returnTimer = 0;
         }
-    }
 
-    void ReturnToSpawn(Player* questAccepter = nullptr)
-    {
-        if (!m_summoner)
-            return;
-
-        if (questAccepter) // Only return to spawn if it's the original player accepting a quest
-            if (questAccepter != m_summoner)
+        void SpellHit(Unit* caster, const SpellEntry* spell) override
+        {
+            if (alreadySummoned)
                 return;
 
-        returnTimer = 0;
-        m_creature->GetMap()->ScriptsStart(sRelayScripts, DBSCRIPT_FLY_OFF_SCRIPT, m_creature, m_summoner);
-    }
+            if (caster->GetTypeId() != TYPEID_PLAYER)
+                return;
 
-    void ReceiveAIEvent(AIEventType eventType, Unit* sender, Unit* /*invoker*/, uint32 /*miscValue*/) override
-    {
-        if (sender != m_creature) // Sender should always be creature itself
-            return;
-
-        if (eventType == AI_EVENT_CUSTOM_A)
-        {
-            m_creature->SetLevitate(false);
-            m_creature->SetHover(true);
-            m_creature->SetCanFly(true);
-        }
-        else if (eventType == AI_EVENT_CUSTOM_B)
-        {
-            m_creature->GetMotionMaster()->MoveTargetedHome();
-        }
-    }
-
-    void JustReachedHome() override
-    {
-        m_creature->ForcedDespawn();
-    }
-
-    void UpdateAI(const uint32 uiDiff) override
-    {
-        if (returnTimer)
-        {
-            if (returnTimer <= uiDiff)
+            if (spell->Id == SPELL_DRUID_SIGNAL)
             {
-                ReturnToSpawn();
+                alreadySummoned = true;
+                m_summoner = (Player*)caster;
+                m_creature->CastSpell(m_creature, SPELL_EVERGROVE_DRUID_TRANSFORM_CROW, TRIGGERED_NONE);
+                m_creature->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE);
+                m_creature->GetMotionMaster()->MoveFollow(caster, 1.f, 0.f);
             }
-            else
-                returnTimer -= uiDiff;
         }
-    }
+
+        void MoveInLineOfSight(Unit* who) override
+        {
+            if (landingDone)
+                return;
+
+            if (who->GetTypeId() != TYPEID_PLAYER)
+                return;
+
+            if (who != m_summoner)
+                return;
+
+            if (m_creature->IsWithinDistInMap(who, 5.0f))
+            {
+                landingDone = true;
+                returnTimer = 120000;
+
+                m_creature->GetMotionMaster()->MoveIdle();
+                m_creature->SetLevitate(true);
+                m_creature->SetHover(false);
+                m_creature->SetCanFly(false);
+                m_creature->GetMap()->ScriptsStart(sRelayScripts, DBSCRIPT_LANDING_SCRIPT, m_creature, who);
+            }
+        }
+
+        void ReturnToSpawn(Player* questAccepter = nullptr)
+        {
+            if (!m_summoner)
+                return;
+
+            if (questAccepter) // Only return to spawn if it's the original player accepting a quest
+                if (questAccepter != m_summoner)
+                    return;
+
+            returnTimer = 0;
+            m_creature->GetMap()->ScriptsStart(sRelayScripts, DBSCRIPT_FLY_OFF_SCRIPT, m_creature, m_summoner);
+        }
+
+        void ReceiveAIEvent(AIEventType eventType, Unit* sender, Unit* /*invoker*/, uint32 /*miscValue*/) override
+        {
+            if (sender != m_creature) // Sender should always be creature itself
+                return;
+
+            if (eventType == AI_EVENT_CUSTOM_A)
+            {
+                m_creature->SetLevitate(false);
+                m_creature->SetHover(true);
+                m_creature->SetCanFly(true);
+            }
+            else if (eventType == AI_EVENT_CUSTOM_B)
+            {
+                m_creature->GetMotionMaster()->MoveTargetedHome();
+            }
+        }
+
+        void JustReachedHome() override
+        {
+            m_creature->ForcedDespawn();
+        }
+
+        void UpdateAI(const uint32 uiDiff) override
+        {
+            if (returnTimer)
+            {
+                if (returnTimer <= uiDiff)
+                {
+                    ReturnToSpawn();
+                }
+                else
+                    returnTimer -= uiDiff;
+            }
+        }
+    };
+
+
+
 };
 
-bool QuestAccept_npc_evergrove_druid(Player* player, Creature* creature, const Quest* /*quest*/)
-{
-    // As soon as the player has accepted a quest, return to spawn again
-    if (npc_evergrove_druidAI* druidAI = dynamic_cast<npc_evergrove_druidAI*>(creature->AI()))
-        druidAI->ReturnToSpawn(player);
 
-    return true;
-}
-
-UnitAI* GetAI_npc_evergrove_druidAI(Creature* creature)
-{
-    return new npc_evergrove_druidAI(creature);
-}
 
 /*######
 ## npc_apexis_flayer
@@ -3086,197 +3318,208 @@ enum FlayerActions
     FLAYER_ACTION_SHRED_ARMOR,
     FLAYER_ACTION_MAX,
 };
-
-struct npc_apexis_flayerAI : public ScriptedAI, public CombatActions
+class npc_apexis_flayer : public CreatureScript
 {
-    npc_apexis_flayerAI(Creature* creature) : ScriptedAI(creature), CombatActions(FLAYER_ACTION_MAX)
+public:
+    npc_apexis_flayer() : CreatureScript("npc_apexis_flayer") { }
+
+    UnitAI* GetAI(Creature* creature)
     {
-        AddCombatAction(FLAYER_ACTION_REND, 0u);
-        AddCombatAction(FLAYER_ACTION_SHRED_ARMOR, 0u);
-        Reset();
+        return new npc_apexis_flayerAI(creature);
     }
 
-    uint8 strikeCount;
-    uint32 idleTimer;
-    uint32 crystalTimer;
-    uint32 rendTimer;
-    uint32 shredArmorTimer;
 
-    void Reset() override
+
+    struct npc_apexis_flayerAI : public ScriptedAI, public CombatActions
     {
-        for (uint32 i = 0; i < FLAYER_ACTION_MAX; ++i)
-            SetActionReadyStatus(i, false);
-
-        ResetTimer(FLAYER_ACTION_REND, GetInitialActionTimer(FLAYER_ACTION_REND));
-        ResetTimer(FLAYER_ACTION_SHRED_ARMOR, GetInitialActionTimer(FLAYER_ACTION_SHRED_ARMOR));
-
-        idleTimer = urand(15000, 20000);
-        crystalTimer = 0;
-        strikeCount = 0;
-    }
-
-    uint32 GetInitialActionTimer(uint32 id) // Timers are copied from the EventAI script
-    {
-        switch (id)
+        npc_apexis_flayerAI(Creature* creature) : ScriptedAI(creature), CombatActions(FLAYER_ACTION_MAX)
         {
-            case FLAYER_ACTION_REND: return urand(8300, 13300);
-            case FLAYER_ACTION_SHRED_ARMOR: return urand(4200, 6200);
-            default: return 0; // never occurs but for compiler
+            AddCombatAction(FLAYER_ACTION_REND, 0u);
+            AddCombatAction(FLAYER_ACTION_SHRED_ARMOR, 0u);
+            Reset();
         }
-    }
 
-    uint32 GetSubsequentActionTimer(uint32 id) // Timers are copied from the EventAI script
-    {
-        switch (id)
+        uint8 strikeCount;
+        uint32 idleTimer;
+        uint32 crystalTimer;
+        uint32 rendTimer;
+        uint32 shredArmorTimer;
+
+        void Reset() override
         {
-            case FLAYER_ACTION_REND: return urand(22000, 26000);
-            case FLAYER_ACTION_SHRED_ARMOR: return urand(28100, 31600);
-            default: return 0; // never occurs but for compiler
+            for (uint32 i = 0; i < FLAYER_ACTION_MAX; ++i)
+                SetActionReadyStatus(i, false);
+
+            ResetTimer(FLAYER_ACTION_REND, GetInitialActionTimer(FLAYER_ACTION_REND));
+            ResetTimer(FLAYER_ACTION_SHRED_ARMOR, GetInitialActionTimer(FLAYER_ACTION_SHRED_ARMOR));
+
+            idleTimer = urand(15000, 20000);
+            crystalTimer = 0;
+            strikeCount = 0;
         }
-    }
 
-    void ExecuteActions() override
-    {
-        if (!CanExecuteCombatAction())
-            return;
-
-        for (uint32 i = 0; i < FLAYER_ACTION_MAX; ++i)
+        uint32 GetInitialActionTimer(uint32 id) // Timers are copied from the EventAI script
         {
-            if (GetActionReadyStatus(i))
+            switch (id)
             {
-                switch (i)
+                case FLAYER_ACTION_REND: return urand(8300, 13300);
+                case FLAYER_ACTION_SHRED_ARMOR: return urand(4200, 6200);
+                default: return 0; // never occurs but for compiler
+            }
+        }
+
+        uint32 GetSubsequentActionTimer(uint32 id) // Timers are copied from the EventAI script
+        {
+            switch (id)
+            {
+                case FLAYER_ACTION_REND: return urand(22000, 26000);
+                case FLAYER_ACTION_SHRED_ARMOR: return urand(28100, 31600);
+                default: return 0; // never occurs but for compiler
+            }
+        }
+
+        void ExecuteActions() override
+        {
+            if (!CanExecuteCombatAction())
+                return;
+
+            for (uint32 i = 0; i < FLAYER_ACTION_MAX; ++i)
+            {
+                if (GetActionReadyStatus(i))
                 {
-                    case FLAYER_ACTION_REND:
+                    switch (i)
                     {
-                        if (Unit* target = m_creature->GetVictim())
+                        case FLAYER_ACTION_REND:
                         {
-                            if (DoCastSpellIfCan(target, FLAYER_SPELL_REND) == CAST_OK)
+                            if (Unit* target = m_creature->GetVictim())
                             {
-                                ResetTimer(i, GetSubsequentActionTimer(i));
-                                SetActionReadyStatus(i, false);
-                                return;
+                                if (DoCastSpellIfCan(target, FLAYER_SPELL_REND) == CAST_OK)
+                                {
+                                    ResetTimer(i, GetSubsequentActionTimer(i));
+                                    SetActionReadyStatus(i, false);
+                                    return;
+                                }
                             }
+                            continue;
                         }
-                        continue;
+                        case FLAYER_ACTION_SHRED_ARMOR:
+                        {
+                            if (Unit* target = m_creature->GetVictim())
+                            {
+                                if (DoCastSpellIfCan(target, FLAYER_SPELL_SHRED_ARMOR) == CAST_OK)
+                                {
+                                    ResetTimer(i, GetSubsequentActionTimer(i));
+                                    SetActionReadyStatus(i, false);
+                                    return;
+                                }
+                            }
+                            continue;
+                        }
                     }
-                    case FLAYER_ACTION_SHRED_ARMOR:
+                }
+            }
+        }
+
+
+        void UpdateAI(const uint32 diff) override
+        {
+            if (!m_creature->SelectHostileTarget() || !m_creature->GetVictim())
+            {
+                if (idleTimer)
+                {
+                    if (idleTimer <= diff)
                     {
-                        if (Unit* target = m_creature->GetVictim())
-                        {
-                            if (DoCastSpellIfCan(target, FLAYER_SPELL_SHRED_ARMOR) == CAST_OK)
-                            {
-                                ResetTimer(i, GetSubsequentActionTimer(i));
-                                SetActionReadyStatus(i, false);
-                                return;
-                            }
-                        }
-                        continue;
+                        MoveToCrystal();
+                        idleTimer = 0;
                     }
+                    else
+                        idleTimer -= diff;
                 }
-            }
-        }
-    }
 
-
-    void UpdateAI(const uint32 diff) override
-    {
-        if (!m_creature->SelectHostileTarget() || !m_creature->GetVictim())
-        {
-            if (idleTimer)
-            {
-                if (idleTimer <= diff)
+                if (crystalTimer)
                 {
-                    MoveToCrystal();
-                    idleTimer = 0;
+                    if (crystalTimer <= diff)
+                    {
+                        CrystalStrike();
+                    }
+                    else
+                        crystalTimer -= diff;
                 }
-                else
-                    idleTimer -= diff;
             }
-
-            if (crystalTimer)
+            else
             {
-                if (crystalTimer <= diff)
+                UpdateTimers(diff, m_creature->IsInCombat());
+                ExecuteActions();
+
+                DoMeleeAttackIfReady();
+            }
+        }
+
+        void MoveToCrystal()
+        {
+            if (Creature* triggerNPC = GetClosestCreatureWithEntry(m_creature, NPC_NETHERSTORM_TRIGGER, 15))
+            {
+                float fX, fY, fZ;
+                m_creature->GetContactPoint(triggerNPC, fX, fY, fZ);
+                m_creature->GetMotionMaster()->MovePoint(1, fX, fY, fZ);
+            }
+        }
+
+        void CrystalStrike()
+        {
+            switch (strikeCount)
+            {
+                case 0:
+                    m_creature->CastSpell(m_creature, FLAYER_SPELL_SPECIAL_UNARMED, TRIGGERED_NONE);
+                    crystalTimer = 2400;
+                    strikeCount++;
+                    break;
+                case 1:
+                    m_creature->CastSpell(m_creature, FLAYER_SPELL_SPECIAL_UNARMED, TRIGGERED_NONE);
+                    crystalTimer = 2400;
+                    strikeCount++;
+                    break;
+                case 2:
+                    m_creature->CastSpell(m_creature, FLAYER_SPELL_SPECIAL_UNARMED, TRIGGERED_NONE);
+                    crystalTimer = 2400;
+                    strikeCount++;
+                    break;
+                case 3:
+                    m_creature->CastSpell(m_creature, FLAYER_SPELL_SPECIAL_UNARMED, TRIGGERED_NONE);
+                    crystalTimer = 2400;
+                    strikeCount++;
+                    break;
+                case 4:
+                    float respX, respY, respZ, respO, wander_distance;
+                    m_creature->GetRespawnCoord(respX, respY, respZ, &respO, &wander_distance);
+                    m_creature->GetMotionMaster()->MoveRandomAroundPoint(respX, respY, respZ, wander_distance);
+                    crystalTimer = 0;
+                    strikeCount = 0;
+                    idleTimer = urand(15000, 20000);
+                    break;
+                default:
+                    break;
+            }
+        }
+
+        void MovementInform(uint32 /*movementType*/, uint32 data) override
+        {
+            switch (data)
+            {
+                case 1:
                 {
-                    CrystalStrike();
+                    m_creature->GetMotionMaster()->MoveIdle();
+                    crystalTimer = 1;
+                    break;
                 }
-                else
-                    crystalTimer -= diff;
             }
         }
-        else
-        {
-            UpdateTimers(diff, m_creature->IsInCombat());
-            ExecuteActions();
+    };
 
-            DoMeleeAttackIfReady();
-        }
-    }
 
-    void MoveToCrystal()
-    {
-        if (Creature* triggerNPC = GetClosestCreatureWithEntry(m_creature, NPC_NETHERSTORM_TRIGGER, 15))
-        {
-            float fX, fY, fZ;
-            m_creature->GetContactPoint(triggerNPC, fX, fY, fZ);
-            m_creature->GetMotionMaster()->MovePoint(1, fX, fY, fZ);
-        }
-    }
 
-    void CrystalStrike()
-    {
-        switch (strikeCount)
-        {
-            case 0:
-                m_creature->CastSpell(m_creature, FLAYER_SPELL_SPECIAL_UNARMED, TRIGGERED_NONE);
-                crystalTimer = 2400;
-                strikeCount++;
-                break;
-            case 1:
-                m_creature->CastSpell(m_creature, FLAYER_SPELL_SPECIAL_UNARMED, TRIGGERED_NONE);
-                crystalTimer = 2400;
-                strikeCount++;
-                break;
-            case 2:
-                m_creature->CastSpell(m_creature, FLAYER_SPELL_SPECIAL_UNARMED, TRIGGERED_NONE);
-                crystalTimer = 2400;
-                strikeCount++;
-                break;
-            case 3:
-                m_creature->CastSpell(m_creature, FLAYER_SPELL_SPECIAL_UNARMED, TRIGGERED_NONE);
-                crystalTimer = 2400;
-                strikeCount++;
-                break;
-            case 4:
-                float respX, respY, respZ, respO, wander_distance;
-                m_creature->GetRespawnCoord(respX, respY, respZ, &respO, &wander_distance);
-                m_creature->GetMotionMaster()->MoveRandomAroundPoint(respX, respY, respZ, wander_distance);
-                crystalTimer = 0;
-                strikeCount = 0;
-                idleTimer = urand(15000, 20000);
-                break;
-            default:
-                break;
-        }
-    }
-
-    void MovementInform(uint32 /*movementType*/, uint32 data) override
-    {
-        switch (data)
-        {
-            case 1:
-            {
-                m_creature->GetMotionMaster()->MoveIdle();
-                crystalTimer = 1;
-                break;
-            }
-        }
-    }
 };
 
-UnitAI* GetAI_npc_apexis_flayerAI(Creature* creature)
-{
-    return new npc_apexis_flayerAI(creature);
-}
 
 // Bashir Landing event scripts
 // also connected with world_map_scripts.cpp and WorldState
@@ -3294,84 +3537,95 @@ enum
 
     SPELL_ETHEREAL_RING_SIGNAL_FLARE_BURST = 41293,
 };
-
-struct npc_skyguard_aether_techAI : public ScriptedAI
+class npc_skyguard_aether_tech : public CreatureScript
 {
-    npc_skyguard_aether_techAI(Creature* creature) : ScriptedAI(creature)
+public:
+    npc_skyguard_aether_tech() : CreatureScript("npc_skyguard_aether_tech") { }
+
+    UnitAI* GetAI(Creature* creature)
     {
-        SetReactState(REACT_PASSIVE);
-        Reset();
+        return new npc_skyguard_aether_techAI(creature);
     }
 
-    void Reset() override
-    {
 
-    }
 
-    void ReceiveAIEvent(AIEventType eventType, Unit* /*sender*/, Unit* /*invoker*/, uint32 /*miscValue*/) override
+    struct npc_skyguard_aether_techAI : public ScriptedAI
     {
-        if (eventType == AI_EVENT_CUSTOM_A)
-            DoCastSpellIfCan(nullptr, SPELL_ETHEREAL_RING_SIGNAL_FLARE_BURST);
-        else if (eventType == AI_EVENT_CUSTOM_B)
+        npc_skyguard_aether_techAI(Creature* creature) : ScriptedAI(creature)
         {
-            m_creature->GetMotionMaster()->Clear(false, true);
-            m_creature->GetMotionMaster()->MoveWaypoint(PATH_ID_OUTRO);
+            SetReactState(REACT_PASSIVE);
+            Reset();
         }
-    }
 
-    void MovementInform(uint32 movementType, uint32 data) override
-    {
-        if (movementType == WAYPOINT_MOTION_TYPE)
+        void Reset() override
         {
-            switch (m_creature->GetMotionMaster()->GetPathId())
+
+        }
+
+        void ReceiveAIEvent(AIEventType eventType, Unit* /*sender*/, Unit* /*invoker*/, uint32 /*miscValue*/) override
+        {
+            if (eventType == AI_EVENT_CUSTOM_A)
+                DoCastSpellIfCan(nullptr, SPELL_ETHEREAL_RING_SIGNAL_FLARE_BURST);
+            else if (eventType == AI_EVENT_CUSTOM_B)
             {
-                case PATH_ID_BIG_PATH:
+                m_creature->GetMotionMaster()->Clear(false, true);
+                m_creature->GetMotionMaster()->MoveWaypoint(PATH_ID_OUTRO);
+            }
+        }
+
+        void MovementInform(uint32 movementType, uint32 data) override
+        {
+            if (movementType == WAYPOINT_MOTION_TYPE)
+            {
+                switch (m_creature->GetMotionMaster()->GetPathId())
                 {
-                    if (data == POINT_DISMOUNT)
+                    case PATH_ID_BIG_PATH:
                     {
-                        m_creature->GetMotionMaster()->Clear(false, true);
-                        m_creature->SetHover(false);
-                        m_creature->SetLevitate(false);
-                        m_creature->Unmount();
-                        m_creature->GetMotionMaster()->MoveWaypoint(PATH_ID_DISMOUNT);
+                        if (data == POINT_DISMOUNT)
+                        {
+                            m_creature->GetMotionMaster()->Clear(false, true);
+                            m_creature->SetHover(false);
+                            m_creature->SetLevitate(false);
+                            m_creature->Unmount();
+                            m_creature->GetMotionMaster()->MoveWaypoint(PATH_ID_DISMOUNT);
+                        }
+                        break;
                     }
-                    break;
-                }
-                case PATH_ID_OUTRO:
-                {
-                    if (data == POINT_MOUNT)
+                    case PATH_ID_OUTRO:
                     {
-                        m_creature->Mount(MOUNT_NETHER_RAY_DISPLAY_ID);
-                        m_creature->SetHover(true);
-                        m_creature->SetLevitate(true);
+                        if (data == POINT_MOUNT)
+                        {
+                            m_creature->Mount(MOUNT_NETHER_RAY_DISPLAY_ID);
+                            m_creature->SetHover(true);
+                            m_creature->SetLevitate(true);
+                        }
+                        else if (data == POINT_DESPAWN)
+                        {
+                            m_creature->GetMap()->GetInstanceData()->SetData(TYPE_BASHIR, 3);
+                            m_creature->ForcedDespawn();
+                        }
+                        break;
                     }
-                    else if (data == POINT_DESPAWN)
+                    default:
                     {
-                        m_creature->GetMap()->GetInstanceData()->SetData(TYPE_BASHIR, 3);
-                        m_creature->ForcedDespawn();
+                        if (data == POINT_FINAL)
+                        {
+                            m_creature->GetMotionMaster()->Clear(false, true);
+                            m_creature->GetMotionMaster()->MoveIdle();
+                            m_creature->HandleEmote(EMOTE_STATE_USESTANDING_NOSHEATHE);
+                            m_creature->GetMap()->GetInstanceData()->SetData(TYPE_BASHIR, 1);
+                        }
+                        break;
                     }
-                    break;
-                }
-                default:
-                {
-                    if (data == POINT_FINAL)
-                    {
-                        m_creature->GetMotionMaster()->Clear(false, true);
-                        m_creature->GetMotionMaster()->MoveIdle();
-                        m_creature->HandleEmote(EMOTE_STATE_USESTANDING_NOSHEATHE);
-                        m_creature->GetMap()->GetInstanceData()->SetData(TYPE_BASHIR, 1);
-                    }
-                    break;
                 }
             }
         }
-    }
+    };
+
+
+
 };
 
-UnitAI* GetAI_npc_skyguard_aether_tech(Creature* creature)
-{
-    return new npc_skyguard_aether_techAI(creature);
-}
 
 enum
 {
@@ -3393,124 +3647,142 @@ enum RangerActions
     RANGER_COMBAT_ACTION_WHIRLWIND,
     RANGER_COMBAT_ACTION_MAX,
 };
-
-struct npc_skyguard_rangerAI : public ScriptedAI, public CombatActions
+class npc_skyguard_lieutenant : public CreatureScript
 {
-    npc_skyguard_rangerAI(Creature* creature) : ScriptedAI(creature), CombatActions(RANGER_COMBAT_ACTION_MAX), m_spawnId(PATH_ID_DISMOUNT) // implicit default for lieutenant
-    {
-        AddCombatAction(RANGER_COMBAT_ACTION_WHIRLWIND, 0u);
-        Reset();
-    }
+public:
+    npc_skyguard_lieutenant() : CreatureScript("npc_skyguard_lieutenant") { }
+class npc_skyguard_ranger : public CreatureScript
+{
+public:
+    npc_skyguard_ranger() : CreatureScript("npc_skyguard_ranger") { }
 
-    uint32 m_spawnId;
-
-    void Reset() override
-    {
-        for (uint32 i = 0; i < RANGER_COMBAT_ACTION_MAX; ++i)
-            SetActionReadyStatus(i, false);
-
-        ResetTimer(RANGER_COMBAT_ACTION_WHIRLWIND, GetInitialActionTimer(RANGER_COMBAT_ACTION_WHIRLWIND));
-    }
-
-    uint32 GetInitialActionTimer(uint32 id)
-    {
-        switch (id)
+        UnitAI* GetAI(Creature* creature)
         {
-            case RANGER_COMBAT_ACTION_WHIRLWIND: return urand(15000, 30000);
-            default: return 0; // never occurs but for compiler
+            return new npc_skyguard_rangerAI(creature);
         }
-    }
 
-    uint32 GetSubsequentActionTimer(uint32 id)
-    {
-        switch (id)
+
+
+        struct npc_skyguard_rangerAI : public ScriptedAI, public CombatActions
         {
-            case RANGER_COMBAT_ACTION_WHIRLWIND: return urand(15000, 30000);
-            default: return 0; // never occurs but for compiler
-        }
-    }
-
-    void ReceiveAIEvent(AIEventType eventType, Unit* /*sender*/, Unit* /*invoker*/, uint32 miscValue) override
-    {
-        if (eventType == AI_EVENT_CUSTOM_A)
-            m_spawnId = miscValue; // map passes which spawn this is
-    }
-
-    void MovementInform(uint32 movementType, uint32 data) override
-    {
-        if (movementType == WAYPOINT_MOTION_TYPE)
-        {
-            switch (m_creature->GetMotionMaster()->GetPathId())
+            npc_skyguard_rangerAI(Creature* creature) : ScriptedAI(creature), CombatActions(RANGER_COMBAT_ACTION_MAX), m_spawnId(PATH_ID_DISMOUNT) // implicit default for lieutenant
             {
-                case PATH_ID_BIG_PATH:
+                AddCombatAction(RANGER_COMBAT_ACTION_WHIRLWIND, 0u);
+                Reset();
+            }
+
+            uint32 m_spawnId;
+
+            void Reset() override
+            {
+                for (uint32 i = 0; i < RANGER_COMBAT_ACTION_MAX; ++i)
+                    SetActionReadyStatus(i, false);
+
+                ResetTimer(RANGER_COMBAT_ACTION_WHIRLWIND, GetInitialActionTimer(RANGER_COMBAT_ACTION_WHIRLWIND));
+            }
+
+            uint32 GetInitialActionTimer(uint32 id)
+            {
+                switch (id)
                 {
-                    if (data == POINT_DISMOUNT)
-                    {
-                        m_creature->GetMotionMaster()->Clear(false, true);
-                        m_creature->SetHover(false);
-                        m_creature->SetLevitate(false);
-                        m_creature->Unmount();
-                        m_creature->GetMotionMaster()->MoveWaypoint(m_spawnId);
-                        if (m_creature->GetEntry() == NPC_SKYGUARD_LIEUTENANT)
-                            m_creature->GetMap()->GetInstanceData()->SetData(TYPE_BASHIR, 0);
-                    }
-                    break;
-                }
-                default:
-                {
-                    if (data == POINT_FINAL)
-                    {
-                        m_creature->GetMotionMaster()->Clear(false, true);
-                        m_creature->GetMotionMaster()->MoveIdle();
-                    }
-                    break;
+                    case RANGER_COMBAT_ACTION_WHIRLWIND: return urand(15000, 30000);
+                    default: return 0; // never occurs but for compiler
                 }
             }
-        }
-    }
 
-    void ExecuteActions() override
-    {
-        if (!CanExecuteCombatAction())
-            return;
-
-        for (uint32 i = 0; i < RANGER_COMBAT_ACTION_MAX; ++i)
-        {
-            if (GetActionReadyStatus(i))
+            uint32 GetSubsequentActionTimer(uint32 id)
             {
-                switch (i)
+                switch (id)
                 {
-                    case RANGER_COMBAT_ACTION_WHIRLWIND:
+                    case RANGER_COMBAT_ACTION_WHIRLWIND: return urand(15000, 30000);
+                    default: return 0; // never occurs but for compiler
+                }
+            }
+
+            void ReceiveAIEvent(AIEventType eventType, Unit* /*sender*/, Unit* /*invoker*/, uint32 miscValue) override
+            {
+                if (eventType == AI_EVENT_CUSTOM_A)
+                    m_spawnId = miscValue; // map passes which spawn this is
+            }
+
+            void MovementInform(uint32 movementType, uint32 data) override
+            {
+                if (movementType == WAYPOINT_MOTION_TYPE)
+                {
+                    switch (m_creature->GetMotionMaster()->GetPathId())
                     {
-                        if (DoCastSpellIfCan(nullptr, SPELL_WHIRLWIND) == CAST_OK)
+                        case PATH_ID_BIG_PATH:
                         {
-                            ResetTimer(i, GetSubsequentActionTimer(i));
-                            SetActionReadyStatus(i, false);
-                            return;
+                            if (data == POINT_DISMOUNT)
+                            {
+                                m_creature->GetMotionMaster()->Clear(false, true);
+                                m_creature->SetHover(false);
+                                m_creature->SetLevitate(false);
+                                m_creature->Unmount();
+                                m_creature->GetMotionMaster()->MoveWaypoint(m_spawnId);
+                                if (m_creature->GetEntry() == NPC_SKYGUARD_LIEUTENANT)
+                                    m_creature->GetMap()->GetInstanceData()->SetData(TYPE_BASHIR, 0);
+                            }
+                            break;
                         }
-                        continue;
+                        default:
+                        {
+                            if (data == POINT_FINAL)
+                            {
+                                m_creature->GetMotionMaster()->Clear(false, true);
+                                m_creature->GetMotionMaster()->MoveIdle();
+                            }
+                            break;
+                        }
                     }
                 }
             }
-        }
-    }
 
-    void UpdateAI(const uint32 diff)
-    {
-        if (!m_creature->SelectHostileTarget() || !m_creature->GetVictim())
-            return;
+            void ExecuteActions() override
+            {
+                if (!CanExecuteCombatAction())
+                    return;
 
-        UpdateTimers(diff, m_creature->IsInCombat());
-        ExecuteActions();
+                for (uint32 i = 0; i < RANGER_COMBAT_ACTION_MAX; ++i)
+                {
+                    if (GetActionReadyStatus(i))
+                    {
+                        switch (i)
+                        {
+                            case RANGER_COMBAT_ACTION_WHIRLWIND:
+                            {
+                                if (DoCastSpellIfCan(nullptr, SPELL_WHIRLWIND) == CAST_OK)
+                                {
+                                    ResetTimer(i, GetSubsequentActionTimer(i));
+                                    SetActionReadyStatus(i, false);
+                                    return;
+                                }
+                                continue;
+                            }
+                        }
+                    }
+                }
+            }
 
-        DoMeleeAttackIfReady();
-    }
+            void UpdateAI(const uint32 diff)
+            {
+                if (!m_creature->SelectHostileTarget() || !m_creature->GetVictim())
+                    return;
+
+                UpdateTimers(diff, m_creature->IsInCombat());
+                ExecuteActions();
+
+                DoMeleeAttackIfReady();
+            }
+        };
+
+
+
+    };
+
+
 };
 
-UnitAI* GetAI_npc_skyguard_ranger(Creature* creature)
-{
-    return new npc_skyguard_rangerAI(creature);
-}
 
 enum BashirVendors
 {
@@ -3541,63 +3813,74 @@ std::map<uint32, int32> vendorText =
     {23244, SAY_ADEPT },
     {23245, SAY_MASTER },
 };
-
-struct npc_aether_tech_vendorAI : public ScriptedAI, public TimerManager
+class npc_aether_tech_vendor : public CreatureScript
 {
-    npc_aether_tech_vendorAI(Creature* creature) : ScriptedAI(creature)
+public:
+    npc_aether_tech_vendor() : CreatureScript("npc_aether_tech_vendor") { }
+
+    UnitAI* GetAI(Creature* creature)
     {
-        SetReactState(REACT_PASSIVE);
-        AddCustomAction(0, true, [&] {m_creature->GetMap()->GetInstanceData()->SetData(TYPE_BASHIR, 2); });
-        Reset();
+        return new npc_aether_tech_vendorAI(creature);
     }
 
-    void Reset() override
+
+
+    struct npc_aether_tech_vendorAI : public ScriptedAI, public TimerManager
     {
-
-    }
-
-    void MovementInform(uint32 motionType, uint32 pointId) override
-    {
-        if (motionType != WAYPOINT_MOTION_TYPE)
-            return;
-
-        if (m_creature->GetMotionMaster()->GetPathId() == PATH_ID_INITIAL)
+        npc_aether_tech_vendorAI(Creature* creature) : ScriptedAI(creature)
         {
-            if (pointId == PATH_INITIAL_LAST_POINT)
+            SetReactState(REACT_PASSIVE);
+            AddCustomAction(0, true, [&] {m_creature->GetMap()->GetInstanceData()->SetData(TYPE_BASHIR, 2); });
+            Reset();
+        }
+
+        void Reset() override
+        {
+
+        }
+
+        void MovementInform(uint32 motionType, uint32 pointId) override
+        {
+            if (motionType != WAYPOINT_MOTION_TYPE)
+                return;
+
+            if (m_creature->GetMotionMaster()->GetPathId() == PATH_ID_INITIAL)
             {
-                m_creature->SetLevitate(false);
-                m_creature->SetCanFly(false);
-                m_creature->Unmount();
-                m_creature->GetMotionMaster()->Clear(false, true);
-                m_creature->GetMotionMaster()->MoveWaypoint(PATH_ID_DISMOUNTED);
-                m_creature->SetBaseRunSpeed(8.f/7.f); // sniffed value
+                if (pointId == PATH_INITIAL_LAST_POINT)
+                {
+                    m_creature->SetLevitate(false);
+                    m_creature->SetCanFly(false);
+                    m_creature->Unmount();
+                    m_creature->GetMotionMaster()->Clear(false, true);
+                    m_creature->GetMotionMaster()->MoveWaypoint(PATH_ID_DISMOUNTED);
+                    m_creature->SetBaseRunSpeed(8.f/7.f); // sniffed value
+                }
+            }
+            else
+            {
+                if (pointId == PATH_DISMOUNTED_CAST_POINT)
+                    DoCastSpellIfCan(nullptr, SPELL_ETHEREAL_RING_VISUAL);
+                else if (pointId == PATH_DISMOUNTED_LAST_POINT)
+                {
+                    m_creature->GetMotionMaster()->Clear(false, true);
+                    m_creature->GetMotionMaster()->MoveIdle();
+                    DoScriptText(vendorText[m_creature->GetEntry()], m_creature);
+                    m_creature->HandleEmote(EMOTE_STATE_USESTANDING);
+                    ResetTimer(0, 19000);
+                }
             }
         }
-        else
-        {
-            if (pointId == PATH_DISMOUNTED_CAST_POINT)
-                DoCastSpellIfCan(nullptr, SPELL_ETHEREAL_RING_VISUAL);
-            else if (pointId == PATH_DISMOUNTED_LAST_POINT)
-            {
-                m_creature->GetMotionMaster()->Clear(false, true);
-                m_creature->GetMotionMaster()->MoveIdle();
-                DoScriptText(vendorText[m_creature->GetEntry()], m_creature);
-                m_creature->HandleEmote(EMOTE_STATE_USESTANDING);
-                ResetTimer(0, 19000);
-            }
-        }
-    }
 
-    void UpdateAI(const uint32 diff)
-    {
-        UpdateTimers(diff);
-    }
+        void UpdateAI(const uint32 diff)
+        {
+            UpdateTimers(diff);
+        }
+    };
+
+
+
 };
 
-UnitAI* GetAI_npc_aether_tech_vendor(Creature* creature)
-{
-    return new npc_aether_tech_vendorAI(creature);
-}
 
 // Bashir bosses
 
@@ -3621,141 +3904,152 @@ enum FleshFiendActions
     FIEND_ACTION_MAX,
     FIEND_ACTION_EAT_FRIEND_END,
 };
-
-struct npc_bashir_flesh_fiendAI : public ScriptedAI, public CombatActions
+class npc_bashir_flesh_fiend : public CreatureScript
 {
-    npc_bashir_flesh_fiendAI(Creature* creature) : ScriptedAI(creature), CombatActions(FIEND_ACTION_MAX)
+public:
+    npc_bashir_flesh_fiend() : CreatureScript("npc_bashir_flesh_fiend") { }
+
+    UnitAI* GetAI(Creature* creature)
     {
-        AddCombatAction(FIEND_ACTION_EAT_FRIEND, 0u);
-        AddCombatAction(FIEND_ACTION_INFECTIOUS_POISON, 0u);
-        AddCombatAction(FIEND_ACTION_GAPING_MAW, 0u);
-        AddCustomAction(FIEND_ACTION_EAT_FRIEND_END, 0u, [&]
-        {
-            SetCombatScriptStatus(false);
-            SetCombatMovement(true, true);
-        });
-        Reset();
+        return new npc_bashir_flesh_fiendAI(creature);
     }
 
-    ObjectGuid m_slaveringSlave;
 
-    void Reset() override
+
+    struct npc_bashir_flesh_fiendAI : public ScriptedAI, public CombatActions
     {
-        for (uint32 i = 0; i < FLAYER_ACTION_MAX; ++i)
-            SetActionReadyStatus(i, false);
-
-        ResetTimer(FIEND_ACTION_EAT_FRIEND, GetInitialActionTimer(FIEND_ACTION_EAT_FRIEND));
-        ResetTimer(FIEND_ACTION_INFECTIOUS_POISON, GetInitialActionTimer(FIEND_ACTION_INFECTIOUS_POISON));
-        ResetTimer(FIEND_ACTION_GAPING_MAW, GetInitialActionTimer(FIEND_ACTION_GAPING_MAW));
-
-        DoCastSpellIfCan(nullptr, SPELL_THRASH, CAST_TRIGGERED | CAST_AURA_NOT_PRESENT);
-    }
-
-    // TODO: review timers
-    uint32 GetInitialActionTimer(uint32 id)
-    {
-        switch (id)
+        npc_bashir_flesh_fiendAI(Creature* creature) : ScriptedAI(creature), CombatActions(FIEND_ACTION_MAX)
         {
-            case FIEND_ACTION_EAT_FRIEND: return 2000;
-            case FIEND_ACTION_INFECTIOUS_POISON: return 15000;
-            case FIEND_ACTION_GAPING_MAW: return 20000;
-            default: return 0; // never occurs but for compiler
-        }
-    }
-
-    uint32 GetSubsequentActionTimer(uint32 id)
-    {
-        switch (id)
-        {
-            case FIEND_ACTION_EAT_FRIEND: return 2000;
-            case FIEND_ACTION_INFECTIOUS_POISON: return 15000;
-            case FIEND_ACTION_GAPING_MAW: return 20000;
-            default: return 0; // never occurs but for compiler
-        }
-    }
-
-    void MovementInform(uint32 motionType, uint32 data) override
-    {
-        if (motionType == POINT_MOTION_TYPE && data == POINT_EAT_FRIEND)
-        {
-            ResetTimer(FIEND_ACTION_EAT_FRIEND_END, 1000);
-            if (Creature* slave = m_creature->GetMap()->GetCreature(m_slaveringSlave))
-                DoCastSpellIfCan(slave, SPELL_EAT_FRIEND);
-        }
-    }
-
-    void ExecuteActions() override
-    {
-        if (!CanExecuteCombatAction())
-            return;
-
-        for (uint32 i = 0; i < FIEND_ACTION_MAX; ++i)
-        {
-            if (GetActionReadyStatus(i))
+            AddCombatAction(FIEND_ACTION_EAT_FRIEND, 0u);
+            AddCombatAction(FIEND_ACTION_INFECTIOUS_POISON, 0u);
+            AddCombatAction(FIEND_ACTION_GAPING_MAW, 0u);
+            AddCustomAction(FIEND_ACTION_EAT_FRIEND_END, 0u, [&]
             {
-                switch (i)
+                SetCombatScriptStatus(false);
+                SetCombatMovement(true, true);
+            });
+            Reset();
+        }
+
+        ObjectGuid m_slaveringSlave;
+
+        void Reset() override
+        {
+            for (uint32 i = 0; i < FLAYER_ACTION_MAX; ++i)
+                SetActionReadyStatus(i, false);
+
+            ResetTimer(FIEND_ACTION_EAT_FRIEND, GetInitialActionTimer(FIEND_ACTION_EAT_FRIEND));
+            ResetTimer(FIEND_ACTION_INFECTIOUS_POISON, GetInitialActionTimer(FIEND_ACTION_INFECTIOUS_POISON));
+            ResetTimer(FIEND_ACTION_GAPING_MAW, GetInitialActionTimer(FIEND_ACTION_GAPING_MAW));
+
+            DoCastSpellIfCan(nullptr, SPELL_THRASH, CAST_TRIGGERED | CAST_AURA_NOT_PRESENT);
+        }
+
+        // TODO: review timers
+        uint32 GetInitialActionTimer(uint32 id)
+        {
+            switch (id)
+            {
+                case FIEND_ACTION_EAT_FRIEND: return 2000;
+                case FIEND_ACTION_INFECTIOUS_POISON: return 15000;
+                case FIEND_ACTION_GAPING_MAW: return 20000;
+                default: return 0; // never occurs but for compiler
+            }
+        }
+
+        uint32 GetSubsequentActionTimer(uint32 id)
+        {
+            switch (id)
+            {
+                case FIEND_ACTION_EAT_FRIEND: return 2000;
+                case FIEND_ACTION_INFECTIOUS_POISON: return 15000;
+                case FIEND_ACTION_GAPING_MAW: return 20000;
+                default: return 0; // never occurs but for compiler
+            }
+        }
+
+        void MovementInform(uint32 motionType, uint32 data) override
+        {
+            if (motionType == POINT_MOTION_TYPE && data == POINT_EAT_FRIEND)
+            {
+                ResetTimer(FIEND_ACTION_EAT_FRIEND_END, 1000);
+                if (Creature* slave = m_creature->GetMap()->GetCreature(m_slaveringSlave))
+                    DoCastSpellIfCan(slave, SPELL_EAT_FRIEND);
+            }
+        }
+
+        void ExecuteActions() override
+        {
+            if (!CanExecuteCombatAction())
+                return;
+
+            for (uint32 i = 0; i < FIEND_ACTION_MAX; ++i)
+            {
+                if (GetActionReadyStatus(i))
                 {
-                    case FIEND_ACTION_EAT_FRIEND:
+                    switch (i)
                     {
-                        // TODO:
-                        Creature* slaveringSlave = GetClosestCreatureWithEntry(m_creature, NPC_SLAVERING_SLAVE, 10.f, false, true);
-                        if (slaveringSlave) // found corpse of ally
+                        case FIEND_ACTION_EAT_FRIEND:
                         {
-                            SetCombatScriptStatus(true);
-                            SetCombatMovement(false);
-                            float x, y, z;
-                            m_creature->GetVictim()->GetNearPoint(m_creature, x, y, z, m_creature->GetObjectBoundingRadius(), m_creature->GetCombinedCombatReach(slaveringSlave), slaveringSlave->GetAngle(m_creature));
-                            m_creature->GetMotionMaster()->MovePoint(POINT_EAT_FRIEND, x, y, z);
-                            m_slaveringSlave = slaveringSlave->GetObjectGuid();
+                            // TODO:
+                            Creature* slaveringSlave = GetClosestCreatureWithEntry(m_creature, NPC_SLAVERING_SLAVE, 10.f, false, true);
+                            if (slaveringSlave) // found corpse of ally
+                            {
+                                SetCombatScriptStatus(true);
+                                SetCombatMovement(false);
+                                float x, y, z;
+                                m_creature->GetVictim()->GetNearPoint(m_creature, x, y, z, m_creature->GetObjectBoundingRadius(), m_creature->GetCombinedCombatReach(slaveringSlave), slaveringSlave->GetAngle(m_creature));
+                                m_creature->GetMotionMaster()->MovePoint(POINT_EAT_FRIEND, x, y, z);
+                                m_slaveringSlave = slaveringSlave->GetObjectGuid();
+                            }
+                            else
+                            {
+                                ResetTimer(i, 2000);
+                                SetActionReadyStatus(i, false);
+                            }
+                            continue;
                         }
-                        else
+                        case FIEND_ACTION_INFECTIOUS_POISON:
                         {
-                            ResetTimer(i, 2000);
-                            SetActionReadyStatus(i, false);
+                            if (DoCastSpellIfCan(nullptr, SPELL_INFECTIOUS_POISON) == CAST_OK)
+                            {
+                                ResetTimer(i, GetSubsequentActionTimer(i));
+                                SetActionReadyStatus(i, false);
+                                return;
+                            }
+                            continue;
                         }
-                        continue;
-                    }
-                    case FIEND_ACTION_INFECTIOUS_POISON:
-                    {
-                        if (DoCastSpellIfCan(nullptr, SPELL_INFECTIOUS_POISON) == CAST_OK)
+                        case FIEND_ACTION_GAPING_MAW:
                         {
-                            ResetTimer(i, GetSubsequentActionTimer(i));
-                            SetActionReadyStatus(i, false);
-                            return;
+                            if (DoCastSpellIfCan(nullptr, SPELL_GAPING_MAW) == CAST_OK)
+                            {
+                                ResetTimer(i, GetSubsequentActionTimer(i));
+                                SetActionReadyStatus(i, false);
+                                return;
+                            }
+                            continue;
                         }
-                        continue;
-                    }
-                    case FIEND_ACTION_GAPING_MAW:
-                    {
-                        if (DoCastSpellIfCan(nullptr, SPELL_GAPING_MAW) == CAST_OK)
-                        {
-                            ResetTimer(i, GetSubsequentActionTimer(i));
-                            SetActionReadyStatus(i, false);
-                            return;
-                        }
-                        continue;
                     }
                 }
             }
         }
-    }
 
-    void UpdateAI(const uint32 diff) override
-    {
-        UpdateTimers(diff, m_creature->IsInCombat());
+        void UpdateAI(const uint32 diff) override
+        {
+            UpdateTimers(diff, m_creature->IsInCombat());
 
-        if (!m_creature->SelectHostileTarget() || !m_creature->GetVictim())
-            return;
+            if (!m_creature->SelectHostileTarget() || !m_creature->GetVictim())
+                return;
 
-        ExecuteActions();
-        DoMeleeAttackIfReady();
-    }
+            ExecuteActions();
+            DoMeleeAttackIfReady();
+        }
+    };
+
+
+
 };
 
-UnitAI* GetAI_npc_bashir_flesh_fiend(Creature* creature)
-{
-    return new npc_bashir_flesh_fiendAI(creature);
-}
 
 enum DisruptorTower
 {
@@ -3768,57 +4062,68 @@ enum DisruptorTower
     SPELL_THE_BOLT            = 40758,
     SPELL_DISRUPTOR_EXPLOSION = 40799, // cast by bunny
 };
-
-struct npc_disruptor_towerAI : public ScriptedAI, public TimerManager
+class npc_disruptor_tower : public CreatureScript
 {
-    npc_disruptor_towerAI(Creature* creature) : ScriptedAI(creature)
+public:
+    npc_disruptor_tower() : CreatureScript("npc_disruptor_tower") { }
+
+    UnitAI* GetAI(Creature* creature)
     {
-        SetCombatMovement(false);
-        SetMeleeEnabled(false);
-        SetReactState(REACT_PASSIVE);
-        AddCustomAction(0, 0u, [&]
+        return new npc_disruptor_towerAI(creature);
+    }
+
+
+
+    struct npc_disruptor_towerAI : public ScriptedAI, public TimerManager
+    {
+        npc_disruptor_towerAI(Creature* creature) : ScriptedAI(creature)
         {
-            DoCastSpellIfCan(nullptr, SPELL_BOLT_BUNNY);
-            ResetTimer(0, urand(6000, 12000));
-        });
-        Reset();
-    }
+            SetCombatMovement(false);
+            SetMeleeEnabled(false);
+            SetReactState(REACT_PASSIVE);
+            AddCustomAction(0, 0u, [&]
+            {
+                DoCastSpellIfCan(nullptr, SPELL_BOLT_BUNNY);
+                ResetTimer(0, urand(6000, 12000));
+            });
+            Reset();
+        }
 
-    void Reset() override
-    {
+        void Reset() override
+        {
 
-    }
+        }
 
-    void JustRespawned() override
-    {
-        ScriptedAI::JustRespawned();
-        DoCastSpellIfCan(nullptr, SPELL_ETHEREAL_TELEPORT);
-        DoCastSpellIfCan(nullptr, SPELL_CANNON_VISUAL);
-        ResetTimer(0, 10000);
-    }
+        void JustRespawned() override
+        {
+            ScriptedAI::JustRespawned();
+            DoCastSpellIfCan(nullptr, SPELL_ETHEREAL_TELEPORT);
+            DoCastSpellIfCan(nullptr, SPELL_CANNON_VISUAL);
+            ResetTimer(0, 10000);
+        }
 
-    void JustSummoned(Creature* summoned) override
-    {
-        summoned->CastSpell(m_creature, SPELL_BOLT_BURST, TRIGGERED_NONE);
-    }
+        void JustSummoned(Creature* summoned) override
+        {
+            summoned->CastSpell(m_creature, SPELL_BOLT_BURST, TRIGGERED_NONE);
+        }
 
-    void JustDied(Unit* /*killer*/) override
-    {
-        m_creature->CastSpell(nullptr, SPELL_CANNON_DEATH_VISUAL_START, TRIGGERED_OLD_TRIGGERED);
-    }
+        void JustDied(Unit* /*killer*/) override
+        {
+            m_creature->CastSpell(nullptr, SPELL_CANNON_DEATH_VISUAL_START, TRIGGERED_OLD_TRIGGERED);
+        }
 
-    void UpdateAI(const uint32 diff) override
-    {
-        UpdateTimers(diff);
-        if (!m_creature->SelectHostileTarget())
-            return;
-    }
+        void UpdateAI(const uint32 diff) override
+        {
+            UpdateTimers(diff);
+            if (!m_creature->SelectHostileTarget())
+                return;
+        }
+    };
+
+
+
 };
 
-UnitAI* GetAI_npc_disruptor_tower(Creature* creature)
-{
-    return new npc_disruptor_towerAI(creature);
-}
 
 enum GrandCollector
 {
@@ -3844,153 +4149,164 @@ enum GrandCollectorActions
     COLLECTOR_COMBAT_ACTION_MAX,
     COLLECTOR_ACTION_HANDLE_EVENT,
 };
-
-struct npc_grand_collectorAI : public ScriptedAI, public CombatActions
+class npc_grand_collector : public CreatureScript
 {
-    npc_grand_collectorAI(Creature* creature) : ScriptedAI(creature), CombatActions(COLLECTOR_COMBAT_ACTION_MAX), m_introEventId(0),
-        m_instance(static_cast<ScriptedInstance*>(m_creature->GetMap()->GetInstanceData()))
+public:
+    npc_grand_collector() : CreatureScript("npc_grand_collector") { }
+
+    UnitAI* GetAI(Creature* creature)
     {
-        SetReactState(REACT_PASSIVE);
-        AddCombatAction(COLLECTOR_ACTION_MIRROR_IMAGE, 0u);
-        AddCombatAction(COLLECTOR_ACTION_RESONANT_FEEDBACK, 0u);
-        AddCombatAction(COLLECTOR_ACTION_ARCANE_VOLLEY, 0u);
-        AddCustomAction(COLLECTOR_ACTION_HANDLE_EVENT, 0u, [&] { HandleEvent(); });
-        Reset();
+        return new npc_grand_collectorAI(creature);
     }
 
-    uint32 m_introEventId;
-    ScriptedInstance* m_instance;
 
-    void Reset() override
+
+    struct npc_grand_collectorAI : public ScriptedAI, public CombatActions
     {
-        for (uint32 i = 0; i < COLLECTOR_COMBAT_ACTION_MAX; ++i)
-            SetActionReadyStatus(i, false);
-
-        SetActionReadyStatus(COLLECTOR_ACTION_MIRROR_IMAGE, true);
-
-        ResetTimer(COLLECTOR_ACTION_RESONANT_FEEDBACK, GetInitialActionTimer(COLLECTOR_ACTION_RESONANT_FEEDBACK));
-        ResetTimer(COLLECTOR_ACTION_ARCANE_VOLLEY, GetInitialActionTimer(COLLECTOR_ACTION_ARCANE_VOLLEY));
-    }
-
-    // TODO: review timers
-    uint32 GetInitialActionTimer(uint32 id)
-    {
-        switch (id)
+        npc_grand_collectorAI(Creature* creature) : ScriptedAI(creature), CombatActions(COLLECTOR_COMBAT_ACTION_MAX), m_introEventId(0),
+            m_instance(static_cast<ScriptedInstance*>(m_creature->GetMap()->GetInstanceData()))
         {
-            case COLLECTOR_ACTION_RESONANT_FEEDBACK: return 15000;
-            case COLLECTOR_ACTION_ARCANE_VOLLEY: return 20000;
-            default: return 0; // never occurs but for compiler
+            SetReactState(REACT_PASSIVE);
+            AddCombatAction(COLLECTOR_ACTION_MIRROR_IMAGE, 0u);
+            AddCombatAction(COLLECTOR_ACTION_RESONANT_FEEDBACK, 0u);
+            AddCombatAction(COLLECTOR_ACTION_ARCANE_VOLLEY, 0u);
+            AddCustomAction(COLLECTOR_ACTION_HANDLE_EVENT, 0u, [&] { HandleEvent(); });
+            Reset();
         }
-    }
 
-    uint32 GetSubsequentActionTimer(uint32 id)
-    {
-        switch (id)
+        uint32 m_introEventId;
+        ScriptedInstance* m_instance;
+
+        void Reset() override
         {
-            case COLLECTOR_ACTION_RESONANT_FEEDBACK: return 15000;
-            case COLLECTOR_ACTION_ARCANE_VOLLEY: return 20000;
-            default: return 0; // never occurs but for compiler
+            for (uint32 i = 0; i < COLLECTOR_COMBAT_ACTION_MAX; ++i)
+                SetActionReadyStatus(i, false);
+
+            SetActionReadyStatus(COLLECTOR_ACTION_MIRROR_IMAGE, true);
+
+            ResetTimer(COLLECTOR_ACTION_RESONANT_FEEDBACK, GetInitialActionTimer(COLLECTOR_ACTION_RESONANT_FEEDBACK));
+            ResetTimer(COLLECTOR_ACTION_ARCANE_VOLLEY, GetInitialActionTimer(COLLECTOR_ACTION_ARCANE_VOLLEY));
         }
-    }
 
-    void HandleEvent()
-    {
-        switch (m_introEventId)
+        // TODO: review timers
+        uint32 GetInitialActionTimer(uint32 id)
         {
-            case 0:
-            case 1:
-            case 2:
-                DoCastSpellIfCan(nullptr, SPELL_BOSS_3_SUMMON_LIEUTENANT);
-                break;
-            case 3:
+            switch (id)
             {
-                Creature* tech = m_instance->GetSingleCreatureFromStorage(NPC_SKYGUARD_AETHER_TECH);
-                SetReactState(REACT_AGGRESSIVE);
-                m_creature->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_PLAYER);
-                m_creature->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE);
-                DoScriptText(SAY_COLLECTOR_ATTACK, m_creature);
-                AttackStart(tech);
-                break;
+                case COLLECTOR_ACTION_RESONANT_FEEDBACK: return 15000;
+                case COLLECTOR_ACTION_ARCANE_VOLLEY: return 20000;
+                default: return 0; // never occurs but for compiler
             }
         }
-        ++m_introEventId;
-        if (m_introEventId < 4)
-            ResetTimer(COLLECTOR_ACTION_HANDLE_EVENT, 32000);
-    }
 
-    void JustRespawned() override
-    {
-        DoScriptText(SAY_COLLECTOR_SPAWN, m_creature);
-    }
-
-    void JustSummoned(Creature* summoned) override
-    {
-        if (Creature* tech = m_instance->GetSingleCreatureFromStorage(NPC_SKYGUARD_AETHER_TECH))
+        uint32 GetSubsequentActionTimer(uint32 id)
         {
-            summoned->CastSpell(nullptr, SPELL_ETHEREAL_TELEPORT, TRIGGERED_NONE);
-            summoned->AI()->AttackStart(tech);
-        }
-    }
-
-    void ExecuteActions() override
-    {
-        if (!CanExecuteCombatAction())
-            return;
-
-        for (uint32 i = 0; i < COLLECTOR_COMBAT_ACTION_MAX; ++i)
-        {
-            if (GetActionReadyStatus(i))
+            switch (id)
             {
-                switch (i)
+                case COLLECTOR_ACTION_RESONANT_FEEDBACK: return 15000;
+                case COLLECTOR_ACTION_ARCANE_VOLLEY: return 20000;
+                default: return 0; // never occurs but for compiler
+            }
+        }
+
+        void HandleEvent()
+        {
+            switch (m_introEventId)
+            {
+                case 0:
+                case 1:
+                case 2:
+                    DoCastSpellIfCan(nullptr, SPELL_BOSS_3_SUMMON_LIEUTENANT);
+                    break;
+                case 3:
                 {
-                    case COLLECTOR_ACTION_MIRROR_IMAGE:
+                    Creature* tech = m_instance->GetSingleCreatureFromStorage(NPC_SKYGUARD_AETHER_TECH);
+                    SetReactState(REACT_AGGRESSIVE);
+                    m_creature->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_PLAYER);
+                    m_creature->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE);
+                    DoScriptText(SAY_COLLECTOR_ATTACK, m_creature);
+                    AttackStart(tech);
+                    break;
+                }
+            }
+            ++m_introEventId;
+            if (m_introEventId < 4)
+                ResetTimer(COLLECTOR_ACTION_HANDLE_EVENT, 32000);
+        }
+
+        void JustRespawned() override
+        {
+            DoScriptText(SAY_COLLECTOR_SPAWN, m_creature);
+        }
+
+        void JustSummoned(Creature* summoned) override
+        {
+            if (Creature* tech = m_instance->GetSingleCreatureFromStorage(NPC_SKYGUARD_AETHER_TECH))
+            {
+                summoned->CastSpell(nullptr, SPELL_ETHEREAL_TELEPORT, TRIGGERED_NONE);
+                summoned->AI()->AttackStart(tech);
+            }
+        }
+
+        void ExecuteActions() override
+        {
+            if (!CanExecuteCombatAction())
+                return;
+
+            for (uint32 i = 0; i < COLLECTOR_COMBAT_ACTION_MAX; ++i)
+            {
+                if (GetActionReadyStatus(i))
+                {
+                    switch (i)
                     {
-                        if (m_creature->GetHealthPercent() <= 50.f)
+                        case COLLECTOR_ACTION_MIRROR_IMAGE:
                         {
-                            DoCastSpellIfCan(nullptr, SPELL_MIRROR_IMAGE_1);
-                            DoCastSpellIfCan(nullptr, SPELL_MIRROR_IMAGE_2);
-                            SetActionReadyStatus(i, false);
+                            if (m_creature->GetHealthPercent() <= 50.f)
+                            {
+                                DoCastSpellIfCan(nullptr, SPELL_MIRROR_IMAGE_1);
+                                DoCastSpellIfCan(nullptr, SPELL_MIRROR_IMAGE_2);
+                                SetActionReadyStatus(i, false);
+                            }
+                            continue;
                         }
-                        continue;
-                    }
-                    case COLLECTOR_ACTION_RESONANT_FEEDBACK:
-                    {
-                        if (DoCastSpellIfCan(nullptr, SPELL_RESONANT_FEEDBACK) == CAST_OK)
+                        case COLLECTOR_ACTION_RESONANT_FEEDBACK:
                         {
-                            ResetTimer(i, GetSubsequentActionTimer(i));
-                            SetActionReadyStatus(i, false);
+                            if (DoCastSpellIfCan(nullptr, SPELL_RESONANT_FEEDBACK) == CAST_OK)
+                            {
+                                ResetTimer(i, GetSubsequentActionTimer(i));
+                                SetActionReadyStatus(i, false);
+                            }
+                            continue;
                         }
-                        continue;
-                    }
-                    case COLLECTOR_ACTION_ARCANE_VOLLEY:
-                    {
-                        if (DoCastSpellIfCan(nullptr, SPELL_ARCANE_VOLLEY) == CAST_OK)
+                        case COLLECTOR_ACTION_ARCANE_VOLLEY:
                         {
-                            ResetTimer(i, GetSubsequentActionTimer(i));
-                            SetActionReadyStatus(i, false);
+                            if (DoCastSpellIfCan(nullptr, SPELL_ARCANE_VOLLEY) == CAST_OK)
+                            {
+                                ResetTimer(i, GetSubsequentActionTimer(i));
+                                SetActionReadyStatus(i, false);
+                            }
+                            continue;
                         }
-                        continue;
                     }
                 }
             }
         }
-    }
 
-    void UpdateAI(const uint32 diff) override
-    {
-        UpdateTimers(diff, m_creature->IsInCombat());
-        if (!m_creature->SelectHostileTarget())
-            return;
+        void UpdateAI(const uint32 diff) override
+        {
+            UpdateTimers(diff, m_creature->IsInCombat());
+            if (!m_creature->SelectHostileTarget())
+                return;
 
-        ExecuteActions();
-        DoMeleeAttackIfReady();
-    }
+            ExecuteActions();
+            DoMeleeAttackIfReady();
+        }
+    };
+
+
+
 };
 
-UnitAI* GetAI_npc_grand_collector(Creature* creature)
-{
-    return new npc_grand_collectorAI(creature);
-}
 
 struct EtherealRingSignalFlare : public SpellScript
 {
@@ -4002,164 +4318,37 @@ struct EtherealRingSignalFlare : public SpellScript
 
 void AddSC_blades_edge_mountains()
 {
-    Script* pNewScript = new Script;
-    pNewScript->Name = "mobs_nether_drake";
-    pNewScript->GetAI = &GetAI_mobs_nether_drake;
-    pNewScript->RegisterSelf();
-
-    pNewScript = new Script;
-    pNewScript->Name = "npc_daranelle";
-    pNewScript->GetAI = &GetAI_npc_daranelle;
-    pNewScript->RegisterSelf();
-
-    pNewScript = new Script;
-    pNewScript->Name = "npc_bloodmaul_stout_trigger";
-    pNewScript->GetAI = &GetAI_npc_bloodmaul_stout_trigger;
-    pNewScript->RegisterSelf();
-
-    pNewScript = new Script;
-    pNewScript->Name = "npc_simon_game_bunny";
-    pNewScript->GetAI = &GetAI_npc_simon_game_bunny;
-    pNewScript->pEffectDummyNPC = &EffectDummyCreature_npc_simon_game_bunny;
-    pNewScript->pEffectScriptEffectNPC = &EffectScriptEffectCreature_npc_simon_game_bunny;
-    pNewScript->RegisterSelf();
-
-    pNewScript = new Script;
-    pNewScript->Name = "npc_light_orb_collector";
-    pNewScript->GetAI = &GetAI_npc_light_orb_collector;
-    pNewScript->RegisterSelf();
-
-    pNewScript = new Script;
-    pNewScript->Name = "npc_obelisk_trigger";
-    pNewScript->GetAI = &GetAI_obelisk_triggerAI;
-    pNewScript->RegisterSelf();
-
-    pNewScript = new Script;
-    pNewScript->Name = "npc_vimgol_visual_bunny";
-    pNewScript->GetAI = &GetAI_npc_vimgol_visual_bunny;
-    pNewScript->RegisterSelf();
-
-    pNewScript = new Script;
-    pNewScript->Name = "npc_vimgol_middle_bunny";
-    pNewScript->GetAI = &GetAI_npc_vimgol_middle_bunny;
-    pNewScript->RegisterSelf();
-
-    pNewScript = new Script;
-    pNewScript->Name = "npc_vimgol";
-    pNewScript->GetAI = &GetAI_npc_vimgol;
-    pNewScript->RegisterSelf();
-
-    pNewScript = new Script;
-    pNewScript->Name = "npc_bird_spirit";
-    pNewScript->GetAI = &GetAI_npc_bird_spirit;
-    pNewScript->RegisterSelf();
-
-    pNewScript = new Script;
-    pNewScript->Name = "npc_bloodmaul_dire_wolf";
-    pNewScript->GetAI = &GetAI_npc_bloodmaul_dire_wolf;
-    pNewScript->pEffectScriptEffectNPC = &EffectScriptEffectCreature_spell_diminution_powder;
-    pNewScript->RegisterSelf();
-
-    pNewScript = new Script;
-    pNewScript->Name = "mobs_grishna_arrakoa";
-    pNewScript->pAreaTrigger = &AreaTrigger_at_raven_prophecy;
-    pNewScript->RegisterSelf();
-
-    pNewScript = new Script;
-    pNewScript->Name = "npc_frequency_scanner";
-    pNewScript->GetAI = &GetAI_npc_frequency_scanner;
-    pNewScript->RegisterSelf();
-
-    pNewScript = new Script;
-    pNewScript->Name = "go_aura_generator_000";
-    pNewScript->GetGameObjectAI = &GetGOAI_go_aura_generator_000;
-    pNewScript->RegisterSelf();
-
-    pNewScript = new Script;
-    pNewScript->Name = "npc_fel_cannon";
-    pNewScript->GetAI = &GetAI_npc_fel_cannon;
-    pNewScript->RegisterSelf();
-
-    pNewScript = new Script;
-    pNewScript->Name = "npc_warp_gate";
-    pNewScript->GetAI = &GetAI_npc_warp_gate;
-    pNewScript->RegisterSelf();
-
-    pNewScript = new Script;
-    pNewScript->Name = "event_into_the_soulgrinder";
-    pNewScript->pProcessEventId = &ProcessEventId_Soulgrinder;
-    pNewScript->RegisterSelf();
-
-    pNewScript = new Script;
-    pNewScript->Name = "npc_soulgrinder";
-    pNewScript->GetAI = &GetAI_npc_soulgrinder;
-    pNewScript->RegisterSelf();
-
-    pNewScript = new Script;
-    pNewScript->Name = "npc_mogdorg_the_wizened";
-    pNewScript->pQuestRewardedNPC = &QuestRewarded_into_the_soulgrinder;
-    pNewScript->RegisterSelf();
-
-    pNewScript = new Script;
-    pNewScript->Name = "npc_supplicant";
-    pNewScript->GetAI = &GetAI_npc_supplicant;
-    pNewScript->RegisterSelf();
-
-    pNewScript = new Script;
-    pNewScript->Name = "npc_spirit_prisoner_of_bladespire";
-    pNewScript->GetAI = &GetAI_npc_spirit_prisoner_of_bladespire;
-    pNewScript->RegisterSelf();
-
-    pNewScript = new Script;
-    pNewScript->Name = "npc_deadsoul_orb";
-    pNewScript->GetAI = &GetAI_npc_deadsoul_orb;
-    pNewScript->RegisterSelf();
-
-    pNewScript = new Script;
-    pNewScript->Name = "npc_evergrove_druid";
-    pNewScript->GetAI = &GetAI_npc_evergrove_druidAI;
-    pNewScript->pQuestAcceptNPC = &QuestAccept_npc_evergrove_druid;
-    pNewScript->RegisterSelf();
-
-    pNewScript = new Script;
-    pNewScript->Name = "npc_apexis_flayer";
-    pNewScript->GetAI = &GetAI_npc_apexis_flayerAI;
-    pNewScript->RegisterSelf();
-
-    pNewScript = new Script;
-    pNewScript->Name = "npc_skyguard_aether_tech";
-    pNewScript->GetAI = &GetAI_npc_skyguard_aether_tech;
-    pNewScript->RegisterSelf();
-
-    pNewScript = new Script;
-    pNewScript->Name = "npc_skyguard_ranger";
-    pNewScript->GetAI = &GetAI_npc_skyguard_ranger;
-    pNewScript->RegisterSelf();
-
-    pNewScript = new Script;
-    pNewScript->Name = "npc_skyguard_lieutenant";
-    pNewScript->GetAI = &GetAI_npc_skyguard_ranger; // same AI handles them until any difference is found
-    pNewScript->RegisterSelf();
-
-    pNewScript = new Script;
-    pNewScript->Name = "npc_aether_tech_vendor";
-    pNewScript->GetAI = &GetAI_npc_aether_tech_vendor;
-    pNewScript->RegisterSelf();
-
-    pNewScript = new Script;
-    pNewScript->Name = "npc_bashir_flesh_fiend";
-    pNewScript->GetAI = &GetAI_npc_bashir_flesh_fiend;
-    pNewScript->RegisterSelf();
-
-    pNewScript = new Script;
-    pNewScript->Name = "npc_disruptor_tower";
-    pNewScript->GetAI = &GetAI_npc_disruptor_tower;
-    pNewScript->RegisterSelf();
-
-    pNewScript = new Script;
-    pNewScript->Name = "npc_grand_collector";
-    pNewScript->GetAI = &GetAI_npc_grand_collector;
-    pNewScript->RegisterSelf();
+    new mobs_nether_drake();
+    new npc_daranelle();
+    new npc_bloodmaul_stout_trigger();
+    new npc_simon_game_bunny();
+    new npc_light_orb_collector();
+    new npc_obelisk_trigger();
+    new npc_vimgol_visual_bunny();
+    new npc_vimgol_middle_bunny();
+    new npc_vimgol();
+    new npc_bird_spirit();
+    new npc_bloodmaul_dire_wolf();
+    new mobs_grishna_arrakoa();
+    new npc_frequency_scanner();
+    new go_aura_generator_000();
+    new npc_fel_cannon();
+    new npc_warp_gate();
+    new event_into_the_soulgrinder();
+    new npc_soulgrinder();
+    new npc_mogdorg_the_wizened();
+    new npc_supplicant();
+    new npc_spirit_prisoner_of_bladespire();
+    new npc_deadsoul_orb();
+    new npc_evergrove_druid();
+    new npc_apexis_flayer();
+    new npc_skyguard_aether_tech();
+    new npc_skyguard_ranger();
+    new npc_skyguard_lieutenant();
+    new npc_aether_tech_vendor();
+    new npc_bashir_flesh_fiend();
+    new npc_disruptor_tower();
+    new npc_grand_collector();
 
     RegisterSpellScript<EtherealRingSignalFlare>("spell_ethereal_ring_signal_flare");
 }

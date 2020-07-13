@@ -77,315 +77,351 @@ enum OuroActions
     OURO_ACTION_MAX,
     OURO_SPAWN_DELAY_ATTACK,
 };
-
-struct npc_ouro_triggerAI : public ScriptedAI // needs to be before Ouro for compilation reasons
+class npc_ouro_trigger : public CreatureScript
 {
-    npc_ouro_triggerAI(Creature* creature) : ScriptedAI(creature)
+public:
+    npc_ouro_trigger() : CreatureScript("npc_ouro_trigger") { }
+
+
+    struct npc_ouro_triggerAI : public ScriptedAI // needs to be before Ouro for compilation reasons
     {
-        SetReactState(REACT_PASSIVE);
-        SetCombatMovement(false);
-    }
+        npc_ouro_triggerAI(Creature* creature) : ScriptedAI(creature)
+        {
+            SetReactState(REACT_PASSIVE);
+            SetCombatMovement(false);
+        }
 
-    void Reset() override
-    {
+        void Reset() override
+        {
 
-    }
+        }
 
-    float m_ouroHealth;
+        float m_ouroHealth;
 
-    void JustRespawned() override
-    {
-        if (Unit* ouro = m_creature->GetSpawner())
-            m_ouroHealth = ouro->GetHealthPercent();
-    }
+        void JustRespawned() override
+        {
+            if (Unit* ouro = m_creature->GetSpawner())
+                m_ouroHealth = ouro->GetHealthPercent();
+        }
+    };
+
+
+
 };
-
-struct boss_ouroAI : public CombatAI
+class boss_ouro : public CreatureScript
 {
-    boss_ouroAI(Creature* creature) : CombatAI(creature, OURO_ACTION_MAX), m_instance(static_cast<ScriptedInstance*>(creature->GetInstanceData())), m_firstMound(true)
+public:
+    boss_ouro() : CreatureScript("boss_ouro") { }
+
+
+    struct boss_ouroAI : public CombatAI
     {
-        AddTimerlessCombatAction(OURO_ENRAGE, true);
-        AddCombatAction(OURO_SPAWN, 300u);
-        AddCombatAction(OURO_SUBMERGE, 90000u);
-        AddCombatAction(OURO_BOULDER, true);
-        AddCombatAction(OURO_SAND_BLAST, 25000u);
-        AddCombatAction(OURO_SWEEP, 20000u);
-        AddCombatAction(OURO_NO_MELEE_BURROW, 2000u);
-        AddCustomAction(OURO_SPAWN_DELAY_ATTACK, true, [&]() {HandleSpawnDelay(); });
-        m_creature->SetImmobilizedState(true);
-    }
-
-    ScriptedInstance* m_instance;
-    int32 m_rangeCheckState;
-    bool m_firstMound;
-    uint32 m_burrowCounter;
-    ObjectGuid m_base;
-
-    void Reset() override
-    {
-        CombatAI::Reset();
-        SetCombatMovement(false);
-        SetMeleeEnabled(false);
-
-        m_burrowCounter = 0;
-    }
-
-    void JustRespawned() override
-    {
-        CombatAI::JustRespawned();
-        m_creature->CastSpell(nullptr, SPELL_SUMMON_BASE, TRIGGERED_OLD_TRIGGERED);
-        m_creature->SetInCombatWithZone();
-        if (!m_creature->IsInCombat()) // noone left alive
-            JustReachedHome(); // handles fail
-    }
-
-    void JustReachedHome() override
-    {
-        if (m_instance)
-            m_instance->SetData(TYPE_OURO, FAIL);
-
-        m_creature->ForcedDespawn();
-        if (GameObject* go = m_creature->GetMap()->GetGameObject(m_base))
+        boss_ouroAI(Creature* creature) : CombatAI(creature, OURO_ACTION_MAX), m_instance(static_cast<ScriptedInstance*>(creature->GetInstanceData())), m_firstMound(true)
         {
-            go->SetLootState(GO_JUST_DEACTIVATED);
-            go->SetForcedDespawn();
+            AddTimerlessCombatAction(OURO_ENRAGE, true);
+            AddCombatAction(OURO_SPAWN, 300u);
+            AddCombatAction(OURO_SUBMERGE, 90000u);
+            AddCombatAction(OURO_BOULDER, true);
+            AddCombatAction(OURO_SAND_BLAST, 25000u);
+            AddCombatAction(OURO_SWEEP, 20000u);
+            AddCombatAction(OURO_NO_MELEE_BURROW, 2000u);
+            AddCustomAction(OURO_SPAWN_DELAY_ATTACK, true, [&]() {HandleSpawnDelay(); });
+            m_creature->SetImmobilizedState(true);
         }
-    }
 
-    void JustDied(Unit* /*killer*/) override
-    {
-        if (m_instance)
-            m_instance->SetData(TYPE_OURO, DONE);
-    }
+        ScriptedInstance* m_instance;
+        int32 m_rangeCheckState;
+        bool m_firstMound;
+        uint32 m_burrowCounter;
+        ObjectGuid m_base;
 
-    void JustSummoned(GameObject* go) override
-    {
-        m_base = go->GetObjectGuid();
-    }
-
-    void JustSummoned(Creature* summoned) override
-    {
-        switch (summoned->GetEntry())
+        void Reset() override
         {
-            case NPC_DIRT_MOUND:
-                if (m_firstMound)
-                    summoned->CastSpell(nullptr, SPELL_SUMMON_OURO_TRIGG, TRIGGERED_OLD_TRIGGERED);
-                else
-                    summoned->CastSpell(nullptr, SPELL_SCARABS_PERIODIC, TRIGGERED_OLD_TRIGGERED);
-                m_firstMound = false;
-                break;
-        }
-    }
-
-    void SpellHitTarget(Unit* target, const SpellEntry* spell) override
-    {
-        if (spell->Id == SPELL_SANDBLAST)
-            m_creature->getThreatManager().modifyThreatPercent(target, -100);
-    }
-
-    void Burrow()
-    {
-        if (DoCastSpellIfCan(nullptr, SPELL_SUBMERGE_VISUAL) == CAST_OK)
-        {
-            SetCombatScriptStatus(true);
+            CombatAI::Reset();
+            SetCombatMovement(false);
             SetMeleeEnabled(false);
-            DoCastSpellIfCan(nullptr, SPELL_SUMMON_OURO_MOUNDS, CAST_TRIGGERED);
-            DoCastSpellIfCan(nullptr, SPELL_SUMMON_TRIGGER, CAST_TRIGGERED);
 
-            m_creature->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE);
-            m_creature->ForcedDespawn(2000);
-            DisableCombatAction(OURO_SUBMERGE);
-            DisableCombatAction(OURO_NO_MELEE_BURROW);
+            m_burrowCounter = 0;
+        }
+
+        void JustRespawned() override
+        {
+            CombatAI::JustRespawned();
+            m_creature->CastSpell(nullptr, SPELL_SUMMON_BASE, TRIGGERED_OLD_TRIGGERED);
+            m_creature->SetInCombatWithZone();
+            if (!m_creature->IsInCombat()) // noone left alive
+                JustReachedHome(); // handles fail
+        }
+
+        void JustReachedHome() override
+        {
+            if (m_instance)
+                m_instance->SetData(TYPE_OURO, FAIL);
+
+            m_creature->ForcedDespawn();
             if (GameObject* go = m_creature->GetMap()->GetGameObject(m_base))
             {
                 go->SetLootState(GO_JUST_DEACTIVATED);
                 go->SetForcedDespawn();
             }
         }
-    }
 
-    void HandleSpawnDelay()
-    {
-        SetMeleeEnabled(true);
-        SetCombatScriptStatus(false);
-        AttackClosestEnemy();
-        if (m_creature->GetVictim())
-            DoCastSpellIfCan(m_creature->GetVictim(), SPELL_GROUND_RUPTURE);
-    }
-
-    void ExecuteAction(uint32 action) override
-    {
-        switch (action)
+        void JustDied(Unit* /*killer*/) override
         {
-            case OURO_SPAWN:
+            if (m_instance)
+                m_instance->SetData(TYPE_OURO, DONE);
+        }
+
+        void JustSummoned(GameObject* go) override
+        {
+            m_base = go->GetObjectGuid();
+        }
+
+        void JustSummoned(Creature* summoned) override
+        {
+            switch (summoned->GetEntry())
             {
-                DoCastSpellIfCan(nullptr, SPELL_BIRTH_SPAWN);
-                if (m_creature->GetUInt32Value(UNIT_CREATED_BY_SPELL))
-                {
-                    if (Creature* trigger = GetClosestCreatureWithEntry(m_creature, NPC_OURO_TRIGGER, 100.f)) // if not sufficient in the future, do using SPELL_SET_OURO_HEALTH
-                        m_creature->SetHealthPercent(static_cast<npc_ouro_triggerAI*>(trigger->AI())->m_ouroHealth);
-                }
-                else
-                {
-                    if (m_instance)
-                        m_instance->SetData(TYPE_OURO, IN_PROGRESS);                    
-                }
+                case NPC_DIRT_MOUND:
+                    if (m_firstMound)
+                        summoned->CastSpell(nullptr, SPELL_SUMMON_OURO_TRIGG, TRIGGERED_OLD_TRIGGERED);
+                    else
+                        summoned->CastSpell(nullptr, SPELL_SCARABS_PERIODIC, TRIGGERED_OLD_TRIGGERED);
+                    m_firstMound = false;
+                    break;
+            }
+        }
+
+        void SpellHitTarget(Unit* target, const SpellEntry* spell) override
+        {
+            if (spell->Id == SPELL_SANDBLAST)
+                m_creature->getThreatManager().modifyThreatPercent(target, -100);
+        }
+
+        void Burrow()
+        {
+            if (DoCastSpellIfCan(nullptr, SPELL_SUBMERGE_VISUAL) == CAST_OK)
+            {
                 SetCombatScriptStatus(true);
+                SetMeleeEnabled(false);
+                DoCastSpellIfCan(nullptr, SPELL_SUMMON_OURO_MOUNDS, CAST_TRIGGERED);
+                DoCastSpellIfCan(nullptr, SPELL_SUMMON_TRIGGER, CAST_TRIGGERED);
+
+                m_creature->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE);
+                m_creature->ForcedDespawn(2000);
+                DisableCombatAction(OURO_SUBMERGE);
+                DisableCombatAction(OURO_NO_MELEE_BURROW);
                 if (GameObject* go = m_creature->GetMap()->GetGameObject(m_base))
-                    go->SendGameObjectCustomAnim(m_base);
-                ResetTimer(OURO_SPAWN_DELAY_ATTACK, 4000);
-                DisableCombatAction(action);
-                break;
-            }
-            case OURO_ENRAGE:
-            {
-                if (m_creature->GetHealthPercent() < 20.0f)
                 {
-                    if (DoCastSpellIfCan(nullptr, SPELL_BERSERK) == CAST_OK)
+                    go->SetLootState(GO_JUST_DEACTIVATED);
+                    go->SetForcedDespawn();
+                }
+            }
+        }
+
+        void HandleSpawnDelay()
+        {
+            SetMeleeEnabled(true);
+            SetCombatScriptStatus(false);
+            AttackClosestEnemy();
+            if (m_creature->GetVictim())
+                DoCastSpellIfCan(m_creature->GetVictim(), SPELL_GROUND_RUPTURE);
+        }
+
+        void ExecuteAction(uint32 action) override
+        {
+            switch (action)
+            {
+                case OURO_SPAWN:
+                {
+                    DoCastSpellIfCan(nullptr, SPELL_BIRTH_SPAWN);
+                    if (m_creature->GetUInt32Value(UNIT_CREATED_BY_SPELL))
                     {
-                        m_firstMound = false; // in order to avoid spawning more ouros
-                        ResetCombatAction(OURO_BOULDER, 500);
-                        SetActionReadyStatus(action, false);
-                        DisableCombatAction(OURO_SUBMERGE);
-                        DisableCombatAction(OURO_NO_MELEE_BURROW);
-                        return;
+                        if (Creature* trigger = GetClosestCreatureWithEntry(m_creature, NPC_OURO_TRIGGER, 100.f)) // if not sufficient in the future, do using SPELL_SET_OURO_HEALTH
+                            m_creature->SetHealthPercent(static_cast<npc_ouro_triggerAI*>(trigger->AI())->m_ouroHealth);
                     }
+                    else
+                    {
+                        if (m_instance)
+                            m_instance->SetData(TYPE_OURO, IN_PROGRESS);                
+                    }
+                    SetCombatScriptStatus(true);
+                    if (GameObject* go = m_creature->GetMap()->GetGameObject(m_base))
+                        go->SendGameObjectCustomAnim(m_base);
+                    ResetTimer(OURO_SPAWN_DELAY_ATTACK, 4000);
+                    DisableCombatAction(action);
+                    break;
                 }
-                break;
-            }
-            case OURO_SUBMERGE:
-            {
-                Burrow();
-                break;
-            }
-            case OURO_SAND_BLAST:
-            {
-                if (DoCastSpellIfCan(nullptr, SPELL_SANDBLAST) == CAST_OK)
-                    ResetCombatAction(action, 25000);
-                break;
-            }
-            case OURO_SWEEP:
-            {
-                if (DoCastSpellIfCan(nullptr, SPELL_SWEEP) == CAST_OK)
-                    ResetCombatAction(action, 20000);
-                break;
-            }
-            case OURO_BOULDER:
-            {
-                uint32 timer = 500;
-                if (m_creature->GetVictim() && m_creature->CanReachWithMeleeAttack(m_creature->GetVictim()))
-                    m_rangeCheckState = -1;
-                else
+                case OURO_ENRAGE:
                 {
-                    ++m_rangeCheckState;
-                    if (m_rangeCheckState > 1)
-                        if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, SPELL_BOULDER, SELECT_FLAG_PLAYER))
-                            if (DoCastSpellIfCan(target, SPELL_BOULDER) == CAST_OK)
-                                timer = 2500;
+                    if (m_creature->GetHealthPercent() < 20.0f)
+                    {
+                        if (DoCastSpellIfCan(nullptr, SPELL_BERSERK) == CAST_OK)
+                        {
+                            m_firstMound = false; // in order to avoid spawning more ouros
+                            ResetCombatAction(OURO_BOULDER, 500);
+                            SetActionReadyStatus(action, false);
+                            DisableCombatAction(OURO_SUBMERGE);
+                            DisableCombatAction(OURO_NO_MELEE_BURROW);
+                            return;
+                        }
+                    }
+                    break;
                 }
-                ResetCombatAction(action, timer);
-                break;
-            }
-            case OURO_NO_MELEE_BURROW:
-            {
-                if (m_creature->GetVictim() && m_creature->CanReachWithMeleeAttack(m_creature->GetVictim()))
-                    m_burrowCounter = 0;
-                else
+                case OURO_SUBMERGE:
                 {
-                    ++m_burrowCounter;
-                    if (m_burrowCounter >= 10)
-                        Burrow();
+                    Burrow();
+                    break;
                 }
-                ResetCombatAction(action, 1000);
-                break;
+                case OURO_SAND_BLAST:
+                {
+                    if (DoCastSpellIfCan(nullptr, SPELL_SANDBLAST) == CAST_OK)
+                        ResetCombatAction(action, 25000);
+                    break;
+                }
+                case OURO_SWEEP:
+                {
+                    if (DoCastSpellIfCan(nullptr, SPELL_SWEEP) == CAST_OK)
+                        ResetCombatAction(action, 20000);
+                    break;
+                }
+                case OURO_BOULDER:
+                {
+                    uint32 timer = 500;
+                    if (m_creature->GetVictim() && m_creature->CanReachWithMeleeAttack(m_creature->GetVictim()))
+                        m_rangeCheckState = -1;
+                    else
+                    {
+                        ++m_rangeCheckState;
+                        if (m_rangeCheckState > 1)
+                            if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, SPELL_BOULDER, SELECT_FLAG_PLAYER))
+                                if (DoCastSpellIfCan(target, SPELL_BOULDER) == CAST_OK)
+                                    timer = 2500;
+                    }
+                    ResetCombatAction(action, timer);
+                    break;
+                }
+                case OURO_NO_MELEE_BURROW:
+                {
+                    if (m_creature->GetVictim() && m_creature->CanReachWithMeleeAttack(m_creature->GetVictim()))
+                        m_burrowCounter = 0;
+                    else
+                    {
+                        ++m_burrowCounter;
+                        if (m_burrowCounter >= 10)
+                            Burrow();
+                    }
+                    ResetCombatAction(action, 1000);
+                    break;
+                }
             }
         }
-    }
-};
+    };
 
-struct npc_ouro_spawnerAI : public Scripted_NoMovementAI
-{
-    npc_ouro_spawnerAI(Creature* creature) : Scripted_NoMovementAI(creature) {Reset();}
 
-    bool m_bHasSummoned;
-
-    void Reset() override
-    {
-        m_bHasSummoned = false;
-
-        DoCastSpellIfCan(nullptr, SPELL_DIRTMOUND_PASSIVE, CAST_AURA_NOT_PRESENT | CAST_TRIGGERED);
-    }
-
-    void Aggro(Unit* /*who*/) override
-    {
-        if (!m_bHasSummoned)
-        {
-            m_creature->SummonCreature(NPC_OURO, m_creature->GetPositionX(), m_creature->GetPositionY(), m_creature->GetPositionZ(), m_creature->GetOrientation(), TEMPSPAWN_DEAD_DESPAWN, 0, true);
-            m_bHasSummoned = true;
-        }
-    }
-
-    void JustSummoned(Creature* summoned) override
-    {
-        // Despawn when Ouro is spawned
-        if (summoned->GetEntry() == NPC_OURO)
-        {
-            m_creature->ForcedDespawn();
-            m_creature->SetRespawnDelay(7200);
-        }
-    }
 
 };
-
-struct npc_ouro_moundAI : public ScriptedAI, public TimerManager
+class npc_ouro_spawner : public CreatureScript
 {
-    npc_ouro_moundAI(Creature* creature) : ScriptedAI(creature)
-    {
-        SetReactState(REACT_DEFENSIVE);
-        AddCustomAction(1, true, [&]() { PickNewTarget(); });
-    }
+public:
+    npc_ouro_spawner() : CreatureScript("npc_ouro_spawner") { }
 
-    void Reset() override
-    {
-        DoCastSpellIfCan(nullptr, SPELL_DIRTMOUND_PASSIVE, CAST_AURA_NOT_PRESENT | CAST_TRIGGERED);
-    }
 
-    void EnterEvadeMode() override
+    struct npc_ouro_spawnerAI : public Scripted_NoMovementAI
     {
-        if (m_creature->GetInstanceData() && m_creature->HasAura(SPELL_SUMMON_OURO_TRIGG))
-            static_cast<ScriptedInstance*>(m_creature->GetInstanceData())->SetData(TYPE_OURO, FAIL);
-        ScriptedAI::EnterEvadeMode();
-        m_creature->ForcedDespawn(1000); // despawn on wipe
-    }
+        npc_ouro_spawnerAI(Creature* creature) : Scripted_NoMovementAI(creature) {Reset();}
 
-    void JustSummoned(Creature* /*summoned*/) override
-    {
-        m_creature->ForcedDespawn(1);
-    }
+        bool m_bHasSummoned;
 
-    void PickNewTarget()
-    {
-        m_creature->SetInCombatWithZone();
-        DoResetThreat();
-        if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, nullptr, SELECT_FLAG_PLAYER))
+        void Reset() override
         {
-            m_creature->AddThreat(target, 1000000.f);
-            AttackStart(target);
+            m_bHasSummoned = false;
+
+            DoCastSpellIfCan(nullptr, SPELL_DIRTMOUND_PASSIVE, CAST_AURA_NOT_PRESENT | CAST_TRIGGERED);
         }
-        ResetTimer(1, urand(5000, 10000));
-    }
 
-    void JustRespawned() override
-    {
-        ScriptedAI::JustRespawned();
-        ResetTimer(1, 1000); // delayed first target
-    }
+        void Aggro(Unit* /*who*/) override
+        {
+            if (!m_bHasSummoned)
+            {
+                m_creature->SummonCreature(NPC_OURO, m_creature->GetPositionX(), m_creature->GetPositionY(), m_creature->GetPositionZ(), m_creature->GetOrientation(), TEMPSPAWN_DEAD_DESPAWN, 0, true);
+                m_bHasSummoned = true;
+            }
+        }
 
-    void UpdateAI(const uint32 diff) override
+        void JustSummoned(Creature* summoned) override
+        {
+            // Despawn when Ouro is spawned
+            if (summoned->GetEntry() == NPC_OURO)
+            {
+                m_creature->ForcedDespawn();
+                m_creature->SetRespawnDelay(7200);
+            }
+        }
+
+    };
+
+
+
+};
+class npc_ouro_mound : public CreatureScript
+{
+public:
+    npc_ouro_mound() : CreatureScript("npc_ouro_mound") { }
+
+
+    struct npc_ouro_moundAI : public ScriptedAI, public TimerManager
     {
-        UpdateTimers(diff);
-        ScriptedAI::UpdateAI(diff);
-    }
+        npc_ouro_moundAI(Creature* creature) : ScriptedAI(creature)
+        {
+            SetReactState(REACT_DEFENSIVE);
+            AddCustomAction(1, true, [&]() { PickNewTarget(); });
+        }
+
+        void Reset() override
+        {
+            DoCastSpellIfCan(nullptr, SPELL_DIRTMOUND_PASSIVE, CAST_AURA_NOT_PRESENT | CAST_TRIGGERED);
+        }
+
+        void EnterEvadeMode() override
+        {
+            if (m_creature->GetInstanceData() && m_creature->HasAura(SPELL_SUMMON_OURO_TRIGG))
+                static_cast<ScriptedInstance*>(m_creature->GetInstanceData())->SetData(TYPE_OURO, FAIL);
+            ScriptedAI::EnterEvadeMode();
+            m_creature->ForcedDespawn(1000); // despawn on wipe
+        }
+
+        void JustSummoned(Creature* /*summoned*/) override
+        {
+            m_creature->ForcedDespawn(1);
+        }
+
+        void PickNewTarget()
+        {
+            m_creature->SetInCombatWithZone();
+            DoResetThreat();
+            if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, nullptr, SELECT_FLAG_PLAYER))
+            {
+                m_creature->AddThreat(target, 1000000.f);
+                AttackStart(target);
+            }
+            ResetTimer(1, urand(5000, 10000));
+        }
+
+        void JustRespawned() override
+        {
+            ScriptedAI::JustRespawned();
+            ResetTimer(1, 1000); // delayed first target
+        }
+
+        void UpdateAI(const uint32 diff) override
+        {
+            UpdateTimers(diff);
+            ScriptedAI::UpdateAI(diff);
+        }
+    };
+
+
+
 };
 
 enum OuroScarabActions
@@ -443,30 +479,11 @@ struct PeriodicScarabTrigger : public AuraScript
 
 void AddSC_boss_ouro()
 {
-    Script* pNewScript = new Script;
-    pNewScript->Name = "boss_ouro";
-    pNewScript->GetAI = &GetNewAIInstance<boss_ouroAI>;
-    pNewScript->RegisterSelf();
-
-    pNewScript = new Script;
-    pNewScript->Name = "npc_ouro_spawner";
-    pNewScript->GetAI = &GetNewAIInstance<npc_ouro_spawnerAI>;
-    pNewScript->RegisterSelf();
-
-    pNewScript = new Script;
-    pNewScript->Name = "npc_ouro_mound";
-    pNewScript->GetAI = &GetNewAIInstance<npc_ouro_moundAI>;
-    pNewScript->RegisterSelf();
-
-    pNewScript = new Script;
-    pNewScript->Name = "npc_ouro_trigger";
-    pNewScript->GetAI = &GetNewAIInstance<npc_ouro_triggerAI>;
-    pNewScript->RegisterSelf();
-
-    pNewScript = new Script;
-    pNewScript->Name = "npc_ouro_scarab";
-    pNewScript->GetAI = &GetNewAIInstance<OuroScarab>;
-    pNewScript->RegisterSelf();
+    new boss_ouro();
+    new npc_ouro_spawner();
+    new npc_ouro_mound();
+    new npc_ouro_trigger();
+    new npc_ouro_scarab();
 
     RegisterAuraScript<PeriodicScarabTrigger>("spell_periodic_scarab_trigger");
 }

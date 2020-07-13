@@ -33,89 +33,103 @@ EndContentData */
 /*######
 ## event_go_zulfarrak_gong
 ######*/
-
-bool ProcessEventId_event_go_zulfarrak_gong(uint32 /*uiEventId*/, Object* pSource, Object* /*pTarget*/, bool bIsStart)
+class event_go_zulfarrak_gong : public UnknownScript
 {
-    if (bIsStart && pSource->GetTypeId() == TYPEID_PLAYER)
+public:
+    event_go_zulfarrak_gong() : UnknownScript("event_go_zulfarrak_gong") { }
+
+    bool OnProcessEvent(uint32 /*uiEventId*/, Object* pSource, Object* /*pTarget*/, bool bIsStart) override
     {
-        if (instance_zulfarrak* pInstance = (instance_zulfarrak*)((Player*)pSource)->GetInstanceData())
+        if (bIsStart && pSource->GetTypeId() == TYPEID_PLAYER)
         {
-            if (pInstance->GetData(TYPE_GAHZRILLA) == NOT_STARTED || pInstance->GetData(TYPE_GAHZRILLA) == FAIL)
+            if (instance_zulfarrak* pInstance = (instance_zulfarrak*)((Player*)pSource)->GetInstanceData())
             {
-                pInstance->SetData(TYPE_GAHZRILLA, IN_PROGRESS);
-                return false;                               // Summon Gahz'rilla by Database Script
+                if (pInstance->GetData(TYPE_GAHZRILLA) == NOT_STARTED || pInstance->GetData(TYPE_GAHZRILLA) == FAIL)
+                {
+                    pInstance->SetData(TYPE_GAHZRILLA, IN_PROGRESS);
+                    return false;                               // Summon Gahz'rilla by Database Script
+                }
+                return true;
+                // Prevent DB script summoning Gahz'rilla
             }
-            return true;
-            // Prevent DB script summoning Gahz'rilla
         }
+        return false;
     }
-    return false;
-}
+
+
+
+};
 
 /*######
 ## event_spell_unlocking
 ######*/
-
-bool ProcessEventId_event_spell_unlocking(uint32 /*uiEventId*/, Object* pSource, Object* /*pTarget*/, bool bIsStart)
+class event_spell_unlocking : public UnknownScript
 {
-    if (bIsStart && pSource->GetTypeId() == TYPEID_PLAYER)
+public:
+    event_spell_unlocking() : UnknownScript("event_spell_unlocking") { }
+
+    bool OnProcessEvent(uint32 /*uiEventId*/, Object* pSource, Object* /*pTarget*/, bool bIsStart) override
     {
-        if (instance_zulfarrak* pInstance = (instance_zulfarrak*)((Player*)pSource)->GetInstanceData())
+        if (bIsStart && pSource->GetTypeId() == TYPEID_PLAYER)
         {
-            if (pInstance->GetData(TYPE_PYRAMID_EVENT) == NOT_STARTED)
+            if (instance_zulfarrak* pInstance = (instance_zulfarrak*)((Player*)pSource)->GetInstanceData())
             {
-                pInstance->SetData(TYPE_PYRAMID_EVENT, IN_PROGRESS);
-                return false;                               // Summon pyramid trolls by Database Script
+                if (pInstance->GetData(TYPE_PYRAMID_EVENT) == NOT_STARTED)
+                {
+                    pInstance->SetData(TYPE_PYRAMID_EVENT, IN_PROGRESS);
+                    return false;                               // Summon pyramid trolls by Database Script
+                }
+                return true;
             }
-            return true;
         }
+        return false;
     }
-    return false;
-}
+
+
+
+};
 
 /*######
 ## at_zulfarrak
 ######*/
-
-bool AreaTrigger_at_zulfarrak(Player* pPlayer, AreaTriggerEntry const* pAt)
+class at_zulfarrak : public AreaTriggerScript
 {
-    if (pAt->id == AREATRIGGER_ANTUSUL)
+public:
+    at_zulfarrak() : AreaTriggerScript("at_zulfarrak") { }
+
+    bool OnTrigger(Player* pPlayer, AreaTriggerEntry const* pAt) override
     {
-        if (pPlayer->isGameMaster() || pPlayer->IsDead())
-            return false;
-
-        instance_zulfarrak* pInstance = (instance_zulfarrak*)pPlayer->GetInstanceData();
-
-        if (!pInstance)
-            return false;
-
-        if (pInstance->GetData(TYPE_ANTUSUL) == NOT_STARTED || pInstance->GetData(TYPE_ANTUSUL) == FAIL)
+        if (pAt->id == AREATRIGGER_ANTUSUL)
         {
-            if (Creature* pAntuSul = pInstance->GetSingleCreatureFromStorage(NPC_ANTUSUL))
+            if (pPlayer->isGameMaster() || pPlayer->IsDead())
+                return false;
+
+            instance_zulfarrak* pInstance = (instance_zulfarrak*)pPlayer->GetInstanceData();
+
+            if (!pInstance)
+                return false;
+
+            if (pInstance->GetData(TYPE_ANTUSUL) == NOT_STARTED || pInstance->GetData(TYPE_ANTUSUL) == FAIL)
             {
-                if (pAntuSul->IsAlive())
-                    pAntuSul->AI()->AttackStart(pPlayer);
+                if (Creature* pAntuSul = pInstance->GetSingleCreatureFromStorage(NPC_ANTUSUL))
+                {
+                    if (pAntuSul->IsAlive())
+                        pAntuSul->AI()->AttackStart(pPlayer);
+                }
             }
         }
+
+        return false;
     }
 
-    return false;
-}
+
+
+};
 
 void AddSC_zulfarrak()
 {
-    Script* pNewScript = new Script;
-    pNewScript->Name = "event_go_zulfarrak_gong";
-    pNewScript->pProcessEventId = &ProcessEventId_event_go_zulfarrak_gong;
-    pNewScript->RegisterSelf();
+    new event_go_zulfarrak_gong();
+    new event_spell_unlocking();
+    new at_zulfarrak();
 
-    pNewScript = new Script;
-    pNewScript->Name = "event_spell_unlocking";
-    pNewScript->pProcessEventId = &ProcessEventId_event_spell_unlocking;
-    pNewScript->RegisterSelf();
-
-    pNewScript = new Script;
-    pNewScript->Name = "at_zulfarrak";
-    pNewScript->pAreaTrigger = &AreaTrigger_at_zulfarrak;
-    pNewScript->RegisterSelf();
 }

@@ -75,167 +75,176 @@ enum ShahrazActions
     SHAHRAZ_ACTION_PRISMATIC_SHIELD,
     SHAHRAZ_ACTION_MAX,
 };
-
-struct boss_shahrazAI : public CombatAI
+class boss_mother_shahraz : public CreatureScript
 {
-    boss_shahrazAI(Creature* creature) : CombatAI(creature, SHAHRAZ_ACTION_MAX), m_instance(static_cast<instance_black_temple*>(creature->GetInstanceData()))
+public:
+    boss_mother_shahraz() : CreatureScript("boss_mother_shahraz") { }
+
+    UnitAI* GetAI_boss_shahraz(Creature* creature)
     {
-        AddCombatAction(SHAHRAZ_ACTION_BERSERK, GetInitialActionTimer(SHAHRAZ_ACTION_BERSERK));
-        AddTimerlessCombatAction(SHAHRAZ_ACTION_FRENZY, true);
-        AddCombatAction(SHAHRAZ_ACTION_FATAL_ATTRACTION, GetInitialActionTimer(SHAHRAZ_ACTION_FATAL_ATTRACTION));
-        AddCombatAction(SHAHRAZ_ACTION_BEAM, GetInitialActionTimer(SHAHRAZ_ACTION_BEAM));
-        AddCombatAction(SHAHRAZ_ACTION_SHRIEK, GetInitialActionTimer(SHAHRAZ_ACTION_SHRIEK));
-        AddCombatAction(SHAHRAZ_ACTION_PRISMATIC_SHIELD, GetInitialActionTimer(SHAHRAZ_ACTION_PRISMATIC_SHIELD));
+        return new boss_shahrazAI(creature);
     }
 
-    instance_black_temple* m_instance;
 
-    uint8 m_currentBeam;
 
-    void Reset() override
+    struct boss_shahrazAI : public CombatAI
     {
-        CombatAI::Reset();
-
-        m_currentBeam               = urand(0, 3);
-
-        m_creature->RemoveAurasDueToSpell(SPELL_RANDOM_PERIODIC);
-        DoCastSpellIfCan(nullptr, SPELL_SABER_LASH_PROC, CAST_TRIGGERED | CAST_AURA_NOT_PRESENT);
-    }
-
-    uint32 GetInitialActionTimer(ShahrazActions id)
-    {
-        switch (id)
+        boss_shahrazAI(Creature* creature) : CombatAI(creature, SHAHRAZ_ACTION_MAX), m_instance(static_cast<instance_black_temple*>(creature->GetInstanceData()))
         {
-            case SHAHRAZ_ACTION_BERSERK: return 10 * MINUTE * IN_MILLISECONDS;
-            case SHAHRAZ_ACTION_FATAL_ATTRACTION: return urand(22000, 29000);
-            case SHAHRAZ_ACTION_BEAM: return 15000;
-            case SHAHRAZ_ACTION_SHRIEK: return 30000;
-            case SHAHRAZ_ACTION_PRISMATIC_SHIELD: return 15000;
-            default: return 0;
+            AddCombatAction(SHAHRAZ_ACTION_BERSERK, GetInitialActionTimer(SHAHRAZ_ACTION_BERSERK));
+            AddTimerlessCombatAction(SHAHRAZ_ACTION_FRENZY, true);
+            AddCombatAction(SHAHRAZ_ACTION_FATAL_ATTRACTION, GetInitialActionTimer(SHAHRAZ_ACTION_FATAL_ATTRACTION));
+            AddCombatAction(SHAHRAZ_ACTION_BEAM, GetInitialActionTimer(SHAHRAZ_ACTION_BEAM));
+            AddCombatAction(SHAHRAZ_ACTION_SHRIEK, GetInitialActionTimer(SHAHRAZ_ACTION_SHRIEK));
+            AddCombatAction(SHAHRAZ_ACTION_PRISMATIC_SHIELD, GetInitialActionTimer(SHAHRAZ_ACTION_PRISMATIC_SHIELD));
         }
-    }
 
-    uint32 GetSubsequentActionTimer(ShahrazActions id)
-    {
-        switch (id)
+        instance_black_temple* m_instance;
+
+        uint8 m_currentBeam;
+
+        void Reset() override
         {
-            case SHAHRAZ_ACTION_FATAL_ATTRACTION: return urand(22000, 40000);
-            case SHAHRAZ_ACTION_BEAM: return 20000;
-            case SHAHRAZ_ACTION_SHRIEK: return 30000;
-            case SHAHRAZ_ACTION_PRISMATIC_SHIELD: return 15000;
-            default: return 0;
+            CombatAI::Reset();
+
+            m_currentBeam               = urand(0, 3);
+
+            m_creature->RemoveAurasDueToSpell(SPELL_RANDOM_PERIODIC);
+            DoCastSpellIfCan(nullptr, SPELL_SABER_LASH_PROC, CAST_TRIGGERED | CAST_AURA_NOT_PRESENT);
         }
-    }
 
-    void Aggro(Unit* /*who*/) override
-    {
-        if (m_instance)
-            m_instance->SetData(TYPE_SHAHRAZ, IN_PROGRESS);
-
-        DoScriptText(SAY_AGGRO, m_creature);
-    }
-
-    void JustReachedHome() override
-    {
-        if (m_instance)
-            m_instance->SetData(TYPE_SHAHRAZ, FAIL);
-    }
-
-    void KilledUnit(Unit* /*victim*/) override
-    {
-        DoScriptText(urand(0, 1) ? SAY_SLAY_1 : SAY_SLAY_2, m_creature);
-    }
-
-    void JustDied(Unit* /*killer*/) override
-    {
-        if (m_instance)
-            m_instance->SetData(TYPE_SHAHRAZ, DONE);
-
-        DoScriptText(SAY_DEATH, m_creature);
-    }
-
-    void ExecuteAction(uint32 action) override
-    {
-        switch (action)
+        uint32 GetInitialActionTimer(ShahrazActions id)
         {
-            case SHAHRAZ_ACTION_FRENZY:
+            switch (id)
             {
-                if (m_creature->GetHealthPercent() < 10.0f)
+                case SHAHRAZ_ACTION_BERSERK: return 10 * MINUTE * IN_MILLISECONDS;
+                case SHAHRAZ_ACTION_FATAL_ATTRACTION: return urand(22000, 29000);
+                case SHAHRAZ_ACTION_BEAM: return 15000;
+                case SHAHRAZ_ACTION_SHRIEK: return 30000;
+                case SHAHRAZ_ACTION_PRISMATIC_SHIELD: return 15000;
+                default: return 0;
+            }
+        }
+
+        uint32 GetSubsequentActionTimer(ShahrazActions id)
+        {
+            switch (id)
+            {
+                case SHAHRAZ_ACTION_FATAL_ATTRACTION: return urand(22000, 40000);
+                case SHAHRAZ_ACTION_BEAM: return 20000;
+                case SHAHRAZ_ACTION_SHRIEK: return 30000;
+                case SHAHRAZ_ACTION_PRISMATIC_SHIELD: return 15000;
+                default: return 0;
+            }
+        }
+
+        void Aggro(Unit* /*who*/) override
+        {
+            if (m_instance)
+                m_instance->SetData(TYPE_SHAHRAZ, IN_PROGRESS);
+
+            DoScriptText(SAY_AGGRO, m_creature);
+        }
+
+        void JustReachedHome() override
+        {
+            if (m_instance)
+                m_instance->SetData(TYPE_SHAHRAZ, FAIL);
+        }
+
+        void KilledUnit(Unit* /*victim*/) override
+        {
+            DoScriptText(urand(0, 1) ? SAY_SLAY_1 : SAY_SLAY_2, m_creature);
+        }
+
+        void JustDied(Unit* /*killer*/) override
+        {
+            if (m_instance)
+                m_instance->SetData(TYPE_SHAHRAZ, DONE);
+
+            DoScriptText(SAY_DEATH, m_creature);
+        }
+
+        void ExecuteAction(uint32 action) override
+        {
+            switch (action)
+            {
+                case SHAHRAZ_ACTION_FRENZY:
                 {
-                    if (DoCastSpellIfCan(nullptr, SPELL_RANDOM_PERIODIC) == CAST_OK)
+                    if (m_creature->GetHealthPercent() < 10.0f)
+                    {
+                        if (DoCastSpellIfCan(nullptr, SPELL_RANDOM_PERIODIC) == CAST_OK)
+                        {
+                            DoScriptText(SAY_ENRAGE, m_creature);
+                            DisableCombatAction(SHAHRAZ_ACTION_BEAM);
+                            SetActionReadyStatus(action, false); // timerless
+                        }
+                    }
+                    return;
+                }
+                case SHAHRAZ_ACTION_BERSERK:
+                {
+                    if (DoCastSpellIfCan(nullptr, SPELL_BERSERK) == CAST_OK)
                     {
                         DoScriptText(SAY_ENRAGE, m_creature);
-                        DisableCombatAction(SHAHRAZ_ACTION_BEAM);
-                        SetActionReadyStatus(action, false); // timerless
+                        DisableCombatAction(action);
                     }
-                }
-                return;
-            }
-            case SHAHRAZ_ACTION_BERSERK:
-            {
-                if (DoCastSpellIfCan(nullptr, SPELL_BERSERK) == CAST_OK)
-                {
-                    DoScriptText(SAY_ENRAGE, m_creature);
-                    DisableCombatAction(action);
-                }
-                return;
-            }
-            case SHAHRAZ_ACTION_BEAM:
-            {
-                m_currentBeam = (m_currentBeam + urand(1, 3)) % 4;
-                if (DoCastSpellIfCan(nullptr, aPeriodicBeams[m_currentBeam]) == CAST_OK)
-                {
-                    switch (urand(0, 2))
-                    {
-                        case 0: DoScriptText(SAY_BEAM_1, m_creature); break;
-                        case 1: DoScriptText(SAY_BEAM_2, m_creature); break;
-                        case 2: DoScriptText(SAY_BEAM_3, m_creature); break;
-                    }
-                    ResetCombatAction(action, GetSubsequentActionTimer(ShahrazActions(action)));
-                }
-                return;
-            }
-            case SHAHRAZ_ACTION_PRISMATIC_SHIELD:
-            {
-                if (DoCastSpellIfCan(nullptr, aPrismaticAuras[urand(0, 5)]) == CAST_OK)
-                    ResetCombatAction(action, GetSubsequentActionTimer(ShahrazActions(action)));
-                return;
-            }
-            case SHAHRAZ_ACTION_FATAL_ATTRACTION:
-            {
-                if (m_creature->getThreatManager().getThreatList().size() < 3)
                     return;
-                if (DoCastSpellIfCan(nullptr, SPELL_FATAL_ATTRACTION) == CAST_OK)
-                {
-                    switch (urand(0, 2))
-                    {
-                        case 0: DoScriptText(SAY_ATTRACTION_1, m_creature); break;
-                        case 1: DoScriptText(SAY_ATTRACTION_3, m_creature); break;
-                        case 2: DoScriptText(SAY_ATTRACTION_3, m_creature); break;
-                    }
-                    ResetCombatAction(action, GetSubsequentActionTimer(ShahrazActions(action)));
                 }
-                return;
-            }
-            case SHAHRAZ_ACTION_SHRIEK:
-            {
-                if (DoCastSpellIfCan(nullptr, SPELL_SILENCING_SHRIEK) == CAST_OK)
-                    ResetCombatAction(action, GetSubsequentActionTimer(ShahrazActions(action)));
-                return;
+                case SHAHRAZ_ACTION_BEAM:
+                {
+                    m_currentBeam = (m_currentBeam + urand(1, 3)) % 4;
+                    if (DoCastSpellIfCan(nullptr, aPeriodicBeams[m_currentBeam]) == CAST_OK)
+                    {
+                        switch (urand(0, 2))
+                        {
+                            case 0: DoScriptText(SAY_BEAM_1, m_creature); break;
+                            case 1: DoScriptText(SAY_BEAM_2, m_creature); break;
+                            case 2: DoScriptText(SAY_BEAM_3, m_creature); break;
+                        }
+                        ResetCombatAction(action, GetSubsequentActionTimer(ShahrazActions(action)));
+                    }
+                    return;
+                }
+                case SHAHRAZ_ACTION_PRISMATIC_SHIELD:
+                {
+                    if (DoCastSpellIfCan(nullptr, aPrismaticAuras[urand(0, 5)]) == CAST_OK)
+                        ResetCombatAction(action, GetSubsequentActionTimer(ShahrazActions(action)));
+                    return;
+                }
+                case SHAHRAZ_ACTION_FATAL_ATTRACTION:
+                {
+                    if (m_creature->getThreatManager().getThreatList().size() < 3)
+                        return;
+                    if (DoCastSpellIfCan(nullptr, SPELL_FATAL_ATTRACTION) == CAST_OK)
+                    {
+                        switch (urand(0, 2))
+                        {
+                            case 0: DoScriptText(SAY_ATTRACTION_1, m_creature); break;
+                            case 1: DoScriptText(SAY_ATTRACTION_3, m_creature); break;
+                            case 2: DoScriptText(SAY_ATTRACTION_3, m_creature); break;
+                        }
+                        ResetCombatAction(action, GetSubsequentActionTimer(ShahrazActions(action)));
+                    }
+                    return;
+                }
+                case SHAHRAZ_ACTION_SHRIEK:
+                {
+                    if (DoCastSpellIfCan(nullptr, SPELL_SILENCING_SHRIEK) == CAST_OK)
+                        ResetCombatAction(action, GetSubsequentActionTimer(ShahrazActions(action)));
+                    return;
+                }
             }
         }
-    }
+    };
+
+
+
 };
 
-UnitAI* GetAI_boss_shahraz(Creature* creature)
-{
-    return new boss_shahrazAI(creature);
-}
 
 void AddSC_boss_mother_shahraz()
 {
-    Script* pNewScript = new Script;
-    pNewScript->Name = "boss_mother_shahraz";
-    pNewScript->GetAI = &GetAI_boss_shahraz;
-    pNewScript->RegisterSelf();
+    new boss_mother_shahraz();
+
 }

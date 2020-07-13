@@ -465,61 +465,76 @@ void instance_scholomance::HandleDawnGambitEvent()
         DoScriptText(YELL_VECTUS_GAMBIT, pVectus);
     }
 }
-
-InstanceData* GetInstanceData_instance_scholomance(Map* pMap)
+class instance_scholomance : public InstanceMapScript
 {
-    return new instance_scholomance(pMap);
-}
+public:
+    instance_scholomance() : InstanceMapScript("instance_scholomance") { }
 
-bool ProcessEventId_event_spell_gandling_shadow_portal(uint32 uiEventId, Object* pSource, Object* /*pTarget*/, bool /*bIsStart*/)
-{
-    if (pSource->GetTypeId() == TYPEID_UNIT)
+    InstanceData* GetInstanceScript(Map* pMap) const override
     {
-        if (instance_scholomance* pInstance = (instance_scholomance*)((Creature*)pSource)->GetInstanceData())
+        return new instance_scholomance(pMap);
+    }
+
+
+
+
+};
+class event_spell_gandling_shadow_portal : public UnknownScript
+{
+public:
+    event_spell_gandling_shadow_portal() : UnknownScript("event_spell_gandling_shadow_portal") { }
+
+    bool OnProcessEvent(uint32 uiEventId, Object* pSource, Object* /*pTarget*/, bool /*bIsStart*/) override
+    {
+        if (pSource->GetTypeId() == TYPEID_UNIT)
         {
-            // Check if we are handling an event associated with the room events of gandling
-            for (unsigned int aGandlingEvent : aGandlingEvents)
+            if (instance_scholomance* pInstance = (instance_scholomance*)((Creature*)pSource)->GetInstanceData())
             {
-                if (uiEventId == aGandlingEvent)
+                // Check if we are handling an event associated with the room events of gandling
+                for (unsigned int aGandlingEvent : aGandlingEvents)
                 {
-                    // Set data in progress for the current event and store current event
-                    pInstance->HandlePortalEvent(uiEventId, SPECIAL);
-                    // return false, to allow the DB-scripts to summon some NPCSs
-                    return false;
+                    if (uiEventId == aGandlingEvent)
+                    {
+                        // Set data in progress for the current event and store current event
+                        pInstance->HandlePortalEvent(uiEventId, SPECIAL);
+                        // return false, to allow the DB-scripts to summon some NPCSs
+                        return false;
+                    }
                 }
             }
         }
+        return false;
     }
-    return false;
-}
 
-bool ProcessEventId_dawn_gambit(uint32 uiEventId, Object* pSource, Object* /*pTarget*/, bool /*bIsStart*/)
+
+
+};
+class event_dawn_gambit : public UnknownScript
 {
-    if (instance_scholomance* pInstance = (instance_scholomance*)((Creature*)pSource)->GetInstanceData())
+public:
+    event_dawn_gambit() : UnknownScript("event_dawn_gambit") { }
+
+    bool OnProcessEvent(uint32 uiEventId, Object* pSource, Object* /*pTarget*/, bool /*bIsStart*/) override
     {
-        if (uiEventId == EVENT_ID_DAWN_GAMBIT)
+        if (instance_scholomance* pInstance = (instance_scholomance*)((Creature*)pSource)->GetInstanceData())
         {
-            pInstance->HandleDawnGambitEvent();
-            return true;
+            if (uiEventId == EVENT_ID_DAWN_GAMBIT)
+            {
+                pInstance->HandleDawnGambitEvent();
+                return true;
+            }
         }
+        return false;
     }
-    return false;
-}
+
+
+
+};
 
 void AddSC_instance_scholomance()
 {
-    Script* pNewScript = new Script;
-    pNewScript->Name = "instance_scholomance";
-    pNewScript->GetInstanceData = &GetInstanceData_instance_scholomance;
-    pNewScript->RegisterSelf();
+    new instance_scholomance();
+    new event_spell_gandling_shadow_portal();
+    new event_dawn_gambit();
 
-    pNewScript = new Script;
-    pNewScript->Name = "event_spell_gandling_shadow_portal";
-    pNewScript->pProcessEventId = &ProcessEventId_event_spell_gandling_shadow_portal;
-    pNewScript->RegisterSelf();
-
-    pNewScript = new Script;
-    pNewScript->Name = "event_dawn_gambit";
-    pNewScript->pProcessEventId = &ProcessEventId_dawn_gambit;
-    pNewScript->RegisterSelf();
 }

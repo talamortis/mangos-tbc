@@ -42,87 +42,98 @@ enum
 
     QUEST_ID_SUNTARA_STONES         = 3367,
 };
-
-struct npc_dorius_stonetenderAI : public npc_escortAI
+class npc_dorius_stonetender : public CreatureScript
 {
-    npc_dorius_stonetenderAI(Creature* pCreature) : npc_escortAI(pCreature) { Reset(); }
+public:
+    npc_dorius_stonetender() : CreatureScript("npc_dorius_stonetender") { }
 
-    void Reset() override { }
-
-    void Aggro(Unit* pWho) override
+    bool OnQuestAccept(Player* pPlayer, Creature* pCreature, const Quest* pQuest) override
     {
-        DoScriptText(urand(0, 1) ? SAY_DORIUS_AGGRO_1 : SAY_DORIUS_AGGRO_2, m_creature, pWho);
-    }
-
-    void ReceiveAIEvent(AIEventType eventType, Unit* /*pSender*/, Unit* pInvoker, uint32 uiMiscValue) override
-    {
-        if (eventType == AI_EVENT_START_ESCORT && pInvoker->GetTypeId() == TYPEID_PLAYER)
+        if (pQuest->GetQuestId() == QUEST_ID_SUNTARA_STONES)
         {
-            // ToDo: research if there is any text here
-            m_creature->SetStandState(UNIT_STAND_STATE_STAND);
-            m_creature->SetFactionTemporary(FACTION_ESCORT_A_NEUTRAL_PASSIVE, TEMPFACTION_RESTORE_RESPAWN | TEMPFACTION_TOGGLE_IMMUNE_TO_NPC);
-            Start(false, (Player*)pInvoker, GetQuestTemplateStore(uiMiscValue), true);
+            pCreature->AI()->SendAIEvent(AI_EVENT_START_ESCORT, pPlayer, pCreature, pQuest->GetQuestId());
+            return true;
         }
+
+        return false;
     }
 
-    void WaypointReached(uint32 uiPointId) override
+
+
+    UnitAI* GetAI(Creature* pCreature)
     {
-        switch (uiPointId)
+        return new npc_dorius_stonetenderAI(pCreature);
+    }
+
+
+
+    struct npc_dorius_stonetenderAI : public npc_escortAI
+    {
+        npc_dorius_stonetenderAI(Creature* pCreature) : npc_escortAI(pCreature) { Reset(); }
+
+        void Reset() override { }
+
+        void Aggro(Unit* pWho) override
         {
-            case 21:
-                // ToDo: research if there is any text here!
-                float fX, fY, fZ;
-                for (uint8 i = 0; i < MAX_STEELSHIFTERS; ++i)
-                {
-                    m_creature->GetNearPoint(m_creature, fX, fY, fZ, 0, 15.0f, i * M_PI_F / 2);
-                    m_creature->SummonCreature(NPC_DARK_IRON_STEELSHIFTER, fX, fY, fZ, 0, TEMPSPAWN_TIMED_OOC_OR_DEAD_DESPAWN, 60000);
-                }
-                break;
-            case 34:
-                // ToDo: research if there is any event and text here!
-                if (Player* pPlayer = GetPlayerForEscort())
-                    pPlayer->RewardPlayerAndGroupAtEventExplored(QUEST_ID_SUNTARA_STONES, m_creature);
-                m_creature->SetStandState(UNIT_STAND_STATE_DEAD);
-                break;
+            DoScriptText(urand(0, 1) ? SAY_DORIUS_AGGRO_1 : SAY_DORIUS_AGGRO_2, m_creature, pWho);
         }
-    }
 
-    void JustSummoned(Creature* pSummoned) override
-    {
-        if (pSummoned->GetEntry() == NPC_DARK_IRON_STEELSHIFTER)
-            pSummoned->AI()->AttackStart(m_creature);
-    }
+        void ReceiveAIEvent(AIEventType eventType, Unit* /*pSender*/, Unit* pInvoker, uint32 uiMiscValue) override
+        {
+            if (eventType == AI_EVENT_START_ESCORT && pInvoker->GetTypeId() == TYPEID_PLAYER)
+            {
+                // ToDo: research if there is any text here
+                m_creature->SetStandState(UNIT_STAND_STATE_STAND);
+                m_creature->SetFactionTemporary(FACTION_ESCORT_A_NEUTRAL_PASSIVE, TEMPFACTION_RESTORE_RESPAWN | TEMPFACTION_TOGGLE_IMMUNE_TO_NPC);
+                Start(false, (Player*)pInvoker, GetQuestTemplateStore(uiMiscValue), true);
+            }
+        }
 
-    void UpdateEscortAI(const uint32 /*uiDiff*/) override
-    {
-        if (!m_creature->SelectHostileTarget() || !m_creature->GetVictim())
-            return;
+        void WaypointReached(uint32 uiPointId) override
+        {
+            switch (uiPointId)
+            {
+                case 21:
+                    // ToDo: research if there is any text here!
+                    float fX, fY, fZ;
+                    for (uint8 i = 0; i < MAX_STEELSHIFTERS; ++i)
+                    {
+                        m_creature->GetNearPoint(m_creature, fX, fY, fZ, 0, 15.0f, i * M_PI_F / 2);
+                        m_creature->SummonCreature(NPC_DARK_IRON_STEELSHIFTER, fX, fY, fZ, 0, TEMPSPAWN_TIMED_OOC_OR_DEAD_DESPAWN, 60000);
+                    }
+                    break;
+                case 34:
+                    // ToDo: research if there is any event and text here!
+                    if (Player* pPlayer = GetPlayerForEscort())
+                        pPlayer->RewardPlayerAndGroupAtEventExplored(QUEST_ID_SUNTARA_STONES, m_creature);
+                    m_creature->SetStandState(UNIT_STAND_STATE_DEAD);
+                    break;
+            }
+        }
 
-        DoMeleeAttackIfReady();
-    }
+        void JustSummoned(Creature* pSummoned) override
+        {
+            if (pSummoned->GetEntry() == NPC_DARK_IRON_STEELSHIFTER)
+                pSummoned->AI()->AttackStart(m_creature);
+        }
+
+        void UpdateEscortAI(const uint32 /*uiDiff*/) override
+        {
+            if (!m_creature->SelectHostileTarget() || !m_creature->GetVictim())
+                return;
+
+            DoMeleeAttackIfReady();
+        }
+    };
+
+
+
 };
 
-UnitAI* GetAI_npc_dorius_stonetender(Creature* pCreature)
-{
-    return new npc_dorius_stonetenderAI(pCreature);
-}
 
-bool QuestAccept_npc_dorius_stonetender(Player* pPlayer, Creature* pCreature, const Quest* pQuest)
-{
-    if (pQuest->GetQuestId() == QUEST_ID_SUNTARA_STONES)
-    {
-        pCreature->AI()->SendAIEvent(AI_EVENT_START_ESCORT, pPlayer, pCreature, pQuest->GetQuestId());
-        return true;
-    }
-
-    return false;
-}
 
 void AddSC_searing_gorge()
 {
-    Script* pNewScript = new Script;
-    pNewScript->Name = "npc_dorius_stonetender";
-    pNewScript->GetAI = &GetAI_npc_dorius_stonetender;
-    pNewScript->pQuestAcceptNPC = &QuestAccept_npc_dorius_stonetender;
-    pNewScript->RegisterSelf();
+    new npc_dorius_stonetender();
+
 }

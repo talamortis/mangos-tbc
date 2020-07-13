@@ -386,16 +386,23 @@ void instance_ruins_of_ahnqiraj::DoSendNextArmyWave()
     m_uiArmyDelayTimer = 2 * MINUTE * IN_MILLISECONDS;
     ++m_uiCurrentArmyWave;
 }
-
-InstanceData* GetInstanceData_instance_ruins_of_ahnqiraj(Map* pMap)
+class instance_ruins_of_ahnqiraj : public InstanceMapScript
 {
-    return new instance_ruins_of_ahnqiraj(pMap);
-}
+public:
+    instance_ruins_of_ahnqiraj() : InstanceMapScript("instance_ruins_of_ahnqiraj") { }
+
+    InstanceData* GetInstanceScript(Map* pMap) const override
+    {
+        return new instance_ruins_of_ahnqiraj(pMap);
+    }
+
+
+
+
+};
 
 void AddSC_instance_ruins_of_ahnqiraj()
 {
-    Script* pNewScript = new Script;
-    pNewScript->Name = "instance_ruins_of_ahnqiraj";
-    pNewScript->GetInstanceData = &GetInstanceData_instance_ruins_of_ahnqiraj;
-    pNewScript->RegisterSelf();
+    new instance_ruins_of_ahnqiraj();
+
 }

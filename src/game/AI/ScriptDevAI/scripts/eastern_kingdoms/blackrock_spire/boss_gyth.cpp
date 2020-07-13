@@ -37,121 +37,130 @@ enum
     SPELL_FLAME_BREATH      = 16390,
     SPELL_KNOCK_AWAY        = 10101,
 };
-
-struct boss_gythAI : public ScriptedAI
+class boss_gyth : public CreatureScript
 {
-    boss_gythAI(Creature* pCreature) : ScriptedAI(pCreature)
+public:
+    boss_gyth() : CreatureScript("boss_gyth") { }
+
+    UnitAI* GetAI(Creature* pCreature)
     {
-        m_pInstance = (instance_blackrock_spire*) pCreature->GetInstanceData();
-        Reset();
+        return new boss_gythAI(pCreature);
     }
 
-    instance_blackrock_spire* m_pInstance;
 
-    uint32 uiCorrosiveAcidTimer;
-    uint32 uiFreezeTimer;
-    uint32 uiFlamebreathTimer;
-    uint32 uiKnockAwayTimer;
 
-    bool m_bSummonedRend;
-    bool m_bHasChromaticChaos;
-
-    void Reset() override
+    struct boss_gythAI : public ScriptedAI
     {
-        uiCorrosiveAcidTimer = 8000;
-        uiFreezeTimer        = 11000;
-        uiFlamebreathTimer   = 4000;
-        uiKnockAwayTimer     = 23000;
-        m_bSummonedRend      = false;
-        m_bHasChromaticChaos = false;
-        SetDeathPrevention(true);
-        DoCastSpellIfCan(m_creature, SPELL_REND_MOUNTS);
-    }
-
-    void JustSummoned(Creature* pSummoned) override
-    {
-        DoScriptText(EMOTE_KNOCKED_OFF, pSummoned);
-    }
-
-    void UpdateAI(const uint32 uiDiff) override
-    {
-        // Return since we have no target
-        if (!m_creature->SelectHostileTarget() || !m_creature->GetVictim())
-            return;
-
-        // Chromatic Chaos at 50%
-        if (!m_bHasChromaticChaos && m_creature->GetHealthPercent() < 50.0f)
+        boss_gythAI(Creature* pCreature) : ScriptedAI(pCreature)
         {
-            if (m_pInstance)
+            m_pInstance = (instance_blackrock_spire*) pCreature->GetInstanceData();
+            Reset();
+        }
+
+        instance_blackrock_spire* m_pInstance;
+
+        uint32 uiCorrosiveAcidTimer;
+        uint32 uiFreezeTimer;
+        uint32 uiFlamebreathTimer;
+        uint32 uiKnockAwayTimer;
+
+        bool m_bSummonedRend;
+        bool m_bHasChromaticChaos;
+
+        void Reset() override
+        {
+            uiCorrosiveAcidTimer = 8000;
+            uiFreezeTimer        = 11000;
+            uiFlamebreathTimer   = 4000;
+            uiKnockAwayTimer     = 23000;
+            m_bSummonedRend      = false;
+            m_bHasChromaticChaos = false;
+            SetDeathPrevention(true);
+            DoCastSpellIfCan(m_creature, SPELL_REND_MOUNTS);
+        }
+
+        void JustSummoned(Creature* pSummoned) override
+        {
+            DoScriptText(EMOTE_KNOCKED_OFF, pSummoned);
+        }
+
+        void UpdateAI(const uint32 uiDiff) override
+        {
+            // Return since we have no target
+            if (!m_creature->SelectHostileTarget() || !m_creature->GetVictim())
+                return;
+
+            // Chromatic Chaos at 50%
+            if (!m_bHasChromaticChaos && m_creature->GetHealthPercent() < 50.0f)
             {
-                if (Creature* pNefarius = m_pInstance->GetSingleCreatureFromStorage(NPC_LORD_VICTOR_NEFARIUS))
+                if (m_pInstance)
                 {
-                    pNefarius->CastSpell(m_creature, SPELL_CHROMATIC_CHAOS, TRIGGERED_OLD_TRIGGERED);
-                    DoScriptText(SAY_NEFARIUS_BUFF_GYTH, pNefarius);
-                    m_bHasChromaticChaos = true;
+                    if (Creature* pNefarius = m_pInstance->GetSingleCreatureFromStorage(NPC_LORD_VICTOR_NEFARIUS))
+                    {
+                        pNefarius->CastSpell(m_creature, SPELL_CHROMATIC_CHAOS, TRIGGERED_OLD_TRIGGERED);
+                        DoScriptText(SAY_NEFARIUS_BUFF_GYTH, pNefarius);
+                        m_bHasChromaticChaos = true;
+                    }
                 }
             }
-        }
 
-        // CorrosiveAcid_Timer
-        if (uiCorrosiveAcidTimer < uiDiff)
-        {
-            if (DoCastSpellIfCan(m_creature, SPELL_CORROSIVE_ACID) == CAST_OK)
-                uiCorrosiveAcidTimer = 7000;
-        }
-        else
-            uiCorrosiveAcidTimer -= uiDiff;
-
-        // Freeze_Timer
-        if (uiFreezeTimer < uiDiff)
-        {
-            if (DoCastSpellIfCan(m_creature, SPELL_FREEZE) == CAST_OK)
-                uiFreezeTimer = 16000;
-        }
-        else
-            uiFreezeTimer -= uiDiff;
-
-        // Flamebreath_Timer
-        if (uiFlamebreathTimer < uiDiff)
-        {
-            if (DoCastSpellIfCan(m_creature, SPELL_FLAME_BREATH) == CAST_OK)
-                uiFlamebreathTimer = 10500;
-        }
-        else
-            uiFlamebreathTimer -= uiDiff;
-
-        if (uiKnockAwayTimer < uiDiff)
-        {
-            if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_KNOCK_AWAY) == CAST_OK)
-                uiKnockAwayTimer = 23000;
-        }
-        else
-            uiKnockAwayTimer -= uiDiff;
-
-        // Summon Rend
-        if (!m_bSummonedRend && m_creature->GetHealthPercent() < 11.0f)
-        {
-            if (DoCastSpellIfCan(m_creature, SPELL_SUMMON_REND) == CAST_OK)
+            // CorrosiveAcid_Timer
+            if (uiCorrosiveAcidTimer < uiDiff)
             {
-                SetDeathPrevention(false);
-                m_creature->RemoveAurasDueToSpell(SPELL_REND_MOUNTS);
-                m_bSummonedRend = true;
+                if (DoCastSpellIfCan(m_creature, SPELL_CORROSIVE_ACID) == CAST_OK)
+                    uiCorrosiveAcidTimer = 7000;
             }
-        }
+            else
+                uiCorrosiveAcidTimer -= uiDiff;
 
-        DoMeleeAttackIfReady();
-    }
+            // Freeze_Timer
+            if (uiFreezeTimer < uiDiff)
+            {
+                if (DoCastSpellIfCan(m_creature, SPELL_FREEZE) == CAST_OK)
+                    uiFreezeTimer = 16000;
+            }
+            else
+                uiFreezeTimer -= uiDiff;
+
+            // Flamebreath_Timer
+            if (uiFlamebreathTimer < uiDiff)
+            {
+                if (DoCastSpellIfCan(m_creature, SPELL_FLAME_BREATH) == CAST_OK)
+                    uiFlamebreathTimer = 10500;
+            }
+            else
+                uiFlamebreathTimer -= uiDiff;
+
+            if (uiKnockAwayTimer < uiDiff)
+            {
+                if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_KNOCK_AWAY) == CAST_OK)
+                    uiKnockAwayTimer = 23000;
+            }
+            else
+                uiKnockAwayTimer -= uiDiff;
+
+            // Summon Rend
+            if (!m_bSummonedRend && m_creature->GetHealthPercent() < 11.0f)
+            {
+                if (DoCastSpellIfCan(m_creature, SPELL_SUMMON_REND) == CAST_OK)
+                {
+                    SetDeathPrevention(false);
+                    m_creature->RemoveAurasDueToSpell(SPELL_REND_MOUNTS);
+                    m_bSummonedRend = true;
+                }
+            }
+
+            DoMeleeAttackIfReady();
+        }
+    };
+
+
+
 };
 
-UnitAI* GetAI_boss_gyth(Creature* pCreature)
-{
-    return new boss_gythAI(pCreature);
-}
 
 void AddSC_boss_gyth()
 {
-    Script* pNewScript = new Script;
-    pNewScript->Name = "boss_gyth";
-    pNewScript->GetAI = &GetAI_boss_gyth;
-    pNewScript->RegisterSelf();
+    new boss_gyth();
+
 }

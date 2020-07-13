@@ -57,168 +57,187 @@ static const DialogueEntry aDiplomatDialogue[] =
     {QUEST_MISSING_DIPLOMAT11,  0,                      0},
     {0, 0, 0},
 };
-
-struct npc_tapoke_slim_jahnAI : public npc_escortAI, private DialogueHelper
+class npc_tapoke_slim_jahn : public CreatureScript
 {
-    npc_tapoke_slim_jahnAI(Creature* pCreature) : npc_escortAI(pCreature),
-        DialogueHelper(aDiplomatDialogue)
+public:
+    npc_tapoke_slim_jahn() : CreatureScript("npc_tapoke_slim_jahn") { }
+
+    UnitAI* GetAI(Creature* pCreature)
     {
-        Reset();
+        return new npc_tapoke_slim_jahnAI(pCreature);
     }
 
-    bool m_bFriendSummoned;
-    bool m_bEventComplete;
 
-    void Reset() override
+
+    struct npc_tapoke_slim_jahnAI : public npc_escortAI, private DialogueHelper
     {
-        m_creature->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_PLAYER);
-        SetReactState(REACT_PASSIVE);
-
-        if (!HasEscortState(STATE_ESCORT_ESCORTING))
+        npc_tapoke_slim_jahnAI(Creature* pCreature) : npc_escortAI(pCreature),
+            DialogueHelper(aDiplomatDialogue)
         {
-            m_bFriendSummoned = false;
-            m_bEventComplete = false;
+            Reset();
         }
-    }
 
-    void JustReachedHome() override
-    {
-        // after the npc is defeated, start the dialog right after it reaches the evade point
-        if (m_bEventComplete)
+        bool m_bFriendSummoned;
+        bool m_bEventComplete;
+
+        void Reset() override
         {
-            if (Player* pPlayer = GetPlayerForEscort())
-                m_creature->SetFacingToObject(pPlayer);
+            m_creature->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_PLAYER);
+            SetReactState(REACT_PASSIVE);
 
-            StartNextDialogueText(SAY_SLIM_DEFEAT);
+            if (!HasEscortState(STATE_ESCORT_ESCORTING))
+            {
+                m_bFriendSummoned = false;
+                m_bEventComplete = false;
+            }
         }
-    }
 
-    void WaypointReached(uint32 uiPointId) override
-    {
-        switch (uiPointId)
+        void JustReachedHome() override
         {
-            case 3:
-                SetRun();
-                m_creature->RemoveAurasDueToSpell(SPELL_STEALTH);
-                m_creature->SetFactionTemporary(FACTION_ENEMY, TEMPFACTION_RESTORE_RESPAWN | TEMPFACTION_RESTORE_COMBAT_STOP);
-                m_creature->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_PLAYER);
-                SetReactState(REACT_AGGRESSIVE);
-                break;
-            case 7:
-                // fail the quest if he escapes
+            // after the npc is defeated, start the dialog right after it reaches the evade point
+            if (m_bEventComplete)
+            {
                 if (Player* pPlayer = GetPlayerForEscort())
-                    JustDied(pPlayer);
-                break;
-        }
-    }
+                    m_creature->SetFacingToObject(pPlayer);
 
-    void Aggro(Unit* /*pWho*/) override
-    {
-        if (HasEscortState(STATE_ESCORT_ESCORTING) && !m_bFriendSummoned)
-        {
-            if (DoCastSpellIfCan(m_creature, SPELL_CALL_FRIENDS) == CAST_OK)
-            {
-                DoScriptText(SAY_SLIM_AGGRO, m_creature);
-                m_bFriendSummoned = true;
+                StartNextDialogueText(SAY_SLIM_DEFEAT);
             }
         }
-    }
 
-    void JustSummoned(Creature* pSummoned) override
-    {
-        // Note: may not work on guardian pets
-        if (Player* pPlayer = GetPlayerForEscort())
-            pSummoned->AI()->AttackStart(pPlayer);
-    }
-
-    void DamageTaken(Unit* /*doneBy*/, uint32& damage, DamageEffectType /*damagetype*/, SpellEntry const* /*spellInfo*/) override
-    {
-        if (!HasEscortState(STATE_ESCORT_ESCORTING))
-            return;
-
-        if (m_creature->GetHealthPercent() < 20.0f || damage > m_creature->GetHealth())
+        void WaypointReached(uint32 uiPointId) override
         {
-            if (Pet* pFriend = m_creature->FindGuardianWithEntry(NPC_SLIMS_FRIEND))
+            switch (uiPointId)
             {
-                DoScriptText(SAY_FRIEND_DEFEAT, pFriend);
-                pFriend->ForcedDespawn(1000);
+                case 3:
+                    SetRun();
+                    m_creature->RemoveAurasDueToSpell(SPELL_STEALTH);
+                    m_creature->SetFactionTemporary(FACTION_ENEMY, TEMPFACTION_RESTORE_RESPAWN | TEMPFACTION_RESTORE_COMBAT_STOP);
+                    m_creature->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_PLAYER);
+                    SetReactState(REACT_AGGRESSIVE);
+                    break;
+                case 7:
+                    // fail the quest if he escapes
+                    if (Player* pPlayer = GetPlayerForEscort())
+                        JustDied(pPlayer);
+                    break;
             }
-
-            // set escort on pause and evade
-            damage = std::min(damage, m_creature->GetHealth() - 1);
-            m_bEventComplete = true;
-
-            SetEscortPaused(true);
-            EnterEvadeMode();
         }
-    }
 
-    void ReceiveAIEvent(AIEventType eventType, Unit* /*pSender*/, Unit* pInvoker, uint32 uiMiscValue) override
-    {
-        // start escort
-        if (eventType == AI_EVENT_START_ESCORT && pInvoker->GetTypeId() == TYPEID_PLAYER)
-            Start(false, (Player*)pInvoker, GetQuestTemplateStore(uiMiscValue), true);
-    }
-
-    void JustDidDialogueStep(int32 iEntry) override
-    {
-        if (iEntry == QUEST_MISSING_DIPLOMAT11)
+        void Aggro(Unit* /*pWho*/) override
         {
-            // complete quest
+            if (HasEscortState(STATE_ESCORT_ESCORTING) && !m_bFriendSummoned)
+            {
+                if (DoCastSpellIfCan(m_creature, SPELL_CALL_FRIENDS) == CAST_OK)
+                {
+                    DoScriptText(SAY_SLIM_AGGRO, m_creature);
+                    m_bFriendSummoned = true;
+                }
+            }
+        }
+
+        void JustSummoned(Creature* pSummoned) override
+        {
+            // Note: may not work on guardian pets
             if (Player* pPlayer = GetPlayerForEscort())
-                pPlayer->RewardPlayerAndGroupAtEventExplored(QUEST_MISSING_DIPLOMAT11, m_creature);
-
-            // despawn and respawn at inn
-            m_creature->ForcedDespawn(1000);
-            m_creature->SetRespawnDelay(2);
+                pSummoned->AI()->AttackStart(pPlayer);
         }
-    }
 
-    Creature* GetSpeakerByEntry(uint32 uiEntry) override
-    {
-        if (uiEntry == NPC_TAPOKE_SLIM_JAHN)
-            return m_creature;
+        void DamageTaken(Unit* /*doneBy*/, uint32& damage, DamageEffectType /*damagetype*/, SpellEntry const* /*spellInfo*/) override
+        {
+            if (!HasEscortState(STATE_ESCORT_ESCORTING))
+                return;
 
-        return nullptr;
-    }
+            if (m_creature->GetHealthPercent() < 20.0f || damage > m_creature->GetHealth())
+            {
+                if (Pet* pFriend = m_creature->FindGuardianWithEntry(NPC_SLIMS_FRIEND))
+                {
+                    DoScriptText(SAY_FRIEND_DEFEAT, pFriend);
+                    pFriend->ForcedDespawn(1000);
+                }
 
-    void UpdateEscortAI(const uint32 uiDiff) override
-    {
-        DialogueUpdate(uiDiff);
+                // set escort on pause and evade
+                damage = std::min(damage, m_creature->GetHealth() - 1);
+                m_bEventComplete = true;
 
-        if (!m_creature->SelectHostileTarget() || !m_creature->GetVictim())
-            return;
+                SetEscortPaused(true);
+                EnterEvadeMode();
+            }
+        }
 
-        DoMeleeAttackIfReady();
-    }
+        void ReceiveAIEvent(AIEventType eventType, Unit* /*pSender*/, Unit* pInvoker, uint32 uiMiscValue) override
+        {
+            // start escort
+            if (eventType == AI_EVENT_START_ESCORT && pInvoker->GetTypeId() == TYPEID_PLAYER)
+                Start(false, (Player*)pInvoker, GetQuestTemplateStore(uiMiscValue), true);
+        }
+
+        void JustDidDialogueStep(int32 iEntry) override
+        {
+            if (iEntry == QUEST_MISSING_DIPLOMAT11)
+            {
+                // complete quest
+                if (Player* pPlayer = GetPlayerForEscort())
+                    pPlayer->RewardPlayerAndGroupAtEventExplored(QUEST_MISSING_DIPLOMAT11, m_creature);
+
+                // despawn and respawn at inn
+                m_creature->ForcedDespawn(1000);
+                m_creature->SetRespawnDelay(2);
+            }
+        }
+
+        Creature* GetSpeakerByEntry(uint32 uiEntry) override
+        {
+            if (uiEntry == NPC_TAPOKE_SLIM_JAHN)
+                return m_creature;
+
+            return nullptr;
+        }
+
+        void UpdateEscortAI(const uint32 uiDiff) override
+        {
+            DialogueUpdate(uiDiff);
+
+            if (!m_creature->SelectHostileTarget() || !m_creature->GetVictim())
+                return;
+
+            DoMeleeAttackIfReady();
+        }
+    };
+
+
+
 };
 
-UnitAI* GetAI_npc_tapoke_slim_jahn(Creature* pCreature)
-{
-    return new npc_tapoke_slim_jahnAI(pCreature);
-}
 
 /*######
 ## npc_mikhail
 ######*/
-
-bool QuestAccept_npc_mikhail(Player* pPlayer, Creature* pCreature, const Quest* pQuest)
+class npc_mikhail : public CreatureScript
 {
-    if (pQuest->GetQuestId() == QUEST_MISSING_DIPLOMAT11)
+public:
+    npc_mikhail() : CreatureScript("npc_mikhail") { }
+
+    bool OnQuestAccept(Player* pPlayer, Creature* pCreature, const Quest* pQuest) override
     {
-        Creature* pSlim = GetClosestCreatureWithEntry(pCreature, NPC_TAPOKE_SLIM_JAHN, 25.0f);
-        if (!pSlim)
-            return false;
+        if (pQuest->GetQuestId() == QUEST_MISSING_DIPLOMAT11)
+        {
+            Creature* pSlim = GetClosestCreatureWithEntry(pCreature, NPC_TAPOKE_SLIM_JAHN, 25.0f);
+            if (!pSlim)
+                return false;
 
-        if (!pSlim->HasAura(SPELL_STEALTH))
-            pSlim->CastSpell(pSlim, SPELL_STEALTH, TRIGGERED_OLD_TRIGGERED);
+            if (!pSlim->HasAura(SPELL_STEALTH))
+                pSlim->CastSpell(pSlim, SPELL_STEALTH, TRIGGERED_OLD_TRIGGERED);
 
-        pCreature->AI()->SendAIEvent(AI_EVENT_START_ESCORT, pPlayer, pSlim, pQuest->GetQuestId());
-        return true;
+            pCreature->AI()->SendAIEvent(AI_EVENT_START_ESCORT, pPlayer, pSlim, pQuest->GetQuestId());
+            return true;
+        }
+
+        return false;
     }
 
-    return false;
-}
+
+
+};
 
 /*######
 ## AddSC
@@ -226,13 +245,7 @@ bool QuestAccept_npc_mikhail(Player* pPlayer, Creature* pCreature, const Quest* 
 
 void AddSC_wetlands()
 {
-    Script* pNewScript = new Script;
-    pNewScript->Name = "npc_tapoke_slim_jahn";
-    pNewScript->GetAI = &GetAI_npc_tapoke_slim_jahn;
-    pNewScript->RegisterSelf();
+    new npc_tapoke_slim_jahn();
+    new npc_mikhail();
 
-    pNewScript = new Script;
-    pNewScript->Name = "npc_mikhail";
-    pNewScript->pQuestAcceptNPC = &QuestAccept_npc_mikhail;
-    pNewScript->RegisterSelf();
 }

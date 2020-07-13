@@ -349,23 +349,5 @@ UnitAI* GetAI_boss_sir_zeliek(Creature* creature)
 
 void AddSC_boss_four_horsemen()
 {
-    Script* newScript = new Script;
-    newScript->Name = "boss_lady_blaumeux";
-    newScript->GetAI = &GetAI_boss_lady_blaumeux;
-    newScript->RegisterSelf();
 
-    newScript = new Script;
-    newScript->Name = "boss_alexandros_mograine";
-    newScript->GetAI = &GetAI_boss_alexandros_mograine;
-    newScript->RegisterSelf();
-
-    newScript = new Script;
-    newScript->Name = "boss_thane_korthazz";
-    newScript->GetAI = &GetAI_boss_thane_korthazz;
-    newScript->RegisterSelf();
-
-    newScript = new Script;
-    newScript->Name = "boss_sir_zeliek";
-    newScript->GetAI = &GetAI_boss_sir_zeliek;
-    newScript->RegisterSelf();
 }

@@ -100,152 +100,163 @@ SpawnAssociation m_aSpawnAssociations[] =
     {22125, 22122, SPAWNTYPE_ALARMBOT},                     // Air Force Guard Post (Cenarion - Stormcrow)
     {22126, 22122, SPAWNTYPE_ALARMBOT}                      // Air Force Trip Wire - Rooftop (Cenarion Expedition)
 };
-
-struct npc_air_force_botsAI : public ScriptedAI
+class npc_air_force_bots : public CreatureScript
 {
-    npc_air_force_botsAI(Creature* pCreature) : ScriptedAI(pCreature)
+public:
+    npc_air_force_bots() : CreatureScript("npc_air_force_bots") { }
+
+    UnitAI* GetAI(Creature* pCreature)
     {
-        m_pSpawnAssoc = nullptr;
-
-        // find the correct spawnhandling
-        for (auto& m_aSpawnAssociation : m_aSpawnAssociations)
-        {
-            if (m_aSpawnAssociation.m_uiThisCreatureEntry == pCreature->GetEntry())
-            {
-                m_pSpawnAssoc = &m_aSpawnAssociation;
-                break;
-            }
-        }
-
-        if (!m_pSpawnAssoc)
-            error_db_log("SD2: Creature template entry %u has ScriptName npc_air_force_bots, but it's not handled by that script", pCreature->GetEntry());
-        else
-        {
-            CreatureInfo const* spawnedTemplate = GetCreatureTemplateStore(m_pSpawnAssoc->m_uiSpawnedCreatureEntry);
-
-            if (!spawnedTemplate)
-            {
-                error_db_log("SD2: Creature template entry %u does not exist in DB, which is required by npc_air_force_bots", m_pSpawnAssoc->m_uiSpawnedCreatureEntry);
-                m_pSpawnAssoc = nullptr;
-                return;
-            }
-        }
+        return new npc_air_force_botsAI(pCreature);
     }
 
-    SpawnAssociation* m_pSpawnAssoc;
-    ObjectGuid m_spawnedGuid;
 
-    void Reset() override { }
 
-    Creature* SummonGuard()
+    struct npc_air_force_botsAI : public ScriptedAI
     {
-        Creature* pSummoned = m_creature->SummonCreature(m_pSpawnAssoc->m_uiSpawnedCreatureEntry, 0.0f, 0.0f, 0.0f, 0.0f, TEMPSPAWN_TIMED_OOC_DESPAWN, 300000);
-
-        if (pSummoned)
-            m_spawnedGuid = pSummoned->GetObjectGuid();
-        else
+        npc_air_force_botsAI(Creature* pCreature) : ScriptedAI(pCreature)
         {
-            error_db_log("SD2: npc_air_force_bots: wasn't able to spawn creature %u", m_pSpawnAssoc->m_uiSpawnedCreatureEntry);
             m_pSpawnAssoc = nullptr;
+
+            // find the correct spawnhandling
+            for (auto& m_aSpawnAssociation : m_aSpawnAssociations)
+            {
+                if (m_aSpawnAssociation.m_uiThisCreatureEntry == pCreature->GetEntry())
+                {
+                    m_pSpawnAssoc = &m_aSpawnAssociation;
+                    break;
+                }
+            }
+
+            if (!m_pSpawnAssoc)
+                error_db_log("SD2: Creature template entry %u has ScriptName npc_air_force_bots, but it's not handled by that script", pCreature->GetEntry());
+            else
+            {
+                CreatureInfo const* spawnedTemplate = GetCreatureTemplateStore(m_pSpawnAssoc->m_uiSpawnedCreatureEntry);
+
+                if (!spawnedTemplate)
+                {
+                    error_db_log("SD2: Creature template entry %u does not exist in DB, which is required by npc_air_force_bots", m_pSpawnAssoc->m_uiSpawnedCreatureEntry);
+                    m_pSpawnAssoc = nullptr;
+                    return;
+                }
+            }
         }
 
-        return pSummoned;
-    }
+        SpawnAssociation* m_pSpawnAssoc;
+        ObjectGuid m_spawnedGuid;
 
-    Creature* GetSummonedGuard() const
-    {
-        Creature* pCreature = m_creature->GetMap()->GetCreature(m_spawnedGuid);
+        void Reset() override { }
 
-        if (pCreature && pCreature->IsAlive())
-            return pCreature;
-
-        return nullptr;
-    }
-
-    void MoveInLineOfSight(Unit* pWho) override
-    {
-        if (!m_pSpawnAssoc)
-            return;
-
-        if (m_creature->CanAttackOnSight(pWho))
+        Creature* SummonGuard()
         {
-            Player* pPlayerTarget = pWho->GetTypeId() == TYPEID_PLAYER ? (Player*)pWho : nullptr;
+            Creature* pSummoned = m_creature->SummonCreature(m_pSpawnAssoc->m_uiSpawnedCreatureEntry, 0.0f, 0.0f, 0.0f, 0.0f, TEMPSPAWN_TIMED_OOC_DESPAWN, 300000);
 
-            // airforce guards only spawn for players
-            if (!pPlayerTarget)
+            if (pSummoned)
+                m_spawnedGuid = pSummoned->GetObjectGuid();
+            else
+            {
+                error_db_log("SD2: npc_air_force_bots: wasn't able to spawn creature %u", m_pSpawnAssoc->m_uiSpawnedCreatureEntry);
+                m_pSpawnAssoc = nullptr;
+            }
+
+            return pSummoned;
+        }
+
+        Creature* GetSummonedGuard() const
+        {
+            Creature* pCreature = m_creature->GetMap()->GetCreature(m_spawnedGuid);
+
+            if (pCreature && pCreature->IsAlive())
+                return pCreature;
+
+            return nullptr;
+        }
+
+        void MoveInLineOfSight(Unit* pWho) override
+        {
+            if (!m_pSpawnAssoc)
                 return;
 
-            Creature* pLastSpawnedGuard = m_spawnedGuid ? GetSummonedGuard() : nullptr;
-
-            // prevent calling GetCreature at next MoveInLineOfSight call - speedup
-            if (!pLastSpawnedGuard)
-                m_spawnedGuid.Clear();
-
-            switch (m_pSpawnAssoc->m_SpawnType)
+            if (m_creature->CanAttackOnSight(pWho))
             {
-                case SPAWNTYPE_ALARMBOT:
-                {
-                    if (!pWho->IsWithinDistInMap(m_creature, RANGE_GUARDS_MARK))
-                        return;
+                Player* pPlayerTarget = pWho->GetTypeId() == TYPEID_PLAYER ? (Player*)pWho : nullptr;
 
-                    Aura* pMarkAura = pWho->GetAura(SPELL_GUARDS_MARK, EFFECT_INDEX_0);
-                    if (pMarkAura)
+                // airforce guards only spawn for players
+                if (!pPlayerTarget)
+                    return;
+
+                Creature* pLastSpawnedGuard = m_spawnedGuid ? GetSummonedGuard() : nullptr;
+
+                // prevent calling GetCreature at next MoveInLineOfSight call - speedup
+                if (!pLastSpawnedGuard)
+                    m_spawnedGuid.Clear();
+
+                switch (m_pSpawnAssoc->m_SpawnType)
+                {
+                    case SPAWNTYPE_ALARMBOT:
                     {
-                        // the target wasn't able to move out of our range within 25 seconds
-                        if (!pLastSpawnedGuard)
+                        if (!pWho->IsWithinDistInMap(m_creature, RANGE_GUARDS_MARK))
+                            return;
+
+                        Aura* pMarkAura = pWho->GetAura(SPELL_GUARDS_MARK, EFFECT_INDEX_0);
+                        if (pMarkAura)
                         {
-                            pLastSpawnedGuard = SummonGuard();
+                            // the target wasn't able to move out of our range within 25 seconds
+                            if (!pLastSpawnedGuard)
+                            {
+                                pLastSpawnedGuard = SummonGuard();
+
+                                if (!pLastSpawnedGuard)
+                                    return;
+                            }
+
+                            if (pMarkAura->GetAuraDuration() < AURA_DURATION_TIME_LEFT)
+                            {
+                                if (!pLastSpawnedGuard->GetVictim())
+                                    pLastSpawnedGuard->AI()->AttackStart(pWho);
+                            }
+                        }
+                        else
+                        {
+                            if (!pLastSpawnedGuard)
+                                pLastSpawnedGuard = SummonGuard();
 
                             if (!pLastSpawnedGuard)
                                 return;
-                        }
 
-                        if (pMarkAura->GetAuraDuration() < AURA_DURATION_TIME_LEFT)
-                        {
-                            if (!pLastSpawnedGuard->GetVictim())
-                                pLastSpawnedGuard->AI()->AttackStart(pWho);
+                            pLastSpawnedGuard->CastSpell(pWho, SPELL_GUARDS_MARK, TRIGGERED_OLD_TRIGGERED);
                         }
+                        break;
                     }
-                    else
+                    case SPAWNTYPE_TRIPWIRE_ROOFTOP:
                     {
+                        if (!pWho->IsWithinDistInMap(m_creature, RANGE_TRIPWIRE))
+                            return;
+
                         if (!pLastSpawnedGuard)
                             pLastSpawnedGuard = SummonGuard();
 
                         if (!pLastSpawnedGuard)
                             return;
 
-                        pLastSpawnedGuard->CastSpell(pWho, SPELL_GUARDS_MARK, TRIGGERED_OLD_TRIGGERED);
+                        // ROOFTOP only triggers if the player is on the ground
+                        if (!pPlayerTarget->IsFlying())
+                        {
+                            if (!pLastSpawnedGuard->GetVictim())
+                                pLastSpawnedGuard->AI()->AttackStart(pWho);
+                        }
+                        break;
                     }
-                    break;
-                }
-                case SPAWNTYPE_TRIPWIRE_ROOFTOP:
-                {
-                    if (!pWho->IsWithinDistInMap(m_creature, RANGE_TRIPWIRE))
-                        return;
-
-                    if (!pLastSpawnedGuard)
-                        pLastSpawnedGuard = SummonGuard();
-
-                    if (!pLastSpawnedGuard)
-                        return;
-
-                    // ROOFTOP only triggers if the player is on the ground
-                    if (!pPlayerTarget->IsFlying())
-                    {
-                        if (!pLastSpawnedGuard->GetVictim())
-                            pLastSpawnedGuard->AI()->AttackStart(pWho);
-                    }
-                    break;
                 }
             }
         }
-    }
+    };
+
+
+
 };
 
-UnitAI* GetAI_npc_air_force_bots(Creature* pCreature)
-{
-    return new npc_air_force_botsAI(pCreature);
-}
 
 /*########
 # npc_chicken_cluck
@@ -260,57 +271,68 @@ enum
     FACTION_FRIENDLY        = 35,
     FACTION_CHICKEN         = 31
 };
-
-struct npc_chicken_cluckAI : public ScriptedAI
+class npc_chicken_cluck : public CreatureScript
 {
-    npc_chicken_cluckAI(Creature* pCreature) : ScriptedAI(pCreature) {Reset();}
+public:
+    npc_chicken_cluck() : CreatureScript("npc_chicken_cluck") { }
 
-    uint32 m_uiResetFlagTimer;
-
-    void Reset() override
+    UnitAI* GetAI(Creature* pCreature)
     {
-        m_uiResetFlagTimer = 20000;
-
-        m_creature->setFaction(FACTION_CHICKEN);
-        m_creature->RemoveFlag(UNIT_NPC_FLAGS, UNIT_NPC_FLAG_QUESTGIVER);
+        return new npc_chicken_cluckAI(pCreature);
     }
 
-    void ReceiveEmote(Player* pPlayer, uint32 uiEmote) override
-    {
-        if (uiEmote == TEXTEMOTE_CHICKEN && !urand(0, 49))
-        {
-            m_creature->SetFlag(UNIT_NPC_FLAGS, UNIT_NPC_FLAG_QUESTGIVER);
-            m_creature->setFaction(FACTION_FRIENDLY);
-            DoScriptText(EMOTE_CLUCK_TEXT1, m_creature);
-        }
-        else if (uiEmote == TEXTEMOTE_CHEER && pPlayer->GetQuestStatus(QUEST_CLUCK) == QUEST_STATUS_COMPLETE)
-        {
-            m_creature->SetFlag(UNIT_NPC_FLAGS, UNIT_NPC_FLAG_QUESTGIVER);
-            m_creature->setFaction(FACTION_FRIENDLY);
-            DoScriptText(EMOTE_CLUCK_TEXT2, m_creature);
-        }
-    }
 
-    void UpdateAI(const uint32 uiDiff) override
+
+    struct npc_chicken_cluckAI : public ScriptedAI
     {
-        // Reset flags after a certain time has passed so that the next player has to start the 'event' again
-        if (m_creature->HasFlag(UNIT_NPC_FLAGS, UNIT_NPC_FLAG_QUESTGIVER))
+        npc_chicken_cluckAI(Creature* pCreature) : ScriptedAI(pCreature) {Reset();}
+
+        uint32 m_uiResetFlagTimer;
+
+        void Reset() override
         {
-            if (m_uiResetFlagTimer < uiDiff)
-                EnterEvadeMode();
-            else
-                m_uiResetFlagTimer -= uiDiff;
+            m_uiResetFlagTimer = 20000;
+
+            m_creature->setFaction(FACTION_CHICKEN);
+            m_creature->RemoveFlag(UNIT_NPC_FLAGS, UNIT_NPC_FLAG_QUESTGIVER);
         }
 
-        if (m_creature->SelectHostileTarget() && m_creature->GetVictim())
-            DoMeleeAttackIfReady();
-    }
+        void ReceiveEmote(Player* pPlayer, uint32 uiEmote) override
+        {
+            if (uiEmote == TEXTEMOTE_CHICKEN && !urand(0, 49))
+            {
+                m_creature->SetFlag(UNIT_NPC_FLAGS, UNIT_NPC_FLAG_QUESTGIVER);
+                m_creature->setFaction(FACTION_FRIENDLY);
+                DoScriptText(EMOTE_CLUCK_TEXT1, m_creature);
+            }
+            else if (uiEmote == TEXTEMOTE_CHEER && pPlayer->GetQuestStatus(QUEST_CLUCK) == QUEST_STATUS_COMPLETE)
+            {
+                m_creature->SetFlag(UNIT_NPC_FLAGS, UNIT_NPC_FLAG_QUESTGIVER);
+                m_creature->setFaction(FACTION_FRIENDLY);
+                DoScriptText(EMOTE_CLUCK_TEXT2, m_creature);
+            }
+        }
+
+        void UpdateAI(const uint32 uiDiff) override
+        {
+            // Reset flags after a certain time has passed so that the next player has to start the 'event' again
+            if (m_creature->HasFlag(UNIT_NPC_FLAGS, UNIT_NPC_FLAG_QUESTGIVER))
+            {
+                if (m_uiResetFlagTimer < uiDiff)
+                    EnterEvadeMode();
+                else
+                    m_uiResetFlagTimer -= uiDiff;
+            }
+
+            if (m_creature->SelectHostileTarget() && m_creature->GetVictim())
+                DoMeleeAttackIfReady();
+        }
+    };
+
+
+
 };
 
-UnitAI* GetAI_npc_chicken_cluck(Creature* pCreature)
-{
-    return new npc_chicken_cluckAI(pCreature);
-}
 
 /*######
 ## npc_dancing_flames
@@ -320,41 +342,52 @@ enum
 {
     SPELL_FIERY_SEDUCTION = 47057
 };
-
-struct npc_dancing_flamesAI : public ScriptedAI
+class npc_dancing_flames : public CreatureScript
 {
-    npc_dancing_flamesAI(Creature* pCreature) : ScriptedAI(pCreature) {Reset();}
+public:
+    npc_dancing_flames() : CreatureScript("npc_dancing_flames") { }
 
-    void Reset() override {}
-
-    void ReceiveEmote(Player* pPlayer, uint32 uiEmote) override
+    UnitAI* GetAI(Creature* pCreature)
     {
-        m_creature->SetFacingToObject(pPlayer);
-
-        if (pPlayer->HasAura(SPELL_FIERY_SEDUCTION))
-            pPlayer->RemoveAurasDueToSpell(SPELL_FIERY_SEDUCTION);
-
-        if (pPlayer->IsMounted())
-        {
-            pPlayer->Unmount();                             // doesnt remove mount aura
-            pPlayer->RemoveSpellsCausingAura(SPELL_AURA_MOUNTED);
-        }
-
-        switch (uiEmote)
-        {
-            case TEXTEMOTE_DANCE: DoCastSpellIfCan(pPlayer, SPELL_FIERY_SEDUCTION); break;// dance -> cast SPELL_FIERY_SEDUCTION
-            case TEXTEMOTE_WAVE:  m_creature->HandleEmote(EMOTE_ONESHOT_WAVE);      break;// wave -> wave
-            case TEXTEMOTE_JOKE:  m_creature->HandleEmote(EMOTE_STATE_LAUGH);       break;// silly -> laugh(with sound)
-            case TEXTEMOTE_BOW:   m_creature->HandleEmote(EMOTE_ONESHOT_BOW);       break;// bow -> bow
-            case TEXTEMOTE_KISS:  m_creature->HandleEmote(TEXTEMOTE_CURTSEY);       break;// kiss -> curtsey
-        }
+        return new npc_dancing_flamesAI(pCreature);
     }
+
+
+
+    struct npc_dancing_flamesAI : public ScriptedAI
+    {
+        npc_dancing_flamesAI(Creature* pCreature) : ScriptedAI(pCreature) {Reset();}
+
+        void Reset() override {}
+
+        void ReceiveEmote(Player* pPlayer, uint32 uiEmote) override
+        {
+            m_creature->SetFacingToObject(pPlayer);
+
+            if (pPlayer->HasAura(SPELL_FIERY_SEDUCTION))
+                pPlayer->RemoveAurasDueToSpell(SPELL_FIERY_SEDUCTION);
+
+            if (pPlayer->IsMounted())
+            {
+                pPlayer->Unmount();                             // doesnt remove mount aura
+                pPlayer->RemoveSpellsCausingAura(SPELL_AURA_MOUNTED);
+            }
+
+            switch (uiEmote)
+            {
+                case TEXTEMOTE_DANCE: DoCastSpellIfCan(pPlayer, SPELL_FIERY_SEDUCTION); break;// dance -> cast SPELL_FIERY_SEDUCTION
+                case TEXTEMOTE_WAVE:  m_creature->HandleEmote(EMOTE_ONESHOT_WAVE);      break;// wave -> wave
+                case TEXTEMOTE_JOKE:  m_creature->HandleEmote(EMOTE_STATE_LAUGH);       break;// silly -> laugh(with sound)
+                case TEXTEMOTE_BOW:   m_creature->HandleEmote(EMOTE_ONESHOT_BOW);       break;// bow -> bow
+                case TEXTEMOTE_KISS:  m_creature->HandleEmote(TEXTEMOTE_CURTSEY);       break;// kiss -> curtsey
+            }
+        }
+    };
+
+
+
 };
 
-UnitAI* GetAI_npc_dancing_flames(Creature* pCreature)
-{
-    return new npc_dancing_flamesAI(pCreature);
-}
 
 /*######
 ## Triage quest
@@ -436,383 +469,315 @@ const uint32 HordeSoldierId[3] =
 /*######
 ## npc_doctor (handles both Gustaf Vanhowzen and Gregory Victor)
 ######*/
-
-struct npc_doctorAI : public ScriptedAI
+class npc_doctor : public CreatureScript
 {
-    npc_doctorAI(Creature* pCreature) : ScriptedAI(pCreature) { Reset(); }
+public:
+    npc_doctor() : CreatureScript("npc_doctor") { }
 
-    ObjectGuid m_playerGuid;
-
-    uint32 m_uiSummonPatientTimer;
-    uint32 m_uiSummonPatientCount;
-    uint32 m_uiPatientDiedCount;
-    uint32 m_uiPatientSavedCount;
-
-    bool m_bIsEventInProgress;
-
-    GuidList m_lPatientGuids;
-    std::vector<Location*> m_vPatientSummonCoordinates;
-
-    void Reset() override
+    bool OnQuestAccept(Player* pPlayer, Creature* pCreature, const Quest* pQuest) override
     {
-        m_playerGuid.Clear();
-
-        m_uiSummonPatientTimer = 10000;
-        m_uiSummonPatientCount = 0;
-        m_uiPatientDiedCount = 0;
-        m_uiPatientSavedCount = 0;
-
-        for (GuidList::const_iterator itr = m_lPatientGuids.begin(); itr != m_lPatientGuids.end(); ++itr)
+        if ((pQuest->GetQuestId() == QUEST_TRIAGE_A) || (pQuest->GetQuestId() == QUEST_TRIAGE_H))
         {
-            if (Creature* pSummoned = m_creature->GetMap()->GetCreature(*itr))
-                pSummoned->ForcedDespawn();
+            if (npc_doctorAI* pDocAI = dynamic_cast<npc_doctorAI*>(pCreature->AI()))
+                pDocAI->BeginEvent(pPlayer);
         }
 
-        m_lPatientGuids.clear();
-        m_vPatientSummonCoordinates.clear();
-
-        m_bIsEventInProgress = false;
-
-        m_creature->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE);
+        return true;
     }
 
-    void BeginEvent(Player* pPlayer);
-    void PatientDied(Location* pPoint);
-    void PatientSaved(Creature* pSoldier, Player* pPlayer, Location* pPoint);
-    void UpdateAI(const uint32 uiDiff) override;
+
+
+    UnitAI* GetAI(Creature* pCreature)
+    {
+        return new npc_doctorAI(pCreature);
+    }
+
+
+
+    struct npc_doctorAI : public ScriptedAI
+    {
+        npc_doctorAI(Creature* pCreature) : ScriptedAI(pCreature) { Reset(); }
+
+        ObjectGuid m_playerGuid;
+
+        uint32 m_uiSummonPatientTimer;
+        uint32 m_uiSummonPatientCount;
+        uint32 m_uiPatientDiedCount;
+        uint32 m_uiPatientSavedCount;
+
+        bool m_bIsEventInProgress;
+
+        GuidList m_lPatientGuids;
+        std::vector<Location*> m_vPatientSummonCoordinates;
+
+        void Reset() override
+        {
+            m_playerGuid.Clear();
+
+            m_uiSummonPatientTimer = 10000;
+            m_uiSummonPatientCount = 0;
+            m_uiPatientDiedCount = 0;
+            m_uiPatientSavedCount = 0;
+
+            for (GuidList::const_iterator itr = m_lPatientGuids.begin(); itr != m_lPatientGuids.end(); ++itr)
+            {
+                if (Creature* pSummoned = m_creature->GetMap()->GetCreature(*itr))
+                    pSummoned->ForcedDespawn();
+            }
+
+            m_lPatientGuids.clear();
+            m_vPatientSummonCoordinates.clear();
+
+            m_bIsEventInProgress = false;
+
+            m_creature->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE);
+        }
+
+        void BeginEvent(Player* pPlayer)
+        {
+            m_playerGuid = pPlayer->GetObjectGuid();
+    
+            m_uiSummonPatientTimer = 10000;
+            m_uiSummonPatientCount = 0;
+            m_uiPatientDiedCount = 0;
+            m_uiPatientSavedCount = 0;
+    
+            switch (m_creature->GetEntry())
+            {
+                case DOCTOR_ALLIANCE:
+                    for (auto& AllianceCoord : AllianceCoords)
+                        m_vPatientSummonCoordinates.push_back(&AllianceCoord);
+                    break;
+                case DOCTOR_HORDE:
+                    for (auto& HordeCoord : HordeCoords)
+                        m_vPatientSummonCoordinates.push_back(&HordeCoord);
+                    break;
+                default:
+                    script_error_log("Invalid entry for Triage doctor. Please check your database");
+                    return;
+            }
+    
+            m_bIsEventInProgress = true;
+            m_creature->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE);
+        }
+        void PatientDied(Location* pPoint)
+        {
+            Player* pPlayer = m_creature->GetMap()->GetPlayer(m_playerGuid);
+    
+            if (pPlayer && (pPlayer->GetQuestStatus(QUEST_TRIAGE_A) == QUEST_STATUS_INCOMPLETE || pPlayer->GetQuestStatus(QUEST_TRIAGE_H) == QUEST_STATUS_INCOMPLETE) && m_bIsEventInProgress)
+            {
+                ++m_uiPatientDiedCount;
+    
+                if (m_uiPatientDiedCount > 5)
+                {
+                    switch (m_creature->GetEntry())
+                    {
+                        case DOCTOR_ALLIANCE: pPlayer->FailQuest(QUEST_TRIAGE_A); break;
+                        case DOCTOR_HORDE:    pPlayer->FailQuest(QUEST_TRIAGE_H); break;
+                        default:
+                            script_error_log("Invalid entry for Triage doctor. Please check your database");
+                            return;
+                    }
+    
+                    Reset();
+                    return;
+                }
+    
+                m_vPatientSummonCoordinates.push_back(pPoint);
+            }
+            else
+                // If no player or player abandon quest in progress
+                Reset();
+        }
+        void PatientSaved(Creature* /*soldier*/, Player* pPlayer, Location* pPoint)
+        {
+            if (pPlayer && m_playerGuid == pPlayer->GetObjectGuid())
+            {
+                if (pPlayer->GetQuestStatus(QUEST_TRIAGE_A) == QUEST_STATUS_INCOMPLETE || pPlayer->GetQuestStatus(QUEST_TRIAGE_H) == QUEST_STATUS_INCOMPLETE)
+                {
+                    ++m_uiPatientSavedCount;
+    
+                    if (m_uiPatientSavedCount == 15)
+                    {
+                        for (GuidList::const_iterator itr = m_lPatientGuids.begin(); itr != m_lPatientGuids.end(); ++itr)
+                        {
+                            if (Creature* Patient = m_creature->GetMap()->GetCreature(*itr))
+                                Patient->SetDeathState(JUST_DIED);
+                        }
+    
+                        switch (m_creature->GetEntry())
+                        {
+                            case DOCTOR_ALLIANCE: pPlayer->RewardPlayerAndGroupAtEventExplored(QUEST_TRIAGE_A, m_creature); break;
+                            case DOCTOR_HORDE:    pPlayer->RewardPlayerAndGroupAtEventExplored(QUEST_TRIAGE_H, m_creature); break;
+                            default:
+                                script_error_log("Invalid entry for Triage doctor. Please check your database");
+                                return;
+                        }
+    
+                        Reset();
+                        return;
+                    }
+    
+                    m_vPatientSummonCoordinates.push_back(pPoint);
+                }
+            }
+        }
+        void UpdateAI(const uint32 uiDiff) override;
+    };
+
+
+
 };
 
 /*#####
 ## npc_injured_patient (handles all the patients, no matter Horde or Alliance)
 #####*/
-
-struct npc_injured_patientAI : public ScriptedAI
+class npc_injured_patient : public CreatureScript
 {
-    npc_injured_patientAI(Creature* pCreature) : ScriptedAI(pCreature), isSaved(false) {Reset();}
+public:
+    npc_injured_patient() : CreatureScript("npc_injured_patient") { }
 
-    ObjectGuid m_doctorGuid;
-    Location* m_pCoord;
-    bool isSaved;
-
-    void Reset() override
+    UnitAI* GetAI(Creature* pCreature)
     {
-        m_doctorGuid.Clear();
-        m_pCoord = nullptr;
-
-        // no select
-        m_creature->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE);
-
-        // to make them lay with face down
-        m_creature->SetStandState(UNIT_STAND_STATE_DEAD);
-
-        switch (m_creature->GetEntry())
-        {
-            // lower max health
-            case A_INJURED_SOLDIER:
-            case H_INJURED_SOLDIER:                                     // Injured Soldier
-                m_creature->SetHealth(uint32(m_creature->GetMaxHealth()*.75f));
-                break;
-            case A_BADLY_INJURED_SOLDIER:
-            case H_BADLY_INJURED_SOLDIER:                                     // Badly injured Soldier
-                m_creature->SetHealth(uint32(m_creature->GetMaxHealth()*.50f));
-                break;
-            case A_CRITICALLY_INJURED_SOLDIER:
-            case H_CRITICALLY_INJURED_SOLDIER:                                     // Critically injured Soldier
-                m_creature->SetHealth(uint32(m_creature->GetMaxHealth()*.30f));
-                break;
-        }
+        return new npc_injured_patientAI(pCreature);
     }
 
-    void SpellHit(Unit* pCaster, const SpellEntry* pSpell) override
+
+
+    struct npc_injured_patientAI : public ScriptedAI
     {
-        if (pCaster->GetTypeId() == TYPEID_PLAYER && m_creature->IsAlive() && pSpell->Id == 20804)
+        npc_injured_patientAI(Creature* pCreature) : ScriptedAI(pCreature), isSaved(false) {Reset();}
+
+        ObjectGuid m_doctorGuid;
+        Location* m_pCoord;
+        bool isSaved;
+
+        void Reset() override
         {
-            // make not selectable
-            m_creature->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE);
+            m_doctorGuid.Clear();
+            m_pCoord = nullptr;
 
-            // stand up
-            m_creature->SetStandState(UNIT_STAND_STATE_STAND);
+            // no select
+            m_creature->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE);
 
-            Player* pPlayer = static_cast<Player*>(pCaster);
-            if (pPlayer->GetQuestStatus(QUEST_TRIAGE_A) == QUEST_STATUS_INCOMPLETE || pPlayer->GetQuestStatus(QUEST_TRIAGE_H) == QUEST_STATUS_INCOMPLETE)
-            {
-                if (Creature* pDoctor = m_creature->GetMap()->GetCreature(m_doctorGuid))
-                {
-                    if (npc_doctorAI* pDocAI = dynamic_cast<npc_doctorAI*>(pDoctor->AI()))
-                        pDocAI->PatientSaved(m_creature, pPlayer, m_pCoord);
-                }
-            }
-
-            switch (urand(0, 2))
-            {
-                case 0: DoScriptText(SAY_DOC1, m_creature); break;
-                case 1: DoScriptText(SAY_DOC2, m_creature); break;
-                case 2: DoScriptText(SAY_DOC3, m_creature); break;
-            }
-
-            m_creature->SetWalk(false);
-            isSaved = true;
+            // to make them lay with face down
+            m_creature->SetStandState(UNIT_STAND_STATE_DEAD);
 
             switch (m_creature->GetEntry())
             {
-                case H_INJURED_SOLDIER:
-                case H_BADLY_INJURED_SOLDIER:
-                case H_CRITICALLY_INJURED_SOLDIER:
-                    m_creature->GetMotionMaster()->MovePoint(0, H_RUNTOX, H_RUNTOY, H_RUNTOZ);
-                    break;
+                // lower max health
                 case A_INJURED_SOLDIER:
+                case H_INJURED_SOLDIER:                                     // Injured Soldier
+                    m_creature->SetHealth(uint32(m_creature->GetMaxHealth()*.75f));
+                    break;
                 case A_BADLY_INJURED_SOLDIER:
+                case H_BADLY_INJURED_SOLDIER:                                     // Badly injured Soldier
+                    m_creature->SetHealth(uint32(m_creature->GetMaxHealth()*.50f));
+                    break;
                 case A_CRITICALLY_INJURED_SOLDIER:
-                    m_creature->GetMotionMaster()->MovePoint(0, A_RUNTOX, A_RUNTOY, A_RUNTOZ);
+                case H_CRITICALLY_INJURED_SOLDIER:                                     // Critically injured Soldier
+                    m_creature->SetHealth(uint32(m_creature->GetMaxHealth()*.30f));
                     break;
             }
-
-            m_creature->ForcedDespawn(5000);
-        }
-    }
-
-    void UpdateAI(const uint32 uiDiff) override
-    {
-        // Don't reduce health if already healed
-        if (m_creature->hasUnitState(UNIT_FLAG_NOT_SELECTABLE) || isSaved)
-            return;
-
-        // lower HP on every world tick makes it a useful counter, not officlone though
-        uint32 uiHPLose = uint32(0.03f * uiDiff);
-        if (m_creature->IsAlive() && m_creature->GetHealth() > 1 + uiHPLose)
-        {
-            m_creature->SetHealth(m_creature->GetHealth() - uiHPLose);
         }
 
-        if (m_creature->IsAlive() && m_creature->GetHealth() <= 1 + uiHPLose)
+        void SpellHit(Unit* pCaster, const SpellEntry* pSpell) override
         {
-            m_creature->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IN_COMBAT);
-            m_creature->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE);
-            m_creature->SetDeathState(JUST_DIED);
-            m_creature->SetFlag(UNIT_DYNAMIC_FLAGS, UNIT_DYNFLAG_DEAD);
-
-            if (Creature* pDoctor = m_creature->GetMap()->GetCreature(m_doctorGuid))
+            if (pCaster->GetTypeId() == TYPEID_PLAYER && m_creature->IsAlive() && pSpell->Id == 20804)
             {
-                if (npc_doctorAI* pDocAI = dynamic_cast<npc_doctorAI*>(pDoctor->AI()))
-                    pDocAI->PatientDied(m_pCoord);
+                // make not selectable
+                m_creature->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE);
+
+                // stand up
+                m_creature->SetStandState(UNIT_STAND_STATE_STAND);
+
+                Player* pPlayer = static_cast<Player*>(pCaster);
+                if (pPlayer->GetQuestStatus(QUEST_TRIAGE_A) == QUEST_STATUS_INCOMPLETE || pPlayer->GetQuestStatus(QUEST_TRIAGE_H) == QUEST_STATUS_INCOMPLETE)
+                {
+                    if (Creature* pDoctor = m_creature->GetMap()->GetCreature(m_doctorGuid))
+                    {
+                        if (npc_doctorAI* pDocAI = dynamic_cast<npc_doctorAI*>(pDoctor->AI()))
+                            pDocAI->PatientSaved(m_creature, pPlayer, m_pCoord);
+                    }
+                }
+
+                switch (urand(0, 2))
+                {
+                    case 0: DoScriptText(SAY_DOC1, m_creature); break;
+                    case 1: DoScriptText(SAY_DOC2, m_creature); break;
+                    case 2: DoScriptText(SAY_DOC3, m_creature); break;
+                }
+
+                m_creature->SetWalk(false);
+                isSaved = true;
+
+                switch (m_creature->GetEntry())
+                {
+                    case H_INJURED_SOLDIER:
+                    case H_BADLY_INJURED_SOLDIER:
+                    case H_CRITICALLY_INJURED_SOLDIER:
+                        m_creature->GetMotionMaster()->MovePoint(0, H_RUNTOX, H_RUNTOY, H_RUNTOZ);
+                        break;
+                    case A_INJURED_SOLDIER:
+                    case A_BADLY_INJURED_SOLDIER:
+                    case A_CRITICALLY_INJURED_SOLDIER:
+                        m_creature->GetMotionMaster()->MovePoint(0, A_RUNTOX, A_RUNTOY, A_RUNTOZ);
+                        break;
+                }
+
+                m_creature->ForcedDespawn(5000);
+            }
+        }
+
+        void UpdateAI(const uint32 uiDiff) override
+        {
+            // Don't reduce health if already healed
+            if (m_creature->hasUnitState(UNIT_FLAG_NOT_SELECTABLE) || isSaved)
+                return;
+
+            // lower HP on every world tick makes it a useful counter, not officlone though
+            uint32 uiHPLose = uint32(0.03f * uiDiff);
+            if (m_creature->IsAlive() && m_creature->GetHealth() > 1 + uiHPLose)
+            {
+                m_creature->SetHealth(m_creature->GetHealth() - uiHPLose);
             }
 
-            m_creature->ForcedDespawn(1000);
+            if (m_creature->IsAlive() && m_creature->GetHealth() <= 1 + uiHPLose)
+            {
+                m_creature->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IN_COMBAT);
+                m_creature->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE);
+                m_creature->SetDeathState(JUST_DIED);
+                m_creature->SetFlag(UNIT_DYNAMIC_FLAGS, UNIT_DYNFLAG_DEAD);
+
+                if (Creature* pDoctor = m_creature->GetMap()->GetCreature(m_doctorGuid))
+                {
+                    if (npc_doctorAI* pDocAI = dynamic_cast<npc_doctorAI*>(pDoctor->AI()))
+                        pDocAI->PatientDied(m_pCoord);
+                }
+
+                m_creature->ForcedDespawn(1000);
+            }
         }
-    }
+    };
+
+
+
 };
 
-UnitAI* GetAI_npc_injured_patient(Creature* pCreature)
-{
-    return new npc_injured_patientAI(pCreature);
-}
 
 /*
 npc_doctor (continue)
 */
 
-void npc_doctorAI::BeginEvent(Player* pPlayer)
-{
-    m_playerGuid = pPlayer->GetObjectGuid();
 
-    m_uiSummonPatientTimer = 10000;
-    m_uiSummonPatientCount = 0;
-    m_uiPatientDiedCount = 0;
-    m_uiPatientSavedCount = 0;
 
-    switch (m_creature->GetEntry())
-    {
-        case DOCTOR_ALLIANCE:
-            for (auto& AllianceCoord : AllianceCoords)
-                m_vPatientSummonCoordinates.push_back(&AllianceCoord);
-            break;
-        case DOCTOR_HORDE:
-            for (auto& HordeCoord : HordeCoords)
-                m_vPatientSummonCoordinates.push_back(&HordeCoord);
-            break;
-        default:
-            script_error_log("Invalid entry for Triage doctor. Please check your database");
-            return;
-    }
 
-    m_bIsEventInProgress = true;
-    m_creature->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE);
-}
 
-void npc_doctorAI::PatientDied(Location* pPoint)
-{
-    Player* pPlayer = m_creature->GetMap()->GetPlayer(m_playerGuid);
 
-    if (pPlayer && (pPlayer->GetQuestStatus(QUEST_TRIAGE_A) == QUEST_STATUS_INCOMPLETE || pPlayer->GetQuestStatus(QUEST_TRIAGE_H) == QUEST_STATUS_INCOMPLETE) && m_bIsEventInProgress)
-    {
-        ++m_uiPatientDiedCount;
 
-        if (m_uiPatientDiedCount > 5)
-        {
-            switch (m_creature->GetEntry())
-            {
-                case DOCTOR_ALLIANCE: pPlayer->FailQuest(QUEST_TRIAGE_A); break;
-                case DOCTOR_HORDE:    pPlayer->FailQuest(QUEST_TRIAGE_H); break;
-                default:
-                    script_error_log("Invalid entry for Triage doctor. Please check your database");
-                    return;
-            }
 
-            Reset();
-            return;
-        }
 
-        m_vPatientSummonCoordinates.push_back(pPoint);
-    }
-    else
-        // If no player or player abandon quest in progress
-        Reset();
-}
 
-void npc_doctorAI::PatientSaved(Creature* /*soldier*/, Player* pPlayer, Location* pPoint)
-{
-    if (pPlayer && m_playerGuid == pPlayer->GetObjectGuid())
-    {
-        if (pPlayer->GetQuestStatus(QUEST_TRIAGE_A) == QUEST_STATUS_INCOMPLETE || pPlayer->GetQuestStatus(QUEST_TRIAGE_H) == QUEST_STATUS_INCOMPLETE)
-        {
-            ++m_uiPatientSavedCount;
-
-            if (m_uiPatientSavedCount == 15)
-            {
-                for (GuidList::const_iterator itr = m_lPatientGuids.begin(); itr != m_lPatientGuids.end(); ++itr)
-                {
-                    if (Creature* Patient = m_creature->GetMap()->GetCreature(*itr))
-                        Patient->SetDeathState(JUST_DIED);
-                }
-
-                switch (m_creature->GetEntry())
-                {
-                    case DOCTOR_ALLIANCE: pPlayer->RewardPlayerAndGroupAtEventExplored(QUEST_TRIAGE_A, m_creature); break;
-                    case DOCTOR_HORDE:    pPlayer->RewardPlayerAndGroupAtEventExplored(QUEST_TRIAGE_H, m_creature); break;
-                    default:
-                        script_error_log("Invalid entry for Triage doctor. Please check your database");
-                        return;
-                }
-
-                Reset();
-                return;
-            }
-
-            m_vPatientSummonCoordinates.push_back(pPoint);
-        }
-    }
-}
-
-void npc_doctorAI::UpdateAI(const uint32 uiDiff)
-{
-    if (m_playerGuid && m_creature)
-    {
-        if (Player* pPlayer = m_creature->GetMap()->GetPlayer(m_playerGuid))
-        {
-            if ((pPlayer->GetTeam() == ALLIANCE && (pPlayer->GetQuestStatus(QUEST_TRIAGE_A) == QUEST_STATUS_NONE || pPlayer->GetQuestStatus(QUEST_TRIAGE_A) == QUEST_STATUS_FAILED)) ||
-                    (pPlayer->GetTeam() == HORDE && (pPlayer->GetQuestStatus(QUEST_TRIAGE_H) == QUEST_STATUS_NONE || pPlayer->GetQuestStatus(QUEST_TRIAGE_H) == QUEST_STATUS_FAILED)))
-            {
-                Reset();
-                return;
-            }
-        }
-        else
-        {
-            Reset();
-            return;
-        }
-    }
-
-    if (m_bIsEventInProgress && !m_vPatientSummonCoordinates.empty())
-    {
-        if (m_uiSummonPatientTimer < uiDiff)
-        {
-            uint32 totalAlive = 0;
-
-            for (GuidList::const_iterator itr = m_lPatientGuids.begin(); itr != m_lPatientGuids.end(); ++itr)
-                if (Creature* pSummoned = m_creature->GetMap()->GetCreature(*itr))
-                    if (pSummoned->IsAlive())
-                        totalAlive++;
-
-            uint32 totalToSpawn = 0;
-
-            if (totalAlive == 0)
-                totalToSpawn = urand(2, 3); //if non are alive then we need to spawn at minimum 2 up to 3
-            else if (totalAlive == 1)
-                totalToSpawn = urand(1, 2); //if 1 is alive then we need to spawn at minimum 1 up to 2 more
-            else
-                totalToSpawn = 0; //everyone is still alive
-
-            uint32 totalSpawned = 0;
-
-            if (totalToSpawn)
-            {
-                for (uint32 y = 0; y < totalToSpawn; y++)
-                {
-                    if (m_vPatientSummonCoordinates.empty())
-                        break;
-
-                    std::vector<Location*>::iterator itr = m_vPatientSummonCoordinates.begin() + urand(0, m_vPatientSummonCoordinates.size() - 1);
-
-                    uint32 patientEntry = 0;
-
-                    switch (m_creature->GetEntry())
-                    {
-                        case DOCTOR_ALLIANCE: patientEntry = AllianceSoldierId[urand(0, 2)]; break;
-                        case DOCTOR_HORDE:    patientEntry = HordeSoldierId[urand(0, 2)];    break;
-                        default:
-                            script_error_log("Invalid entry for Triage doctor. Please check your database");
-                            return;
-                    }
-
-                    if (Creature* Patient = m_creature->SummonCreature(patientEntry, (*itr)->x, (*itr)->y, (*itr)->z, (*itr)->o, TEMPSPAWN_DEAD_DESPAWN, 0))
-                    {
-                        totalSpawned++;
-
-                        // 2.4.3, this flag appear to be required for client side item->spell to work (TARGET_UNIT_FRIEND)
-                        Patient->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PVP);
-
-                        m_lPatientGuids.push_back(Patient->GetObjectGuid());
-
-                        if (npc_injured_patientAI* pPatientAI = dynamic_cast<npc_injured_patientAI*>(Patient->AI()))
-                        {
-                            pPatientAI->m_doctorGuid = m_creature->GetObjectGuid();
-                            pPatientAI->m_pCoord = *itr;
-                            m_vPatientSummonCoordinates.erase(itr);
-                        }
-                    }
-                }
-            }
-
-            if (totalSpawned == 0)
-                m_uiSummonPatientTimer = urand(2000, 3000); //lets check after 2 to 3 seconds since non where spawned
-            else if (totalSpawned == 1)
-                m_uiSummonPatientTimer = urand(8000, 9000); //player has someone to heal still
-            else
-                m_uiSummonPatientTimer = 10000;
-
-            ++m_uiSummonPatientCount;
-        }
-        else
-            m_uiSummonPatientTimer -= uiDiff;
-    }
-}
-
-bool QuestAccept_npc_doctor(Player* pPlayer, Creature* pCreature, const Quest* pQuest)
-{
-    if ((pQuest->GetQuestId() == QUEST_TRIAGE_A) || (pQuest->GetQuestId() == QUEST_TRIAGE_H))
-    {
-        if (npc_doctorAI* pDocAI = dynamic_cast<npc_doctorAI*>(pCreature->AI()))
-            pDocAI->BeginEvent(pPlayer);
-    }
-
-    return true;
-}
-
-UnitAI* GetAI_npc_doctor(Creature* pCreature)
-{
-    return new npc_doctorAI(pCreature);
-}
 
 /*######
 ## npc_garments_of_quests
@@ -847,216 +812,238 @@ enum
     SAY_SHAYA_THANKS        = -1000262,
     SAY_SHAYA_GOODBYE       = -1000263,
 };
-
-struct npc_garments_of_questsAI : public npc_escortAI
+class npc_garments_of_quests : public CreatureScript
 {
-    npc_garments_of_questsAI(Creature* pCreature) : npc_escortAI(pCreature) { Reset(); }
+public:
+    npc_garments_of_quests() : CreatureScript("npc_garments_of_quests") { }
 
-    ObjectGuid m_playerGuid;
-
-    bool m_bIsHealed;
-    bool m_bCanRun;
-
-    uint32 m_uiRunAwayTimer;
-
-    void Reset() override
+    UnitAI* GetAI(Creature* pCreature)
     {
-        m_playerGuid.Clear();
-
-        m_bIsHealed = false;
-        m_bCanRun = false;
-
-        m_uiRunAwayTimer = 5000;
-
-        m_creature->SetStandState(UNIT_STAND_STATE_KNEEL);
-        // expect database to have RegenHealth=0
-        m_creature->SetHealth(int(m_creature->GetMaxHealth() * 0.7));
+        return new npc_garments_of_questsAI(pCreature);
     }
 
-    void SpellHit(Unit* pCaster, const SpellEntry* pSpell) override
+
+
+    struct npc_garments_of_questsAI : public npc_escortAI
     {
-        if (pSpell->Id == SPELL_LESSER_HEAL_R2 || pSpell->Id == SPELL_FORTITUDE_R1)
+        npc_garments_of_questsAI(Creature* pCreature) : npc_escortAI(pCreature) { Reset(); }
+
+        ObjectGuid m_playerGuid;
+
+        bool m_bIsHealed;
+        bool m_bCanRun;
+
+        uint32 m_uiRunAwayTimer;
+
+        void Reset() override
         {
-            // not while in combat
-            if (m_creature->IsInCombat())
-                return;
+            m_playerGuid.Clear();
 
-            // nothing to be done now
-            if (m_bIsHealed && m_bCanRun)
-                return;
+            m_bIsHealed = false;
+            m_bCanRun = false;
 
-            if (pCaster->GetTypeId() == TYPEID_PLAYER)
-            {
-                switch (m_creature->GetEntry())
-                {
-                    case ENTRY_SHAYA:
-                        if (((Player*)pCaster)->GetQuestStatus(QUEST_MOON) == QUEST_STATUS_INCOMPLETE)
-                        {
-                            if (m_bIsHealed && !m_bCanRun && pSpell->Id == SPELL_FORTITUDE_R1)
-                            {
-                                DoScriptText(SAY_SHAYA_THANKS, m_creature, pCaster);
-                                m_bCanRun = true;
-                            }
-                            else if (!m_bIsHealed && pSpell->Id == SPELL_LESSER_HEAL_R2)
-                            {
-                                m_playerGuid = pCaster->GetObjectGuid();
-                                m_creature->SetStandState(UNIT_STAND_STATE_STAND);
-                                DoScriptText(SAY_COMMON_HEALED, m_creature, pCaster);
-                                m_bIsHealed = true;
-                            }
-                        }
-                        break;
-                    case ENTRY_ROBERTS:
-                        if (((Player*)pCaster)->GetQuestStatus(QUEST_LIGHT_1) == QUEST_STATUS_INCOMPLETE)
-                        {
-                            if (m_bIsHealed && !m_bCanRun && pSpell->Id == SPELL_FORTITUDE_R1)
-                            {
-                                DoScriptText(SAY_ROBERTS_THANKS, m_creature, pCaster);
-                                m_bCanRun = true;
-                            }
-                            else if (!m_bIsHealed && pSpell->Id == SPELL_LESSER_HEAL_R2)
-                            {
-                                m_playerGuid = pCaster->GetObjectGuid();
-                                m_creature->SetStandState(UNIT_STAND_STATE_STAND);
-                                DoScriptText(SAY_COMMON_HEALED, m_creature, pCaster);
-                                m_bIsHealed = true;
-                            }
-                        }
-                        break;
-                    case ENTRY_DOLF:
-                        if (((Player*)pCaster)->GetQuestStatus(QUEST_LIGHT_2) == QUEST_STATUS_INCOMPLETE)
-                        {
-                            if (m_bIsHealed && !m_bCanRun && pSpell->Id == SPELL_FORTITUDE_R1)
-                            {
-                                DoScriptText(SAY_DOLF_THANKS, m_creature, pCaster);
-                                m_bCanRun = true;
-                            }
-                            else if (!m_bIsHealed && pSpell->Id == SPELL_LESSER_HEAL_R2)
-                            {
-                                m_playerGuid = pCaster->GetObjectGuid();
-                                m_creature->SetStandState(UNIT_STAND_STATE_STAND);
-                                DoScriptText(SAY_COMMON_HEALED, m_creature, pCaster);
-                                m_bIsHealed = true;
-                            }
-                        }
-                        break;
-                    case ENTRY_KORJA:
-                        if (((Player*)pCaster)->GetQuestStatus(QUEST_SPIRIT) == QUEST_STATUS_INCOMPLETE)
-                        {
-                            if (m_bIsHealed && !m_bCanRun && pSpell->Id == SPELL_FORTITUDE_R1)
-                            {
-                                DoScriptText(SAY_KORJA_THANKS, m_creature, pCaster);
-                                m_bCanRun = true;
-                            }
-                            else if (!m_bIsHealed && pSpell->Id == SPELL_LESSER_HEAL_R2)
-                            {
-                                m_playerGuid = pCaster->GetObjectGuid();
-                                m_creature->SetStandState(UNIT_STAND_STATE_STAND);
-                                DoScriptText(SAY_COMMON_HEALED, m_creature, pCaster);
-                                m_bIsHealed = true;
-                            }
-                        }
-                        break;
-                    case ENTRY_DG_KEL:
-                        if (((Player*)pCaster)->GetQuestStatus(QUEST_DARKNESS) == QUEST_STATUS_INCOMPLETE)
-                        {
-                            if (m_bIsHealed && !m_bCanRun && pSpell->Id == SPELL_FORTITUDE_R1)
-                            {
-                                DoScriptText(SAY_DG_KEL_THANKS, m_creature, pCaster);
-                                m_bCanRun = true;
-                            }
-                            else if (!m_bIsHealed && pSpell->Id == SPELL_LESSER_HEAL_R2)
-                            {
-                                m_playerGuid = pCaster->GetObjectGuid();
-                                m_creature->SetStandState(UNIT_STAND_STATE_STAND);
-                                DoScriptText(SAY_COMMON_HEALED, m_creature, pCaster);
-                                m_bIsHealed = true;
-                            }
-                        }
-                        break;
-                }
+            m_uiRunAwayTimer = 5000;
 
-                // give quest credit, not expect any special quest objectives
-                if (m_bCanRun)
-                    ((Player*)pCaster)->TalkedToCreature(m_creature->GetEntry(), m_creature->GetObjectGuid());
-            }
+            m_creature->SetStandState(UNIT_STAND_STATE_KNEEL);
+            // expect database to have RegenHealth=0
+            m_creature->SetHealth(int(m_creature->GetMaxHealth() * 0.7));
         }
-    }
 
-    void WaypointReached(uint32 /*uiPointId*/) override {}
-
-    void UpdateEscortAI(const uint32 uiDiff) override
-    {
-        if (m_bCanRun && !m_creature->IsInCombat())
+        void SpellHit(Unit* pCaster, const SpellEntry* pSpell) override
         {
-            if (m_uiRunAwayTimer <= uiDiff)
+            if (pSpell->Id == SPELL_LESSER_HEAL_R2 || pSpell->Id == SPELL_FORTITUDE_R1)
             {
-                if (Player* pPlayer = m_creature->GetMap()->GetPlayer(m_playerGuid))
+                // not while in combat
+                if (m_creature->IsInCombat())
+                    return;
+
+                // nothing to be done now
+                if (m_bIsHealed && m_bCanRun)
+                    return;
+
+                if (pCaster->GetTypeId() == TYPEID_PLAYER)
                 {
                     switch (m_creature->GetEntry())
                     {
-                        case ENTRY_SHAYA:   DoScriptText(SAY_SHAYA_GOODBYE, m_creature, pPlayer);   break;
-                        case ENTRY_ROBERTS: DoScriptText(SAY_ROBERTS_GOODBYE, m_creature, pPlayer); break;
-                        case ENTRY_DOLF:    DoScriptText(SAY_DOLF_GOODBYE, m_creature, pPlayer);    break;
-                        case ENTRY_KORJA:   DoScriptText(SAY_KORJA_GOODBYE, m_creature, pPlayer);   break;
-                        case ENTRY_DG_KEL:  DoScriptText(SAY_DG_KEL_GOODBYE, m_creature, pPlayer);  break;
+                        case ENTRY_SHAYA:
+                            if (((Player*)pCaster)->GetQuestStatus(QUEST_MOON) == QUEST_STATUS_INCOMPLETE)
+                            {
+                                if (m_bIsHealed && !m_bCanRun && pSpell->Id == SPELL_FORTITUDE_R1)
+                                {
+                                    DoScriptText(SAY_SHAYA_THANKS, m_creature, pCaster);
+                                    m_bCanRun = true;
+                                }
+                                else if (!m_bIsHealed && pSpell->Id == SPELL_LESSER_HEAL_R2)
+                                {
+                                    m_playerGuid = pCaster->GetObjectGuid();
+                                    m_creature->SetStandState(UNIT_STAND_STATE_STAND);
+                                    DoScriptText(SAY_COMMON_HEALED, m_creature, pCaster);
+                                    m_bIsHealed = true;
+                                }
+                            }
+                            break;
+                        case ENTRY_ROBERTS:
+                            if (((Player*)pCaster)->GetQuestStatus(QUEST_LIGHT_1) == QUEST_STATUS_INCOMPLETE)
+                            {
+                                if (m_bIsHealed && !m_bCanRun && pSpell->Id == SPELL_FORTITUDE_R1)
+                                {
+                                    DoScriptText(SAY_ROBERTS_THANKS, m_creature, pCaster);
+                                    m_bCanRun = true;
+                                }
+                                else if (!m_bIsHealed && pSpell->Id == SPELL_LESSER_HEAL_R2)
+                                {
+                                    m_playerGuid = pCaster->GetObjectGuid();
+                                    m_creature->SetStandState(UNIT_STAND_STATE_STAND);
+                                    DoScriptText(SAY_COMMON_HEALED, m_creature, pCaster);
+                                    m_bIsHealed = true;
+                                }
+                            }
+                            break;
+                        case ENTRY_DOLF:
+                            if (((Player*)pCaster)->GetQuestStatus(QUEST_LIGHT_2) == QUEST_STATUS_INCOMPLETE)
+                            {
+                                if (m_bIsHealed && !m_bCanRun && pSpell->Id == SPELL_FORTITUDE_R1)
+                                {
+                                    DoScriptText(SAY_DOLF_THANKS, m_creature, pCaster);
+                                    m_bCanRun = true;
+                                }
+                                else if (!m_bIsHealed && pSpell->Id == SPELL_LESSER_HEAL_R2)
+                                {
+                                    m_playerGuid = pCaster->GetObjectGuid();
+                                    m_creature->SetStandState(UNIT_STAND_STATE_STAND);
+                                    DoScriptText(SAY_COMMON_HEALED, m_creature, pCaster);
+                                    m_bIsHealed = true;
+                                }
+                            }
+                            break;
+                        case ENTRY_KORJA:
+                            if (((Player*)pCaster)->GetQuestStatus(QUEST_SPIRIT) == QUEST_STATUS_INCOMPLETE)
+                            {
+                                if (m_bIsHealed && !m_bCanRun && pSpell->Id == SPELL_FORTITUDE_R1)
+                                {
+                                    DoScriptText(SAY_KORJA_THANKS, m_creature, pCaster);
+                                    m_bCanRun = true;
+                                }
+                                else if (!m_bIsHealed && pSpell->Id == SPELL_LESSER_HEAL_R2)
+                                {
+                                    m_playerGuid = pCaster->GetObjectGuid();
+                                    m_creature->SetStandState(UNIT_STAND_STATE_STAND);
+                                    DoScriptText(SAY_COMMON_HEALED, m_creature, pCaster);
+                                    m_bIsHealed = true;
+                                }
+                            }
+                            break;
+                        case ENTRY_DG_KEL:
+                            if (((Player*)pCaster)->GetQuestStatus(QUEST_DARKNESS) == QUEST_STATUS_INCOMPLETE)
+                            {
+                                if (m_bIsHealed && !m_bCanRun && pSpell->Id == SPELL_FORTITUDE_R1)
+                                {
+                                    DoScriptText(SAY_DG_KEL_THANKS, m_creature, pCaster);
+                                    m_bCanRun = true;
+                                }
+                                else if (!m_bIsHealed && pSpell->Id == SPELL_LESSER_HEAL_R2)
+                                {
+                                    m_playerGuid = pCaster->GetObjectGuid();
+                                    m_creature->SetStandState(UNIT_STAND_STATE_STAND);
+                                    DoScriptText(SAY_COMMON_HEALED, m_creature, pCaster);
+                                    m_bIsHealed = true;
+                                }
+                            }
+                            break;
                     }
 
-                    Start(true);
+                    // give quest credit, not expect any special quest objectives
+                    if (m_bCanRun)
+                        ((Player*)pCaster)->TalkedToCreature(m_creature->GetEntry(), m_creature->GetObjectGuid());
                 }
-                else
-                    EnterEvadeMode();                       // something went wrong
-
-                m_uiRunAwayTimer = 30000;
             }
-            else
-                m_uiRunAwayTimer -= uiDiff;
         }
 
-        if (!m_creature->SelectHostileTarget() || !m_creature->GetVictim())
-            return;
+        void WaypointReached(uint32 /*uiPointId*/) override {}
 
-        DoMeleeAttackIfReady();
-    }
+        void UpdateEscortAI(const uint32 uiDiff) override
+        {
+            if (m_bCanRun && !m_creature->IsInCombat())
+            {
+                if (m_uiRunAwayTimer <= uiDiff)
+                {
+                    if (Player* pPlayer = m_creature->GetMap()->GetPlayer(m_playerGuid))
+                    {
+                        switch (m_creature->GetEntry())
+                        {
+                            case ENTRY_SHAYA:   DoScriptText(SAY_SHAYA_GOODBYE, m_creature, pPlayer);   break;
+                            case ENTRY_ROBERTS: DoScriptText(SAY_ROBERTS_GOODBYE, m_creature, pPlayer); break;
+                            case ENTRY_DOLF:    DoScriptText(SAY_DOLF_GOODBYE, m_creature, pPlayer);    break;
+                            case ENTRY_KORJA:   DoScriptText(SAY_KORJA_GOODBYE, m_creature, pPlayer);   break;
+                            case ENTRY_DG_KEL:  DoScriptText(SAY_DG_KEL_GOODBYE, m_creature, pPlayer);  break;
+                        }
+
+                        Start(true);
+                    }
+                    else
+                        EnterEvadeMode();                       // something went wrong
+
+                    m_uiRunAwayTimer = 30000;
+                }
+                else
+                    m_uiRunAwayTimer -= uiDiff;
+            }
+
+            if (!m_creature->SelectHostileTarget() || !m_creature->GetVictim())
+                return;
+
+            DoMeleeAttackIfReady();
+        }
+    };
+
+
+
 };
 
-UnitAI* GetAI_npc_garments_of_quests(Creature* pCreature)
-{
-    return new npc_garments_of_questsAI(pCreature);
-}
 
 /*######
 ## npc_guardian
 ######*/
 
 #define SPELL_DEATHTOUCH                5
-
-struct npc_guardianAI : public ScriptedAI
+class npc_guardian : public CreatureScript
 {
-    npc_guardianAI(Creature* pCreature) : ScriptedAI(pCreature) {Reset();}
+public:
+    npc_guardian() : CreatureScript("npc_guardian") { }
 
-    void Reset() override
+    UnitAI* GetAI(Creature* pCreature)
     {
-        m_creature->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NON_ATTACKABLE);
+        return new npc_guardianAI(pCreature);
     }
 
-    void UpdateAI(const uint32 /*diff*/) override
-    {
-        if (!m_creature->SelectHostileTarget() || !m_creature->GetVictim())
-            return;
 
-        if (m_creature->isAttackReady())
+
+    struct npc_guardianAI : public ScriptedAI
+    {
+        npc_guardianAI(Creature* pCreature) : ScriptedAI(pCreature) {Reset();}
+
+        void Reset() override
         {
-            m_creature->CastSpell(m_creature->GetVictim(), SPELL_DEATHTOUCH, TRIGGERED_OLD_TRIGGERED);
-            m_creature->resetAttackTimer();
+            m_creature->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NON_ATTACKABLE);
         }
-    }
+
+        void UpdateAI(const uint32 /*diff*/) override
+        {
+            if (!m_creature->SelectHostileTarget() || !m_creature->GetVictim())
+                return;
+
+            if (m_creature->isAttackReady())
+            {
+                m_creature->CastSpell(m_creature->GetVictim(), SPELL_DEATHTOUCH, TRIGGERED_OLD_TRIGGERED);
+                m_creature->resetAttackTimer();
+            }
+        }
+    };
+
+
+
 };
 
-UnitAI* GetAI_npc_guardian(Creature* pCreature)
-{
-    return new npc_guardianAI(pCreature);
-}
 
 /*########
 # npc_innkeeper
@@ -1134,93 +1121,107 @@ enum
     NPC_FURBOLG_SHAMAN          = 17542,        // draenei side
     NPC_BLOOD_KNIGHT            = 17768,        // blood elf side
 };
-
-struct npc_redemption_targetAI : public ScriptedAI
+class npc_redemption_target : public CreatureScript
 {
-    npc_redemption_targetAI(Creature* pCreature) : ScriptedAI(pCreature) { Reset(); }
+public:
+    npc_redemption_target() : CreatureScript("npc_redemption_target") { }
 
-    uint32 m_uiEvadeTimer;
-    uint32 m_uiHealTimer;
-
-    ObjectGuid m_playerGuid;
-
-    void Reset() override
+    bool OnEffectDummy(Unit* pCaster, uint32 uiSpellId, SpellEffectIndex uiEffIndex, Creature* pCreatureTarget, ObjectGuid /*originalCasterGuid*/) override
     {
-        m_uiEvadeTimer = 0;
-        m_uiHealTimer  = 0;
-
-        m_creature->SetFlag(UNIT_DYNAMIC_FLAGS, UNIT_DYNFLAG_DEAD);
-        m_creature->SetStandState(UNIT_STAND_STATE_DEAD);
-    }
-
-    void DoReviveSelf(ObjectGuid m_guid)
-    {
-        // Wait until he resets again
-        if (m_uiEvadeTimer)
-            return;
-
-        DoCastSpellIfCan(m_creature, SPELL_REVIVE_SELF);
-        m_creature->SetDeathState(JUST_ALIVED);
-        m_playerGuid = m_guid;
-        m_uiHealTimer = 2000;
-    }
-
-    void UpdateAI(const uint32 uiDiff) override
-    {
-        if (m_uiHealTimer)
+        // always check spellid and effectindex
+        if ((uiSpellId == SPELL_SYMBOL_OF_LIFE || uiSpellId == SPELL_SHIMMERING_VESSEL) && uiEffIndex == EFFECT_INDEX_0)
         {
-            if (m_uiHealTimer <= uiDiff)
+            if (npc_redemption_targetAI* pTargetAI = dynamic_cast<npc_redemption_targetAI*>(pCreatureTarget->AI()))
+                pTargetAI->DoReviveSelf(pCaster->GetObjectGuid());
+
+            // always return true when we are handling this spell and effect
+            return true;
+        }
+
+        return false;
+    }
+
+
+
+    UnitAI* GetAI(Creature* pCreature)
+    {
+        return new npc_redemption_targetAI(pCreature);
+    }
+
+
+
+    struct npc_redemption_targetAI : public ScriptedAI
+    {
+        npc_redemption_targetAI(Creature* pCreature) : ScriptedAI(pCreature) { Reset(); }
+
+        uint32 m_uiEvadeTimer;
+        uint32 m_uiHealTimer;
+
+        ObjectGuid m_playerGuid;
+
+        void Reset() override
+        {
+            m_uiEvadeTimer = 0;
+            m_uiHealTimer  = 0;
+
+            m_creature->SetFlag(UNIT_DYNAMIC_FLAGS, UNIT_DYNFLAG_DEAD);
+            m_creature->SetStandState(UNIT_STAND_STATE_DEAD);
+        }
+
+        void DoReviveSelf(ObjectGuid m_guid)
+        {
+            // Wait until he resets again
+            if (m_uiEvadeTimer)
+                return;
+
+            DoCastSpellIfCan(m_creature, SPELL_REVIVE_SELF);
+            m_creature->SetDeathState(JUST_ALIVED);
+            m_playerGuid = m_guid;
+            m_uiHealTimer = 2000;
+        }
+
+        void UpdateAI(const uint32 uiDiff) override
+        {
+            if (m_uiHealTimer)
             {
-                if (Player* pPlayer = m_creature->GetMap()->GetPlayer(m_playerGuid))
+                if (m_uiHealTimer <= uiDiff)
                 {
-                    DoScriptText(SAY_HEAL, m_creature, pPlayer);
+                    if (Player* pPlayer = m_creature->GetMap()->GetPlayer(m_playerGuid))
+                    {
+                        DoScriptText(SAY_HEAL, m_creature, pPlayer);
 
-                    // Quests 9600 and 9685 requires kill credit
-                    if (m_creature->GetEntry() == NPC_FURBOLG_SHAMAN || m_creature->GetEntry() == NPC_BLOOD_KNIGHT)
-                        pPlayer->KilledMonsterCredit(m_creature->GetEntry(), m_creature->GetObjectGuid());
+                        // Quests 9600 and 9685 requires kill credit
+                        if (m_creature->GetEntry() == NPC_FURBOLG_SHAMAN || m_creature->GetEntry() == NPC_BLOOD_KNIGHT)
+                            pPlayer->KilledMonsterCredit(m_creature->GetEntry(), m_creature->GetObjectGuid());
+                    }
+
+                    m_creature->RemoveFlag(UNIT_DYNAMIC_FLAGS, UNIT_DYNFLAG_DEAD);
+                    m_creature->SetStandState(UNIT_STAND_STATE_STAND);
+                    m_uiHealTimer = 0;
+                    m_uiEvadeTimer = 2 * MINUTE * IN_MILLISECONDS;
                 }
-
-                m_creature->RemoveFlag(UNIT_DYNAMIC_FLAGS, UNIT_DYNFLAG_DEAD);
-                m_creature->SetStandState(UNIT_STAND_STATE_STAND);
-                m_uiHealTimer = 0;
-                m_uiEvadeTimer = 2 * MINUTE * IN_MILLISECONDS;
+                else
+                    m_uiHealTimer -= uiDiff;
             }
-            else
-                m_uiHealTimer -= uiDiff;
-        }
 
-        if (m_uiEvadeTimer)
-        {
-            if (m_uiEvadeTimer <= uiDiff)
+            if (m_uiEvadeTimer)
             {
-                EnterEvadeMode();
-                m_uiEvadeTimer = 0;
+                if (m_uiEvadeTimer <= uiDiff)
+                {
+                    EnterEvadeMode();
+                    m_uiEvadeTimer = 0;
+                }
+                else
+                    m_uiEvadeTimer -= uiDiff;
             }
-            else
-                m_uiEvadeTimer -= uiDiff;
         }
-    }
+    };
+
+
+
 };
 
-UnitAI* GetAI_npc_redemption_target(Creature* pCreature)
-{
-    return new npc_redemption_targetAI(pCreature);
-}
 
-bool EffectDummyCreature_npc_redemption_target(Unit* pCaster, uint32 uiSpellId, SpellEffectIndex uiEffIndex, Creature* pCreatureTarget, ObjectGuid /*originalCasterGuid*/)
-{
-    // always check spellid and effectindex
-    if ((uiSpellId == SPELL_SYMBOL_OF_LIFE || uiSpellId == SPELL_SHIMMERING_VESSEL) && uiEffIndex == EFFECT_INDEX_0)
-    {
-        if (npc_redemption_targetAI* pTargetAI = dynamic_cast<npc_redemption_targetAI*>(pCreatureTarget->AI()))
-            pTargetAI->DoReviveSelf(pCaster->GetObjectGuid());
-
-        // always return true when we are handling this spell and effect
-        return true;
-    }
-
-    return false;
-}
 
 /*######
 ## npc_burster_worm
@@ -1282,233 +1283,242 @@ enum BursterActions
     BURSTER_BIRTH_DELAY,
     BURSTER_CHASE_SEQUENCE,
 };
-
-struct npc_burster_wormAI : public CombatAI
+class npc_burster_worm : public CreatureScript
 {
-    npc_burster_wormAI(Creature* creature) : CombatAI(creature, BURSTER_ACTION_MAX),
-        m_uiBorePassive(SetBorePassive()), m_boreDamageSpell(SetBoreDamageSpell()), m_rangedSpell(GetRangedSpell())
+public:
+    npc_burster_worm() : CreatureScript("npc_burster_worm") { }
+
+
+    struct npc_burster_wormAI : public CombatAI
     {
-        // generic abilities
-        AddCombatAction(BURSTER_CHASE_DISTANCE, 10000u);
-        AddCombatAction(BURSTER_RANGED_ATTACK, 2000u);
-        // per entry abilities
-        if (m_creature->GetEntry() == NPC_TUNNELER || m_creature->GetEntry() == NPC_NETHERMINE_BURSTER)
+        npc_burster_wormAI(Creature* creature) : CombatAI(creature, BURSTER_ACTION_MAX),
+            m_uiBorePassive(SetBorePassive()), m_boreDamageSpell(SetBoreDamageSpell()), m_rangedSpell(GetRangedSpell())
         {
-            AddTimerlessCombatAction(BURSTER_ENABLE_ENRAGE, true);
-            AddCombatAction(BURSTER_ENRAGE, true);
-        }
-        if (m_creature->GetEntry() != NPC_MARAUDING_BURSTER && m_creature->GetEntry() != NPC_SAND_WORM && m_creature->GetEntry() != NPC_FULGORGE && m_creature->GetEntry() != NPC_GREATER_CRUST_BURSTER)
-            AddCombatAction(BURSTER_BORE, 5000u);
-        if (m_creature->GetEntry() == NPC_SAND_WORM)
-            AddCombatAction(BURSTER_SWEEP, 5000, 15000);
-        // sequences
-        AddCustomAction(BURSTER_BIRTH_DELAY, true, [&]()
-        {
-            m_creature->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE);
-            SetMeleeEnabled(true);
-            SetCombatScriptStatus(false);
-        });
-        AddCustomAction(BURSTER_CHASE_SEQUENCE, true, [&]() { HandleChaseSequence(); });
-    }
-
-    uint32 m_chaseStage;
-    uint32 m_rangedSpell;
-    int32 m_rangeCheckState;
-    uint32 m_uiBorePassive;
-    uint32 m_boreDamageSpell;
-    Position m_teleport;
-
-    inline uint32 SetBorePassive()
-    {
-        switch (m_creature->GetEntry())
-        {
-            case NPC_MARAUDING_BURSTER:
-            case NPC_FULGORGE:
-                return SPELL_TUNNEL_BORE_RED_PASSIVE;
-            case NPC_HAISHULUD:
-                return SPELL_DAMAGING_TUNNEL_BORE_BONE_PASSIVE;
-            case NPC_BONE_CRAWLER:
-            case NPC_BONE_SIFTER:
-            case NPC_MATURE_BONE_SIFTER:
-                return SPELL_TUNNEL_BORE_BONE_PASSIVE;
-            default:
-                return SPELL_TUNNEL_BORE_PASSIVE;
-        }
-    }
-
-    inline uint32 SetBoreDamageSpell()
-    {
-        switch (m_uiBorePassive)
-        {
-            case SPELL_TUNNEL_BORE_RED_PASSIVE:
-                return SPELL_TUNNEL_BORE_RED;
-            case SPELL_DAMAGING_TUNNEL_BORE_BONE_PASSIVE:
-                return SPELL_BONE_BORE_2;
-            case SPELL_TUNNEL_BORE_BONE_PASSIVE:
-                return SPELL_BONE_BORE;
-            case SPELL_TUNNEL_BORE_PASSIVE:
-            default: // this should never happen
-                return SPELL_TUNNEL_BORE;
-        }
-    }
-
-    inline uint32 GetRangedSpell()
-    {
-        switch (m_creature->GetEntry())
-        {
-            case NPC_FULGORGE:
-                return SPELL_POISON_SPIT;
-            case NPC_SAND_WORM:
-                return SPELL_WORM_BLAST;
-            default:
-                return SPELL_POISON;
-        }
-    }
-
-    void Reset() override
-    {
-        CombatAI::Reset();
-        m_chaseStage = 0;
-        m_rangeCheckState = -1;
-
-        SetMeleeEnabled(false);
-
-        Submerge(true);
-    }
-
-    void Submerge(bool passive)
-    {
-        m_creature->CastSpell(nullptr, SPELL_SUBMERGED, TRIGGERED_NONE);
-        if (passive)
-            m_creature->CastSpell(m_creature, m_uiBorePassive, TRIGGERED_NONE);
-        m_creature->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE);
-    }
-
-    void SpellHitTarget(Unit* target, const SpellEntry* spellInfo) override
-    {
-        if (spellInfo->Id == m_boreDamageSpell && target->GetTypeId() == TYPEID_PLAYER)
-            AttackStart(target);
-    }
-
-    void JustRespawned() override
-    {
-        CombatAI::JustRespawned();
-        Reset();
-    }
-
-    void Aggro(Unit* /*who*/) override
-    {
-        // remove the bore bone aura again, for summoned creatures
-        m_creature->RemoveAurasDueToSpell(SPELL_SANDWORM_SUBMERGE_VISUAL);
-        m_creature->RemoveAurasDueToSpell(m_uiBorePassive);
-        SetCombatScriptStatus(true);
-        SetRootSelf(true, true);
-
-        if (DoCastSpellIfCan(nullptr, SPELL_STAND) == CAST_OK)
-            ResetTimer(BURSTER_BIRTH_DELAY, 2000);
-    }
-
-    // function to check for bone worms
-    bool IsBoneWorm() const
-    {
-        return m_creature->GetEntry() == NPC_BONE_CRAWLER || m_creature->GetEntry() == NPC_HAISHULUD || m_creature->GetEntry() == NPC_BONE_SIFTER || m_creature->GetEntry() == NPC_MATURE_BONE_SIFTER;
-    }
-
-    void HandleChaseSequence()
-    {
-        uint32 timer = 0;
-        switch (m_chaseStage)
-        {
-            case 0: // right after submerge
+            // generic abilities
+            AddCombatAction(BURSTER_CHASE_DISTANCE, 10000u);
+            AddCombatAction(BURSTER_RANGED_ATTACK, 2000u);
+            // per entry abilities
+            if (m_creature->GetEntry() == NPC_TUNNELER || m_creature->GetEntry() == NPC_NETHERMINE_BURSTER)
             {
-                // teleport
-                timer = 1000;
-                m_creature->NearTeleportTo(m_teleport.x, m_teleport.y, m_teleport.z, 0.f);
-                break;
+                AddTimerlessCombatAction(BURSTER_ENABLE_ENRAGE, true);
+                AddCombatAction(BURSTER_ENRAGE, true);
             }
-            case 1: // after teleport
+            if (m_creature->GetEntry() != NPC_MARAUDING_BURSTER && m_creature->GetEntry() != NPC_SAND_WORM && m_creature->GetEntry() != NPC_FULGORGE && m_creature->GetEntry() != NPC_GREATER_CRUST_BURSTER)
+                AddCombatAction(BURSTER_BORE, 5000u);
+            if (m_creature->GetEntry() == NPC_SAND_WORM)
+                AddCombatAction(BURSTER_SWEEP, 5000, 15000);
+            // sequences
+            AddCustomAction(BURSTER_BIRTH_DELAY, true, [&]()
             {
-                // come up
                 m_creature->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE);
-                m_creature->RemoveAurasDueToSpell(SPELL_SANDWORM_SUBMERGE_VISUAL);
-                DoCastSpellIfCan(nullptr, SPELL_STAND);
-                timer = 1000;
-                break;
-            }
-            case 2: // after coming up
-            {
-                // start attacking
                 SetMeleeEnabled(true);
-                m_creature->SetTarget(m_creature->GetVictim());
                 SetCombatScriptStatus(false);
-                break;
-            }
+            });
+            AddCustomAction(BURSTER_CHASE_SEQUENCE, true, [&]() { HandleChaseSequence(); });
         }
-        ++m_chaseStage;
-        if (timer)
-            ResetTimer(BURSTER_CHASE_SEQUENCE, timer);
-    }
 
-    void ExecuteAction(uint32 action) override
-    {
-        switch (action)
+        uint32 m_chaseStage;
+        uint32 m_rangedSpell;
+        int32 m_rangeCheckState;
+        uint32 m_uiBorePassive;
+        uint32 m_boreDamageSpell;
+        Position m_teleport;
+
+        inline uint32 SetBorePassive()
         {
-            case BURSTER_CHASE_DISTANCE:
+            switch (m_creature->GetEntry())
             {
-                // sone creatures have bone bore spell
-                if (!m_creature->GetVictim() || !m_creature->CanReachWithMeleeAttack(m_creature->GetVictim()) || m_creature->GetDistance(m_creature->GetVictim(), true, DIST_CALC_COMBAT_REACH) > 30.f)
-                {
-                    ResetCombatAction(action, 10000);
-                    return;
-                }
-                Submerge(false);
-                SetMeleeEnabled(false);
-                SetCombatScriptStatus(true); // TODO: remove on next step
-                m_creature->SetTarget(nullptr);
-                m_creature->GetVictim()->GetClosePoint(m_teleport.x, m_teleport.y, m_teleport.z, 0.f, 12.f, M_PI_F);
-                ResetTimer(BURSTER_CHASE_SEQUENCE, 2000);
-                ResetCombatAction(action, 20000);
-                m_chaseStage = 0;
-                break;
-            }
-            case BURSTER_RANGED_ATTACK:
-            {
-                uint32 timer = 500;
-                // If victim exists we have a target in melee range
-                if (m_creature->GetVictim() && m_creature->CanReachWithMeleeAttack(m_creature->GetVictim()))
-                    m_rangeCheckState = -1;
-                // Spam Waterbolt spell when not tanked
-                else
-                {
-                    ++m_rangeCheckState;
-                    if (m_rangeCheckState > 1)
-                        if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, m_rangedSpell, SELECT_FLAG_PLAYER))
-                            if (DoCastSpellIfCan(target, m_rangedSpell) == CAST_OK)
-                                timer = 2500;
-                }
-                ResetCombatAction(action, timer);
-                break;
-            }
-            case BURSTER_BORE:
-            {
-                if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_BORE) == CAST_OK)
-                    ResetCombatAction(action, 45000);
-                break;
-            }
-            case BURSTER_ENRAGE:
-            {
-                if (DoCastSpellIfCan(nullptr, SPELL_ENRAGE) == CAST_OK)
-                    ResetCombatAction(action, urand(12000, 17000));
-                break;
-            }
-            case BURSTER_SWEEP:
-            {
-                if (DoCastSpellIfCan(nullptr, SPELL_WORM_SWEEP) == CAST_OK)
-                    ResetCombatAction(action, urand(15000, 25000));
-                break;
+                case NPC_MARAUDING_BURSTER:
+                case NPC_FULGORGE:
+                    return SPELL_TUNNEL_BORE_RED_PASSIVE;
+                case NPC_HAISHULUD:
+                    return SPELL_DAMAGING_TUNNEL_BORE_BONE_PASSIVE;
+                case NPC_BONE_CRAWLER:
+                case NPC_BONE_SIFTER:
+                case NPC_MATURE_BONE_SIFTER:
+                    return SPELL_TUNNEL_BORE_BONE_PASSIVE;
+                default:
+                    return SPELL_TUNNEL_BORE_PASSIVE;
             }
         }
-    }
+
+        inline uint32 SetBoreDamageSpell()
+        {
+            switch (m_uiBorePassive)
+            {
+                case SPELL_TUNNEL_BORE_RED_PASSIVE:
+                    return SPELL_TUNNEL_BORE_RED;
+                case SPELL_DAMAGING_TUNNEL_BORE_BONE_PASSIVE:
+                    return SPELL_BONE_BORE_2;
+                case SPELL_TUNNEL_BORE_BONE_PASSIVE:
+                    return SPELL_BONE_BORE;
+                case SPELL_TUNNEL_BORE_PASSIVE:
+                default: // this should never happen
+                    return SPELL_TUNNEL_BORE;
+            }
+        }
+
+        inline uint32 GetRangedSpell()
+        {
+            switch (m_creature->GetEntry())
+            {
+                case NPC_FULGORGE:
+                    return SPELL_POISON_SPIT;
+                case NPC_SAND_WORM:
+                    return SPELL_WORM_BLAST;
+                default:
+                    return SPELL_POISON;
+            }
+        }
+
+        void Reset() override
+        {
+            CombatAI::Reset();
+            m_chaseStage = 0;
+            m_rangeCheckState = -1;
+
+            SetMeleeEnabled(false);
+
+            Submerge(true);
+        }
+
+        void Submerge(bool passive)
+        {
+            m_creature->CastSpell(nullptr, SPELL_SUBMERGED, TRIGGERED_NONE);
+            if (passive)
+                m_creature->CastSpell(m_creature, m_uiBorePassive, TRIGGERED_NONE);
+            m_creature->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE);
+        }
+
+        void SpellHitTarget(Unit* target, const SpellEntry* spellInfo) override
+        {
+            if (spellInfo->Id == m_boreDamageSpell && target->GetTypeId() == TYPEID_PLAYER)
+                AttackStart(target);
+        }
+
+        void JustRespawned() override
+        {
+            CombatAI::JustRespawned();
+            Reset();
+        }
+
+        void Aggro(Unit* /*who*/) override
+        {
+            // remove the bore bone aura again, for summoned creatures
+            m_creature->RemoveAurasDueToSpell(SPELL_SANDWORM_SUBMERGE_VISUAL);
+            m_creature->RemoveAurasDueToSpell(m_uiBorePassive);
+            SetCombatScriptStatus(true);
+            SetRootSelf(true, true);
+
+            if (DoCastSpellIfCan(nullptr, SPELL_STAND) == CAST_OK)
+                ResetTimer(BURSTER_BIRTH_DELAY, 2000);
+        }
+
+        // OnTrapSearch to check for bone worms override
+        bool IsBoneWorm() const
+        {
+            return m_creature->GetEntry() == NPC_BONE_CRAWLER || m_creature->GetEntry() == NPC_HAISHULUD || m_creature->GetEntry() == NPC_BONE_SIFTER || m_creature->GetEntry() == NPC_MATURE_BONE_SIFTER;
+        }
+
+        void HandleChaseSequence()
+        {
+            uint32 timer = 0;
+            switch (m_chaseStage)
+            {
+                case 0: // right after submerge
+                {
+                    // teleport
+                    timer = 1000;
+                    m_creature->NearTeleportTo(m_teleport.x, m_teleport.y, m_teleport.z, 0.f);
+                    break;
+                }
+                case 1: // after teleport
+                {
+                    // come up
+                    m_creature->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE);
+                    m_creature->RemoveAurasDueToSpell(SPELL_SANDWORM_SUBMERGE_VISUAL);
+                    DoCastSpellIfCan(nullptr, SPELL_STAND);
+                    timer = 1000;
+                    break;
+                }
+                case 2: // after coming up
+                {
+                    // start attacking
+                    SetMeleeEnabled(true);
+                    m_creature->SetTarget(m_creature->GetVictim());
+                    SetCombatScriptStatus(false);
+                    break;
+                }
+            }
+            ++m_chaseStage;
+            if (timer)
+                ResetTimer(BURSTER_CHASE_SEQUENCE, timer);
+        }
+
+        void ExecuteAction(uint32 action) override
+        {
+            switch (action)
+            {
+                case BURSTER_CHASE_DISTANCE:
+                {
+                    // sone creatures have bone bore spell
+                    if (!m_creature->GetVictim() || !m_creature->CanReachWithMeleeAttack(m_creature->GetVictim()) || m_creature->GetDistance(m_creature->GetVictim(), true, DIST_CALC_COMBAT_REACH) > 30.f)
+                    {
+                        ResetCombatAction(action, 10000);
+                        return;
+                    }
+                    Submerge(false);
+                    SetMeleeEnabled(false);
+                    SetCombatScriptStatus(true); // TODO: remove on next step
+                    m_creature->SetTarget(nullptr);
+                    m_creature->GetVictim()->GetClosePoint(m_teleport.x, m_teleport.y, m_teleport.z, 0.f, 12.f, M_PI_F);
+                    ResetTimer(BURSTER_CHASE_SEQUENCE, 2000);
+                    ResetCombatAction(action, 20000);
+                    m_chaseStage = 0;
+                    break;
+                }
+                case BURSTER_RANGED_ATTACK:
+                {
+                    uint32 timer = 500;
+                    // If victim exists we have a target in melee range
+                    if (m_creature->GetVictim() && m_creature->CanReachWithMeleeAttack(m_creature->GetVictim()))
+                        m_rangeCheckState = -1;
+                    // Spam Waterbolt spell when not tanked
+                    else
+                    {
+                        ++m_rangeCheckState;
+                        if (m_rangeCheckState > 1)
+                            if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, m_rangedSpell, SELECT_FLAG_PLAYER))
+                                if (DoCastSpellIfCan(target, m_rangedSpell) == CAST_OK)
+                                    timer = 2500;
+                    }
+                    ResetCombatAction(action, timer);
+                    break;
+                }
+                case BURSTER_BORE:
+                {
+                    if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_BORE) == CAST_OK)
+                        ResetCombatAction(action, 45000);
+                    break;
+                }
+                case BURSTER_ENRAGE:
+                {
+                    if (DoCastSpellIfCan(nullptr, SPELL_ENRAGE) == CAST_OK)
+                        ResetCombatAction(action, urand(12000, 17000));
+                    break;
+                }
+                case BURSTER_SWEEP:
+                {
+                    if (DoCastSpellIfCan(nullptr, SPELL_WORM_SWEEP) == CAST_OK)
+                        ResetCombatAction(action, urand(15000, 25000));
+                    break;
+                }
+            }
+        }
+    };
+
+
+
 };
 
 /*######
@@ -1529,42 +1539,53 @@ enum npc_aoe_damage_trigger
     SPELL_CONSUMPTION_NPC_17471 = 30497,
     SPELL_CONSUMPTION_NPC_20570 = 35952,
 };
-
-struct npc_aoe_damage_triggerAI : public Scripted_NoMovementAI
+class npc_aoe_damage_trigger : public CreatureScript
 {
-    npc_aoe_damage_triggerAI(Creature* pCreature) : Scripted_NoMovementAI(pCreature), m_uiAuraPassive(SetAuraPassive()) { }
+public:
+    npc_aoe_damage_trigger() : CreatureScript("npc_aoe_damage_trigger") { }
 
-    uint32 m_uiAuraPassive;
-
-    inline uint32 SetAuraPassive()
+    UnitAI* GetAI(Creature* pCreature)
     {
-        switch (m_creature->GetCreatureInfo()->Entry)
+        return new npc_aoe_damage_triggerAI(pCreature);
+    }
+
+
+
+    struct npc_aoe_damage_triggerAI : public Scripted_NoMovementAI
+    {
+        npc_aoe_damage_triggerAI(Creature* pCreature) : Scripted_NoMovementAI(pCreature), m_uiAuraPassive(SetAuraPassive()) { }
+
+        uint32 m_uiAuraPassive;
+
+        inline uint32 SetAuraPassive()
         {
-            case NPC_VOID_ZONE:
-                return SPELL_CONSUMPTION_NPC_16697;
-            case NPC_LESSER_SHADOW_FISSURE:
-                return SPELL_CONSUMPTION_NPC_17471;
-            case NPC_LESSER_SHADOW_FISSURE_H:
-                return SPELL_CONSUMPTION_NPC_20570;
-            default:
-                return SPELL_CONSUMPTION_NPC_17471;
+            switch (m_creature->GetCreatureInfo()->Entry)
+            {
+                case NPC_VOID_ZONE:
+                    return SPELL_CONSUMPTION_NPC_16697;
+                case NPC_LESSER_SHADOW_FISSURE:
+                    return SPELL_CONSUMPTION_NPC_17471;
+                case NPC_LESSER_SHADOW_FISSURE_H:
+                    return SPELL_CONSUMPTION_NPC_20570;
+                default:
+                    return SPELL_CONSUMPTION_NPC_17471;
+            }
         }
-    }
 
-    void Reset() override
-    {
-        DoCastSpellIfCan(m_creature, m_uiAuraPassive, CAST_TRIGGERED | CAST_AURA_NOT_PRESENT);
-    }
+        void Reset() override
+        {
+            DoCastSpellIfCan(m_creature, m_uiAuraPassive, CAST_TRIGGERED | CAST_AURA_NOT_PRESENT);
+        }
 
-    void AttackStart(Unit* /*pWho*/) override { }
-    void MoveInLineOfSight(Unit* /*pWho*/) override { }
-    void UpdateAI(const uint32 /*uiDiff*/) override {}
+        void AttackStart(Unit* /*pWho*/) override { }
+        void MoveInLineOfSight(Unit* /*pWho*/) override { }
+        void UpdateAI(const uint32 /*uiDiff*/) override {}
+    };
+
+
+
 };
 
-UnitAI* GetAI_npc_aoe_damage_trigger(Creature* pCreature)
-{
-    return new npc_aoe_damage_triggerAI(pCreature);
-}
 
 /*######
 ## npc_the_cleaner
@@ -1574,52 +1595,63 @@ enum
     SPELL_IMMUNITY      = 29230,
     SAY_CLEANER_AGGRO   = -1001253
 };
-
-struct npc_the_cleanerAI : public ScriptedAI
+class npc_the_cleaner : public CreatureScript
 {
-    npc_the_cleanerAI(Creature* pCreature) : ScriptedAI(pCreature) { Reset(); }
+public:
+    npc_the_cleaner() : CreatureScript("npc_the_cleaner") { }
 
-    uint32 m_uiDespawnTimer;
-
-    void Reset() override
+    UnitAI* GetAI(Creature* pCreature)
     {
-        DoCastSpellIfCan(m_creature, SPELL_IMMUNITY, CAST_TRIGGERED);
-        m_uiDespawnTimer = 3000;
+        return new npc_the_cleanerAI(pCreature);
     }
 
-    void Aggro(Unit* /*pWho*/) override
-    {
-        DoScriptText(SAY_CLEANER_AGGRO, m_creature);
-    }
 
-    void EnterEvadeMode() override
-    {
-        ScriptedAI::EnterEvadeMode();
 
-        m_creature->ForcedDespawn();
-    }
-
-    void UpdateAI(const uint32 uiDiff) override
+    struct npc_the_cleanerAI : public ScriptedAI
     {
-        if (m_uiDespawnTimer < uiDiff)
+        npc_the_cleanerAI(Creature* pCreature) : ScriptedAI(pCreature) { Reset(); }
+
+        uint32 m_uiDespawnTimer;
+
+        void Reset() override
         {
-            if (m_creature->getThreatManager().getThreatList().empty())
-                m_creature->ForcedDespawn();
+            DoCastSpellIfCan(m_creature, SPELL_IMMUNITY, CAST_TRIGGERED);
+            m_uiDespawnTimer = 3000;
         }
-        else
-            m_uiDespawnTimer -= uiDiff;
 
-        if (!m_creature->SelectHostileTarget() || !m_creature->GetVictim())
-            return;
+        void Aggro(Unit* /*pWho*/) override
+        {
+            DoScriptText(SAY_CLEANER_AGGRO, m_creature);
+        }
 
-        DoMeleeAttackIfReady();
-    }
+        void EnterEvadeMode() override
+        {
+            ScriptedAI::EnterEvadeMode();
+
+            m_creature->ForcedDespawn();
+        }
+
+        void UpdateAI(const uint32 uiDiff) override
+        {
+            if (m_uiDespawnTimer < uiDiff)
+            {
+                if (m_creature->getThreatManager().getThreatList().empty())
+                    m_creature->ForcedDespawn();
+            }
+            else
+                m_uiDespawnTimer -= uiDiff;
+
+            if (!m_creature->SelectHostileTarget() || !m_creature->GetVictim())
+                return;
+
+            DoMeleeAttackIfReady();
+        }
+    };
+
+
+
 };
 
-UnitAI* GetAI_npc_the_cleaner(Creature* pCreature)
-{
-    return new npc_the_cleanerAI(pCreature);
-}
 
 enum
 {
@@ -1637,126 +1669,148 @@ enum FireElementalActions
     ELEMENTAL_ACTION_FIRE_BLAST,
     ELEMENTAL_ACTION_MAX,
 };
-
-struct npc_shaman_fire_elementalAI : public ScriptedAI
+class npc_shaman_fire_elemental : public CreatureScript
 {
-    npc_shaman_fire_elementalAI(Creature* creature) : ScriptedAI(creature)
+public:
+    npc_shaman_fire_elemental() : CreatureScript("npc_shaman_fire_elemental") { }
+
+    UnitAI* GetAI(Creature* pCreature)
     {
-        m_fireNovaParams.range.minRange = 0;
-        m_fireNovaParams.range.maxRange = 10;
-        Reset();
+        return new npc_shaman_fire_elementalAI(pCreature);
     }
 
-    uint32 m_actionTimers[ELEMENTAL_ACTION_MAX];
-    bool m_actionReadyStatus[ELEMENTAL_ACTION_MAX];
 
-    SelectAttackingTargetParams m_fireNovaParams;
 
-    void Reset() override
+    struct npc_shaman_fire_elementalAI : public ScriptedAI
     {
-        DoCastSpellIfCan(m_creature, SPELL_FIRE_SHIELD, CAST_AURA_NOT_PRESENT | CAST_TRIGGERED);
-
-        m_actionTimers[ELEMENTAL_ACTION_FIRE_NOVA] = 10000;
-        m_actionTimers[ELEMENTAL_ACTION_FIRE_BLAST] = 5000;
-    }
-
-    void UpdateAI(const uint32 diff) override
-    {
-        if (!m_creature->SelectHostileTarget() || !m_creature->GetVictim())
-            return;
-
-        for (uint32 i = 0; i < ELEMENTAL_ACTION_MAX; ++i)
+        npc_shaman_fire_elementalAI(Creature* creature) : ScriptedAI(creature)
         {
-            if (!m_actionReadyStatus[i])
-            {
-                if (m_actionTimers[i] <= diff)
-                {
-                    m_actionTimers[i] = 0;
-                    m_actionReadyStatus[i] = true;
-                }
-                else
-                    m_actionTimers[i] -= diff;
-            }
+            m_fireNovaParams.range.minRange = 0;
+            m_fireNovaParams.range.maxRange = 10;
+            Reset();
         }
 
-        if (m_creature->IsNonMeleeSpellCasted(false) || !CanExecuteCombatAction())
-            return;
+        uint32 m_actionTimers[ELEMENTAL_ACTION_MAX];
+        bool m_actionReadyStatus[ELEMENTAL_ACTION_MAX];
 
-        if (m_actionReadyStatus[ELEMENTAL_ACTION_FIRE_NOVA])
+        SelectAttackingTargetParams m_fireNovaParams;
+
+        void Reset() override
         {
-            std::vector<Unit*> unitVector;
-            m_creature->SelectAttackingTargets(unitVector, ATTACKING_TARGET_ALL_SUITABLE, uint32(0), uint32(0), SELECT_FLAG_RANGE_AOE_RANGE, m_fireNovaParams);
-            if (!unitVector.empty())
+            DoCastSpellIfCan(m_creature, SPELL_FIRE_SHIELD, CAST_AURA_NOT_PRESENT | CAST_TRIGGERED);
+
+            m_actionTimers[ELEMENTAL_ACTION_FIRE_NOVA] = 10000;
+            m_actionTimers[ELEMENTAL_ACTION_FIRE_BLAST] = 5000;
+        }
+
+        void UpdateAI(const uint32 diff) override
+        {
+            if (!m_creature->SelectHostileTarget() || !m_creature->GetVictim())
+                return;
+
+            for (uint32 i = 0; i < ELEMENTAL_ACTION_MAX; ++i)
             {
-                if (DoCastSpellIfCan(nullptr, SPELL_FIRE_NOVA) == CAST_OK)
+                if (!m_actionReadyStatus[i])
                 {
-                    m_actionTimers[ELEMENTAL_ACTION_FIRE_NOVA] = 15000;
-                    m_actionReadyStatus[ELEMENTAL_ACTION_FIRE_NOVA] = false;
+                    if (m_actionTimers[i] <= diff)
+                    {
+                        m_actionTimers[i] = 0;
+                        m_actionReadyStatus[i] = true;
+                    }
+                    else
+                        m_actionTimers[i] -= diff;
+                }
+            }
+
+            if (m_creature->IsNonMeleeSpellCasted(false) || !CanExecuteCombatAction())
+                return;
+
+            if (m_actionReadyStatus[ELEMENTAL_ACTION_FIRE_NOVA])
+            {
+                std::vector<Unit*> unitVector;
+                m_creature->SelectAttackingTargets(unitVector, ATTACKING_TARGET_ALL_SUITABLE, uint32(0), uint32(0), SELECT_FLAG_RANGE_AOE_RANGE, m_fireNovaParams);
+                if (!unitVector.empty())
+                {
+                    if (DoCastSpellIfCan(nullptr, SPELL_FIRE_NOVA) == CAST_OK)
+                    {
+                        m_actionTimers[ELEMENTAL_ACTION_FIRE_NOVA] = 15000;
+                        m_actionReadyStatus[ELEMENTAL_ACTION_FIRE_NOVA] = false;
+                        return;
+                    }
+                }
+            }
+            else if (m_actionReadyStatus[ELEMENTAL_ACTION_FIRE_BLAST])
+            {
+                if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_FIRE_BLAST) == CAST_OK)
+                {
+                    m_actionTimers[ELEMENTAL_ACTION_FIRE_BLAST] = 15000;
+                    m_actionReadyStatus[ELEMENTAL_ACTION_FIRE_BLAST] = false;
                     return;
                 }
             }
-        }
-        else if (m_actionReadyStatus[ELEMENTAL_ACTION_FIRE_BLAST])
-        {
-            if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_FIRE_BLAST) == CAST_OK)
-            {
-                m_actionTimers[ELEMENTAL_ACTION_FIRE_BLAST] = 15000;
-                m_actionReadyStatus[ELEMENTAL_ACTION_FIRE_BLAST] = false;
-                return;
-            }
-        }
 
-        DoMeleeAttackIfReady();
-    }
+            DoMeleeAttackIfReady();
+        }
+    };
+
+
+
 };
-
-struct npc_shaman_earth_elementalAI : public ScriptedAI
+class npc_shaman_earth_elemental : public CreatureScript
 {
-    npc_shaman_earth_elementalAI(Creature* creature) : ScriptedAI(creature)
+public:
+    npc_shaman_earth_elemental() : CreatureScript("npc_shaman_earth_elemental") { }
+
+    UnitAI* GetAI(Creature* pCreature)
     {
-        m_angeredEarthParams.range.minRange = 0;
-        m_angeredEarthParams.range.maxRange = 15;
-        Reset();
+        return new npc_shaman_earth_elementalAI(pCreature);
     }
 
-    uint32 m_angeredEarthTimer;
-    SelectAttackingTargetParams m_angeredEarthParams;
 
-    void Reset() override
+
+    struct npc_shaman_earth_elementalAI : public ScriptedAI
     {
-        m_angeredEarthTimer = 0;
-    }
+        npc_shaman_earth_elementalAI(Creature* creature) : ScriptedAI(creature)
+        {
+            m_angeredEarthParams.range.minRange = 0;
+            m_angeredEarthParams.range.maxRange = 15;
+            Reset();
+        }
 
-    void UpdateAI(const uint32 diff) override
-    {
-        if (!m_creature->SelectHostileTarget() || !m_creature->GetVictim())
-            return;
+        uint32 m_angeredEarthTimer;
+        SelectAttackingTargetParams m_angeredEarthParams;
 
-        if (m_angeredEarthTimer <= diff)
+        void Reset() override
         {
             m_angeredEarthTimer = 0;
-            std::vector<Unit*> unitVector;
-            m_creature->SelectAttackingTargets(unitVector, ATTACKING_TARGET_ALL_SUITABLE, uint32(0), uint32(0), SELECT_FLAG_RANGE_AOE_RANGE, m_angeredEarthParams);
-            if (!unitVector.empty())
-                if (DoCastSpellIfCan(nullptr, SPELL_ANGERED_EARTH) == CAST_OK)
-                    m_angeredEarthTimer = 15000;
         }
-        else
-            m_angeredEarthTimer -= diff;
 
-        DoMeleeAttackIfReady();
-    }
+        void UpdateAI(const uint32 diff) override
+        {
+            if (!m_creature->SelectHostileTarget() || !m_creature->GetVictim())
+                return;
+
+            if (m_angeredEarthTimer <= diff)
+            {
+                m_angeredEarthTimer = 0;
+                std::vector<Unit*> unitVector;
+                m_creature->SelectAttackingTargets(unitVector, ATTACKING_TARGET_ALL_SUITABLE, uint32(0), uint32(0), SELECT_FLAG_RANGE_AOE_RANGE, m_angeredEarthParams);
+                if (!unitVector.empty())
+                    if (DoCastSpellIfCan(nullptr, SPELL_ANGERED_EARTH) == CAST_OK)
+                        m_angeredEarthTimer = 15000;
+            }
+            else
+                m_angeredEarthTimer -= diff;
+
+            DoMeleeAttackIfReady();
+        }
+    };
+
+
+
 };
 
-UnitAI* GetAI_npc_shaman_fire_elemental(Creature* pCreature)
-{
-    return new npc_shaman_fire_elementalAI(pCreature);
-}
 
-UnitAI* GetAI_npc_shaman_earth_elemental(Creature* pCreature)
-{
-    return new npc_shaman_earth_elementalAI(pCreature);
-}
 
 enum
 {
@@ -1766,45 +1820,56 @@ enum
 
     // SPELL_RANDOM_AGGRO = 34701 // unk purpose
 };
-
-struct npc_snakesAI : public ScriptedAI
+class npc_snakes : public CreatureScript
 {
-    npc_snakesAI(Creature* creature) : ScriptedAI(creature) { Reset(); }
+public:
+    npc_snakes() : CreatureScript("npc_snakes") { }
 
-    uint32 m_spellTimer;
-
-    void Reset() override
+    UnitAI* GetAI(Creature* pCreature)
     {
-        m_spellTimer = 3000;
-
-        DoCastSpellIfCan(nullptr, SPELL_DEADLY_POISON_PASSIVE, CAST_AURA_NOT_PRESENT | CAST_TRIGGERED);
+        return new npc_snakesAI(pCreature);
     }
 
-    void UpdateAI(const uint32 diff) override
-    {
-        if (!m_creature->SelectHostileTarget() || !m_creature->GetVictim())
-            return;
 
-        if (m_spellTimer <= diff)
+
+    struct npc_snakesAI : public ScriptedAI
+    {
+        npc_snakesAI(Creature* creature) : ScriptedAI(creature) { Reset(); }
+
+        uint32 m_spellTimer;
+
+        void Reset() override
         {
-            if (urand(0, 2) == 0)
-            {
-                uint32 spellId = urand(0, 1) ? SPELL_MIND_NUMBING_POISON : SPELL_CRIPPLING_POISON;
-                DoCastSpellIfCan(m_creature->GetVictim(), spellId);
-            }
             m_spellTimer = 3000;
-        }
-        else
-            m_spellTimer -= diff;
 
-        DoMeleeAttackIfReady();
-    }
+            DoCastSpellIfCan(nullptr, SPELL_DEADLY_POISON_PASSIVE, CAST_AURA_NOT_PRESENT | CAST_TRIGGERED);
+        }
+
+        void UpdateAI(const uint32 diff) override
+        {
+            if (!m_creature->SelectHostileTarget() || !m_creature->GetVictim())
+                return;
+
+            if (m_spellTimer <= diff)
+            {
+                if (urand(0, 2) == 0)
+                {
+                    uint32 spellId = urand(0, 1) ? SPELL_MIND_NUMBING_POISON : SPELL_CRIPPLING_POISON;
+                    DoCastSpellIfCan(m_creature->GetVictim(), spellId);
+                }
+                m_spellTimer = 3000;
+            }
+            else
+                m_spellTimer -= diff;
+
+            DoMeleeAttackIfReady();
+        }
+    };
+
+
+
 };
 
-UnitAI* GetAI_npc_snakes(Creature* pCreature)
-{
-    return new npc_snakesAI(pCreature);
-}
 
 enum
 {
@@ -1820,70 +1885,81 @@ enum RayActions
     RAY_ACTION_TAIL_STING,
     RAY_ACTION_MAX,
 };
-
-struct npc_nether_rayAI : public CombatAI
+class npc_nether_ray : public CreatureScript
 {
-    npc_nether_rayAI(Creature* creature) : CombatAI(creature, RAY_ACTION_MAX)
+public:
+    npc_nether_ray() : CreatureScript("npc_nether_ray") { }
+
+    UnitAI* GetAI(Creature* creature)
     {
-        AddCombatAction(RAY_ACTION_DRAIN_MANA, 2000u);
-        AddCombatAction(RAY_ACTION_TAIL_STING, 2000u);
-        AddCombatAction(RAY_ACTION_NETHER_SHOCK, 0u);
+        return new npc_nether_rayAI(creature);
     }
 
-    uint32 GetSubsequentActionTimer(RayActions id)
-    {
-        switch (id)
-        {
-            case RAY_ACTION_DRAIN_MANA: return urand(10000, 15000);
-            case RAY_ACTION_TAIL_STING: return 23000;
-            case RAY_ACTION_NETHER_SHOCK: return 5000;
-            default: return 0;
-        }
-    }
 
-    void OnSpellCooldownAdded(SpellEntry const* spellInfo) // spells should only reset their action timer on success
-    {
-        switch (spellInfo->Id)
-        {
-            case SPELL_DRAIN_MANA:
-                ResetCombatAction(RAY_ACTION_DRAIN_MANA, GetSubsequentActionTimer(RayActions(RAY_ACTION_DRAIN_MANA)));
-                break;
-            case SPELL_TAIL_STING:
-                ResetCombatAction(RAY_ACTION_TAIL_STING, GetSubsequentActionTimer(RayActions(RAY_ACTION_TAIL_STING)));
-                break;
-            case SPELL_NETHER_SHOCK:
-                ResetCombatAction(RAY_ACTION_NETHER_SHOCK, GetSubsequentActionTimer(RayActions(RAY_ACTION_NETHER_SHOCK)));
-                break;
-        }
-    }
 
-    void ExecuteAction(uint32 action) override
+    struct npc_nether_rayAI : public CombatAI
     {
-        switch (action)
+        npc_nether_rayAI(Creature* creature) : CombatAI(creature, RAY_ACTION_MAX)
         {
-            case RAY_ACTION_DRAIN_MANA:
-                if (!m_creature->GetVictim() || !m_creature->GetVictim()->HasMana())
-                    return;
-                DoCastSpellIfCan(m_creature->GetVictim(), SPELL_DRAIN_MANA);
-                return;
-            case RAY_ACTION_TAIL_STING:
-                if (!m_creature->GetVictim() || m_creature->GetVictim()->HasMana())
-                    return;
-                DoCastSpellIfCan(m_creature->GetVictim(), SPELL_TAIL_STING);
-                return;
-            case RAY_ACTION_NETHER_SHOCK:
-                if (!m_creature->GetVictim())
-                    return;
-                DoCastSpellIfCan(m_creature->GetVictim(), SPELL_NETHER_SHOCK);
-                return;
+            AddCombatAction(RAY_ACTION_DRAIN_MANA, 2000u);
+            AddCombatAction(RAY_ACTION_TAIL_STING, 2000u);
+            AddCombatAction(RAY_ACTION_NETHER_SHOCK, 0u);
         }
-    }
+
+        uint32 GetSubsequentActionTimer(RayActions id)
+        {
+            switch (id)
+            {
+                case RAY_ACTION_DRAIN_MANA: return urand(10000, 15000);
+                case RAY_ACTION_TAIL_STING: return 23000;
+                case RAY_ACTION_NETHER_SHOCK: return 5000;
+                default: return 0;
+            }
+        }
+
+        void OnSpellCooldownAdded(SpellEntry const* spellInfo) // spells should only reset their action timer on success
+        {
+            switch (spellInfo->Id)
+            {
+                case SPELL_DRAIN_MANA:
+                    ResetCombatAction(RAY_ACTION_DRAIN_MANA, GetSubsequentActionTimer(RayActions(RAY_ACTION_DRAIN_MANA)));
+                    break;
+                case SPELL_TAIL_STING:
+                    ResetCombatAction(RAY_ACTION_TAIL_STING, GetSubsequentActionTimer(RayActions(RAY_ACTION_TAIL_STING)));
+                    break;
+                case SPELL_NETHER_SHOCK:
+                    ResetCombatAction(RAY_ACTION_NETHER_SHOCK, GetSubsequentActionTimer(RayActions(RAY_ACTION_NETHER_SHOCK)));
+                    break;
+            }
+        }
+
+        void ExecuteAction(uint32 action) override
+        {
+            switch (action)
+            {
+                case RAY_ACTION_DRAIN_MANA:
+                    if (!m_creature->GetVictim() || !m_creature->GetVictim()->HasMana())
+                        return;
+                    DoCastSpellIfCan(m_creature->GetVictim(), SPELL_DRAIN_MANA);
+                    return;
+                case RAY_ACTION_TAIL_STING:
+                    if (!m_creature->GetVictim() || m_creature->GetVictim()->HasMana())
+                        return;
+                    DoCastSpellIfCan(m_creature->GetVictim(), SPELL_TAIL_STING);
+                    return;
+                case RAY_ACTION_NETHER_SHOCK:
+                    if (!m_creature->GetVictim())
+                        return;
+                    DoCastSpellIfCan(m_creature->GetVictim(), SPELL_NETHER_SHOCK);
+                    return;
+            }
+        }
+    };
+
+
+
 };
 
-UnitAI* GetAI_npc_nether_ray(Creature* creature)
-{
-    return new npc_nether_rayAI(creature);
-}
 
 /*########
 # npc_mojo
@@ -1895,102 +1971,113 @@ enum
     SPELL_HEARTS            = 20372,   // wrong?
     MOJO_WHISPS_COUNT       = 8
 };
-
-struct npc_mojoAI : public ScriptedAI
+class npc_mojo : public CreatureScript
 {
-    npc_mojoAI(Creature* creature) : ScriptedAI(creature) { Reset(); }
+public:
+    npc_mojo() : CreatureScript("npc_mojo") { }
 
-    uint32 heartsResetTimer;
-    bool hearts;
-
-    void Reset() override
+    UnitAI* GetAI(Creature *pCreature)
     {
-        heartsResetTimer = 15000;
-        hearts = false;
-        m_creature->GetMotionMaster()->MoveFollow(m_creature->GetOwner(), 2.0f, M_PI_F / 2.0f);
+        return new npc_mojoAI(pCreature);
     }
 
-    void SpellHit(Unit* /*caster*/, const SpellEntry* spell) override
+
+
+    struct npc_mojoAI : public ScriptedAI
     {
-        if (spell->Id == SPELL_HEARTS)
+        npc_mojoAI(Creature* creature) : ScriptedAI(creature) { Reset(); }
+
+        uint32 heartsResetTimer;
+        bool hearts;
+
+        void Reset() override
         {
-            hearts = true;
             heartsResetTimer = 15000;
+            hearts = false;
+            m_creature->GetMotionMaster()->MoveFollow(m_creature->GetOwner(), 2.0f, M_PI_F / 2.0f);
         }
-    }
 
-    void UpdateAI(const uint32 diff) override
-    {
-        if (hearts)
+        void SpellHit(Unit* /*caster*/, const SpellEntry* spell) override
         {
-            if (heartsResetTimer <= diff)
+            if (spell->Id == SPELL_HEARTS)
             {
-                m_creature->RemoveAurasDueToSpell(SPELL_HEARTS);
-                hearts = false;
-                m_creature->GetMotionMaster()->MoveFollow(m_creature->GetOwner(), 2.0f, M_PI_F / 2.0f);
-                m_creature->SetTarget(nullptr);
+                hearts = true;
+                heartsResetTimer = 15000;
             }
-            else
-                heartsResetTimer -= diff;
         }
-    }
 
-    void ReceiveEmote(Player* player, uint32 uiEmote) override
-    {
-        if (uiEmote == TEXTEMOTE_KISS)
+        void UpdateAI(const uint32 diff) override
         {
-            if (!m_creature->HasAura(SPELL_HEARTS))
+            if (hearts)
             {
-                // affect only the same faction
-                if (player->GetTeam() == ((Player*)m_creature->GetOwner())->GetTeam())
+                if (heartsResetTimer <= diff)
                 {
-                    player->CastSpell(player, SPELL_FEELING_FROGGY, TRIGGERED_NONE);
-                    m_creature->CastSpell(m_creature, SPELL_HEARTS, TRIGGERED_NONE);
-                    m_creature->SetSelectionGuid(player->GetObjectGuid());
+                    m_creature->RemoveAurasDueToSpell(SPELL_HEARTS);
+                    hearts = false;
+                    m_creature->GetMotionMaster()->MoveFollow(m_creature->GetOwner(), 2.0f, M_PI_F / 2.0f);
+                    m_creature->SetTarget(nullptr);
+                }
+                else
+                    heartsResetTimer -= diff;
+            }
+        }
 
-                    m_creature->GetMotionMaster()->MoveFollow(player, 1.0f, 0.0f);
-
-                    const char* text;
-
-                    switch (urand(0, MOJO_WHISPS_COUNT))
+        void ReceiveEmote(Player* player, uint32 uiEmote) override
+        {
+            if (uiEmote == TEXTEMOTE_KISS)
+            {
+                if (!m_creature->HasAura(SPELL_HEARTS))
+                {
+                    // affect only the same faction
+                    if (player->GetTeam() == ((Player*)m_creature->GetOwner())->GetTeam())
                     {
-                        case 0:
-                            text = "Now that's what I call froggy-style!"; // 23478
-                            break;
-                        case 1:
-                            text = "Your lily pad or mine?"; // 23483
-                            break;
-                        case 2:
-                            text = "This won't take long, did it?"; // 23479
-                            break;
-                        case 3:
-                            text = "I thought you'd never ask!"; // 23477
-                            break;
-                        case 4:
-                            text = "I promise not to give you warts..."; // 23480
-                            break;
-                        case 5:
-                            text = "Feelin' a little froggy, are ya?"; // 23484
-                            break;
-                        case 6:
-                            text = "Listen, $n, I know of a little swamp not too far from here...."; // 23482
-                            break;
-                        default:
-                            text = "There's just never enough Mojo to go around..."; // 23481
-                            break;
-                    }
+                        player->CastSpell(player, SPELL_FEELING_FROGGY, TRIGGERED_NONE);
+                        m_creature->CastSpell(m_creature, SPELL_HEARTS, TRIGGERED_NONE);
+                        m_creature->SetSelectionGuid(player->GetObjectGuid());
 
-                    m_creature->MonsterWhisper(text, player, false);
+                        m_creature->GetMotionMaster()->MoveFollow(player, 1.0f, 0.0f);
+
+                        const char* text;
+
+                        switch (urand(0, MOJO_WHISPS_COUNT))
+                        {
+                            case 0:
+                                text = "Now that's what I call froggy-style!"; // 23478
+                                break;
+                            case 1:
+                                text = "Your lily pad or mine?"; // 23483
+                                break;
+                            case 2:
+                                text = "This won't take long, did it?"; // 23479
+                                break;
+                            case 3:
+                                text = "I thought you'd never ask!"; // 23477
+                                break;
+                            case 4:
+                                text = "I promise not to give you warts..."; // 23480
+                                break;
+                            case 5:
+                                text = "Feelin' a little froggy, are ya?"; // 23484
+                                break;
+                            case 6:
+                                text = "Listen, $n, I know of a little swamp not too far from here...."; // 23482
+                                break;
+                            default:
+                                text = "There's just never enough Mojo to go around..."; // 23481
+                                break;
+                        }
+
+                        m_creature->MonsterWhisper(text, player, false);
+                    }
                 }
             }
         }
-    }
+    };
+
+
+
 };
 
-UnitAI* GetAI_npc_mojo(Creature *pCreature)
-{
-    return new npc_mojoAI(pCreature);
-}
 
 enum
 {
@@ -2001,49 +2088,60 @@ enum
     SPELL_FIRE_NOVA_TOTEM_3 = 44257,
     SPELL_FIRE_NOVA_3       = 46551,
 };
-
-struct npc_fire_nova_totemAI : public ScriptedAI, public TimerManager
+class npc_fire_nova_totem : public CreatureScript
 {
-    npc_fire_nova_totemAI(Creature* creature) : ScriptedAI(creature), m_fireNovaSpell(0), m_fireNovaTimer(0)
+public:
+    npc_fire_nova_totem() : CreatureScript("npc_fire_nova_totem") { }
+
+    UnitAI* GetAI(Creature* pCreature)
     {
-        AddCustomAction(1, true, [&]()
-        {
-            m_creature->CastSpell(nullptr, m_fireNovaSpell, TRIGGERED_NONE);
-            m_creature->ForcedDespawn(1000); // TODO: possibly instakill spell
-        });
-        SetCombatMovement(false);
-        SetMeleeEnabled(false);
+        return new npc_fire_nova_totemAI(pCreature);
     }
 
-    uint32 m_fireNovaSpell;
-    uint32 m_fireNovaTimer;
 
-    void Reset() override
+
+    struct npc_fire_nova_totemAI : public ScriptedAI, public TimerManager
     {
-
-    }
-
-    void JustRespawned() override
-    {
-        switch (m_creature->GetUInt32Value(UNIT_CREATED_BY_SPELL))
+        npc_fire_nova_totemAI(Creature* creature) : ScriptedAI(creature), m_fireNovaSpell(0), m_fireNovaTimer(0)
         {
-            case SPELL_FIRE_NOVA_TOTEM_1: m_fireNovaSpell = SPELL_FIRE_NOVA_1; m_fireNovaTimer = 4000; break;
-            case SPELL_FIRE_NOVA_TOTEM_2: m_fireNovaSpell = SPELL_FIRE_NOVA_2; m_fireNovaTimer = 6000; break;
-            case SPELL_FIRE_NOVA_TOTEM_3: m_fireNovaSpell = SPELL_FIRE_NOVA_3; m_fireNovaTimer = 4000; break;
+            AddCustomAction(1, true, [&]()
+            {
+                m_creature->CastSpell(nullptr, m_fireNovaSpell, TRIGGERED_NONE);
+                m_creature->ForcedDespawn(1000); // TODO: possibly instakill spell
+            });
+            SetCombatMovement(false);
+            SetMeleeEnabled(false);
         }
-        ResetTimer(1, m_fireNovaTimer);
-    }
 
-    void UpdateAI(const uint32 diff) override
-    {
-        UpdateTimers(diff);
-    }
+        uint32 m_fireNovaSpell;
+        uint32 m_fireNovaTimer;
+
+        void Reset() override
+        {
+
+        }
+
+        void JustRespawned() override
+        {
+            switch (m_creature->GetUInt32Value(UNIT_CREATED_BY_SPELL))
+            {
+                case SPELL_FIRE_NOVA_TOTEM_1: m_fireNovaSpell = SPELL_FIRE_NOVA_1; m_fireNovaTimer = 4000; break;
+                case SPELL_FIRE_NOVA_TOTEM_2: m_fireNovaSpell = SPELL_FIRE_NOVA_2; m_fireNovaTimer = 6000; break;
+                case SPELL_FIRE_NOVA_TOTEM_3: m_fireNovaSpell = SPELL_FIRE_NOVA_3; m_fireNovaTimer = 4000; break;
+            }
+            ResetTimer(1, m_fireNovaTimer);
+        }
+
+        void UpdateAI(const uint32 diff) override
+        {
+            UpdateTimers(diff);
+        }
+    };
+
+
+
 };
 
-UnitAI* GetAI_npc_fire_nova_totem(Creature* pCreature)
-{
-    return new npc_fire_nova_totemAI(pCreature);
-}
 
 /*######
 ## mob_phoenix
@@ -2071,270 +2169,203 @@ enum
     NPC_PHOENIX_TK                      = 21362,
     NPC_PHOENIX_MGT                     = 24674,
 };
-
-struct mob_phoenix_tkAI : public ScriptedAI
+class mob_phoenix : public CreatureScript
 {
-    mob_phoenix_tkAI(Creature* creature) : ScriptedAI(creature)
+public:
+    mob_phoenix() : CreatureScript("mob_phoenix") { }
+
+    UnitAI* GetAI_tk(Creature* pCreature)
     {
-        bool tk = m_creature->GetEntry() == NPC_PHOENIX_TK;
-        if (tk)
+        return new mob_phoenix_tkAI(pCreature);
+    }
+
+
+
+    struct mob_phoenix_tkAI : public ScriptedAI
+    {
+        mob_phoenix_tkAI(Creature* creature) : ScriptedAI(creature)
         {
-            m_burnSpellId = SPELL_BURN_TK;
-            m_emberBlastSpellId = SPELL_EMBER_BLAST_TK;
-            m_rebirthSpawnSpellId = SPELL_REBIRTH_SPAWN_TK;
-            m_rebirthRespawnSpellId = SPELL_REBIRTH_RESPAWN_TK;
-            m_phoenixEggSpellId = SPELL_PHOENIX_EGG_TK;
-        }
-        else
-        {
-            m_burnSpellId = SPELL_BURN_MGT;
-            m_emberBlastSpellId = SPELL_EMBER_BLAST_MGT;
-            m_rebirthSpawnSpellId = SPELL_REBIRTH_SPAWN_MGT;
-            m_rebirthRespawnSpellId = SPELL_REBIRTH_RESPAWN_MGT;
-            m_phoenixEggSpellId = SPELL_PHOENIX_EGG_MGT;
-        }
-        SetDeathPrevention(true);
-        Reset();
-    }
-
-    uint32 m_burnSpellId;
-    uint32 m_emberBlastSpellId;
-    uint32 m_rebirthSpawnSpellId;
-    uint32 m_rebirthRespawnSpellId;
-    uint32 m_phoenixEggSpellId;
-
-    uint32 m_emberDelayTimer;
-    uint32 m_phoenixRebirthTimer;
-    ObjectGuid m_eggGuid;
-
-    void Reset() override
-    {
-        m_emberDelayTimer = 0;
-        m_phoenixRebirthTimer = 0;
-    }
-
-    void Aggro(Unit* /*pWho*/) override
-    {
-        DoCastSpellIfCan(nullptr, m_burnSpellId);
-    }
-
-    void JustPreventedDeath(Unit* /*attacker*/) override
-    {
-        DoSetFakeDeath();
-    }
-
-    void DoSetFakeDeath()
-    {
-        m_creature->InterruptNonMeleeSpells(false);
-        m_creature->StopMoving();
-        m_creature->ClearComboPointHolders();
-        m_creature->RemoveAllAurasOnDeath();
-        m_creature->ModifyAuraState(AURA_STATE_HEALTHLESS_20_PERCENT, false);
-        m_creature->ModifyAuraState(AURA_STATE_HEALTHLESS_35_PERCENT, false);
-        m_creature->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE);
-        m_creature->ClearAllReactives();
-        m_creature->SetTarget(nullptr);
-        m_creature->SetStandState(UNIT_STAND_STATE_DEAD);
-        SetCombatMovement(false);
-        SetMeleeEnabled(false);
-        SetCombatScriptStatus(true);
-
-        m_emberDelayTimer = 1000;
-    }
-
-    void JustRespawned() override
-    {
-        DoCastSpellIfCan(nullptr, m_rebirthSpawnSpellId);
-    }
-
-    void JustSummoned(Creature* summoned) override
-    {
-        m_eggGuid = summoned->GetObjectGuid();
-        summoned->SetCorpseDelay(5); // egg should despawn after 5 seconds when killed
-        summoned->SetImmobilizedState(true); // rooted by default
-        summoned->AI()->SetReactState(REACT_PASSIVE);
-    }
-
-    void DoRebirth()
-    {
-        if (m_creature->IsAlive())
-        {
-            // Remove fake death if the egg despawns after 15 secs
-            m_creature->RemoveAurasDueToSpell(m_emberBlastSpellId);
-            m_creature->RemoveAurasDueToSpell(m_phoenixEggSpellId);
-            m_creature->SetStandState(UNIT_STAND_STATE_STAND);
-
-            DoCastSpellIfCan(nullptr, m_rebirthRespawnSpellId);
-        }
-    }
-
-    void SpellHit(Unit* /*caster*/, const SpellEntry* spellInfo) override
-    {
-        if (spellInfo->Id == m_rebirthRespawnSpellId)
-        {
-            m_creature->CastSpell(nullptr, SPELL_FULL_HEAL, TRIGGERED_OLD_TRIGGERED);
-            SetCombatMovement(true);
-            SetMeleeEnabled(true);
-            DoStartMovement(m_creature->GetVictim());
-            SetCombatScriptStatus(false);
-            m_creature->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE);
-
-            DoCastSpellIfCan(nullptr, m_burnSpellId, CAST_TRIGGERED);
-        }
-    }
-
-    void SummonedCreatureJustDied(Creature* /*summoned*/) override
-    {
-        // Self kill if the egg is killed
-        m_creature->ForcedDespawn();
-    }
-
-    void ReceiveAIEvent(AIEventType eventType, Unit* /*sender*/, Unit* /*invoker*/, uint32 /*miscValue*/) override
-    {
-        if (eventType == AI_EVENT_CUSTOM_A)
-            if (Creature* egg = m_creature->GetMap()->GetCreature(m_eggGuid))
-                egg->ForcedDespawn();
-    }
-
-    void UpdateAI(const uint32 diff) override
-    {
-        if (m_emberDelayTimer)
-        {
-            if (m_emberDelayTimer <= diff)
+            bool tk = m_creature->GetEntry() == NPC_PHOENIX_TK;
+            if (tk)
             {
-                m_emberDelayTimer = 0;
-                // Spawn egg and make invisible
-                DoCastSpellIfCan(nullptr, m_emberBlastSpellId, CAST_TRIGGERED);
-                DoCastSpellIfCan(nullptr, m_phoenixEggSpellId, CAST_TRIGGERED);
-                m_phoenixRebirthTimer = m_creature->GetEntry() == NPC_PHOENIX_TK ? 15000 : 10000;
+                m_burnSpellId = SPELL_BURN_TK;
+                m_emberBlastSpellId = SPELL_EMBER_BLAST_TK;
+                m_rebirthSpawnSpellId = SPELL_REBIRTH_SPAWN_TK;
+                m_rebirthRespawnSpellId = SPELL_REBIRTH_RESPAWN_TK;
+                m_phoenixEggSpellId = SPELL_PHOENIX_EGG_TK;
             }
             else
-                m_emberDelayTimer -= diff;
+            {
+                m_burnSpellId = SPELL_BURN_MGT;
+                m_emberBlastSpellId = SPELL_EMBER_BLAST_MGT;
+                m_rebirthSpawnSpellId = SPELL_REBIRTH_SPAWN_MGT;
+                m_rebirthRespawnSpellId = SPELL_REBIRTH_RESPAWN_MGT;
+                m_phoenixEggSpellId = SPELL_PHOENIX_EGG_MGT;
+            }
+            SetDeathPrevention(true);
+            Reset();
         }
 
-        if (m_phoenixRebirthTimer)
+        uint32 m_burnSpellId;
+        uint32 m_emberBlastSpellId;
+        uint32 m_rebirthSpawnSpellId;
+        uint32 m_rebirthRespawnSpellId;
+        uint32 m_phoenixEggSpellId;
+
+        uint32 m_emberDelayTimer;
+        uint32 m_phoenixRebirthTimer;
+        ObjectGuid m_eggGuid;
+
+        void Reset() override
         {
-            if (m_phoenixRebirthTimer <= diff)
+            m_emberDelayTimer = 0;
+            m_phoenixRebirthTimer = 0;
+        }
+
+        void Aggro(Unit* /*pWho*/) override
+        {
+            DoCastSpellIfCan(nullptr, m_burnSpellId);
+        }
+
+        void JustPreventedDeath(Unit* /*attacker*/) override
+        {
+            DoSetFakeDeath();
+        }
+
+        void DoSetFakeDeath()
+        {
+            m_creature->InterruptNonMeleeSpells(false);
+            m_creature->StopMoving();
+            m_creature->ClearComboPointHolders();
+            m_creature->RemoveAllAurasOnDeath();
+            m_creature->ModifyAuraState(AURA_STATE_HEALTHLESS_20_PERCENT, false);
+            m_creature->ModifyAuraState(AURA_STATE_HEALTHLESS_35_PERCENT, false);
+            m_creature->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE);
+            m_creature->ClearAllReactives();
+            m_creature->SetTarget(nullptr);
+            m_creature->SetStandState(UNIT_STAND_STATE_DEAD);
+            SetCombatMovement(false);
+            SetMeleeEnabled(false);
+            SetCombatScriptStatus(true);
+
+            m_emberDelayTimer = 1000;
+        }
+
+        void JustRespawned() override
+        {
+            DoCastSpellIfCan(nullptr, m_rebirthSpawnSpellId);
+        }
+
+        void JustSummoned(Creature* summoned) override
+        {
+            m_eggGuid = summoned->GetObjectGuid();
+            summoned->SetCorpseDelay(5); // egg should despawn after 5 seconds when killed
+            summoned->SetImmobilizedState(true); // rooted by default
+            summoned->AI()->SetReactState(REACT_PASSIVE);
+        }
+
+        void DoRebirth()
+        {
+            if (m_creature->IsAlive())
             {
-                m_phoenixRebirthTimer = 0;
+                // Remove fake death if the egg despawns after 15 secs
+                m_creature->RemoveAurasDueToSpell(m_emberBlastSpellId);
+                m_creature->RemoveAurasDueToSpell(m_phoenixEggSpellId);
+                m_creature->SetStandState(UNIT_STAND_STATE_STAND);
+
+                DoCastSpellIfCan(nullptr, m_rebirthRespawnSpellId);
+            }
+        }
+
+        void SpellHit(Unit* /*caster*/, const SpellEntry* spellInfo) override
+        {
+            if (spellInfo->Id == m_rebirthRespawnSpellId)
+            {
+                m_creature->CastSpell(nullptr, SPELL_FULL_HEAL, TRIGGERED_OLD_TRIGGERED);
+                SetCombatMovement(true);
+                SetMeleeEnabled(true);
+                DoStartMovement(m_creature->GetVictim());
+                SetCombatScriptStatus(false);
+                m_creature->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE);
+
+                DoCastSpellIfCan(nullptr, m_burnSpellId, CAST_TRIGGERED);
+            }
+        }
+
+        void SummonedCreatureJustDied(Creature* /*summoned*/) override
+        {
+            // Self kill if the egg is killed
+            m_creature->ForcedDespawn();
+        }
+
+        void ReceiveAIEvent(AIEventType eventType, Unit* /*sender*/, Unit* /*invoker*/, uint32 /*miscValue*/) override
+        {
+            if (eventType == AI_EVENT_CUSTOM_A)
                 if (Creature* egg = m_creature->GetMap()->GetCreature(m_eggGuid))
                     egg->ForcedDespawn();
-
-                DoRebirth();
-            }
-            else
-                m_phoenixRebirthTimer -= diff;
         }
 
-        if (!m_creature->SelectHostileTarget() || !m_creature->GetVictim())
-            return;
+        void UpdateAI(const uint32 diff) override
+        {
+            if (m_emberDelayTimer)
+            {
+                if (m_emberDelayTimer <= diff)
+                {
+                    m_emberDelayTimer = 0;
+                    // Spawn egg and make invisible
+                    DoCastSpellIfCan(nullptr, m_emberBlastSpellId, CAST_TRIGGERED);
+                    DoCastSpellIfCan(nullptr, m_phoenixEggSpellId, CAST_TRIGGERED);
+                    m_phoenixRebirthTimer = m_creature->GetEntry() == NPC_PHOENIX_TK ? 15000 : 10000;
+                }
+                else
+                    m_emberDelayTimer -= diff;
+            }
 
-        DoMeleeAttackIfReady();
-    }
+            if (m_phoenixRebirthTimer)
+            {
+                if (m_phoenixRebirthTimer <= diff)
+                {
+                    m_phoenixRebirthTimer = 0;
+                    if (Creature* egg = m_creature->GetMap()->GetCreature(m_eggGuid))
+                        egg->ForcedDespawn();
+
+                    DoRebirth();
+                }
+                else
+                    m_phoenixRebirthTimer -= diff;
+            }
+
+            if (!m_creature->SelectHostileTarget() || !m_creature->GetVictim())
+                return;
+
+            DoMeleeAttackIfReady();
+        }
+    };
+
+
+
 };
 
-UnitAI* GetAI_mob_phoenix_tk(Creature* pCreature)
-{
-    return new mob_phoenix_tkAI(pCreature);
-}
 
 void AddSC_npcs_special()
 {
-    Script* pNewScript = new Script;
-    pNewScript->Name = "npc_air_force_bots";
-    pNewScript->GetAI = &GetAI_npc_air_force_bots;
-    pNewScript->RegisterSelf();
+    new npc_air_force_bots();
+    new npc_chicken_cluck();
+    new npc_dancing_flames();
+    new npc_injured_patient();
+    new npc_doctor();
+    new npc_garments_of_quests();
+    new npc_guardian();
+    new npc_redemption_target();
+    new npc_burster_worm();
+    new npc_the_cleaner();
+    new npc_shaman_fire_elemental();
+    new npc_shaman_earth_elemental();
+    new npc_snakes();
+    new npc_nether_ray();
+    new npc_aoe_damage_trigger();
+    new npc_mojo();
+    new npc_fire_nova_totem();
+    new mob_phoenix();
 
-    pNewScript = new Script;
-    pNewScript->Name = "npc_chicken_cluck";
-    pNewScript->GetAI = &GetAI_npc_chicken_cluck;
-    pNewScript->RegisterSelf();
-
-    pNewScript = new Script;
-    pNewScript->Name = "npc_dancing_flames";
-    pNewScript->GetAI = &GetAI_npc_dancing_flames;
-    pNewScript->RegisterSelf();
-
-    pNewScript = new Script;
-    pNewScript->Name = "npc_injured_patient";
-    pNewScript->GetAI = &GetAI_npc_injured_patient;
-    pNewScript->RegisterSelf();
-
-    pNewScript = new Script;
-    pNewScript->Name = "npc_doctor";
-    pNewScript->GetAI = &GetAI_npc_doctor;
-    pNewScript->pQuestAcceptNPC = &QuestAccept_npc_doctor;
-    pNewScript->RegisterSelf();
-
-    pNewScript = new Script;
-    pNewScript->Name = "npc_garments_of_quests";
-    pNewScript->GetAI = &GetAI_npc_garments_of_quests;
-    pNewScript->RegisterSelf();
-
-    pNewScript = new Script;
-    pNewScript->Name = "npc_guardian";
-    pNewScript->GetAI = &GetAI_npc_guardian;
-    pNewScript->RegisterSelf();
-
-    pNewScript = new Script;
-    pNewScript->Name = "npc_innkeeper";
-    pNewScript->pGossipHello = &GossipHello_npc_innkeeper;
-    pNewScript->pGossipSelect = &GossipSelect_npc_innkeeper;
-    pNewScript->RegisterSelf(false);                        // script and error report disabled, but script can be used for custom needs, adding ScriptName
-
-    pNewScript = new Script;
-    pNewScript->Name = "npc_redemption_target";
-    pNewScript->GetAI = &GetAI_npc_redemption_target;
-    pNewScript->pEffectDummyNPC = &EffectDummyCreature_npc_redemption_target;
-    pNewScript->RegisterSelf();
-
-    pNewScript = new Script;
-    pNewScript->Name = "npc_burster_worm";
-    pNewScript->GetAI = &GetNewAIInstance<npc_burster_wormAI>;
-    pNewScript->RegisterSelf();
-
-    pNewScript = new Script;
-    pNewScript->Name = "npc_the_cleaner";
-    pNewScript->GetAI = &GetAI_npc_the_cleaner;
-    pNewScript->RegisterSelf();
-
-    pNewScript = new Script;
-    pNewScript->Name = "npc_shaman_fire_elemental";
-    pNewScript->GetAI = &GetAI_npc_shaman_fire_elemental;
-    pNewScript->RegisterSelf();
-
-    pNewScript = new Script;
-    pNewScript->Name = "npc_shaman_earth_elemental";
-    pNewScript->GetAI = &GetAI_npc_shaman_earth_elemental;
-    pNewScript->RegisterSelf();
-
-    pNewScript = new Script;
-    pNewScript->Name = "npc_snakes";
-    pNewScript->GetAI = &GetAI_npc_snakes;
-    pNewScript->RegisterSelf();
-
-    pNewScript = new Script;
-    pNewScript->Name = "npc_nether_ray";
-    pNewScript->GetAI = &GetAI_npc_nether_ray;
-    pNewScript->RegisterSelf();
-
-    pNewScript = new Script;
-    pNewScript->Name = "npc_aoe_damage_trigger";
-    pNewScript->GetAI = &GetAI_npc_aoe_damage_trigger;
-    pNewScript->RegisterSelf();
-
-    pNewScript = new Script;
-    pNewScript->Name = "npc_mojo";
-    pNewScript->GetAI = &GetAI_npc_mojo;
-    pNewScript->RegisterSelf();
-
-    pNewScript = new Script;
-    pNewScript->Name = "npc_fire_nova_totem";
-    pNewScript->GetAI = &GetAI_npc_fire_nova_totem;
-    pNewScript->RegisterSelf();
-
-    pNewScript = new Script;
-    pNewScript->Name = "mob_phoenix";
-    pNewScript->GetAI = &GetAI_mob_phoenix_tk;
-    pNewScript->RegisterSelf();
 }

@@ -240,16 +240,23 @@ void instance_mechanar::Update(uint32 uiDiff)
             m_uiBridgeEventTimer -= uiDiff;
     }
 }
-
-InstanceData* GetInstanceData_instance_mechanar(Map* pMap)
+class instance_mechanar : public InstanceMapScript
 {
-    return new instance_mechanar(pMap);
-}
+public:
+    instance_mechanar() : InstanceMapScript("instance_mechanar") { }
+
+    InstanceData* GetInstanceScript(Map* pMap) const override
+    {
+        return new instance_mechanar(pMap);
+    }
+
+
+
+
+};
 
 void AddSC_instance_mechanar()
 {
-    Script* pNewScript = new Script;
-    pNewScript->Name = "instance_mechanar";
-    pNewScript->GetInstanceData = &GetInstanceData_instance_mechanar;
-    pNewScript->RegisterSelf();
+    new instance_mechanar();
+
 }

@@ -211,686 +211,718 @@ static const float aKalegSpawnLoc[4] = {1734.431f, 593.1974f, 130.6977f, 4.55f};
 /*######
 ## npc_kiljaeden_controller
 ######*/
-
-struct npc_kiljaeden_controllerAI : public Scripted_NoMovementAI, private DialogueHelper
+class npc_kiljaeden_controller : public CreatureScript
 {
-    npc_kiljaeden_controllerAI(Creature* pCreature) : Scripted_NoMovementAI(pCreature),
-        DialogueHelper(aOutroDialogue)
+public:
+    npc_kiljaeden_controller() : CreatureScript("npc_kiljaeden_controller") { }
+
+    UnitAI* GetAI(Creature* pCreature)
     {
-        m_pInstance = ((instance_sunwell_plateau*)pCreature->GetInstanceData());
-        InitializeDialogueHelper(m_pInstance);
-        Reset();
+        return new npc_kiljaeden_controllerAI(pCreature);
     }
 
-    instance_sunwell_plateau* m_pInstance;
 
-    ObjectGuid m_EntropiusGuid;
-    ObjectGuid m_PortalGuid;
-    ObjectGuid m_firstRiftwalkerGuid;
-    ObjectGuid m_secondRiftwalkerGuid;
 
-    void Reset() override
+    struct npc_kiljaeden_controllerAI : public Scripted_NoMovementAI, private DialogueHelper
     {
-        // Visual spell before the encounter starts
-        DoCastSpellIfCan(m_creature, SPELL_ANVEENA_DRAIN);
-    }
-
-    void JustDidDialogueStep(int32 iEntry) override
-    {
-        if (!m_pInstance)
-            return;
-
-        switch (iEntry)
+        npc_kiljaeden_controllerAI(Creature* pCreature) : Scripted_NoMovementAI(pCreature),
+            DialogueHelper(aOutroDialogue)
         {
-            case NPC_KALECGOS:
-                if (Creature* pKalec = m_pInstance->GetSingleCreatureFromStorage(NPC_KALECGOS))
+            m_pInstance = ((instance_sunwell_plateau*)pCreature->GetInstanceData());
+            InitializeDialogueHelper(m_pInstance);
+            Reset();
+        }
+
+        instance_sunwell_plateau* m_pInstance;
+
+        ObjectGuid m_EntropiusGuid;
+        ObjectGuid m_PortalGuid;
+        ObjectGuid m_firstRiftwalkerGuid;
+        ObjectGuid m_secondRiftwalkerGuid;
+
+        void Reset() override
+        {
+            // Visual spell before the encounter starts
+            DoCastSpellIfCan(m_creature, SPELL_ANVEENA_DRAIN);
+        }
+
+        void JustDidDialogueStep(int32 iEntry) override
+        {
+            if (!m_pInstance)
+                return;
+
+            switch (iEntry)
+            {
+                case NPC_KALECGOS:
+                    if (Creature* pKalec = m_pInstance->GetSingleCreatureFromStorage(NPC_KALECGOS))
+                    {
+                        pKalec->GetMotionMaster()->Clear();
+                        pKalec->GetMotionMaster()->MoveIdle();
+                        pKalec->CastSpell(pKalec, SPELL_KALEC_TELEPORT, TRIGGERED_OLD_TRIGGERED);
+                        pKalec->SetLevitate(false);
+                    }
+                    m_creature->SummonCreature(NPC_CORE_ENTROPIUS, aOutroLocations[5].m_fX, aOutroLocations[5].m_fY, aOutroLocations[5].m_fZ, aOutroLocations[5].m_fO, TEMPSPAWN_CORPSE_DESPAWN, 0);
+                    break;
+                case NPC_RIFTWALKER:
+                    if (Creature* pRiftwalker = m_creature->SummonCreature(NPC_RIFTWALKER, 1688.42f, 641.82f, 27.60f, 0.67f, TEMPSPAWN_DEAD_DESPAWN, 0))
+                    {
+                        pRiftwalker->SetWalk(false);
+                        pRiftwalker->CastSpell(pRiftwalker, SPELL_TELEPORT_VISUAL, TRIGGERED_OLD_TRIGGERED);
+                        pRiftwalker->GetMotionMaster()->MovePoint(1, 1727.08f, 656.82f, 28.37f);
+                        m_firstRiftwalkerGuid = pRiftwalker->GetObjectGuid();
+                    }
+                    if (Creature* pRiftwalker = m_creature->SummonCreature(NPC_RIFTWALKER, 1712.58f, 616.29f, 27.78f, 0.76f, TEMPSPAWN_DEAD_DESPAWN, 0))
+                    {
+                        pRiftwalker->SetWalk(false);
+                        pRiftwalker->CastSpell(pRiftwalker, SPELL_TELEPORT_VISUAL, TRIGGERED_OLD_TRIGGERED);
+                        pRiftwalker->GetMotionMaster()->MovePoint(1, 1738.84f, 627.32f, 28.26f);
+                        m_secondRiftwalkerGuid = pRiftwalker->GetObjectGuid();
+                    }
+                    break;
+                case NPC_INERT_PORTAL:
+                    // ToDo: summon soldiers to the right
+                    m_creature->SummonCreature(NPC_INERT_PORTAL, aOutroLocations[0].m_fX, aOutroLocations[0].m_fY, aOutroLocations[0].m_fZ, aOutroLocations[0].m_fO, TEMPSPAWN_CORPSE_DESPAWN, 0);
+                    break;
+                case POINT_SUMMON_SOLDIERS:
+                    // ToDo: summon soldiers to the left
+                    break;
+                case NPC_VELEN:
+                    m_creature->SummonCreature(NPC_VELEN, aOutroLocations[1].m_fX, aOutroLocations[1].m_fY, aOutroLocations[1].m_fZ, aOutroLocations[1].m_fO, TEMPSPAWN_CORPSE_DESPAWN, 0);
+                    break;
+                case NPC_LIADRIN:
+                    m_creature->SummonCreature(NPC_LIADRIN, aOutroLocations[2].m_fX, aOutroLocations[2].m_fY, aOutroLocations[2].m_fZ, aOutroLocations[2].m_fO, TEMPSPAWN_TIMED_DESPAWN, 4 * MINUTE * IN_MILLISECONDS);
+                    break;
+                case SPELL_CALL_ENTROPIUS:
+                    if (Creature* pVelen = m_pInstance->GetSingleCreatureFromStorage(NPC_VELEN))
+                        pVelen->CastSpell(pVelen, SPELL_CALL_ENTROPIUS, TRIGGERED_NONE);
+                    // Set point id = 1 for movement event
+                    if (Creature* pEntropius = m_creature->GetMap()->GetCreature(m_EntropiusGuid))
+                    {
+                        pEntropius->SetWalk(false);
+                        pEntropius->GetMotionMaster()->MovePoint(1, m_creature->GetPositionX(), m_creature->GetPositionY(), 35.0f);
+                    }
+                    break;
+                case POINT_MOVE_LIADRIN:
+                    if (Creature* pLiadrin = m_pInstance->GetSingleCreatureFromStorage(NPC_LIADRIN))
+                        pLiadrin->GetMotionMaster()->MovePoint(0, aOutroLocations[4].m_fX, aOutroLocations[4].m_fY, aOutroLocations[4].m_fZ);
+                    break;
+                case SPELL_BLAZE_TO_LIGHT:
+                    if (Creature* pEntropius = m_creature->GetMap()->GetCreature(m_EntropiusGuid))
+                    {
+                        pEntropius->CastSpell(pEntropius, SPELL_BLAZE_TO_LIGHT, TRIGGERED_OLD_TRIGGERED);
+                        pEntropius->RemoveAurasDueToSpell(SPELL_ENTROPIUS_BODY);
+                        pEntropius->SetWalk(true);
+                        pEntropius->GetMotionMaster()->MovePoint(2, m_creature->GetPositionX(), m_creature->GetPositionY(), m_creature->GetPositionZ());
+                    }
+                    break;
+                case POINT_EVENT_EXIT:
+                    // Set point id = 1 for the despawn event
+                    if (Creature* pVelen = m_pInstance->GetSingleCreatureFromStorage(NPC_VELEN))
+                        pVelen->GetMotionMaster()->MovePoint(1, aOutroLocations[1].m_fX, aOutroLocations[1].m_fY, aOutroLocations[1].m_fZ);
+                    break;
+            }
+        }
+
+        void JustSummoned(Creature* pSummoned) override
+        {
+            switch (pSummoned->GetEntry())
+            {
+                case NPC_VELEN:
+                    pSummoned->CastSpell(pSummoned, SPELL_TELEPORT_VISUAL, TRIGGERED_OLD_TRIGGERED);
+                    pSummoned->GetMotionMaster()->MovePoint(0, aOutroLocations[3].m_fX, aOutroLocations[3].m_fY, aOutroLocations[3].m_fZ);
+                // no break here
+                case NPC_LIADRIN:
+                    pSummoned->CastSpell(pSummoned, SPELL_TELEPORT_VISUAL, TRIGGERED_OLD_TRIGGERED);
+                    break;
+                case NPC_CORE_ENTROPIUS:
+                    pSummoned->CastSpell(pSummoned, SPELL_ENTROPIUS_BODY, TRIGGERED_OLD_TRIGGERED);
+                    pSummoned->SetLevitate(true);
+                    m_EntropiusGuid = pSummoned->GetObjectGuid();
+                    break;
+                case NPC_INERT_PORTAL:
+                    m_PortalGuid = pSummoned->GetObjectGuid();
+                    pSummoned->CastSpell(pSummoned, SPELL_ARCANE_PORTAL, TRIGGERED_OLD_TRIGGERED);
+                    break;
+            }
+        }
+
+        void SummonedCreatureJustDied(Creature* pSummoned) override
+        {
+            // Start outro dialogue when Kil'jaeden is killed
+            if (pSummoned->GetEntry() == NPC_KILJAEDEN)
+                StartNextDialogueText(NPC_KALECGOS);
+        }
+
+        void SummonedMovementInform(Creature* pSummoned, uint32 uiType, uint32 uiPointId) override
+        {
+            if (uiType != POINT_MOTION_TYPE)
+                return;
+
+            if (uiPointId == 1)
+            {
+                if (pSummoned->GetEntry() == NPC_CORE_ENTROPIUS)
                 {
-                    pKalec->GetMotionMaster()->Clear();
-                    pKalec->GetMotionMaster()->MoveIdle();
-                    pKalec->CastSpell(pKalec, SPELL_KALEC_TELEPORT, TRIGGERED_OLD_TRIGGERED);
-                    pKalec->SetLevitate(false);
+                    // Interrupt Velen's casting when entropius has reached the ground
+                    if (Creature* pVelen = m_pInstance->GetSingleCreatureFromStorage(NPC_VELEN))
+                        pVelen->InterruptNonMeleeSpells(false);
                 }
-                m_creature->SummonCreature(NPC_CORE_ENTROPIUS, aOutroLocations[5].m_fX, aOutroLocations[5].m_fY, aOutroLocations[5].m_fZ, aOutroLocations[5].m_fO, TEMPSPAWN_CORPSE_DESPAWN, 0);
-                break;
-            case NPC_RIFTWALKER:
-                if (Creature* pRiftwalker = m_creature->SummonCreature(NPC_RIFTWALKER, 1688.42f, 641.82f, 27.60f, 0.67f, TEMPSPAWN_DEAD_DESPAWN, 0))
+                else if (pSummoned->GetEntry() == NPC_VELEN)
                 {
-                    pRiftwalker->SetWalk(false);
-                    pRiftwalker->CastSpell(pRiftwalker, SPELL_TELEPORT_VISUAL, TRIGGERED_OLD_TRIGGERED);
-                    pRiftwalker->GetMotionMaster()->MovePoint(1, 1727.08f, 656.82f, 28.37f);
-                    m_firstRiftwalkerGuid = pRiftwalker->GetObjectGuid();
+                    // Cast teleport and despawn Velen, the portal and Kalec; Liadrin will despawn on timer
+                    pSummoned->CastSpell(pSummoned, SPELL_TELEPORT_VISUAL, TRIGGERED_OLD_TRIGGERED);
+                    pSummoned->ForcedDespawn(1000);
+
+                    // Note: portal should despawn only after all the soldiers have reached this point and "teleported" outside
+                    if (Creature* pPortal = m_creature->GetMap()->GetCreature(m_PortalGuid))
+                        pPortal->ForcedDespawn(5000);
+
+                    if (Creature* pKalec = m_pInstance->GetSingleCreatureFromStorage(NPC_KALECGOS))
+                        pKalec->ForcedDespawn(1000);
                 }
-                if (Creature* pRiftwalker = m_creature->SummonCreature(NPC_RIFTWALKER, 1712.58f, 616.29f, 27.78f, 0.76f, TEMPSPAWN_DEAD_DESPAWN, 0))
-                {
-                    pRiftwalker->SetWalk(false);
-                    pRiftwalker->CastSpell(pRiftwalker, SPELL_TELEPORT_VISUAL, TRIGGERED_OLD_TRIGGERED);
-                    pRiftwalker->GetMotionMaster()->MovePoint(1, 1738.84f, 627.32f, 28.26f);
-                    m_secondRiftwalkerGuid = pRiftwalker->GetObjectGuid();
-                }
-                break;
-            case NPC_INERT_PORTAL:
-                // ToDo: summon soldiers to the right
-                m_creature->SummonCreature(NPC_INERT_PORTAL, aOutroLocations[0].m_fX, aOutroLocations[0].m_fY, aOutroLocations[0].m_fZ, aOutroLocations[0].m_fO, TEMPSPAWN_CORPSE_DESPAWN, 0);
-                break;
-            case POINT_SUMMON_SOLDIERS:
-                // ToDo: summon soldiers to the left
-                break;
-            case NPC_VELEN:
-                m_creature->SummonCreature(NPC_VELEN, aOutroLocations[1].m_fX, aOutroLocations[1].m_fY, aOutroLocations[1].m_fZ, aOutroLocations[1].m_fO, TEMPSPAWN_CORPSE_DESPAWN, 0);
-                break;
-            case NPC_LIADRIN:
-                m_creature->SummonCreature(NPC_LIADRIN, aOutroLocations[2].m_fX, aOutroLocations[2].m_fY, aOutroLocations[2].m_fZ, aOutroLocations[2].m_fO, TEMPSPAWN_TIMED_DESPAWN, 4 * MINUTE * IN_MILLISECONDS);
-                break;
-            case SPELL_CALL_ENTROPIUS:
-                if (Creature* pVelen = m_pInstance->GetSingleCreatureFromStorage(NPC_VELEN))
-                    pVelen->CastSpell(pVelen, SPELL_CALL_ENTROPIUS, TRIGGERED_NONE);
-                // Set point id = 1 for movement event
-                if (Creature* pEntropius = m_creature->GetMap()->GetCreature(m_EntropiusGuid))
-                {
-                    pEntropius->SetWalk(false);
-                    pEntropius->GetMotionMaster()->MovePoint(1, m_creature->GetPositionX(), m_creature->GetPositionY(), 35.0f);
-                }
-                break;
-            case POINT_MOVE_LIADRIN:
+            }
+            else if (uiPointId == 2 && pSummoned->GetEntry() == NPC_CORE_ENTROPIUS)
+            {
+                // When the purified Muru reaches the ground the sunwell ignites and Muru despawns
+                DoCastSpellIfCan(m_creature, SPELL_SUNWELL_IGNITION);
+
                 if (Creature* pLiadrin = m_pInstance->GetSingleCreatureFromStorage(NPC_LIADRIN))
-                    pLiadrin->GetMotionMaster()->MovePoint(0, aOutroLocations[4].m_fX, aOutroLocations[4].m_fY, aOutroLocations[4].m_fZ);
-                break;
-            case SPELL_BLAZE_TO_LIGHT:
-                if (Creature* pEntropius = m_creature->GetMap()->GetCreature(m_EntropiusGuid))
-                {
-                    pEntropius->CastSpell(pEntropius, SPELL_BLAZE_TO_LIGHT, TRIGGERED_OLD_TRIGGERED);
-                    pEntropius->RemoveAurasDueToSpell(SPELL_ENTROPIUS_BODY);
-                    pEntropius->SetWalk(true);
-                    pEntropius->GetMotionMaster()->MovePoint(2, m_creature->GetPositionX(), m_creature->GetPositionY(), m_creature->GetPositionZ());
-                }
-                break;
-            case POINT_EVENT_EXIT:
-                // Set point id = 1 for the despawn event
-                if (Creature* pVelen = m_pInstance->GetSingleCreatureFromStorage(NPC_VELEN))
-                    pVelen->GetMotionMaster()->MovePoint(1, aOutroLocations[1].m_fX, aOutroLocations[1].m_fY, aOutroLocations[1].m_fZ);
-                break;
-        }
-    }
+                    pLiadrin->SetStandState(UNIT_STAND_STATE_KNEEL);
 
-    void JustSummoned(Creature* pSummoned) override
-    {
-        switch (pSummoned->GetEntry())
-        {
-            case NPC_VELEN:
-                pSummoned->CastSpell(pSummoned, SPELL_TELEPORT_VISUAL, TRIGGERED_OLD_TRIGGERED);
-                pSummoned->GetMotionMaster()->MovePoint(0, aOutroLocations[3].m_fX, aOutroLocations[3].m_fY, aOutroLocations[3].m_fZ);
-            // no break here
-            case NPC_LIADRIN:
-                pSummoned->CastSpell(pSummoned, SPELL_TELEPORT_VISUAL, TRIGGERED_OLD_TRIGGERED);
-                break;
-            case NPC_CORE_ENTROPIUS:
-                pSummoned->CastSpell(pSummoned, SPELL_ENTROPIUS_BODY, TRIGGERED_OLD_TRIGGERED);
-                pSummoned->SetLevitate(true);
-                m_EntropiusGuid = pSummoned->GetObjectGuid();
-                break;
-            case NPC_INERT_PORTAL:
-                m_PortalGuid = pSummoned->GetObjectGuid();
-                pSummoned->CastSpell(pSummoned, SPELL_ARCANE_PORTAL, TRIGGERED_OLD_TRIGGERED);
-                break;
-        }
-    }
-
-    void SummonedCreatureJustDied(Creature* pSummoned) override
-    {
-        // Start outro dialogue when Kil'jaeden is killed
-        if (pSummoned->GetEntry() == NPC_KILJAEDEN)
-            StartNextDialogueText(NPC_KALECGOS);
-    }
-
-    void SummonedMovementInform(Creature* pSummoned, uint32 uiType, uint32 uiPointId) override
-    {
-        if (uiType != POINT_MOTION_TYPE)
-            return;
-
-        if (uiPointId == 1)
-        {
-            if (pSummoned->GetEntry() == NPC_CORE_ENTROPIUS)
-            {
-                // Interrupt Velen's casting when entropius has reached the ground
-                if (Creature* pVelen = m_pInstance->GetSingleCreatureFromStorage(NPC_VELEN))
-                    pVelen->InterruptNonMeleeSpells(false);
-            }
-            else if (pSummoned->GetEntry() == NPC_VELEN)
-            {
-                // Cast teleport and despawn Velen, the portal and Kalec; Liadrin will despawn on timer
-                pSummoned->CastSpell(pSummoned, SPELL_TELEPORT_VISUAL, TRIGGERED_OLD_TRIGGERED);
-                pSummoned->ForcedDespawn(1000);
-
-                // Note: portal should despawn only after all the soldiers have reached this point and "teleported" outside
-                if (Creature* pPortal = m_creature->GetMap()->GetCreature(m_PortalGuid))
-                    pPortal->ForcedDespawn(5000);
-
-                if (Creature* pKalec = m_pInstance->GetSingleCreatureFromStorage(NPC_KALECGOS))
-                    pKalec->ForcedDespawn(1000);
+                pSummoned->ForcedDespawn();
             }
         }
-        else if (uiPointId == 2 && pSummoned->GetEntry() == NPC_CORE_ENTROPIUS)
+
+        void UpdateAI(const uint32 uiDiff) override
         {
-            // When the purified Muru reaches the ground the sunwell ignites and Muru despawns
-            DoCastSpellIfCan(m_creature, SPELL_SUNWELL_IGNITION);
-
-            if (Creature* pLiadrin = m_pInstance->GetSingleCreatureFromStorage(NPC_LIADRIN))
-                pLiadrin->SetStandState(UNIT_STAND_STATE_KNEEL);
-
-            pSummoned->ForcedDespawn();
+            DialogueUpdate(uiDiff);
         }
-    }
+    };
 
-    void UpdateAI(const uint32 uiDiff) override
-    {
-        DialogueUpdate(uiDiff);
-    }
+
+
 };
 
 /*######
 ## boss_kiljaeden
 ######*/
-
-struct boss_kiljaedenAI : public Scripted_NoMovementAI, private DialogueHelper
+class boss_kiljaeden : public CreatureScript
 {
-    boss_kiljaedenAI(Creature* pCreature) : Scripted_NoMovementAI(pCreature),
-        DialogueHelper(aPhaseDialogue)
+public:
+    boss_kiljaeden() : CreatureScript("boss_kiljaeden") { }
+
+    bool OnAuraDummy(const Aura* pAura, bool bApply) override
     {
-        m_pInstance = ((instance_sunwell_plateau*)pCreature->GetInstanceData());
-        InitializeDialogueHelper(m_pInstance);
-        Reset();
-    }
-
-    instance_sunwell_plateau* m_pInstance;
-
-    uint8 m_uiPhase;
-    uint8 m_uiMaxShieldOrbs;
-    uint8 m_uiShieldOrbCount;
-
-    uint32 m_uiKalecSummonTimer;
-
-    uint32 m_uiSoulFlyTimer;
-    uint32 m_uiLegionLightingTimer;
-    uint32 m_uiFireBloomTimer;
-    uint32 m_uiShieldOrbTimer;
-
-    uint32 m_uiFlameDartTimer;
-    uint32 m_uiDarknessOfSoulsTimer;
-
-    uint32 m_uiArmageddonTimer;
-
-    void Reset() override
-    {
-        m_uiPhase                   = PHASE_INFERNO;
-        m_uiKalecSummonTimer        = 35000;
-        m_uiMaxShieldOrbs           = 1;
-        m_uiShieldOrbCount          = 0;
-
-        m_uiSoulFlyTimer            = 10000;
-        m_uiLegionLightingTimer     = urand(10000, 15000);
-        m_uiFireBloomTimer          = urand(15000, 20000);
-        m_uiShieldOrbTimer          = 30000;
-
-        m_uiFlameDartTimer          = urand(20000, 25000);
-        m_uiDarknessOfSoulsTimer    = urand(45000, 50000);
-
-        m_uiArmageddonTimer         = 20000;
-    }
-
-    void Aggro(Unit* /*pWho*/) override
-    {
-        if (m_pInstance)
-            m_pInstance->SetData(TYPE_KILJAEDEN, IN_PROGRESS);
-
-        DoScriptText(SAY_EMERGE, m_creature);
-        DoCastSpellIfCan(m_creature, SPELL_BIRTH);
-    }
-
-    void JustReachedHome() override
-    {
-        if (m_pInstance)
+        // On Aura removal cast the explosion and yell
+        // This is a special case when the dummy effect should be triggered at the end of the channeling
+        if (pAura->GetId() == SPELL_DARKNESS_OF_SOULS && pAura->GetEffIndex() == EFFECT_INDEX_0 && !bApply)
         {
-            m_pInstance->SetData(TYPE_KILJAEDEN, FAIL);
-
-            // Reset the corrupt Sunwell aura
-            if (Creature* pKiljaedenController = m_pInstance->GetSingleCreatureFromStorage(NPC_KILJAEDEN_CONTROLLER))
-                pKiljaedenController->CastSpell(pKiljaedenController, SPELL_ANVEENA_DRAIN, TRIGGERED_OLD_TRIGGERED);
-        }
-
-        // Despawn on wipe
-        m_creature->ForcedDespawn();
-    }
-
-    void KilledUnit(Unit* pVictim) override
-    {
-        if (pVictim->GetTypeId() != TYPEID_PLAYER)
-            return;
-
-        DoScriptText(urand(0, 1) ? SAY_SLAY_1 : SAY_SLAY_2, m_creature);
-    }
-
-    void JustDied(Unit* /*pKiller*/) override
-    {
-        if (m_pInstance)
-            m_pInstance->SetData(TYPE_KILJAEDEN, DONE);
-    }
-
-    void JustSummoned(Creature* pSummoned) override
-    {
-        if (pSummoned->GetEntry() == NPC_KALECGOS)
-        {
-            DoScriptText(SAY_KALECGOS_INTRO, pSummoned);
-            pSummoned->CastSpell(pSummoned, SPELL_ARCANE_BOLT, TRIGGERED_OLD_TRIGGERED);
-            pSummoned->GetMotionMaster()->MoveRandomAroundPoint(m_creature->GetPositionX(), m_creature->GetPositionY(), pSummoned->GetPositionZ(), 30.0f);
-        }
-        else if (pSummoned->GetEntry() == NPC_SHIELD_ORB)
-        {
-            pSummoned->CastSpell(pSummoned, SPELL_SHADOW_BOLT_AURA, TRIGGERED_OLD_TRIGGERED);
-
-            // Start the movement of the shadow orb - calculate new position based on the angle between the boss and orb
-            float fX, fY;
-            float fAng = m_creature->GetAngle(pSummoned) + M_PI_F / 8;
-            // Normalize angle
-            if (fAng > 2 * M_PI_F)
-                fAng = fAng - 2 * M_PI_F;
-
-            m_creature->GetNearPoint2d(fX, fY, 25.0f, fAng);
-
-            // Move to new position
-            pSummoned->GetMotionMaster()->Clear();
-            pSummoned->GetMotionMaster()->MovePoint(1, fX, fY, pSummoned->GetPositionZ());
-        }
-        else if (pSummoned->GetEntry() == NPC_SINISTER_REFLECTION)
-        {
-            if (pSummoned->IsTemporarySummon())
+            if (Creature* pTarget = (Creature*)pAura->GetTarget())
             {
-                if (Player* pPlayer = m_creature->GetMap()->GetPlayer(pSummoned->GetSpawnerGuid()))
+                pTarget->CastSpell(pTarget, pAura->GetSpellProto()->CalculateSimpleValue(EFFECT_INDEX_2), TRIGGERED_OLD_TRIGGERED);
+
+                switch (urand(0, 2))
                 {
-                    pPlayer->CastSpell(pSummoned, SPELL_SINISTER_REFL_CLONE, TRIGGERED_OLD_TRIGGERED);
-                    pSummoned->CastSpell(pSummoned, SPELL_SINISTER_REFL_CLASS, TRIGGERED_OLD_TRIGGERED);
-                    pSummoned->AI()->AttackStart(pPlayer);
+                    case 0: DoScriptText(SAY_DARKNESS_1, pTarget); break;
+                    case 1: DoScriptText(SAY_DARKNESS_2, pTarget); break;
+                    case 2: DoScriptText(SAY_DARKNESS_3, pTarget); break;
                 }
             }
         }
+        return true;
     }
 
-    void SummonedCreatureJustDied(Creature* pSummoned) override
+
+
+    UnitAI* GetAI(Creature* pCreature)
     {
-        if (pSummoned->GetEntry() == NPC_SHIELD_ORB)
-            --m_uiShieldOrbCount;
+        return new boss_kiljaedenAI(pCreature);
     }
 
-    void GetAIInformation(ChatHandler& reader) override
-    {
-        reader.PSendSysMessage("Kil'jaeden is currently in phase %u", uint32(m_uiPhase));
-    }
 
-    void JustDidDialogueStep(int32 iEntry) override
-    {
-        if (!m_pInstance)
-            return;
 
-        switch (iEntry)
+    struct boss_kiljaedenAI : public Scripted_NoMovementAI, private DialogueHelper
+    {
+        boss_kiljaedenAI(Creature* pCreature) : Scripted_NoMovementAI(pCreature),
+            DialogueHelper(aPhaseDialogue)
         {
-            case PHASE_DARKNESS:
-            case PHASE_ARMAGEDDON:
-            case PHASE_SACRIFICE:
-                if (DoCastSpellIfCan(m_creature, SPELL_SINISTER_REFLECTION, CAST_INTERRUPT_PREVIOUS) == CAST_OK)
-                {
-                    DoScriptText(irand(0, 1) ? SAY_REFLECTION_1 : SAY_REFLECTION_2, m_creature);
-
-                    // In the 2nd and 3rd transition kill all drakes
-                    if (iEntry == PHASE_ARMAGEDDON || iEntry == PHASE_SACRIFICE)
-                        DoCastSpellIfCan(m_creature, SPELL_DESTROY_DRAKES, CAST_TRIGGERED);
-
-                    m_uiPhase = PHASE_TRANSITION;
-                    // Darkness of Souls needs the timer reseted
-                    m_uiDarknessOfSoulsTimer = iEntry == PHASE_SACRIFICE ? 30000 : 45000;
-                }
-                break;
-            case EVENT_SWITCH_PHASE_2:
-            case EVENT_SWITCH_PHASE_3:
-            case EVENT_SWITCH_PHASE_4:
-                DoCastSpellIfCan(m_creature, SPELL_SHADOW_SPIKE);
-                break;
-            case EVENT_DRAGON_ORB:
-                // Activate blue orbs
-                if (Creature* pKalec = m_pInstance->GetSingleCreatureFromStorage(NPC_KALECGOS))
-                    DoScriptText(irand(0, 1) ? SAY_KALECGOS_ORB_2 : SAY_KALECGOS_ORB_3, pKalec);
-                DoActivateDragonOrb(GO_ORB_BLUE_FLIGHT_2);
-                break;
-            case SAY_KALECGOS_ORB_1:
-                DoActivateDragonOrb(GO_ORB_BLUE_FLIGHT_1);
-                break;
-            case SAY_KALECGOS_ORB_4:
-                DoActivateDragonOrb(GO_ORB_BLUE_FLIGHT_3);
-                DoActivateDragonOrb(GO_ORB_BLUE_FLIGHT_4);
-                break;
-            case SAY_PHASE_3:
-                // Set next phase and increase the max shield orbs
-                m_uiPhase = PHASE_DARKNESS;
-                ++m_uiMaxShieldOrbs;
-                break;
-            case SAY_PHASE_4:
-                // Set next phase and increase the max shield orbs
-                m_uiPhase = PHASE_ARMAGEDDON;
-                ++m_uiMaxShieldOrbs;
-                break;
-            case SAY_PHASE_5:
-                // Set next phase and sacrifice Anveena
-                if (Creature* pAnveena = m_pInstance->GetSingleCreatureFromStorage(NPC_ANVEENA))
-                {
-                    pAnveena->RemoveAurasDueToSpell(SPELL_ANVEENA_PRISON);
-                    pAnveena->CastSpell(pAnveena, SPELL_SACRIFICE_ANVEENA, TRIGGERED_OLD_TRIGGERED);
-                    pAnveena->ForcedDespawn(3000);
-                }
-                m_uiPhase = PHASE_SACRIFICE;
-                break;
-        }
-    }
-
-    // Wrapper to activate dragon orbs
-    void DoActivateDragonOrb(uint32 uiEntry)
-    {
-        if (!m_pInstance)
-            return;
-
-        // Set the visual around the Orb
-        if (GameObject* pGo = m_pInstance->GetSingleGameObjectFromStorage(uiEntry))
-        {
-            if (Creature* pTarget = GetClosestCreatureWithEntry(pGo, NPC_BLUE_ORB_TARGET, 5.0f))
-                pTarget->CastSpell(pTarget, SPELL_RING_BLUE_FLAME, TRIGGERED_NONE);
+            m_pInstance = ((instance_sunwell_plateau*)pCreature->GetInstanceData());
+            InitializeDialogueHelper(m_pInstance);
+            Reset();
         }
 
-        // Make the orb usable
-        m_pInstance->DoToggleGameObjectFlags(uiEntry, GO_FLAG_NO_INTERACT, false);
-    }
+        instance_sunwell_plateau* m_pInstance;
 
-    void UpdateAI(const uint32 uiDiff) override
-    {
-        if (!m_creature->SelectHostileTarget() || !m_creature->GetVictim())
-            return;
+        uint8 m_uiPhase;
+        uint8 m_uiMaxShieldOrbs;
+        uint8 m_uiShieldOrbCount;
 
-        DialogueUpdate(uiDiff);
+        uint32 m_uiKalecSummonTimer;
 
-        switch (m_uiPhase)
+        uint32 m_uiSoulFlyTimer;
+        uint32 m_uiLegionLightingTimer;
+        uint32 m_uiFireBloomTimer;
+        uint32 m_uiShieldOrbTimer;
+
+        uint32 m_uiFlameDartTimer;
+        uint32 m_uiDarknessOfSoulsTimer;
+
+        uint32 m_uiArmageddonTimer;
+
+        void Reset() override
         {
-            case PHASE_TRANSITION:
-                // Transition phase is handled in the dialogue helper; however we don't want the spell timers to be decreased so we use a specific phase
-                break;
-            case PHASE_SACRIFICE:
-            // Final phase - use the same spells
-            // no break;
-            case PHASE_ARMAGEDDON:
+            m_uiPhase                   = PHASE_INFERNO;
+            m_uiKalecSummonTimer        = 35000;
+            m_uiMaxShieldOrbs           = 1;
+            m_uiShieldOrbCount          = 0;
 
-                // In the last phase he uses Armageddon continuously
-                if (m_uiArmageddonTimer < uiDiff)
+            m_uiSoulFlyTimer            = 10000;
+            m_uiLegionLightingTimer     = urand(10000, 15000);
+            m_uiFireBloomTimer          = urand(15000, 20000);
+            m_uiShieldOrbTimer          = 30000;
+
+            m_uiFlameDartTimer          = urand(20000, 25000);
+            m_uiDarknessOfSoulsTimer    = urand(45000, 50000);
+
+            m_uiArmageddonTimer         = 20000;
+        }
+
+        void Aggro(Unit* /*pWho*/) override
+        {
+            if (m_pInstance)
+                m_pInstance->SetData(TYPE_KILJAEDEN, IN_PROGRESS);
+
+            DoScriptText(SAY_EMERGE, m_creature);
+            DoCastSpellIfCan(m_creature, SPELL_BIRTH);
+        }
+
+        void JustReachedHome() override
+        {
+            if (m_pInstance)
+            {
+                m_pInstance->SetData(TYPE_KILJAEDEN, FAIL);
+
+                // Reset the corrupt Sunwell aura
+                if (Creature* pKiljaedenController = m_pInstance->GetSingleCreatureFromStorage(NPC_KILJAEDEN_CONTROLLER))
+                    pKiljaedenController->CastSpell(pKiljaedenController, SPELL_ANVEENA_DRAIN, TRIGGERED_OLD_TRIGGERED);
+            }
+
+            // Despawn on wipe
+            m_creature->ForcedDespawn();
+        }
+
+        void KilledUnit(Unit* pVictim) override
+        {
+            if (pVictim->GetTypeId() != TYPEID_PLAYER)
+                return;
+
+            DoScriptText(urand(0, 1) ? SAY_SLAY_1 : SAY_SLAY_2, m_creature);
+        }
+
+        void JustDied(Unit* /*pKiller*/) override
+        {
+            if (m_pInstance)
+                m_pInstance->SetData(TYPE_KILJAEDEN, DONE);
+        }
+
+        void JustSummoned(Creature* pSummoned) override
+        {
+            if (pSummoned->GetEntry() == NPC_KALECGOS)
+            {
+                DoScriptText(SAY_KALECGOS_INTRO, pSummoned);
+                pSummoned->CastSpell(pSummoned, SPELL_ARCANE_BOLT, TRIGGERED_OLD_TRIGGERED);
+                pSummoned->GetMotionMaster()->MoveRandomAroundPoint(m_creature->GetPositionX(), m_creature->GetPositionY(), pSummoned->GetPositionZ(), 30.0f);
+            }
+            else if (pSummoned->GetEntry() == NPC_SHIELD_ORB)
+            {
+                pSummoned->CastSpell(pSummoned, SPELL_SHADOW_BOLT_AURA, TRIGGERED_OLD_TRIGGERED);
+
+                // Start the movement of the shadow orb - calculate new position based on the angle between the boss and orb
+                float fX, fY;
+                float fAng = m_creature->GetAngle(pSummoned) + M_PI_F / 8;
+                // Normalize angle
+                if (fAng > 2 * M_PI_F)
+                    fAng = fAng - 2 * M_PI_F;
+
+                m_creature->GetNearPoint2d(fX, fY, 25.0f, fAng);
+
+                // Move to new position
+                pSummoned->GetMotionMaster()->Clear();
+                pSummoned->GetMotionMaster()->MovePoint(1, fX, fY, pSummoned->GetPositionZ());
+            }
+            else if (pSummoned->GetEntry() == NPC_SINISTER_REFLECTION)
+            {
+                if (pSummoned->IsTemporarySummon())
                 {
-                    if (DoCastSpellIfCan(m_creature, SPELL_ARMAGEDDON) == CAST_OK)
-                        m_uiArmageddonTimer = m_uiPhase == PHASE_SACRIFICE ? 20000 : 30000;
-                }
-                else
-                    m_uiArmageddonTimer -= uiDiff;
-
-                // Go to next phase and start transition dialogue
-                if (m_uiPhase == PHASE_ARMAGEDDON && m_creature->GetHealthPercent() < 25.0f)
-                    StartNextDialogueText(PHASE_SACRIFICE);
-
-            // no break - use the spells from the phases below;
-            case PHASE_DARKNESS:
-
-                // In the last phase he uses this spell more often
-                if (m_uiDarknessOfSoulsTimer < uiDiff)
-                {
-                    if (DoCastSpellIfCan(m_creature, SPELL_DARKNESS_OF_SOULS) == CAST_OK)
-                        m_uiDarknessOfSoulsTimer = m_uiPhase == PHASE_SACRIFICE ? 30000 : 45000;
-                }
-                else
-                    m_uiDarknessOfSoulsTimer -= uiDiff;
-
-                if (m_uiFlameDartTimer < uiDiff)
-                {
-                    if (DoCastSpellIfCan(m_creature, SPELL_FLAME_DART) == CAST_OK)
-                        m_uiFlameDartTimer = urand(25000, 30000);
-                }
-                else
-                    m_uiFlameDartTimer -= uiDiff;
-
-                // Go to next phase and start transition dialogue
-                if (m_uiPhase == PHASE_DARKNESS && m_creature->GetHealthPercent() < 55.0f)
-                    StartNextDialogueText(PHASE_ARMAGEDDON);
-
-            // no break - use the spells from the phase below;
-            case PHASE_INFERNO:
-
-                if (m_uiKalecSummonTimer)
-                {
-                    if (m_uiKalecSummonTimer <= uiDiff)
+                    if (Player* pPlayer = m_creature->GetMap()->GetPlayer(pSummoned->GetSpawnerGuid()))
                     {
-                        m_creature->SummonCreature(NPC_KALECGOS, aKalegSpawnLoc[0], aKalegSpawnLoc[1], aKalegSpawnLoc[2], aKalegSpawnLoc[3], TEMPSPAWN_CORPSE_DESPAWN, 0);
-                        m_uiKalecSummonTimer = 0;
+                        pPlayer->CastSpell(pSummoned, SPELL_SINISTER_REFL_CLONE, TRIGGERED_OLD_TRIGGERED);
+                        pSummoned->CastSpell(pSummoned, SPELL_SINISTER_REFL_CLASS, TRIGGERED_OLD_TRIGGERED);
+                        pSummoned->AI()->AttackStart(pPlayer);
+                    }
+                }
+            }
+        }
+
+        void SummonedCreatureJustDied(Creature* pSummoned) override
+        {
+            if (pSummoned->GetEntry() == NPC_SHIELD_ORB)
+                --m_uiShieldOrbCount;
+        }
+
+        void GetAIInformation(ChatHandler& reader) override
+        {
+            reader.PSendSysMessage("Kil'jaeden is currently in phase %u", uint32(m_uiPhase));
+        }
+
+        void JustDidDialogueStep(int32 iEntry) override
+        {
+            if (!m_pInstance)
+                return;
+
+            switch (iEntry)
+            {
+                case PHASE_DARKNESS:
+                case PHASE_ARMAGEDDON:
+                case PHASE_SACRIFICE:
+                    if (DoCastSpellIfCan(m_creature, SPELL_SINISTER_REFLECTION, CAST_INTERRUPT_PREVIOUS) == CAST_OK)
+                    {
+                        DoScriptText(irand(0, 1) ? SAY_REFLECTION_1 : SAY_REFLECTION_2, m_creature);
+
+                        // In the 2nd and 3rd transition kill all drakes
+                        if (iEntry == PHASE_ARMAGEDDON || iEntry == PHASE_SACRIFICE)
+                            DoCastSpellIfCan(m_creature, SPELL_DESTROY_DRAKES, CAST_TRIGGERED);
+
+                        m_uiPhase = PHASE_TRANSITION;
+                        // Darkness of Souls needs the timer reseted
+                        m_uiDarknessOfSoulsTimer = iEntry == PHASE_SACRIFICE ? 30000 : 45000;
+                    }
+                    break;
+                case EVENT_SWITCH_PHASE_2:
+                case EVENT_SWITCH_PHASE_3:
+                case EVENT_SWITCH_PHASE_4:
+                    DoCastSpellIfCan(m_creature, SPELL_SHADOW_SPIKE);
+                    break;
+                case EVENT_DRAGON_ORB:
+                    // Activate blue orbs
+                    if (Creature* pKalec = m_pInstance->GetSingleCreatureFromStorage(NPC_KALECGOS))
+                        DoScriptText(irand(0, 1) ? SAY_KALECGOS_ORB_2 : SAY_KALECGOS_ORB_3, pKalec);
+                    DoActivateDragonOrb(GO_ORB_BLUE_FLIGHT_2);
+                    break;
+                case SAY_KALECGOS_ORB_1:
+                    DoActivateDragonOrb(GO_ORB_BLUE_FLIGHT_1);
+                    break;
+                case SAY_KALECGOS_ORB_4:
+                    DoActivateDragonOrb(GO_ORB_BLUE_FLIGHT_3);
+                    DoActivateDragonOrb(GO_ORB_BLUE_FLIGHT_4);
+                    break;
+                case SAY_PHASE_3:
+                    // Set next phase and increase the max shield orbs
+                    m_uiPhase = PHASE_DARKNESS;
+                    ++m_uiMaxShieldOrbs;
+                    break;
+                case SAY_PHASE_4:
+                    // Set next phase and increase the max shield orbs
+                    m_uiPhase = PHASE_ARMAGEDDON;
+                    ++m_uiMaxShieldOrbs;
+                    break;
+                case SAY_PHASE_5:
+                    // Set next phase and sacrifice Anveena
+                    if (Creature* pAnveena = m_pInstance->GetSingleCreatureFromStorage(NPC_ANVEENA))
+                    {
+                        pAnveena->RemoveAurasDueToSpell(SPELL_ANVEENA_PRISON);
+                        pAnveena->CastSpell(pAnveena, SPELL_SACRIFICE_ANVEENA, TRIGGERED_OLD_TRIGGERED);
+                        pAnveena->ForcedDespawn(3000);
+                    }
+                    m_uiPhase = PHASE_SACRIFICE;
+                    break;
+            }
+        }
+
+        // Wrapper to activate dragon orbs
+        void DoActivateDragonOrb(uint32 uiEntry)
+        {
+            if (!m_pInstance)
+                return;
+
+            // Set the visual around the Orb
+            if (GameObject* pGo = m_pInstance->GetSingleGameObjectFromStorage(uiEntry))
+            {
+                if (Creature* pTarget = GetClosestCreatureWithEntry(pGo, NPC_BLUE_ORB_TARGET, 5.0f))
+                    pTarget->CastSpell(pTarget, SPELL_RING_BLUE_FLAME, TRIGGERED_NONE);
+            }
+
+            // Make the orb usable
+            m_pInstance->DoToggleGameObjectFlags(uiEntry, GO_FLAG_NO_INTERACT, false);
+        }
+
+        void UpdateAI(const uint32 uiDiff) override
+        {
+            if (!m_creature->SelectHostileTarget() || !m_creature->GetVictim())
+                return;
+
+            DialogueUpdate(uiDiff);
+
+            switch (m_uiPhase)
+            {
+                case PHASE_TRANSITION:
+                    // Transition phase is handled in the dialogue helper; however we don't want the spell timers to be decreased so we use a specific phase
+                    break;
+                case PHASE_SACRIFICE:
+                // Final phase - use the same spells
+                // no break;
+                case PHASE_ARMAGEDDON:
+
+                    // In the last phase he uses Armageddon continuously
+                    if (m_uiArmageddonTimer < uiDiff)
+                    {
+                        if (DoCastSpellIfCan(m_creature, SPELL_ARMAGEDDON) == CAST_OK)
+                            m_uiArmageddonTimer = m_uiPhase == PHASE_SACRIFICE ? 20000 : 30000;
                     }
                     else
-                        m_uiKalecSummonTimer -= uiDiff;
-                }
+                        m_uiArmageddonTimer -= uiDiff;
 
-                if (m_uiLegionLightingTimer < uiDiff)
-                {
-                    if (Unit* pTarget = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, nullptr, SELECT_FLAG_PLAYER))
+                    // Go to next phase and start transition dialogue
+                    if (m_uiPhase == PHASE_ARMAGEDDON && m_creature->GetHealthPercent() < 25.0f)
+                        StartNextDialogueText(PHASE_SACRIFICE);
+
+                // no break - use the spells from the phases below;
+                case PHASE_DARKNESS:
+
+                    // In the last phase he uses this spell more often
+                    if (m_uiDarknessOfSoulsTimer < uiDiff)
                     {
-                        if (DoCastSpellIfCan(pTarget, SPELL_LEGION_LIGHTING) == CAST_OK)
-                            m_uiLegionLightingTimer = urand(10000, 15000);
-                    }
-                }
-                else
-                    m_uiLegionLightingTimer -= uiDiff;
-
-                if (m_uiFireBloomTimer < uiDiff)
-                {
-                    if (DoCastSpellIfCan(m_creature, SPELL_FIRE_BLOOM) == CAST_OK)
-                        m_uiFireBloomTimer = 20000;
-                }
-                else
-                    m_uiFireBloomTimer -= uiDiff;
-
-                if (m_uiSoulFlyTimer < uiDiff)
-                {
-                    if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_SOUL_FLY) == CAST_OK)
-                        m_uiSoulFlyTimer = urand(3000, 10000);
-                }
-                else
-                    m_uiSoulFlyTimer -= uiDiff;
-
-                // Only spawn a Shadow orb when necessary
-                if (m_uiShieldOrbCount < m_uiMaxShieldOrbs)
-                {
-                    if (m_uiShieldOrbTimer < uiDiff)
-                    {
-                        // Get some random coords for the Orb
-                        float fX, fY;
-                        m_creature->GetNearPoint2d(fX, fY, 25.0f, frand(0, 2 * M_PI_F));
-                        float fZ = frand(35.0f, 45.0f);
-
-                        m_creature->SummonCreature(NPC_SHIELD_ORB, fX, fY, fZ, 0, TEMPSPAWN_CORPSE_DESPAWN, 0);
-                        ++m_uiShieldOrbCount;
-                        m_uiShieldOrbTimer = 30000;
+                        if (DoCastSpellIfCan(m_creature, SPELL_DARKNESS_OF_SOULS) == CAST_OK)
+                            m_uiDarknessOfSoulsTimer = m_uiPhase == PHASE_SACRIFICE ? 30000 : 45000;
                     }
                     else
-                        m_uiShieldOrbTimer -= uiDiff;
-                }
+                        m_uiDarknessOfSoulsTimer -= uiDiff;
 
-                // Go to next phase and start transition dialogue
-                if (m_uiPhase == PHASE_INFERNO && m_creature->GetHealthPercent() < 85.0f)
-                    StartNextDialogueText(PHASE_DARKNESS);
+                    if (m_uiFlameDartTimer < uiDiff)
+                    {
+                        if (DoCastSpellIfCan(m_creature, SPELL_FLAME_DART) == CAST_OK)
+                            m_uiFlameDartTimer = urand(25000, 30000);
+                    }
+                    else
+                        m_uiFlameDartTimer -= uiDiff;
 
-                DoMeleeAttackIfReady();
+                    // Go to next phase and start transition dialogue
+                    if (m_uiPhase == PHASE_DARKNESS && m_creature->GetHealthPercent() < 55.0f)
+                        StartNextDialogueText(PHASE_ARMAGEDDON);
 
-                break;
+                // no break - use the spells from the phase below;
+                case PHASE_INFERNO:
+
+                    if (m_uiKalecSummonTimer)
+                    {
+                        if (m_uiKalecSummonTimer <= uiDiff)
+                        {
+                            m_creature->SummonCreature(NPC_KALECGOS, aKalegSpawnLoc[0], aKalegSpawnLoc[1], aKalegSpawnLoc[2], aKalegSpawnLoc[3], TEMPSPAWN_CORPSE_DESPAWN, 0);
+                            m_uiKalecSummonTimer = 0;
+                        }
+                        else
+                            m_uiKalecSummonTimer -= uiDiff;
+                    }
+
+                    if (m_uiLegionLightingTimer < uiDiff)
+                    {
+                        if (Unit* pTarget = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, nullptr, SELECT_FLAG_PLAYER))
+                        {
+                            if (DoCastSpellIfCan(pTarget, SPELL_LEGION_LIGHTING) == CAST_OK)
+                                m_uiLegionLightingTimer = urand(10000, 15000);
+                        }
+                    }
+                    else
+                        m_uiLegionLightingTimer -= uiDiff;
+
+                    if (m_uiFireBloomTimer < uiDiff)
+                    {
+                        if (DoCastSpellIfCan(m_creature, SPELL_FIRE_BLOOM) == CAST_OK)
+                            m_uiFireBloomTimer = 20000;
+                    }
+                    else
+                        m_uiFireBloomTimer -= uiDiff;
+
+                    if (m_uiSoulFlyTimer < uiDiff)
+                    {
+                        if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_SOUL_FLY) == CAST_OK)
+                            m_uiSoulFlyTimer = urand(3000, 10000);
+                    }
+                    else
+                        m_uiSoulFlyTimer -= uiDiff;
+
+                    // Only spawn a Shadow orb when necessary
+                    if (m_uiShieldOrbCount < m_uiMaxShieldOrbs)
+                    {
+                        if (m_uiShieldOrbTimer < uiDiff)
+                        {
+                            // Get some random coords for the Orb
+                            float fX, fY;
+                            m_creature->GetNearPoint2d(fX, fY, 25.0f, frand(0, 2 * M_PI_F));
+                            float fZ = frand(35.0f, 45.0f);
+
+                            m_creature->SummonCreature(NPC_SHIELD_ORB, fX, fY, fZ, 0, TEMPSPAWN_CORPSE_DESPAWN, 0);
+                            ++m_uiShieldOrbCount;
+                            m_uiShieldOrbTimer = 30000;
+                        }
+                        else
+                            m_uiShieldOrbTimer -= uiDiff;
+                    }
+
+                    // Go to next phase and start transition dialogue
+                    if (m_uiPhase == PHASE_INFERNO && m_creature->GetHealthPercent() < 85.0f)
+                        StartNextDialogueText(PHASE_DARKNESS);
+
+                    DoMeleeAttackIfReady();
+
+                    break;
+            }
         }
-    }
+    };
+
+
+
 };
 
-bool EffectAuraDummy_spell_aura_dummy_darkness_of_souls(const Aura* pAura, bool bApply)
-{
-    // On Aura removal cast the explosion and yell
-    // This is a special case when the dummy effect should be triggered at the end of the channeling
-    if (pAura->GetId() == SPELL_DARKNESS_OF_SOULS && pAura->GetEffIndex() == EFFECT_INDEX_0 && !bApply)
-    {
-        if (Creature* pTarget = (Creature*)pAura->GetTarget())
-        {
-            pTarget->CastSpell(pTarget, pAura->GetSpellProto()->CalculateSimpleValue(EFFECT_INDEX_2), TRIGGERED_OLD_TRIGGERED);
-
-            switch (urand(0, 2))
-            {
-                case 0: DoScriptText(SAY_DARKNESS_1, pTarget); break;
-                case 1: DoScriptText(SAY_DARKNESS_2, pTarget); break;
-                case 2: DoScriptText(SAY_DARKNESS_3, pTarget); break;
-            }
-        }
-    }
-    return true;
-}
 
 /*######
 ## npc_shield_orb
 ######*/
-
-struct npc_shield_orbAI : public ScriptedAI
+class npc_shield_orb : public CreatureScript
 {
-    npc_shield_orbAI(Creature* pCreature) : ScriptedAI(pCreature)
+public:
+    npc_shield_orb() : CreatureScript("npc_shield_orb") { }
+
+    UnitAI* GetAI(Creature* pCreature)
     {
-        m_pInstance = ((instance_sunwell_plateau*)pCreature->GetInstanceData());
-        Reset();
+        return new npc_shield_orbAI(pCreature);
     }
 
-    instance_sunwell_plateau* m_pInstance;
 
-    void Reset() override { }
 
-    // Handle circel movement around the boss
-    void MovementInform(uint32 uiMoveType, uint32 uiPointId) override
+    struct npc_shield_orbAI : public ScriptedAI
     {
-        if (uiMoveType != POINT_MOTION_TYPE || !uiPointId || !m_pInstance)
-            return;
-
-        if (Creature* pSummoner = m_pInstance->GetSingleCreatureFromStorage(NPC_KILJAEDEN))
+        npc_shield_orbAI(Creature* pCreature) : ScriptedAI(pCreature)
         {
-            // Calculate new position based on the angle between the boss and self
-            float fX, fY;
-            float fAng = pSummoner->GetAngle(m_creature) + M_PI_F / 8;
-            // Normalize angle
-            if (fAng > 2 * M_PI_F)
-                fAng = fAng - 2 * M_PI_F;
-
-            pSummoner->GetNearPoint2d(fX, fY, 25.0f, fAng);
-
-            // Move to new position
-            m_creature->GetMotionMaster()->Clear();
-            m_creature->GetMotionMaster()->MovePoint(1, fX, fY, m_creature->GetPositionZ());
+            m_pInstance = ((instance_sunwell_plateau*)pCreature->GetInstanceData());
+            Reset();
         }
-    }
 
-    void AttackStart(Unit* /*pWho*/) override {}
-    void MoveInLineOfSight(Unit* /*pWho*/) override {}
-    void UpdateAI(const uint32 /*uiDiff*/) override { }
+        instance_sunwell_plateau* m_pInstance;
+
+        void Reset() override { }
+
+        // Handle circel movement around the boss
+        void MovementInform(uint32 uiMoveType, uint32 uiPointId) override
+        {
+            if (uiMoveType != POINT_MOTION_TYPE || !uiPointId || !m_pInstance)
+                return;
+
+            if (Creature* pSummoner = m_pInstance->GetSingleCreatureFromStorage(NPC_KILJAEDEN))
+            {
+                // Calculate new position based on the angle between the boss and self
+                float fX, fY;
+                float fAng = pSummoner->GetAngle(m_creature) + M_PI_F / 8;
+                // Normalize angle
+                if (fAng > 2 * M_PI_F)
+                    fAng = fAng - 2 * M_PI_F;
+
+                pSummoner->GetNearPoint2d(fX, fY, 25.0f, fAng);
+
+                // Move to new position
+                m_creature->GetMotionMaster()->Clear();
+                m_creature->GetMotionMaster()->MovePoint(1, fX, fY, m_creature->GetPositionZ());
+            }
+        }
+
+        void AttackStart(Unit* /*pWho*/) override {}
+        void MoveInLineOfSight(Unit* /*pWho*/) override {}
+        void UpdateAI(const uint32 /*uiDiff*/) override { }
+    };
+
+
+
 };
 
 /*######
 ## npc_power_blue_flight
 ######*/
-
-struct npc_power_blue_flightAI : public ScriptedAI
+class npc_power_blue_flight : public CreatureScript
 {
-    npc_power_blue_flightAI(Creature* pCreature) : ScriptedAI(pCreature)
+public:
+    npc_power_blue_flight() : CreatureScript("npc_power_blue_flight") { }
+
+    UnitAI* GetAI(Creature* pCreature)
     {
-        SetCombatMovement(false);
-        m_bHasPossessed = false;
-        Reset();
+        return new npc_power_blue_flightAI(pCreature);
     }
 
-    bool m_bHasPossessed;
 
-    void Reset() override { }
 
-    void JustDied(Unit* /*pKiller*/) override
+    struct npc_power_blue_flightAI : public ScriptedAI
     {
-        if (m_creature->IsTemporarySummon())
+        npc_power_blue_flightAI(Creature* pCreature) : ScriptedAI(pCreature)
         {
-            if (Player* pPlayer = m_creature->GetMap()->GetPlayer(m_creature->GetSpawnerGuid()))
-                pPlayer->RemoveAurasDueToSpell(SPELL_POSSESS_DRAKE_IMMUNE);
+            SetCombatMovement(false);
+            m_bHasPossessed = false;
+            Reset();
         }
-    }
 
-    void UpdateAI(const uint32 /*uiDiff*/) override
-    {
-        if (!m_bHasPossessed)
+        bool m_bHasPossessed;
+
+        void Reset() override { }
+
+        void JustDied(Unit* /*pKiller*/) override
         {
             if (m_creature->IsTemporarySummon())
             {
                 if (Player* pPlayer = m_creature->GetMap()->GetPlayer(m_creature->GetSpawnerGuid()))
-                {
-                    pPlayer->CastSpell(m_creature, SPELL_VENGEANCE_BLUE_FLIGHT, TRIGGERED_OLD_TRIGGERED);
-                    pPlayer->CastSpell(pPlayer, SPELL_POSSESS_DRAKE_IMMUNE, TRIGGERED_OLD_TRIGGERED);
-                }
+                    pPlayer->RemoveAurasDueToSpell(SPELL_POSSESS_DRAKE_IMMUNE);
             }
-
-            // Reset the No Interact flag of the closest orb
-            GameObject* pOrb = GetClosestGameObjectWithEntry(m_creature, GO_ORB_BLUE_FLIGHT_1, 10.0f);
-            if (!pOrb)
-                pOrb = GetClosestGameObjectWithEntry(m_creature, GO_ORB_BLUE_FLIGHT_2, 10.0f);
-            if (!pOrb)
-                pOrb = GetClosestGameObjectWithEntry(m_creature, GO_ORB_BLUE_FLIGHT_3, 10.0f);
-            if (!pOrb)
-                pOrb = GetClosestGameObjectWithEntry(m_creature, GO_ORB_BLUE_FLIGHT_4, 10.0f);
-
-            if (pOrb)
-                pOrb->SetFlag(GAMEOBJECT_FLAGS, GO_FLAG_NO_INTERACT);
-
-            m_bHasPossessed = true;
         }
-    }
+
+        void UpdateAI(const uint32 /*uiDiff*/) override
+        {
+            if (!m_bHasPossessed)
+            {
+                if (m_creature->IsTemporarySummon())
+                {
+                    if (Player* pPlayer = m_creature->GetMap()->GetPlayer(m_creature->GetSpawnerGuid()))
+                    {
+                        pPlayer->CastSpell(m_creature, SPELL_VENGEANCE_BLUE_FLIGHT, TRIGGERED_OLD_TRIGGERED);
+                        pPlayer->CastSpell(pPlayer, SPELL_POSSESS_DRAKE_IMMUNE, TRIGGERED_OLD_TRIGGERED);
+                    }
+                }
+
+                // Reset the No Interact flag of the closest orb
+                GameObject* pOrb = GetClosestGameObjectWithEntry(m_creature, GO_ORB_BLUE_FLIGHT_1, 10.0f);
+                if (!pOrb)
+                    pOrb = GetClosestGameObjectWithEntry(m_creature, GO_ORB_BLUE_FLIGHT_2, 10.0f);
+                if (!pOrb)
+                    pOrb = GetClosestGameObjectWithEntry(m_creature, GO_ORB_BLUE_FLIGHT_3, 10.0f);
+                if (!pOrb)
+                    pOrb = GetClosestGameObjectWithEntry(m_creature, GO_ORB_BLUE_FLIGHT_4, 10.0f);
+
+                if (pOrb)
+                    pOrb->SetFlag(GAMEOBJECT_FLAGS, GO_FLAG_NO_INTERACT);
+
+                m_bHasPossessed = true;
+            }
+        }
+    };
+
+
+
 };
 
-UnitAI* GetAI_boss_kiljaeden(Creature* pCreature)
-{
-    return new boss_kiljaedenAI(pCreature);
-}
 
-UnitAI* GetAI_npc_kiljaeden_controller(Creature* pCreature)
-{
-    return new npc_kiljaeden_controllerAI(pCreature);
-}
 
-UnitAI* GetAI_npc_shield_orb(Creature* pCreature)
-{
-    return new npc_shield_orbAI(pCreature);
-}
 
-UnitAI* GetAI_npc_power_blue_flight(Creature* pCreature)
-{
-    return new npc_power_blue_flightAI(pCreature);
-}
 
 void AddSC_boss_kiljaeden()
 {
-    Script* pNewScript = new Script;
-    pNewScript->Name = "boss_kiljaeden";
-    pNewScript->GetAI = &GetAI_boss_kiljaeden;
-    pNewScript->pEffectAuraDummy = &EffectAuraDummy_spell_aura_dummy_darkness_of_souls;
-    pNewScript->RegisterSelf();
+    new boss_kiljaeden();
+    new npc_kiljaeden_controller();
+    new npc_shield_orb();
+    new npc_power_blue_flight();
 
-    pNewScript = new Script;
-    pNewScript->Name = "npc_kiljaeden_controller";
-    pNewScript->GetAI = &GetAI_npc_kiljaeden_controller;
-    pNewScript->RegisterSelf();
-
-    pNewScript = new Script;
-    pNewScript->Name = "npc_shield_orb";
-    pNewScript->GetAI = &GetAI_npc_shield_orb;
-    pNewScript->RegisterSelf();
-
-    pNewScript = new Script;
-    pNewScript->Name = "npc_power_blue_flight";
-    pNewScript->GetAI = &GetAI_npc_power_blue_flight;
-    pNewScript->RegisterSelf();
 }

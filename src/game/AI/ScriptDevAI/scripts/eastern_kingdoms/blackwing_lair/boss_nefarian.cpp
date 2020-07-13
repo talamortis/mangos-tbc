@@ -85,221 +85,228 @@ enum NefarianActions
     NEFARIAN_INITIAL_YELL,
     NEFARIAN_ATTACK_START,
 };
-
-struct boss_nefarianAI : public CombatAI
+class boss_nefarian : public CreatureScript
 {
-    boss_nefarianAI(Creature* creature) : CombatAI(creature, NEFARIAN_ACTION_MAX), m_instance(static_cast<ScriptedInstance*>(creature->GetInstanceData()))
+public:
+    boss_nefarian() : CreatureScript("boss_nefarian") { }
+
+
+    struct boss_nefarianAI : public CombatAI
     {
-        AddTimerlessCombatAction(NEFARIAN_PHASE_3, true);
-        AddTimerlessCombatAction(NEFARIAN_LOW_HP_YELL, true);
-        AddCombatAction(NEFARIAN_SHADOW_FLAME, true);
-        AddCombatAction(NEFARIAN_BELLOWING_ROAR, true);
-        AddCombatAction(NEFARIAN_VEIL_OF_SHADOW, true);
-        AddCombatAction(NEFARIAN_CLEAVE, true);
-        AddCombatAction(NEFARIAN_TAIL_LASH, true);
-        AddCombatAction(NEFARIAN_CLASS_CALL, true);
-        AddCustomAction(NEFARIAN_INITIAL_YELL, true, [&]() { HandleInitialYell(); });
-        AddCustomAction(NEFARIAN_ATTACK_START, true, [&]() { HandleAttackStart(); });
-        SetReactState(REACT_PASSIVE);
-        //m_creature->SetLevitate(true);
-        m_creature->SetHover(true);
-        SetMeleeEnabled(false);
-        SetCombatMovement(false);
-        // m_creature->SetByteValue(UNIT_FIELD_BYTES_1, 3, UNIT_BYTE1_FLAG_ALWAYS_STAND);
-    }
-
-    ScriptedInstance* m_instance;
-
-    void JustRespawned() override
-    {
-        CombatAI::JustRespawned();
-        DoCastSpellIfCan(nullptr, SPELL_SPEED_BURST, CAST_TRIGGERED | CAST_AURA_NOT_PRESENT);
-        DoCastSpellIfCan(nullptr, SPELL_DOUBLE_ATTACK, CAST_TRIGGERED | CAST_AURA_NOT_PRESENT);
-        DoCastSpellIfCan(nullptr, SPELL_SHADOW_FLAME_PASSIVE, CAST_TRIGGERED | CAST_AURA_NOT_PRESENT);
-        ResetTimer(NEFARIAN_INITIAL_YELL, 10 * IN_MILLISECONDS);
-        m_creature->SetWalk(false);
-        StartLanding();
-    }
-
-    void KilledUnit(Unit* victim) override
-    {
-        if (urand(0, 4))
-            return;
-
-        DoScriptText(SAY_SLAY, m_creature, victim);
-    }
-
-    void JustDied(Unit* /*killer*/) override
-    {
-        DoScriptText(SAY_DEATH, m_creature);
-
-        if (m_instance)
-            m_instance->SetData(TYPE_NEFARIAN, DONE);
-    }
-
-    void EnterEvadeMode() override
-    {
-        CombatAI::EnterEvadeMode();
-        if (m_instance)
+        boss_nefarianAI(Creature* creature) : CombatAI(creature, NEFARIAN_ACTION_MAX), m_instance(static_cast<ScriptedInstance*>(creature->GetInstanceData()))
         {
-            m_instance->SetData(TYPE_NEFARIAN, FAIL);
-            m_creature->ForcedDespawn();
+            AddTimerlessCombatAction(NEFARIAN_PHASE_3, true);
+            AddTimerlessCombatAction(NEFARIAN_LOW_HP_YELL, true);
+            AddCombatAction(NEFARIAN_SHADOW_FLAME, true);
+            AddCombatAction(NEFARIAN_BELLOWING_ROAR, true);
+            AddCombatAction(NEFARIAN_VEIL_OF_SHADOW, true);
+            AddCombatAction(NEFARIAN_CLEAVE, true);
+            AddCombatAction(NEFARIAN_TAIL_LASH, true);
+            AddCombatAction(NEFARIAN_CLASS_CALL, true);
+            AddCustomAction(NEFARIAN_INITIAL_YELL, true, [&]() { HandleInitialYell(); });
+            AddCustomAction(NEFARIAN_ATTACK_START, true, [&]() { HandleAttackStart(); });
+            SetReactState(REACT_PASSIVE);
+            //m_creature->SetLevitate(true);
+            m_creature->SetHover(true);
+            SetMeleeEnabled(false);
+            SetCombatMovement(false);
+            // m_creature->SetByteValue(UNIT_FIELD_BYTES_1, 3, UNIT_BYTE1_FLAG_ALWAYS_STAND);
         }
-    }
 
-    void JustSummoned(Creature* summoned) override
-    {
-        if (summoned->GetEntry() == NPC_BONE_CONSTRUCT)
-            summoned->SetCorpseDelay(5);
-    }
+        ScriptedInstance* m_instance;
 
-    void StartLanding()
-    {
-        m_creature->SetWalk(false);
-        auto wpPath = sWaypointMgr.GetPathFromOrigin(m_creature->GetEntry(), m_creature->GetGUIDLow(), 0, PATH_FROM_ENTRY);
-        std::vector<G3D::Vector3> path;
-        for (auto& data : *wpPath)
+        void JustRespawned() override
         {
-            path.emplace_back(data.second.x, data.second.y, data.second.z);
+            CombatAI::JustRespawned();
+            DoCastSpellIfCan(nullptr, SPELL_SPEED_BURST, CAST_TRIGGERED | CAST_AURA_NOT_PRESENT);
+            DoCastSpellIfCan(nullptr, SPELL_DOUBLE_ATTACK, CAST_TRIGGERED | CAST_AURA_NOT_PRESENT);
+            DoCastSpellIfCan(nullptr, SPELL_SHADOW_FLAME_PASSIVE, CAST_TRIGGERED | CAST_AURA_NOT_PRESENT);
+            ResetTimer(NEFARIAN_INITIAL_YELL, 10 * IN_MILLISECONDS);
+            m_creature->SetWalk(false);
+            StartLanding();
         }
-        m_creature->GetMotionMaster()->MovePath(path, FORCED_MOVEMENT_NONE, true);
-    }
 
-    void MovementInform(uint32 type, uint32 pointId) override
-    {
-        if (type != PATH_MOTION_TYPE)
-            return;
-
-        switch (pointId)
+        void KilledUnit(Unit* victim) override
         {
-            case 1:
-                DoScriptText(SAY_AGGRO, m_creature);
-                break;
-            case 8:
-                // Stop flying and land
-                m_creature->HandleEmote(EMOTE_ONESHOT_LAND);
-                m_creature->SetLevitate(false);
-                m_creature->SetHover(false);
-                ResetTimer(NEFARIAN_ATTACK_START, 4000);
-                break;
+            if (urand(0, 4))
+                return;
+
+            DoScriptText(SAY_SLAY, m_creature, victim);
         }
-    }
 
-    void HandleInitialYell()
-    {
-        DoScriptText(SAY_SHADOW_FLAME, m_creature);
-    }
-
-    void HandleAttackStart()
-    {
-        SetMeleeEnabled(true);
-        SetReactState(REACT_AGGRESSIVE);
-        m_creature->RemoveAurasDueToSpell(SPELL_SPEED_BURST);
-        SetCombatMovement(true);
-        m_creature->SetInCombatWithZone();
-        // Make attackable and attack
-        m_creature->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE);
-        if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0))
-            m_creature->AI()->AttackStart(target);
-        ResetCombatAction(NEFARIAN_SHADOW_FLAME, 12000u);
-        ResetCombatAction(NEFARIAN_BELLOWING_ROAR, 30000u);
-        ResetCombatAction(NEFARIAN_VEIL_OF_SHADOW, 15000u);
-        ResetCombatAction(NEFARIAN_CLEAVE, 7000u);
-        ResetCombatAction(NEFARIAN_TAIL_LASH, 10000u);
-        ResetCombatAction(NEFARIAN_CLASS_CALL, 35000u);
-    }
-
-    void ExecuteAction(uint32 action) override
-    {
-        switch (action)
+        void JustDied(Unit* /*killer*/) override
         {
-            case NEFARIAN_PHASE_3:
+            DoScriptText(SAY_DEATH, m_creature);
+
+            if (m_instance)
+                m_instance->SetData(TYPE_NEFARIAN, DONE);
+        }
+
+        void EnterEvadeMode() override
+        {
+            CombatAI::EnterEvadeMode();
+            if (m_instance)
             {
-                // Phase3 begins when we are below 20% health
-                if (m_creature->GetHealthPercent() < 20.0f)
+                m_instance->SetData(TYPE_NEFARIAN, FAIL);
+                m_creature->ForcedDespawn();
+            }
+        }
+
+        void JustSummoned(Creature* summoned) override
+        {
+            if (summoned->GetEntry() == NPC_BONE_CONSTRUCT)
+                summoned->SetCorpseDelay(5);
+        }
+
+        void StartLanding()
+        {
+            m_creature->SetWalk(false);
+            auto wpPath = sWaypointMgr.GetPathFromOrigin(m_creature->GetEntry(), m_creature->GetGUIDLow(), 0, PATH_FROM_ENTRY);
+            std::vector<G3D::Vector3> path;
+            for (auto& data : *wpPath)
+            {
+                path.emplace_back(data.second.x, data.second.y, data.second.z);
+            }
+            m_creature->GetMotionMaster()->MovePath(path, FORCED_MOVEMENT_NONE, true);
+        }
+
+        void MovementInform(uint32 type, uint32 pointId) override
+        {
+            if (type != PATH_MOTION_TYPE)
+                return;
+
+            switch (pointId)
+            {
+                case 1:
+                    DoScriptText(SAY_AGGRO, m_creature);
+                    break;
+                case 8:
+                    // Stop flying and land
+                    m_creature->HandleEmote(EMOTE_ONESHOT_LAND);
+                    m_creature->SetLevitate(false);
+                    m_creature->SetHover(false);
+                    ResetTimer(NEFARIAN_ATTACK_START, 4000);
+                    break;
+            }
+        }
+
+        void HandleInitialYell()
+        {
+            DoScriptText(SAY_SHADOW_FLAME, m_creature);
+        }
+
+        void HandleAttackStart()
+        {
+            SetMeleeEnabled(true);
+            SetReactState(REACT_AGGRESSIVE);
+            m_creature->RemoveAurasDueToSpell(SPELL_SPEED_BURST);
+            SetCombatMovement(true);
+            m_creature->SetInCombatWithZone();
+            // Make attackable and attack
+            m_creature->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE);
+            if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0))
+                m_creature->AI()->AttackStart(target);
+            ResetCombatAction(NEFARIAN_SHADOW_FLAME, 12000u);
+            ResetCombatAction(NEFARIAN_BELLOWING_ROAR, 30000u);
+            ResetCombatAction(NEFARIAN_VEIL_OF_SHADOW, 15000u);
+            ResetCombatAction(NEFARIAN_CLEAVE, 7000u);
+            ResetCombatAction(NEFARIAN_TAIL_LASH, 10000u);
+            ResetCombatAction(NEFARIAN_CLASS_CALL, 35000u);
+        }
+
+        void ExecuteAction(uint32 action) override
+        {
+            switch (action)
+            {
+                case NEFARIAN_PHASE_3:
                 {
-                    if (DoCastSpellIfCan(nullptr, SPELL_RAISE_DRAKONID) == CAST_OK)
+                    // Phase3 begins when we are below 20% health
+                    if (m_creature->GetHealthPercent() < 20.0f)
+                    {
+                        if (DoCastSpellIfCan(nullptr, SPELL_RAISE_DRAKONID) == CAST_OK)
+                        {
+                            SetActionReadyStatus(action, false);
+                            DoScriptText(SAY_RAISE_SKELETONS, m_creature);
+                        }
+                    }
+                    break;
+                }
+                case NEFARIAN_LOW_HP_YELL:
+                {
+                    if (m_creature->GetHealthPercent() < 5.0f)
                     {
                         SetActionReadyStatus(action, false);
-                        DoScriptText(SAY_RAISE_SKELETONS, m_creature);
+                        DoScriptText(SAY_XHEALTH, m_creature);
                     }
+                    break;
                 }
-                break;
-            }
-            case NEFARIAN_LOW_HP_YELL:
-            {
-                if (m_creature->GetHealthPercent() < 5.0f)
+                case NEFARIAN_SHADOW_FLAME:
                 {
-                    SetActionReadyStatus(action, false);
-                    DoScriptText(SAY_XHEALTH, m_creature);
+                    if (DoCastSpellIfCan(nullptr, SPELL_SHADOWFLAME) == CAST_OK)
+                        ResetCombatAction(action, 12000);
+                    break;
                 }
-                break;
-            }
-            case NEFARIAN_SHADOW_FLAME:
-            {
-                if (DoCastSpellIfCan(nullptr, SPELL_SHADOWFLAME) == CAST_OK)
-                    ResetCombatAction(action, 12000);
-                break;
-            }
-            case NEFARIAN_BELLOWING_ROAR:
-            {
-                if (DoCastSpellIfCan(nullptr, SPELL_BELLOWING_ROAR) == CAST_OK)
-                    ResetCombatAction(action, 30000);
-                break;
-            }
-            case NEFARIAN_VEIL_OF_SHADOW:
-            {
-                if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_VEIL_OF_SHADOW) == CAST_OK)
-                    ResetCombatAction(action, 15000);
-                break;
-            }
-            case NEFARIAN_CLEAVE:
-            {
-                if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_CLEAVE) == CAST_OK)
-                    ResetCombatAction(action, 7000);
-                break;
-            }
-            case NEFARIAN_TAIL_LASH:
-            {
-                if (DoCastSpellIfCan(nullptr, SPELL_TAIL_LASH) == CAST_OK)
-                    ResetCombatAction(action, 10000);
-                break;
-            }
-            case NEFARIAN_CLASS_CALL:
-            {
-                // Cast a random class call based on what classes are currently on the hostile list
-                if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, uint32(0), SELECT_FLAG_PLAYER))
+                case NEFARIAN_BELLOWING_ROAR:
                 {
-                    uint32 spellId = 0;
-                    int32 textId = -1;
-                    switch (target->getClass())
-                    {
-                        case CLASS_WARRIOR: spellId = SPELL_WARRIOR; textId = SAY_WARRIOR; break;
-                        case CLASS_PALADIN: spellId = SPELL_PALADIN; textId = SAY_PALADIN; break;
-                        case CLASS_HUNTER:  spellId = SPELL_HUNTER;  textId = SAY_HUNTER;  break;
-                        case CLASS_ROGUE:   spellId = SPELL_ROGUE;   textId = SAY_ROGUE;   break;
-                        case CLASS_PRIEST:  spellId = SPELL_PRIEST;  textId = SAY_PRIEST;  break;
-                        case CLASS_SHAMAN:  spellId = SPELL_SHAMAN;  textId = SAY_SHAMAN;  break;
-                        case CLASS_MAGE:    spellId = SPELL_MAGE;    textId = SAY_MAGE;    break;
-                        case CLASS_WARLOCK: spellId = SPELL_WARLOCK; textId = SAY_WARLOCK; break;
-                        case CLASS_DRUID:   spellId = SPELL_DRUID;   textId = SAY_DRUID;   break;
-                    }
-                    if (DoCastSpellIfCan(nullptr, spellId) == CAST_OK)
-                    {
-                        DoScriptText(textId, m_creature);
-                        ResetCombatAction(action, urand(35000, 40000));
-                    }
+                    if (DoCastSpellIfCan(nullptr, SPELL_BELLOWING_ROAR) == CAST_OK)
+                        ResetCombatAction(action, 30000);
+                    break;
                 }
-                break;
+                case NEFARIAN_VEIL_OF_SHADOW:
+                {
+                    if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_VEIL_OF_SHADOW) == CAST_OK)
+                        ResetCombatAction(action, 15000);
+                    break;
+                }
+                case NEFARIAN_CLEAVE:
+                {
+                    if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_CLEAVE) == CAST_OK)
+                        ResetCombatAction(action, 7000);
+                    break;
+                }
+                case NEFARIAN_TAIL_LASH:
+                {
+                    if (DoCastSpellIfCan(nullptr, SPELL_TAIL_LASH) == CAST_OK)
+                        ResetCombatAction(action, 10000);
+                    break;
+                }
+                case NEFARIAN_CLASS_CALL:
+                {
+                    // Cast a random class call based on what classes are currently on the hostile list
+                    if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, uint32(0), SELECT_FLAG_PLAYER))
+                    {
+                        uint32 spellId = 0;
+                        int32 textId = -1;
+                        switch (target->getClass())
+                        {
+                            case CLASS_WARRIOR: spellId = SPELL_WARRIOR; textId = SAY_WARRIOR; break;
+                            case CLASS_PALADIN: spellId = SPELL_PALADIN; textId = SAY_PALADIN; break;
+                            case CLASS_HUNTER:  spellId = SPELL_HUNTER;  textId = SAY_HUNTER;  break;
+                            case CLASS_ROGUE:   spellId = SPELL_ROGUE;   textId = SAY_ROGUE;   break;
+                            case CLASS_PRIEST:  spellId = SPELL_PRIEST;  textId = SAY_PRIEST;  break;
+                            case CLASS_SHAMAN:  spellId = SPELL_SHAMAN;  textId = SAY_SHAMAN;  break;
+                            case CLASS_MAGE:    spellId = SPELL_MAGE;    textId = SAY_MAGE;    break;
+                            case CLASS_WARLOCK: spellId = SPELL_WARLOCK; textId = SAY_WARLOCK; break;
+                            case CLASS_DRUID:   spellId = SPELL_DRUID;   textId = SAY_DRUID;   break;
+                        }
+                        if (DoCastSpellIfCan(nullptr, spellId) == CAST_OK)
+                        {
+                            DoScriptText(textId, m_creature);
+                            ResetCombatAction(action, urand(35000, 40000));
+                        }
+                    }
+                    break;
+                }
             }
         }
-    }
+    };
+
+
+
 };
 
 void AddSC_boss_nefarian()
 {
-    Script* pNewScript = new Script;
-    pNewScript->Name = "boss_nefarian";
-    pNewScript->GetAI = &GetNewAIInstance<boss_nefarianAI>;
-    pNewScript->RegisterSelf();
+    new boss_nefarian();
+
 }

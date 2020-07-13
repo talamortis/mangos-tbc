@@ -39,72 +39,81 @@ enum LucifronActions
     LUCIFRON_SHADOWSHOCK,
     LUCIFRON_ACTION_MAX,
 };
-
-struct boss_lucifronAI : public CombatAI
+class boss_lucifron : public CreatureScript
 {
-    boss_lucifronAI(Creature* creature) : CombatAI(creature, LUCIFRON_ACTION_MAX), m_instance(static_cast<ScriptedInstance*>(creature->GetInstanceData()))
+public:
+    boss_lucifron() : CreatureScript("boss_lucifron") { }
+
+    UnitAI* GetAI(Creature* creature)
     {
-        AddCombatAction(LUCIFRON_IMPENDING_DOOM, 5 * IN_MILLISECONDS, 10 * IN_MILLISECONDS);
-        AddCombatAction(LUCIFRON_LUCIFRONS_CURSE, 10 * IN_MILLISECONDS, 15 * IN_MILLISECONDS);
-        AddCombatAction(LUCIFRON_SHADOWSHOCK, 3 * IN_MILLISECONDS, 6 * IN_MILLISECONDS);
-        Reset();
+        return new boss_lucifronAI(creature);
     }
 
-    ScriptedInstance* m_instance;
 
-    void Aggro(Unit* /*who*/) override
-    {
-        if (m_instance)
-            m_instance->SetData(TYPE_LUCIFRON, IN_PROGRESS);
-    }
 
-    void JustDied(Unit* /*killer*/) override
+    struct boss_lucifronAI : public CombatAI
     {
-        if (m_instance)
-            m_instance->SetData(TYPE_LUCIFRON, DONE);
-    }
-
-    void JustReachedHome() override
-    {
-        if (m_instance)
-            m_instance->SetData(TYPE_LUCIFRON, FAIL);
-    }
-
-    void ExecuteAction(uint32 action) override
-    {
-        switch (action)
+        boss_lucifronAI(Creature* creature) : CombatAI(creature, LUCIFRON_ACTION_MAX), m_instance(static_cast<ScriptedInstance*>(creature->GetInstanceData()))
         {
-            case LUCIFRON_IMPENDING_DOOM:
+            AddCombatAction(LUCIFRON_IMPENDING_DOOM, 5 * IN_MILLISECONDS, 10 * IN_MILLISECONDS);
+            AddCombatAction(LUCIFRON_LUCIFRONS_CURSE, 10 * IN_MILLISECONDS, 15 * IN_MILLISECONDS);
+            AddCombatAction(LUCIFRON_SHADOWSHOCK, 3 * IN_MILLISECONDS, 6 * IN_MILLISECONDS);
+            Reset();
+        }
+
+        ScriptedInstance* m_instance;
+
+        void Aggro(Unit* /*who*/) override
+        {
+            if (m_instance)
+                m_instance->SetData(TYPE_LUCIFRON, IN_PROGRESS);
+        }
+
+        void JustDied(Unit* /*killer*/) override
+        {
+            if (m_instance)
+                m_instance->SetData(TYPE_LUCIFRON, DONE);
+        }
+
+        void JustReachedHome() override
+        {
+            if (m_instance)
+                m_instance->SetData(TYPE_LUCIFRON, FAIL);
+        }
+
+        void ExecuteAction(uint32 action) override
+        {
+            switch (action)
             {
-                if (DoCastSpellIfCan(nullptr, SPELL_IMPENDINGDOOM) == CAST_OK)
-                    ResetCombatAction(action, urand(20 * IN_MILLISECONDS, 25 * IN_MILLISECONDS));
-                break;
-            }
-            case LUCIFRON_LUCIFRONS_CURSE:
-            {
-                if (DoCastSpellIfCan(nullptr, SPELL_LUCIFRONCURSE) == CAST_OK)
-                    ResetCombatAction(action, urand(20 * IN_MILLISECONDS, 25 * IN_MILLISECONDS));
-                break;
-            }
-            case LUCIFRON_SHADOWSHOCK:
-            {
-                if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_SHADOWSHOCK) == CAST_OK)
-                    ResetCombatAction(action, urand(3 * IN_MILLISECONDS, 6 * IN_MILLISECONDS));
-                break;
+                case LUCIFRON_IMPENDING_DOOM:
+                {
+                    if (DoCastSpellIfCan(nullptr, SPELL_IMPENDINGDOOM) == CAST_OK)
+                        ResetCombatAction(action, urand(20 * IN_MILLISECONDS, 25 * IN_MILLISECONDS));
+                    break;
+                }
+                case LUCIFRON_LUCIFRONS_CURSE:
+                {
+                    if (DoCastSpellIfCan(nullptr, SPELL_LUCIFRONCURSE) == CAST_OK)
+                        ResetCombatAction(action, urand(20 * IN_MILLISECONDS, 25 * IN_MILLISECONDS));
+                    break;
+                }
+                case LUCIFRON_SHADOWSHOCK:
+                {
+                    if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_SHADOWSHOCK) == CAST_OK)
+                        ResetCombatAction(action, urand(3 * IN_MILLISECONDS, 6 * IN_MILLISECONDS));
+                    break;
+                }
             }
         }
-    }
+    };
+
+
+
 };
 
-UnitAI* GetAI_boss_lucifron(Creature* creature)
-{
-    return new boss_lucifronAI(creature);
-}
 
 void AddSC_boss_lucifron()
 {
-    Script* pNewScript = new Script;
-    pNewScript->Name = "boss_lucifron";
-    pNewScript->GetAI = &GetAI_boss_lucifron;
-    pNewScript->RegisterSelf();
+    new boss_lucifron();
+
 }

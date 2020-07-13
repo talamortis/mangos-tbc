@@ -784,16 +784,23 @@ void instance_zulaman::ExecuteChatCommand(ChatHandler* handler, char* args)
         SetData(TYPE_EVENT_RUN, SPECIAL);
     }
 }
-
-InstanceData* GetInstanceData_instance_zulaman(Map* map)
+class instance_zulaman : public InstanceMapScript
 {
-    return new instance_zulaman(map);
-}
+public:
+    instance_zulaman() : InstanceMapScript("instance_zulaman") { }
+
+    InstanceData* GetInstanceScript(Map* map) const override
+    {
+        return new instance_zulaman(map);
+    }
+
+
+
+
+};
 
 void AddSC_instance_zulaman()
 {
-    Script* pNewScript = new Script;
-    pNewScript->Name = "instance_zulaman";
-    pNewScript->GetInstanceData = &GetInstanceData_instance_zulaman;
-    pNewScript->RegisterSelf();
+    new instance_zulaman();
+
 }

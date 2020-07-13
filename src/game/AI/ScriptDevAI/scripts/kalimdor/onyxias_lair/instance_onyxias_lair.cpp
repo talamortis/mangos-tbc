@@ -112,16 +112,23 @@ void instance_onyxias_lair::SetData(uint32 uiType, uint32 uiData)
 
     // Currently no reason to save anything
 }
-
-InstanceData* GetInstanceData_instance_onyxias_lair(Map* pMap)
+class instance_onyxias_lair : public InstanceMapScript
 {
-    return new instance_onyxias_lair(pMap);
-}
+public:
+    instance_onyxias_lair() : InstanceMapScript("instance_onyxias_lair") { }
+
+    InstanceData* GetInstanceScript(Map* pMap) const override
+    {
+        return new instance_onyxias_lair(pMap);
+    }
+
+
+
+
+};
 
 void AddSC_instance_onyxias_lair()
 {
-    Script* pNewScript = new Script;
-    pNewScript->Name = "instance_onyxias_lair";
-    pNewScript->GetInstanceData = &GetInstanceData_instance_onyxias_lair;
-    pNewScript->RegisterSelf();
+    new instance_onyxias_lair();
+
 }

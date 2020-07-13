@@ -196,16 +196,23 @@ void instance_the_eye::OpenDoors()
     DoUseDoorOrButton(GO_ARCANE_DOOR_VERT_3);
     DoUseDoorOrButton(GO_ARCANE_DOOR_VERT_4);
 }
-
-InstanceData* GetInstanceData_instance_the_eye(Map* pMap)
+class instance_the_eye : public InstanceMapScript
 {
-    return new instance_the_eye(pMap);
-}
+public:
+    instance_the_eye() : InstanceMapScript("instance_the_eye") { }
+
+    InstanceData* GetInstanceScript(Map* pMap) const override
+    {
+        return new instance_the_eye(pMap);
+    }
+
+
+
+
+};
 
 void AddSC_instance_the_eye()
 {
-    Script* pNewScript = new Script;
-    pNewScript->Name = "instance_the_eye";
-    pNewScript->GetInstanceData = &GetInstanceData_instance_the_eye;
-    pNewScript->RegisterSelf();
+    new instance_the_eye();
+
 }

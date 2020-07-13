@@ -715,18 +715,9 @@ struct GuardianPeriodic : public AuraScript
 
 void AddSC_boss_kelthuzad()
 {
-    Script* newScript = new Script;
-    newScript->Name = "boss_kelthuzad";
-    newScript->GetAI = &GetAI_boss_kelthuzad;
-    newScript->RegisterSelf();
 
-    newScript = new Script;
-    newScript->Name = "npc_icecrown_guardian";
-    newScript->GetAI = &GetAI_npc_icecrown_guardian;
-    newScript->RegisterSelf();
-
-    RegisterSpellScript<TriggerKTAdd>("spell_trigger_KT_add");
-    RegisterSpellScript<ChainsKelThuzad>("spell_chains_kel_thuzad");
-    RegisterAuraScript<FrostBlast>("spell_kel_thuzad_frost_blast");
     RegisterAuraScript<GuardianPeriodic>("spell_icecrown_guardian_periodic");
+    RegisterAuraScript<FrostBlast>("spell_kel_thuzad_frost_blast");
+    RegisterSpellScript<ChainsKelThuzad>("spell_chains_kel_thuzad");
+    RegisterSpellScript<TriggerKTAdd>("spell_trigger_KT_add");
 }

@@ -45,120 +45,129 @@ enum
     SPELL_ENVELOPING_WINDS      = 31718,
     SPELL_SUMMON_ELEMENTALS     = 31476,            // not sure where to use this
 };
-
-struct boss_thespiaAI : public ScriptedAI
+class boss_hydromancer_thespia : public CreatureScript
 {
-    boss_thespiaAI(Creature* pCreature) : ScriptedAI(pCreature)
+public:
+    boss_hydromancer_thespia() : CreatureScript("boss_hydromancer_thespia") { }
+
+    UnitAI* GetAI_boss_thespiaAI(Creature* pCreature)
     {
-        m_pInstance = (ScriptedInstance*)pCreature->GetInstanceData();
-        m_bIsRegularMode = pCreature->GetMap()->IsRegularDifficulty();
-        Reset();
+        return new boss_thespiaAI(pCreature);
     }
 
-    ScriptedInstance* m_pInstance;
-    bool m_bIsRegularMode;
 
-    uint32 m_uiLightningCloudTimer;
-    uint32 m_uiLungBurstTimer;
-    uint32 m_uiEnvelopingWindsTimer;
 
-    void Reset() override
+    struct boss_thespiaAI : public ScriptedAI
     {
-        m_uiLightningCloudTimer  = 15000;
-        m_uiLungBurstTimer       = urand(15000, 18000);
-        m_uiEnvelopingWindsTimer = urand(20000, 25000);
-    }
-
-    void JustReachedHome() override
-    {
-        if (m_pInstance)
-            m_pInstance->SetData(TYPE_HYDROMANCER_THESPIA, FAIL);
-    }
-
-    void JustDied(Unit* /*pKiller*/) override
-    {
-        DoScriptText(SAY_DEAD, m_creature);
-
-        if (m_pInstance)
-            m_pInstance->SetData(TYPE_HYDROMANCER_THESPIA, DONE);
-    }
-
-    void KilledUnit(Unit* /*pVictim*/) override
-    {
-        DoScriptText(urand(0, 1) ? SAY_SLAY_1 : SAY_SLAY_2, m_creature);
-    }
-
-    void Aggro(Unit* /*pWho*/) override
-    {
-        switch (urand(0, 2))
+        boss_thespiaAI(Creature* pCreature) : ScriptedAI(pCreature)
         {
-            case 0: DoScriptText(SAY_AGGRO_1, m_creature); break;
-            case 1: DoScriptText(SAY_AGGRO_2, m_creature); break;
-            case 2: DoScriptText(SAY_AGGRO_3, m_creature); break;
+            m_pInstance = (ScriptedInstance*)pCreature->GetInstanceData();
+            m_bIsRegularMode = pCreature->GetMap()->IsRegularDifficulty();
+            Reset();
         }
 
-        if (m_pInstance)
-            m_pInstance->SetData(TYPE_HYDROMANCER_THESPIA, IN_PROGRESS);
-    }
+        ScriptedInstance* m_pInstance;
+        bool m_bIsRegularMode;
 
-    void UpdateAI(const uint32 uiDiff) override
-    {
-        if (!m_creature->SelectHostileTarget() || !m_creature->GetVictim())
-            return;
+        uint32 m_uiLightningCloudTimer;
+        uint32 m_uiLungBurstTimer;
+        uint32 m_uiEnvelopingWindsTimer;
 
-        // LightningCloud_Timer
-        if (m_uiLightningCloudTimer < uiDiff)
+        void Reset() override
         {
-            if (Unit* pTarget = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, nullptr, SELECT_FLAG_PLAYER))
+            m_uiLightningCloudTimer  = 15000;
+            m_uiLungBurstTimer       = urand(15000, 18000);
+            m_uiEnvelopingWindsTimer = urand(20000, 25000);
+        }
+
+        void JustReachedHome() override
+        {
+            if (m_pInstance)
+                m_pInstance->SetData(TYPE_HYDROMANCER_THESPIA, FAIL);
+        }
+
+        void JustDied(Unit* /*pKiller*/) override
+        {
+            DoScriptText(SAY_DEAD, m_creature);
+
+            if (m_pInstance)
+                m_pInstance->SetData(TYPE_HYDROMANCER_THESPIA, DONE);
+        }
+
+        void KilledUnit(Unit* /*pVictim*/) override
+        {
+            DoScriptText(urand(0, 1) ? SAY_SLAY_1 : SAY_SLAY_2, m_creature);
+        }
+
+        void Aggro(Unit* /*pWho*/) override
+        {
+            switch (urand(0, 2))
             {
-                if (DoCastSpellIfCan(pTarget, SPELL_LIGHTNING_CLOUD) == CAST_OK)
+                case 0: DoScriptText(SAY_AGGRO_1, m_creature); break;
+                case 1: DoScriptText(SAY_AGGRO_2, m_creature); break;
+                case 2: DoScriptText(SAY_AGGRO_3, m_creature); break;
+            }
+
+            if (m_pInstance)
+                m_pInstance->SetData(TYPE_HYDROMANCER_THESPIA, IN_PROGRESS);
+        }
+
+        void UpdateAI(const uint32 uiDiff) override
+        {
+            if (!m_creature->SelectHostileTarget() || !m_creature->GetVictim())
+                return;
+
+            // LightningCloud_Timer
+            if (m_uiLightningCloudTimer < uiDiff)
+            {
+                if (Unit* pTarget = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, nullptr, SELECT_FLAG_PLAYER))
                 {
-                    if (urand(0, 1))
-                        DoScriptText(SAY_CLOUD, m_creature);
-                    m_uiLightningCloudTimer = m_bIsRegularMode ? 30000 : 10000;
+                    if (DoCastSpellIfCan(pTarget, SPELL_LIGHTNING_CLOUD) == CAST_OK)
+                    {
+                        if (urand(0, 1))
+                            DoScriptText(SAY_CLOUD, m_creature);
+                        m_uiLightningCloudTimer = m_bIsRegularMode ? 30000 : 10000;
+                    }
                 }
             }
-        }
-        else
-            m_uiLightningCloudTimer -= uiDiff;
+            else
+                m_uiLightningCloudTimer -= uiDiff;
 
-        // LungBurst_Timer
-        if (m_uiLungBurstTimer < uiDiff)
-        {
-            if (Unit* pTarget = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, nullptr, SELECT_FLAG_PLAYER))
+            // LungBurst_Timer
+            if (m_uiLungBurstTimer < uiDiff)
             {
-                if (DoCastSpellIfCan(pTarget, SPELL_LUNG_BURST) == CAST_OK)
-                    m_uiLungBurstTimer = urand(7000, 12000);
+                if (Unit* pTarget = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, nullptr, SELECT_FLAG_PLAYER))
+                {
+                    if (DoCastSpellIfCan(pTarget, SPELL_LUNG_BURST) == CAST_OK)
+                        m_uiLungBurstTimer = urand(7000, 12000);
+                }
             }
-        }
-        else
-            m_uiLungBurstTimer -= uiDiff;
+            else
+                m_uiLungBurstTimer -= uiDiff;
 
-        // EnvelopingWinds_Timer
-        if (m_uiEnvelopingWindsTimer < uiDiff)
-        {
-            if (Unit* pTarget = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, nullptr, SELECT_FLAG_PLAYER))
+            // EnvelopingWinds_Timer
+            if (m_uiEnvelopingWindsTimer < uiDiff)
             {
-                if (DoCastSpellIfCan(pTarget, SPELL_ENVELOPING_WINDS) == CAST_OK)
-                    m_uiEnvelopingWindsTimer = m_bIsRegularMode ? 10000 : 15000;
+                if (Unit* pTarget = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, nullptr, SELECT_FLAG_PLAYER))
+                {
+                    if (DoCastSpellIfCan(pTarget, SPELL_ENVELOPING_WINDS) == CAST_OK)
+                        m_uiEnvelopingWindsTimer = m_bIsRegularMode ? 10000 : 15000;
+                }
             }
-        }
-        else
-            m_uiEnvelopingWindsTimer -= uiDiff;
+            else
+                m_uiEnvelopingWindsTimer -= uiDiff;
 
-        DoMeleeAttackIfReady();
-    }
+            DoMeleeAttackIfReady();
+        }
+    };
+
+
+
 };
 
-UnitAI* GetAI_boss_thespiaAI(Creature* pCreature)
-{
-    return new boss_thespiaAI(pCreature);
-}
 
 void AddSC_boss_hydromancer_thespia()
 {
-    Script* pNewScript = new Script;
-    pNewScript->Name = "boss_hydromancer_thespia";
-    pNewScript->GetAI = &GetAI_boss_thespiaAI;
-    pNewScript->RegisterSelf();
+    new boss_hydromancer_thespia();
+
 }

@@ -278,75 +278,95 @@ struct boss_terestianAI : public ScriptedAI, public CombatActions
         DoMeleeAttackIfReady();
     }
 };
-
-struct npc_fiendish_portalAI : public ScriptedAI
+class npc_fiendish_portal : public CreatureScript
 {
-    npc_fiendish_portalAI(Creature* pCreature) : ScriptedAI(pCreature) { Reset(); }
+public:
+    npc_fiendish_portal() : CreatureScript("npc_fiendish_portal") { }
 
-    uint32 m_uiSummonTimer;
-
-    void Reset() override
+    UnitAI* GetAI(Creature* pCreature)
     {
-        m_uiSummonTimer = 5000;
+        return new npc_fiendish_portalAI(pCreature);
     }
 
-    void JustSummoned(Creature* pSummoned) override
-    {
-        pSummoned->SetInCombatWithZone();
-    }
 
-    void UpdateAI(const uint32 uiDiff) override
+
+    struct npc_fiendish_portalAI : public ScriptedAI
     {
-        if (m_uiSummonTimer <= uiDiff)
+        npc_fiendish_portalAI(Creature* pCreature) : ScriptedAI(pCreature) { Reset(); }
+
+        uint32 m_uiSummonTimer;
+
+        void Reset() override
         {
-            if (DoCastSpellIfCan(m_creature, SPELL_SUMMON_FIENDISH_IMP) == CAST_OK)
-                m_uiSummonTimer = 5000;
+            m_uiSummonTimer = 5000;
         }
-        else
-            m_uiSummonTimer -= uiDiff;
+
+        void JustSummoned(Creature* pSummoned) override
+        {
+            pSummoned->SetInCombatWithZone();
+        }
+
+        void UpdateAI(const uint32 uiDiff) override
+        {
+            if (m_uiSummonTimer <= uiDiff)
+            {
+                if (DoCastSpellIfCan(m_creature, SPELL_SUMMON_FIENDISH_IMP) == CAST_OK)
+                    m_uiSummonTimer = 5000;
+            }
+            else
+                m_uiSummonTimer -= uiDiff;
+        }
+    };
+
+
+
+};
+
+// TODO Remove this 'script' when combat can be proper prevented from core-sideclass mob_demon_chain : public CreatureScript
+{
+public:
+    mob_demon_chain() : CreatureScript("mob_demon_chain") { }
+
+    UnitAI* GetAI(Creature* pCreature)
+    {
+        return new mob_demon_chainAI(pCreature);
     }
+
+
+
+    struct mob_demon_chainAI : public Scripted_NoMovementAI
+    {
+        mob_demon_chainAI(Creature* pCreature) : Scripted_NoMovementAI(pCreature) { Reset(); }
+
+        void Reset() override { }
+        void MoveInLineOfSight(Unit* /*pWho*/) override { }
+        void AttackStart(Unit* /*pWho*/) override { }
+        void UpdateAI(const uint32 /*uiDiff*/) override { }
+    };
+
+
+
+};
+class boss_terestian_illhoof : public CreatureScript
+{
+public:
+    boss_terestian_illhoof() : CreatureScript("boss_terestian_illhoof") { }
+
+    UnitAI* GetAI(Creature* pCreature)
+    {
+        return new boss_terestianAI(pCreature);
+    }
+
+
+
 };
 
-// TODO Remove this 'script' when combat can be proper prevented from core-side
-struct mob_demon_chainAI : public Scripted_NoMovementAI
-{
-    mob_demon_chainAI(Creature* pCreature) : Scripted_NoMovementAI(pCreature) { Reset(); }
 
-    void Reset() override { }
-    void MoveInLineOfSight(Unit* /*pWho*/) override { }
-    void AttackStart(Unit* /*pWho*/) override { }
-    void UpdateAI(const uint32 /*uiDiff*/) override { }
-};
-
-UnitAI* GetAI_boss_terestian_illhoof(Creature* pCreature)
-{
-    return new boss_terestianAI(pCreature);
-}
-
-UnitAI* GetAI_npc_fiendish_portal(Creature* pCreature)
-{
-    return new npc_fiendish_portalAI(pCreature);
-}
-
-UnitAI* GetAI_mob_demon_chain(Creature* pCreature)
-{
-    return new mob_demon_chainAI(pCreature);
-}
 
 void AddSC_boss_terestian_illhoof()
 {
-    Script* pNewScript = new Script;
-    pNewScript->Name = "boss_terestian_illhoof";
-    pNewScript->GetAI = &GetAI_boss_terestian_illhoof;
-    pNewScript->RegisterSelf();
+    new boss_terestian_illhoof();
+    new npc_fiendish_portal();
+    new mob_demon_chain();
 
-    pNewScript = new Script;
-    pNewScript->Name = "npc_fiendish_portal";
-    pNewScript->GetAI = &GetAI_npc_fiendish_portal;
-    pNewScript->RegisterSelf();
-
-    pNewScript = new Script;
-    pNewScript->Name = "mob_demon_chain";
-    pNewScript->GetAI = &GetAI_mob_demon_chain;
-    pNewScript->RegisterSelf();
 }

@@ -500,16 +500,23 @@ void instance_arcatraz::Update(uint32 uiDiff)
             m_uiEntranceEventTimer -= uiDiff;
     }
 }
-
-InstanceData* GetInstanceData_instance_arcatraz(Map* pMap)
+class instance_arcatraz : public InstanceMapScript
 {
-    return new instance_arcatraz(pMap);
-}
+public:
+    instance_arcatraz() : InstanceMapScript("instance_arcatraz") { }
+
+    InstanceData* GetInstanceScript(Map* pMap) const override
+    {
+        return new instance_arcatraz(pMap);
+    }
+
+
+
+
+};
 
 void AddSC_instance_arcatraz()
 {
-    Script* pNewScript = new Script;
-    pNewScript->Name = "instance_arcatraz";
-    pNewScript->GetInstanceData = &GetInstanceData_instance_arcatraz;
-    pNewScript->RegisterSelf();
+    new instance_arcatraz();
+
 }

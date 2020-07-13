@@ -43,101 +43,112 @@ enum
 
     NPC_RAGING_FLAMES               = 20481,
 };
-
-struct boss_nethermancer_sepethreaAI : public ScriptedAI
+class boss_nethermancer_sepethrea : public CreatureScript
 {
-    boss_nethermancer_sepethreaAI(Creature* pCreature) : ScriptedAI(pCreature)
+public:
+    boss_nethermancer_sepethrea() : CreatureScript("boss_nethermancer_sepethrea") { }
+
+    UnitAI* GetAI(Creature* pCreature)
     {
-        m_pInstance = (ScriptedInstance*)pCreature->GetInstanceData();
-        m_bIsRegularMode = pCreature->GetMap()->IsRegularDifficulty();
-        m_creature->GetCombatManager().SetLeashingCheck([&](Unit* /*unit*/, float x, float /*y*/, float /*z*/)->bool
+        return new boss_nethermancer_sepethreaAI(pCreature);
+    }
+
+
+
+    struct boss_nethermancer_sepethreaAI : public ScriptedAI
+    {
+        boss_nethermancer_sepethreaAI(Creature* pCreature) : ScriptedAI(pCreature)
         {
-            return x < 266.0f;
-        });
-        Reset();
-    }
-
-    ScriptedInstance* m_pInstance;
-    bool m_bIsRegularMode;
-
-    uint32 m_uiArcaneBlastTimer;
-    uint32 m_uiDragonsBreathTimer;
-
-    void Reset() override
-    {
-        m_uiArcaneBlastTimer    = urand(14000, 25000);
-        m_uiDragonsBreathTimer  = urand(20000, 26000);
-    }
-
-    void Aggro(Unit* /*pWho*/) override
-    {
-        DoScriptText(SAY_AGGRO, m_creature);
-        DoCastSpellIfCan(nullptr, SPELL_FROST_ATTACK, CAST_TRIGGERED | CAST_AURA_NOT_PRESENT);
-        DoCastSpellIfCan(m_creature, m_bIsRegularMode ? SPELL_SUMMON_RAGING_FLAMES : SPELL_SUMMON_RAGING_FLAMES_H);
-
-        if (m_pInstance)
-            m_pInstance->SetData(TYPE_SEPETHREA, IN_PROGRESS);
-    }
-
-    void KilledUnit(Unit* /*pVictim*/) override
-    {
-        DoScriptText(urand(0, 1) ? SAY_SLAY1 : SAY_SLAY2, m_creature);
-    }
-
-    void JustDied(Unit* /*pKiller*/) override
-    {
-        DoScriptText(SAY_DEATH, m_creature);
-
-        if (m_pInstance)
-            m_pInstance->SetData(TYPE_SEPETHREA, DONE);
-    }
-
-    void JustReachedHome() override
-    {
-        if (m_pInstance)
-            m_pInstance->SetData(TYPE_SEPETHREA, FAIL);
-    }
-
-    void UpdateAI(const uint32 uiDiff) override
-    {
-        // Return since we have no target
-        if (!m_creature->SelectHostileTarget() || !m_creature->GetVictim())
-            return;
-
-        // Arcane Blast
-        if (m_uiArcaneBlastTimer < uiDiff)
-        {
-            if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_ARCANE_BLAST) == CAST_OK)
+            m_pInstance = (ScriptedInstance*)pCreature->GetInstanceData();
+            m_bIsRegularMode = pCreature->GetMap()->IsRegularDifficulty();
+            m_creature->GetCombatManager().SetLeashingCheck([&](Unit* /*unit*/, float x, float /*y*/, float /*z*/)->bool
             {
-                m_uiArcaneBlastTimer = urand(15000, 30000);
-                m_creature->getThreatManager().modifyThreatPercent(m_creature->GetVictim(), -50.0f);
-            }
+                return x < 266.0f;
+            });
+            Reset();
         }
-        else
-            m_uiArcaneBlastTimer -= uiDiff;
 
-        // Dragons Breath
-        if (m_uiDragonsBreathTimer < uiDiff)
+        ScriptedInstance* m_pInstance;
+        bool m_bIsRegularMode;
+
+        uint32 m_uiArcaneBlastTimer;
+        uint32 m_uiDragonsBreathTimer;
+
+        void Reset() override
         {
-            if (DoCastSpellIfCan(m_creature, SPELL_DRAGONS_BREATH) == CAST_OK)
-            {
-                if (urand(0, 1))
-                    DoScriptText(urand(0, 1) ? SAY_DRAGONS_BREATH_1 : SAY_DRAGONS_BREATH_2, m_creature);
-
-                m_uiDragonsBreathTimer = urand(20000, 35000);
-            }
+            m_uiArcaneBlastTimer    = urand(14000, 25000);
+            m_uiDragonsBreathTimer  = urand(20000, 26000);
         }
-        else
-            m_uiDragonsBreathTimer -= uiDiff;
 
-        DoMeleeAttackIfReady();
-    }
+        void Aggro(Unit* /*pWho*/) override
+        {
+            DoScriptText(SAY_AGGRO, m_creature);
+            DoCastSpellIfCan(nullptr, SPELL_FROST_ATTACK, CAST_TRIGGERED | CAST_AURA_NOT_PRESENT);
+            DoCastSpellIfCan(m_creature, m_bIsRegularMode ? SPELL_SUMMON_RAGING_FLAMES : SPELL_SUMMON_RAGING_FLAMES_H);
+
+            if (m_pInstance)
+                m_pInstance->SetData(TYPE_SEPETHREA, IN_PROGRESS);
+        }
+
+        void KilledUnit(Unit* /*pVictim*/) override
+        {
+            DoScriptText(urand(0, 1) ? SAY_SLAY1 : SAY_SLAY2, m_creature);
+        }
+
+        void JustDied(Unit* /*pKiller*/) override
+        {
+            DoScriptText(SAY_DEATH, m_creature);
+
+            if (m_pInstance)
+                m_pInstance->SetData(TYPE_SEPETHREA, DONE);
+        }
+
+        void JustReachedHome() override
+        {
+            if (m_pInstance)
+                m_pInstance->SetData(TYPE_SEPETHREA, FAIL);
+        }
+
+        void UpdateAI(const uint32 uiDiff) override
+        {
+            // Return since we have no target
+            if (!m_creature->SelectHostileTarget() || !m_creature->GetVictim())
+                return;
+
+            // Arcane Blast
+            if (m_uiArcaneBlastTimer < uiDiff)
+            {
+                if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_ARCANE_BLAST) == CAST_OK)
+                {
+                    m_uiArcaneBlastTimer = urand(15000, 30000);
+                    m_creature->getThreatManager().modifyThreatPercent(m_creature->GetVictim(), -50.0f);
+                }
+            }
+            else
+                m_uiArcaneBlastTimer -= uiDiff;
+
+            // Dragons Breath
+            if (m_uiDragonsBreathTimer < uiDiff)
+            {
+                if (DoCastSpellIfCan(m_creature, SPELL_DRAGONS_BREATH) == CAST_OK)
+                {
+                    if (urand(0, 1))
+                        DoScriptText(urand(0, 1) ? SAY_DRAGONS_BREATH_1 : SAY_DRAGONS_BREATH_2, m_creature);
+
+                    m_uiDragonsBreathTimer = urand(20000, 35000);
+                }
+            }
+            else
+                m_uiDragonsBreathTimer -= uiDiff;
+
+            DoMeleeAttackIfReady();
+        }
+    };
+
+
+
 };
 
-UnitAI* GetAI_boss_nethermancer_sepethrea(Creature* pCreature)
-{
-    return new boss_nethermancer_sepethreaAI(pCreature);
-}
 
 enum
 {
@@ -145,92 +156,97 @@ enum
     SPELL_INFERNO = 35268,
     SPELL_INFERNO_H = 39346,
 };
-
-struct npc_raging_flamesAI : public ScriptedAI
+class npc_raging_flames : public CreatureScript
 {
-    npc_raging_flamesAI(Creature* pCreature) : ScriptedAI(pCreature)
-    {
-        m_pInstance = (ScriptedInstance*)pCreature->GetInstanceData();
-        m_bIsRegularMode = pCreature->GetMap()->IsRegularDifficulty();
-        if (m_creature->IsTemporarySummon())
-            m_summonerGuid = m_creature->GetSpawnerGuid();
+public:
+    npc_raging_flames() : CreatureScript("npc_raging_flames") { }
 
-        Reset();
+    UnitAI* GetAI(Creature* pCreature)
+    {
+        return new npc_raging_flamesAI(pCreature);
     }
 
-    ScriptedInstance* m_pInstance;
-    bool m_bIsRegularMode;
 
-    uint32 m_uiRagingFlamesTimer;
-    uint32 m_uiInfernoTimer;
 
-    ObjectGuid m_summonerGuid;
-
-    void Reset() override
+    struct npc_raging_flamesAI : public ScriptedAI
     {
-        m_uiRagingFlamesTimer = m_bIsRegularMode ? 1200 : 700;
-        m_uiInfernoTimer = urand(15700, 30000);
-    }
-
-    void Aggro(Unit* /*pWho*/) override
-    {
-        FixateRandomTarget();
-    }
-
-    void FixateRandomTarget()
-    {
-        DoResetThreat();
-
-        if (Creature* pSummoner = m_creature->GetMap()->GetCreature(m_summonerGuid))
-            if (Unit* pNewTarget = pSummoner->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 1, nullptr, SELECT_FLAG_PLAYER))
-                m_creature->AddThreat(pNewTarget, 10000000.0f);
-    }
-
-    void UpdateAI(const uint32 uiDiff) override
-    {
-        // Return since we have no target
-        if (!m_creature->SelectHostileTarget() || !m_creature->GetVictim())
-            return;
-
-        // Raging Flames
-        if (m_uiRagingFlamesTimer < uiDiff)
+        npc_raging_flamesAI(Creature* pCreature) : ScriptedAI(pCreature)
         {
-            if (DoCastSpellIfCan(m_creature, SPELL_RAGING_FLAMES) == CAST_OK)
-                m_uiRagingFlamesTimer = 1000;
+            m_pInstance = (ScriptedInstance*)pCreature->GetInstanceData();
+            m_bIsRegularMode = pCreature->GetMap()->IsRegularDifficulty();
+            if (m_creature->IsTemporarySummon())
+                m_summonerGuid = m_creature->GetSpawnerGuid();
+
+            Reset();
         }
-        else
-            m_uiRagingFlamesTimer -= uiDiff;
 
-        // Inferno
-        if (m_uiInfernoTimer < uiDiff)
+        ScriptedInstance* m_pInstance;
+        bool m_bIsRegularMode;
+
+        uint32 m_uiRagingFlamesTimer;
+        uint32 m_uiInfernoTimer;
+
+        ObjectGuid m_summonerGuid;
+
+        void Reset() override
         {
-            if (DoCastSpellIfCan(m_creature, m_bIsRegularMode ? SPELL_INFERNO : SPELL_INFERNO_H) == CAST_OK)
+            m_uiRagingFlamesTimer = m_bIsRegularMode ? 1200 : 700;
+            m_uiInfernoTimer = urand(15700, 30000);
+        }
+
+        void Aggro(Unit* /*pWho*/) override
+        {
+            FixateRandomTarget();
+        }
+
+        void FixateRandomTarget()
+        {
+            DoResetThreat();
+
+            if (Creature* pSummoner = m_creature->GetMap()->GetCreature(m_summonerGuid))
+                if (Unit* pNewTarget = pSummoner->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 1, nullptr, SELECT_FLAG_PLAYER))
+                    m_creature->AddThreat(pNewTarget, 10000000.0f);
+        }
+
+        void UpdateAI(const uint32 uiDiff) override
+        {
+            // Return since we have no target
+            if (!m_creature->SelectHostileTarget() || !m_creature->GetVictim())
+                return;
+
+            // Raging Flames
+            if (m_uiRagingFlamesTimer < uiDiff)
             {
-                m_uiInfernoTimer = urand(15700, 28900);
-                FixateRandomTarget();
+                if (DoCastSpellIfCan(m_creature, SPELL_RAGING_FLAMES) == CAST_OK)
+                    m_uiRagingFlamesTimer = 1000;
             }
-        }
-        else
-            m_uiInfernoTimer -= uiDiff;
+            else
+                m_uiRagingFlamesTimer -= uiDiff;
 
-        DoMeleeAttackIfReady();
-    }
+            // Inferno
+            if (m_uiInfernoTimer < uiDiff)
+            {
+                if (DoCastSpellIfCan(m_creature, m_bIsRegularMode ? SPELL_INFERNO : SPELL_INFERNO_H) == CAST_OK)
+                {
+                    m_uiInfernoTimer = urand(15700, 28900);
+                    FixateRandomTarget();
+                }
+            }
+            else
+                m_uiInfernoTimer -= uiDiff;
+
+            DoMeleeAttackIfReady();
+        }
+    };
+
+
+
 };
 
-UnitAI* GetAI_npc_raging_flames(Creature* pCreature)
-{
-    return new npc_raging_flamesAI(pCreature);
-}
 
 void AddSC_boss_nethermancer_sepethrea()
 {
-    Script* pNewScript = new Script;
-    pNewScript->Name = "boss_nethermancer_sepethrea";
-    pNewScript->GetAI = &GetAI_boss_nethermancer_sepethrea;
-    pNewScript->RegisterSelf();
+    new boss_nethermancer_sepethrea();
+    new npc_raging_flames();
 
-    pNewScript = new Script;
-    pNewScript->Name = "npc_raging_flames";
-    pNewScript->GetAI = &GetAI_npc_raging_flames;
-    pNewScript->RegisterSelf();
 }

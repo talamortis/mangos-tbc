@@ -48,207 +48,214 @@ enum AzgalorActions
 
 static const float SPELL_RAIN_OF_FIRE_MINRANGE = 0;             // 0 yards from boss
 static const float SPELL_RAIN_OF_FIRE_MAXRANGE = 34;            // 34 yards from boss
-
-struct boss_azgalorAI : public ScriptedAI
+class boss_azgalor : public CreatureScript
 {
-    boss_azgalorAI(Creature* creature) : ScriptedAI(creature)
+public:
+    boss_azgalor() : CreatureScript("boss_azgalor") { }
+
+    UnitAI* GetAI(Creature* pCreature)
     {
-        m_instance = static_cast<ScriptedInstance*>(creature->GetInstanceData());
-        m_actionTimers.insert({ AZGALOR_ACTION_CLEAVE , 0 });
-        m_actionTimers.insert({ AZGALOR_RAIN_OF_FIRE , 0 });
-        m_actionTimers.insert({ AZGALOR_HOWL_OF_AZGALOR , 0 });
-        m_actionTimers.insert({ AZGALOR_DOOM , 0 });
-        m_actionTimers.insert({ AZGALOR_ENRAGE , 0 });
-        m_rainOfFireParams.range.minRange = SPELL_RAIN_OF_FIRE_MINRANGE;
-        m_rainOfFireParams.range.maxRange = SPELL_RAIN_OF_FIRE_MAXRANGE;
-        Reset();
+        return new boss_azgalorAI(pCreature);
     }
 
-    ScriptedInstance* m_instance;
-    bool m_actionReadyStatus[AZGALOR_ACTION_MAX];
-    std::map<uint32, uint32> m_actionTimers;
 
-    SelectAttackingTargetParams m_rainOfFireParams;
 
-    void Reset() override
+    struct boss_azgalorAI : public ScriptedAI
     {
-        for (auto& data : m_actionTimers)
-            data.second = GetInitialActionTimer(data.first);
-
-        for (uint32 i = 0; i < AZGALOR_ACTION_MAX; ++i)
-            m_actionReadyStatus[i] = false;
-    }
-
-    uint32 GetInitialActionTimer(const uint32 action) const
-    {
-        switch (action)
+        boss_azgalorAI(Creature* creature) : ScriptedAI(creature)
         {
-            case AZGALOR_ACTION_CLEAVE: return urand(10000, 16000);
-            case AZGALOR_RAIN_OF_FIRE: return 25000;
-            case AZGALOR_HOWL_OF_AZGALOR: return 30000;
-            case AZGALOR_DOOM: return urand(45000, 55000);
-            case AZGALOR_ENRAGE: return 600000;
-            default: return 0; // never occurs but for compiler
+            m_instance = static_cast<ScriptedInstance*>(creature->GetInstanceData());
+            m_actionTimers.insert({ AZGALOR_ACTION_CLEAVE , 0 });
+            m_actionTimers.insert({ AZGALOR_RAIN_OF_FIRE , 0 });
+            m_actionTimers.insert({ AZGALOR_HOWL_OF_AZGALOR , 0 });
+            m_actionTimers.insert({ AZGALOR_DOOM , 0 });
+            m_actionTimers.insert({ AZGALOR_ENRAGE , 0 });
+            m_rainOfFireParams.range.minRange = SPELL_RAIN_OF_FIRE_MINRANGE;
+            m_rainOfFireParams.range.maxRange = SPELL_RAIN_OF_FIRE_MAXRANGE;
+            Reset();
         }
-    }
 
-    uint32 GetSubsequentActionTimer(const uint32 action) const
-    {
-        switch (action)
+        ScriptedInstance* m_instance;
+        bool m_actionReadyStatus[AZGALOR_ACTION_MAX];
+        std::map<uint32, uint32> m_actionTimers;
+
+        SelectAttackingTargetParams m_rainOfFireParams;
+
+        void Reset() override
         {
-            case AZGALOR_ACTION_CLEAVE: return urand(8000, 16000);
-            case AZGALOR_RAIN_OF_FIRE: return 15000;
-            case AZGALOR_HOWL_OF_AZGALOR: return urand(18000, 20000);
-            case AZGALOR_DOOM: return urand(45000, 55000);
-            case AZGALOR_ENRAGE: return 300000;
-            default: return 0; // never occurs but for compiler
+            for (auto& data : m_actionTimers)
+                data.second = GetInitialActionTimer(data.first);
+
+            for (uint32 i = 0; i < AZGALOR_ACTION_MAX; ++i)
+                m_actionReadyStatus[i] = false;
         }
-    }
 
-    void JustRespawned() override
-    {
-        ScriptedAI::JustRespawned();
-        DoScriptText(SAY_ENTER, m_creature);
-    }
-
-    void JustDied(Unit* /*killer*/) override
-    {
-        DoScriptText(SAY_DEATH, m_creature);
-        if (m_instance)
-            m_instance->SetData(TYPE_AZGALOR, DONE);
-    }
-
-    void KilledUnit(Unit* victim) override
-    {
-        if (victim->GetTypeId() != TYPEID_PLAYER)
-            return;
-
-        uint32 textId;
-        switch (urand(0, 2))
+        uint32 GetInitialActionTimer(const uint32 action) const
         {
-            case 0: textId = SAY_KILL1; break;
-            case 1: textId = SAY_KILL2; break;
-            case 2: textId = SAY_KILL3; break;
-        }
-        DoScriptText(textId, m_creature);
-    }
-
-    void OnSpellCooldownAdded(SpellEntry const* spellInfo) override
-    {
-        if (spellInfo->Id == SPELL_DOOM)
-            DoScriptText(urand(0, 1) ? SAY_DOOM1 : SAY_DOOM2, m_creature);
-    }
-
-    void UpdateTimers(const uint32 diff)
-    {
-        for (auto& data : m_actionTimers)
-        {
-            uint32 index = data.first;
-            if (!m_actionReadyStatus[index])
+            switch (action)
             {
-                if (data.second <= diff)
-                {
-                    data.second = 0;
-                    m_actionReadyStatus[index] = true;
-                }
-                else
-                    data.second -= diff;
+                case AZGALOR_ACTION_CLEAVE: return urand(10000, 16000);
+                case AZGALOR_RAIN_OF_FIRE: return 25000;
+                case AZGALOR_HOWL_OF_AZGALOR: return 30000;
+                case AZGALOR_DOOM: return urand(45000, 55000);
+                case AZGALOR_ENRAGE: return 600000;
+                default: return 0; // never occurs but for compiler
             }
         }
-    }
 
-    void ExecuteActions()
-    {
-        if (!CanExecuteCombatAction())
-            return;
-
-        for (uint32 i = 0; i < AZGALOR_ACTION_MAX; ++i)
+        uint32 GetSubsequentActionTimer(const uint32 action) const
         {
-            if (m_actionReadyStatus[i])
+            switch (action)
             {
-                switch (i)
+                case AZGALOR_ACTION_CLEAVE: return urand(8000, 16000);
+                case AZGALOR_RAIN_OF_FIRE: return 15000;
+                case AZGALOR_HOWL_OF_AZGALOR: return urand(18000, 20000);
+                case AZGALOR_DOOM: return urand(45000, 55000);
+                case AZGALOR_ENRAGE: return 300000;
+                default: return 0; // never occurs but for compiler
+            }
+        }
+
+        void JustRespawned() override
+        {
+            ScriptedAI::JustRespawned();
+            DoScriptText(SAY_ENTER, m_creature);
+        }
+
+        void JustDied(Unit* /*killer*/) override
+        {
+            DoScriptText(SAY_DEATH, m_creature);
+            if (m_instance)
+                m_instance->SetData(TYPE_AZGALOR, DONE);
+        }
+
+        void KilledUnit(Unit* victim) override
+        {
+            if (victim->GetTypeId() != TYPEID_PLAYER)
+                return;
+
+            uint32 textId;
+            switch (urand(0, 2))
+            {
+                case 0: textId = SAY_KILL1; break;
+                case 1: textId = SAY_KILL2; break;
+                case 2: textId = SAY_KILL3; break;
+            }
+            DoScriptText(textId, m_creature);
+        }
+
+        void OnSpellCooldownAdded(SpellEntry const* spellInfo) override
+        {
+            if (spellInfo->Id == SPELL_DOOM)
+                DoScriptText(urand(0, 1) ? SAY_DOOM1 : SAY_DOOM2, m_creature);
+        }
+
+        void UpdateTimers(const uint32 diff)
+        {
+            for (auto& data : m_actionTimers)
+            {
+                uint32 index = data.first;
+                if (!m_actionReadyStatus[index])
                 {
-                    case AZGALOR_ACTION_CLEAVE:
+                    if (data.second <= diff)
                     {
-                        if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_CLEAVE) == CAST_OK)
-                        {
-                            m_actionTimers[i] = GetSubsequentActionTimer(i);
-                            m_actionReadyStatus[i] = false;
-                            return;
-                        }
-                        break;
+                        data.second = 0;
+                        m_actionReadyStatus[index] = true;
                     }
-                    case AZGALOR_RAIN_OF_FIRE:
+                    else
+                        data.second -= diff;
+                }
+            }
+        }
+
+        void ExecuteActions()
+        {
+            if (!CanExecuteCombatAction())
+                return;
+
+            for (uint32 i = 0; i < AZGALOR_ACTION_MAX; ++i)
+            {
+                if (m_actionReadyStatus[i])
+                {
+                    switch (i)
                     {
-                        if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, SPELL_RAIN_OF_FIRE, SELECT_FLAG_PLAYER | SELECT_FLAG_RANGE_AOE_RANGE, m_rainOfFireParams))
+                        case AZGALOR_ACTION_CLEAVE:
                         {
-                            if (DoCastSpellIfCan(target, SPELL_RAIN_OF_FIRE) == CAST_OK)
+                            if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_CLEAVE) == CAST_OK)
                             {
                                 m_actionTimers[i] = GetSubsequentActionTimer(i);
                                 m_actionReadyStatus[i] = false;
                                 return;
                             }
+                            break;
                         }
-                        break;
-                    }
-                    case AZGALOR_HOWL_OF_AZGALOR:
-                    {
-                        if (DoCastSpellIfCan(nullptr, SPELL_HOWL_OF_AZGALOR) == CAST_OK)
+                        case AZGALOR_RAIN_OF_FIRE:
                         {
-                            m_actionTimers[i] = GetSubsequentActionTimer(i);
-                            m_actionReadyStatus[i] = false;
-                            return;
+                            if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, SPELL_RAIN_OF_FIRE, SELECT_FLAG_PLAYER | SELECT_FLAG_RANGE_AOE_RANGE, m_rainOfFireParams))
+                            {
+                                if (DoCastSpellIfCan(target, SPELL_RAIN_OF_FIRE) == CAST_OK)
+                                {
+                                    m_actionTimers[i] = GetSubsequentActionTimer(i);
+                                    m_actionReadyStatus[i] = false;
+                                    return;
+                                }
+                            }
+                            break;
                         }
-                        break;
-                    }
-                    case AZGALOR_DOOM:
-                    {
-                        if (DoCastSpellIfCan(nullptr, SPELL_DOOM) == CAST_OK)
+                        case AZGALOR_HOWL_OF_AZGALOR:
                         {
-                            m_actionTimers[i] = GetSubsequentActionTimer(i);
-                            m_actionReadyStatus[i] = false;
-                            return;
+                            if (DoCastSpellIfCan(nullptr, SPELL_HOWL_OF_AZGALOR) == CAST_OK)
+                            {
+                                m_actionTimers[i] = GetSubsequentActionTimer(i);
+                                m_actionReadyStatus[i] = false;
+                                return;
+                            }
+                            break;
                         }
-                        break;
-                    }
-                    case AZGALOR_ENRAGE:
-                    {
-                        if (DoCastSpellIfCan(nullptr, SPELL_ENRAGE) == CAST_OK)
+                        case AZGALOR_DOOM:
                         {
-                            m_actionTimers[i] = GetSubsequentActionTimer(i);
-                            m_actionReadyStatus[i] = false;
-                            return;
+                            if (DoCastSpellIfCan(nullptr, SPELL_DOOM) == CAST_OK)
+                            {
+                                m_actionTimers[i] = GetSubsequentActionTimer(i);
+                                m_actionReadyStatus[i] = false;
+                                return;
+                            }
+                            break;
                         }
-                        break;
+                        case AZGALOR_ENRAGE:
+                        {
+                            if (DoCastSpellIfCan(nullptr, SPELL_ENRAGE) == CAST_OK)
+                            {
+                                m_actionTimers[i] = GetSubsequentActionTimer(i);
+                                m_actionReadyStatus[i] = false;
+                                return;
+                            }
+                            break;
+                        }
                     }
                 }
             }
         }
-    }
 
-    void UpdateAI(const uint32 diff)
-    {
-        if (!m_creature->SelectHostileTarget() || !m_creature->GetVictim())
-            return;
+        void UpdateAI(const uint32 diff)
+        {
+            if (!m_creature->SelectHostileTarget() || !m_creature->GetVictim())
+                return;
 
-        UpdateTimers(diff);
-        ExecuteActions();
+            UpdateTimers(diff);
+            ExecuteActions();
 
-        DoMeleeAttackIfReady();
-    }
+            DoMeleeAttackIfReady();
+        }
+    };
+
+
+
 };
 
-UnitAI* GetAI_boss_azgalor(Creature* pCreature)
-{
-    return new boss_azgalorAI(pCreature);
-}
 
 void AddSC_boss_azgalor()
 {
-    Script* pNewScript;
+    new boss_azgalor();
 
-    pNewScript = new Script;
-    pNewScript->Name = "boss_azgalor";
-    pNewScript->GetAI = &GetAI_boss_azgalor;
-    pNewScript->RegisterSelf();
 }

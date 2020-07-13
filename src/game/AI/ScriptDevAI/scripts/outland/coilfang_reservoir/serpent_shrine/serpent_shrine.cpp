@@ -369,71 +369,89 @@ void instance_serpentshrine_cavern::EngageBossConsole(uint32 uiType, GameObject*
     else if(m_auiEncounter[uiType] == SPECIAL)
         console->SetGoState(GO_STATE_ACTIVE);
 }
-
-bool GOUse_go_ssc_boss_consoles(Player* /*pPlayer*/, GameObject* pGo)
+class go_ssc_boss_consoles : public GameObjectScript
 {
-    ScriptedInstance* pInstance = (ScriptedInstance*)pGo->GetInstanceData();
+public:
+    go_ssc_boss_consoles() : GameObjectScript("go_ssc_boss_consoles") { }
 
-    if (!pInstance)
-        return true;
-
-    if (pGo->GetEntry() == GO_CONSOLE_HYDROSS)
-        pInstance->SetData(TYPE_HYDROSS_EVENT, SPECIAL);
-    else if (pGo->GetEntry() == GO_CONSOLE_LURKER)
-        pInstance->SetData(TYPE_THELURKER_EVENT, SPECIAL);
-    else if (pGo->GetEntry() == GO_CONSOLE_LEOTHERAS)
-        pInstance->SetData(TYPE_LEOTHERAS_EVENT, SPECIAL);
-    else if (pGo->GetEntry() == GO_CONSOLE_KARATHRESS)
-        pInstance->SetData(TYPE_KARATHRESS_EVENT, SPECIAL);
-    else if (pGo->GetEntry() == GO_CONSOLE_MOROGRIM)
-        pInstance->SetData(TYPE_MOROGRIM_EVENT, SPECIAL);
-
-    return false;
-}
-
-InstanceData* GetInstanceData_instance_serpentshrine_cavern(Map* pMap)
-{
-    return new instance_serpentshrine_cavern(pMap);
-}
-
-struct npc_serpentshrine_parasiteAI : public ScriptedAI
-{
-    npc_serpentshrine_parasiteAI(Creature* pCreature) : ScriptedAI(pCreature) { Reset(); }
-
-    void Reset() override {}
-
-    void DamageDeal(Unit* /*pDoneTo*/, uint32& /*damage*/, DamageEffectType /*damagetype*/, SpellEntry const* /*spellInfo*/) override
+    bool OnGameObjectUse(Player* /*pPlayer*/, GameObject* pGo) override
     {
-        m_creature->ForcedDespawn(1000);
+        ScriptedInstance* pInstance = (ScriptedInstance*)pGo->GetInstanceData();
+
+        if (!pInstance)
+            return true;
+
+        if (pGo->GetEntry() == GO_CONSOLE_HYDROSS)
+            pInstance->SetData(TYPE_HYDROSS_EVENT, SPECIAL);
+        else if (pGo->GetEntry() == GO_CONSOLE_LURKER)
+            pInstance->SetData(TYPE_THELURKER_EVENT, SPECIAL);
+        else if (pGo->GetEntry() == GO_CONSOLE_LEOTHERAS)
+            pInstance->SetData(TYPE_LEOTHERAS_EVENT, SPECIAL);
+        else if (pGo->GetEntry() == GO_CONSOLE_KARATHRESS)
+            pInstance->SetData(TYPE_KARATHRESS_EVENT, SPECIAL);
+        else if (pGo->GetEntry() == GO_CONSOLE_MOROGRIM)
+            pInstance->SetData(TYPE_MOROGRIM_EVENT, SPECIAL);
+
+        return false;
     }
 
-    void JustRespawned() override
+
+
+};
+class instance_serpent_shrine : public InstanceMapScript
+{
+public:
+    instance_serpent_shrine() : InstanceMapScript("instance_serpent_shrine") { }
+
+    InstanceData* GetInstanceScript(Map* pMap) const override
     {
-        m_creature->SetInCombatWithZone();
-        if (Unit* pTarget = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, uint32(0), SELECT_FLAG_PLAYER))
-            m_creature->FixateTarget(pTarget);
+        return new instance_serpentshrine_cavern(pMap);
     }
+
+
+
+
+};
+class npc_serpentshrine_parasite : public CreatureScript
+{
+public:
+    npc_serpentshrine_parasite() : CreatureScript("npc_serpentshrine_parasite") { }
+
+    UnitAI* GetAI(Creature* pCreature)
+    {
+        return new npc_serpentshrine_parasiteAI(pCreature);
+    }
+
+
+
+    struct npc_serpentshrine_parasiteAI : public ScriptedAI
+    {
+        npc_serpentshrine_parasiteAI(Creature* pCreature) : ScriptedAI(pCreature) { Reset(); }
+
+        void Reset() override {}
+
+        void DamageDeal(Unit* /*pDoneTo*/, uint32& /*damage*/, DamageEffectType /*damagetype*/, SpellEntry const* /*spellInfo*/) override
+        {
+            m_creature->ForcedDespawn(1000);
+        }
+
+        void JustRespawned() override
+        {
+            m_creature->SetInCombatWithZone();
+            if (Unit* pTarget = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, uint32(0), SELECT_FLAG_PLAYER))
+                m_creature->FixateTarget(pTarget);
+        }
+    };
+
+
+
 };
 
-UnitAI* GetAI_npc_serpentshrine_parasite(Creature* pCreature)
-{
-    return new npc_serpentshrine_parasiteAI(pCreature);
-}
 
 void AddSC_instance_serpentshrine_cavern()
 {
-    Script* pNewScript = new Script;
-    pNewScript->Name = "npc_serpentshrine_parasite";
-    pNewScript->GetAI = &GetAI_npc_serpentshrine_parasite;
-    pNewScript->RegisterSelf();
+    new npc_serpentshrine_parasite();
+    new go_ssc_boss_consoles();
+    new instance_serpent_shrine();
 
-    pNewScript = new Script;
-    pNewScript->Name = "go_ssc_boss_consoles";
-    pNewScript->pGOUse = &GOUse_go_ssc_boss_consoles;
-    pNewScript->RegisterSelf();
-
-    pNewScript = new Script;
-    pNewScript->Name = "instance_serpent_shrine";
-    pNewScript->GetInstanceData = &GetInstanceData_instance_serpentshrine_cavern;
-    pNewScript->RegisterSelf();
 }

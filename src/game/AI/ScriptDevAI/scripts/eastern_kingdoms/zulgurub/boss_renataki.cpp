@@ -30,101 +30,110 @@ enum
     SPELL_GOUGE             = 24698,
     SPELL_TRASH             = 3391
 };
-
-struct boss_renatakiAI : public ScriptedAI
+class boss_renataki : public CreatureScript
 {
-    boss_renatakiAI(Creature* pCreature) : ScriptedAI(pCreature) { Reset(); }
+public:
+    boss_renataki() : CreatureScript("boss_renataki") { }
 
-    uint32 m_uiVanishTimer;
-    uint32 m_uiAmbushTimer;
-    uint32 m_uiGougeTimer;
-    uint32 m_uiThousandBladesTimer;
-
-    void Reset() override
+    UnitAI* GetAI(Creature* pCreature)
     {
-        m_uiVanishTimer         = urand(25000, 30000);
-        m_uiAmbushTimer         = 0;
-        m_uiGougeTimer          = urand(15000, 25000);
-        m_uiThousandBladesTimer = urand(4000, 8000);
+        return new boss_renatakiAI(pCreature);
     }
 
-    void EnterEvadeMode() override
+
+
+    struct boss_renatakiAI : public ScriptedAI
     {
-        // If is vanished, don't evade
-        if (m_uiAmbushTimer)
-            return;
+        boss_renatakiAI(Creature* pCreature) : ScriptedAI(pCreature) { Reset(); }
 
-        ScriptedAI::EnterEvadeMode();
-    }
+        uint32 m_uiVanishTimer;
+        uint32 m_uiAmbushTimer;
+        uint32 m_uiGougeTimer;
+        uint32 m_uiThousandBladesTimer;
 
-    void UpdateAI(const uint32 uiDiff) override
-    {
-        if (!m_creature->SelectHostileTarget() || !m_creature->GetVictim())
-            return;
-
-        // Note: because the Vanish spell adds invisibility effect on the target, the timers won't be decreased during the vanish phase
-        if (m_uiAmbushTimer)
+        void Reset() override
         {
-            if (m_uiAmbushTimer <= uiDiff)
+            m_uiVanishTimer         = urand(25000, 30000);
+            m_uiAmbushTimer         = 0;
+            m_uiGougeTimer          = urand(15000, 25000);
+            m_uiThousandBladesTimer = urand(4000, 8000);
+        }
+
+        void EnterEvadeMode() override
+        {
+            // If is vanished, don't evade
+            if (m_uiAmbushTimer)
+                return;
+
+            ScriptedAI::EnterEvadeMode();
+        }
+
+        void UpdateAI(const uint32 uiDiff) override
+        {
+            if (!m_creature->SelectHostileTarget() || !m_creature->GetVictim())
+                return;
+
+            // Note: because the Vanish spell adds invisibility effect on the target, the timers won't be decreased during the vanish phase
+            if (m_uiAmbushTimer)
             {
-                if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_TRASH) == CAST_OK)
-                    m_uiAmbushTimer = 0;
+                if (m_uiAmbushTimer <= uiDiff)
+                {
+                    if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_TRASH) == CAST_OK)
+                        m_uiAmbushTimer = 0;
+                }
+                else
+                    m_uiAmbushTimer -= uiDiff;
+
+                // don't do anything else while vanished
+                return;
+            }
+
+            // Invisible_Timer
+            if (m_uiVanishTimer < uiDiff)
+            {
+                if (DoCastSpellIfCan(m_creature, SPELL_VANISH) == CAST_OK)
+                {
+                    m_uiVanishTimer = urand(25000, 40000);
+                    m_uiAmbushTimer = 2000;
+                }
             }
             else
-                m_uiAmbushTimer -= uiDiff;
+                m_uiVanishTimer -= uiDiff;
 
-            // don't do anything else while vanished
-            return;
-        }
-
-        // Invisible_Timer
-        if (m_uiVanishTimer < uiDiff)
-        {
-            if (DoCastSpellIfCan(m_creature, SPELL_VANISH) == CAST_OK)
+            // Resetting some aggro so he attacks other gamers
+            if (m_uiGougeTimer < uiDiff)
             {
-                m_uiVanishTimer = urand(25000, 40000);
-                m_uiAmbushTimer = 2000;
-            }
-        }
-        else
-            m_uiVanishTimer -= uiDiff;
+                if (DoCastSpellIfCan(m_creature, SPELL_GOUGE) == CAST_OK)
+                {
+                    if (m_creature->getThreatManager().getThreat(m_creature->GetVictim()))
+                        m_creature->getThreatManager().modifyThreatPercent(m_creature->GetVictim(), -50);
 
-        // Resetting some aggro so he attacks other gamers
-        if (m_uiGougeTimer < uiDiff)
-        {
-            if (DoCastSpellIfCan(m_creature, SPELL_GOUGE) == CAST_OK)
+                    m_uiGougeTimer = urand(7000, 20000);
+                }
+            }
+            else
+                m_uiGougeTimer -= uiDiff;
+
+            // Thausand Blades
+            if (m_uiThousandBladesTimer < uiDiff)
             {
-                if (m_creature->getThreatManager().getThreat(m_creature->GetVictim()))
-                    m_creature->getThreatManager().modifyThreatPercent(m_creature->GetVictim(), -50);
-
-                m_uiGougeTimer = urand(7000, 20000);
+                if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_THOUSAND_BLADES) == CAST_OK)
+                    m_uiThousandBladesTimer = urand(7000, 12000);
             }
-        }
-        else
-            m_uiGougeTimer -= uiDiff;
+            else
+                m_uiThousandBladesTimer -= uiDiff;
 
-        // Thausand Blades
-        if (m_uiThousandBladesTimer < uiDiff)
-        {
-            if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_THOUSAND_BLADES) == CAST_OK)
-                m_uiThousandBladesTimer = urand(7000, 12000);
+            DoMeleeAttackIfReady();
         }
-        else
-            m_uiThousandBladesTimer -= uiDiff;
+    };
 
-        DoMeleeAttackIfReady();
-    }
+
+
 };
 
-UnitAI* GetAI_boss_renataki(Creature* pCreature)
-{
-    return new boss_renatakiAI(pCreature);
-}
 
 void AddSC_boss_renataki()
 {
-    Script* pNewScript = new Script;
-    pNewScript->Name = "boss_renataki";
-    pNewScript->GetAI = &GetAI_boss_renataki;
-    pNewScript->RegisterSelf();
+    new boss_renataki();
+
 }

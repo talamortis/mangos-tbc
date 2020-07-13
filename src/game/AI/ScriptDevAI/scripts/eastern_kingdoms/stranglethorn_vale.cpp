@@ -39,69 +39,80 @@ enum
 
     FACTION_ID_HORDE_GENERIC    = 83,                       // Note: faction may not be correct!
 };
-
-struct mob_yennikuAI : public ScriptedAI
+class mob_yenniku : public CreatureScript
 {
-    mob_yennikuAI(Creature* pCreature) : ScriptedAI(pCreature) { Reset(); }
+public:
+    mob_yenniku() : CreatureScript("mob_yenniku") { }
 
-    uint32 m_uiResetTimer;
-
-    void Reset() override { m_uiResetTimer = 0; }
-
-    void SpellHit(Unit* pCaster, const SpellEntry* pSpell) override
+    UnitAI* GetAI(Creature* _Creature)
     {
-        if (pSpell->Id == SPELL_YENNIKUS_RELEASE && pCaster->GetTypeId() == TYPEID_PLAYER)
+        return new mob_yennikuAI(_Creature);
+    }
+
+
+
+    struct mob_yennikuAI : public ScriptedAI
+    {
+        mob_yennikuAI(Creature* pCreature) : ScriptedAI(pCreature) { Reset(); }
+
+        uint32 m_uiResetTimer;
+
+        void Reset() override { m_uiResetTimer = 0; }
+
+        void SpellHit(Unit* pCaster, const SpellEntry* pSpell) override
         {
-            if (!m_uiResetTimer && ((Player*)pCaster)->GetQuestStatus(QUEST_ID_SAVING_YENNIKU) == QUEST_STATUS_INCOMPLETE)
+            if (pSpell->Id == SPELL_YENNIKUS_RELEASE && pCaster->GetTypeId() == TYPEID_PLAYER)
             {
-                m_uiResetTimer = 60000;
-                EnterEvadeMode();
+                if (!m_uiResetTimer && ((Player*)pCaster)->GetQuestStatus(QUEST_ID_SAVING_YENNIKU) == QUEST_STATUS_INCOMPLETE)
+                {
+                    m_uiResetTimer = 60000;
+                    EnterEvadeMode();
+                }
             }
         }
-    }
 
-    void EnterEvadeMode() override
-    {
-        if (m_uiResetTimer)
+        void EnterEvadeMode() override
         {
-            m_creature->RemoveAllAurasOnEvade();
-            m_creature->CombatStop(true);
-            m_creature->LoadCreatureAddon(true);
-
-            m_creature->SetLootRecipient(nullptr);
-
-            m_creature->HandleEmote(EMOTE_STATE_STUN);
-            m_creature->SetFactionTemporary(FACTION_ID_HORDE_GENERIC, TEMPFACTION_RESTORE_REACH_HOME);
-        }
-        else
-            ScriptedAI::EnterEvadeMode();
-    }
-
-    void UpdateAI(const uint32 uiDiff) override
-    {
-        if (m_uiResetTimer)
-        {
-            if (m_uiResetTimer <= uiDiff)
+            if (m_uiResetTimer)
             {
-                m_creature->HandleEmote(EMOTE_STATE_NONE);
-                m_uiResetTimer = 0;
-                EnterEvadeMode();
+                m_creature->RemoveAllAurasOnEvade();
+                m_creature->CombatStop(true);
+                m_creature->LoadCreatureAddon(true);
+
+                m_creature->SetLootRecipient(nullptr);
+
+                m_creature->HandleEmote(EMOTE_STATE_STUN);
+                m_creature->SetFactionTemporary(FACTION_ID_HORDE_GENERIC, TEMPFACTION_RESTORE_REACH_HOME);
             }
             else
-                m_uiResetTimer -= uiDiff;
+                ScriptedAI::EnterEvadeMode();
         }
 
-        if (!m_creature->SelectHostileTarget() || !m_creature->GetVictim())
-            return;
+        void UpdateAI(const uint32 uiDiff) override
+        {
+            if (m_uiResetTimer)
+            {
+                if (m_uiResetTimer <= uiDiff)
+                {
+                    m_creature->HandleEmote(EMOTE_STATE_NONE);
+                    m_uiResetTimer = 0;
+                    EnterEvadeMode();
+                }
+                else
+                    m_uiResetTimer -= uiDiff;
+            }
 
-        DoMeleeAttackIfReady();
-    }
+            if (!m_creature->SelectHostileTarget() || !m_creature->GetVictim())
+                return;
+
+            DoMeleeAttackIfReady();
+        }
+    };
+
+
+
 };
 
-UnitAI* GetAI_mob_yenniku(Creature* _Creature)
-{
-    return new mob_yennikuAI(_Creature);
-}
 
 /*######
 ##
@@ -109,8 +120,6 @@ UnitAI* GetAI_mob_yenniku(Creature* _Creature)
 
 void AddSC_stranglethorn_vale()
 {
-    Script* pNewScript = new Script;
-    pNewScript->Name = "mob_yenniku";
-    pNewScript->GetAI = &GetAI_mob_yenniku;
-    pNewScript->RegisterSelf();
+    new mob_yenniku();
+
 }

@@ -328,42 +328,53 @@ void instance_old_hillsbrad::Update(uint32 uiDiff)
             m_uiThrallResetTimer -= uiDiff;
     }
 }
-
-InstanceData* GetInstanceData_instance_old_hillsbrad(Map* pMap)
+class instance_old_hillsbrad : public InstanceMapScript
 {
-    return new instance_old_hillsbrad(pMap);
-}
+public:
+    instance_old_hillsbrad() : InstanceMapScript("instance_old_hillsbrad") { }
 
-bool ProcessEventId_event_go_barrel_old_hillsbrad(uint32 /*uiEventId*/, Object* pSource, Object* pTarget, bool bIsStart)
-{
-    if (bIsStart && pSource->GetTypeId() == TYPEID_PLAYER)
+    InstanceData* GetInstanceScript(Map* pMap) const override
     {
-        if (instance_old_hillsbrad* pInstance = (instance_old_hillsbrad*)((Player*)pSource)->GetInstanceData())
-        {
-            if (pInstance->GetData(TYPE_BARREL_DIVERSION) == DONE || (GameObject*)pTarget->HasFlag(GAMEOBJECT_FLAGS, GO_FLAG_NO_INTERACT))
-                return true;
-
-            pInstance->SetData(TYPE_BARREL_DIVERSION, IN_PROGRESS);
-
-            // Don't allow players to use same object twice
-            if (pTarget->GetTypeId() == TYPEID_GAMEOBJECT)
-                ((GameObject*)pTarget)->SetFlag(GAMEOBJECT_FLAGS, GO_FLAG_NO_INTERACT);
-
-            return true;
-        }
+        return new instance_old_hillsbrad(pMap);
     }
-    return false;
-}
+
+
+
+
+};
+class event_go_barrel_old_hillsbrad : public UnknownScript
+{
+public:
+    event_go_barrel_old_hillsbrad() : UnknownScript("event_go_barrel_old_hillsbrad") { }
+
+    bool OnProcessEvent(uint32 /*uiEventId*/, Object* pSource, Object* pTarget, bool bIsStart) override
+    {
+        if (bIsStart && pSource->GetTypeId() == TYPEID_PLAYER)
+        {
+            if (instance_old_hillsbrad* pInstance = (instance_old_hillsbrad*)((Player*)pSource)->GetInstanceData())
+            {
+                if (pInstance->GetData(TYPE_BARREL_DIVERSION) == DONE || (GameObject*)pTarget->HasFlag(GAMEOBJECT_FLAGS, GO_FLAG_NO_INTERACT))
+                    return true;
+
+                pInstance->SetData(TYPE_BARREL_DIVERSION, IN_PROGRESS);
+
+                // Don't allow players to use same object twice
+                if (pTarget->GetTypeId() == TYPEID_GAMEOBJECT)
+                    ((GameObject*)pTarget)->SetFlag(GAMEOBJECT_FLAGS, GO_FLAG_NO_INTERACT);
+
+                return true;
+            }
+        }
+        return false;
+    }
+
+
+
+};
 
 void AddSC_instance_old_hillsbrad()
 {
-    Script* pNewScript = new Script;
-    pNewScript->Name = "instance_old_hillsbrad";
-    pNewScript->GetInstanceData = &GetInstanceData_instance_old_hillsbrad;
-    pNewScript->RegisterSelf();
+    new instance_old_hillsbrad();
+    new event_go_barrel_old_hillsbrad();
 
-    pNewScript = new Script;
-    pNewScript->Name = "event_go_barrel_old_hillsbrad";
-    pNewScript->pProcessEventId = &ProcessEventId_event_go_barrel_old_hillsbrad;
-    pNewScript->RegisterSelf();
 }

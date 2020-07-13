@@ -355,14 +355,5 @@ UnitAI* GetAI_npc_diseased_maggot(Creature* creature)
 
 void AddSC_boss_heigan()
 {
-    Script* newScript = new Script;
-    newScript->Name = "boss_heigan";
-    newScript->GetAI = &GetAI_boss_heigan;
-    newScript->RegisterSelf();
 
-    newScript = new Script;
-    newScript->Name = "npc_diseased_maggot";
-    newScript->GetAI = &GetAI_npc_diseased_maggot;
-    newScript->RegisterSelf();
-    newScript = new Script;
 }

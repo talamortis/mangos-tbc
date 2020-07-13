@@ -73,178 +73,214 @@ enum
 };
 
 #define GOSSIP_ITEM_MOONSTONE   "Hand over the Southfury moonstone and I'll let you go."
-
-struct npc_rizzle_sprysprocketAI : public npc_escortAI
+class npc_rizzle_sprysprocket : public CreatureScript
 {
-    npc_rizzle_sprysprocketAI(Creature* pCreature) : npc_escortAI(pCreature)
+public:
+    npc_rizzle_sprysprocket() : CreatureScript("npc_rizzle_sprysprocket") { }
+
+    bool OnGossipSelect(Player* pPlayer, Creature* /*pCreature*/, uint32 /*uiSender*/, uint32 uiAction) override
     {
-        pCreature->SetActiveObjectState(true);
-        m_bIsIntro = true;
-        m_uiIntroPhase = 0;
-        m_uiIntroTimer = 0;
-        m_uiDepthChargeTimer = 10000;
-        Reset();
+        if (uiAction == GOSSIP_ACTION_INFO_DEF + 1)
+        {
+            pPlayer->CLOSE_GOSSIP_MENU();
+            pPlayer->CastSpell(pPlayer, SPELL_GIVE_MOONSTONE, TRIGGERED_NONE);
+        }
+
+        return true;
     }
 
-    bool m_bIsIntro;
-    uint8 m_uiIntroPhase;
-    uint32 m_uiIntroTimer;
-    uint32 m_uiDepthChargeTimer;
 
-    void MoveInLineOfSight(Unit* pUnit) override
+
+    bool OnGossipHello(Player* pPlayer, Creature* pCreature) override
     {
-        if (HasEscortState(STATE_ESCORT_ESCORTING) && pUnit->GetTypeId() == TYPEID_PLAYER)
+        if (pPlayer->GetQuestStatus(QUEST_MOONSTONE) == QUEST_STATUS_INCOMPLETE)
+            pPlayer->ADD_GOSSIP_ITEM(GOSSIP_ICON_CHAT, GOSSIP_ITEM_MOONSTONE, GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF + 1);
+
+        pPlayer->SEND_GOSSIP_MENU(pPlayer->GetGossipTextId(pCreature), pCreature->GetObjectGuid());
+        return true;
+    }
+
+
+
+    UnitAI* GetAI(Creature* pCreature)
+    {
+        return new npc_rizzle_sprysprocketAI(pCreature);
+    }
+
+
+
+    struct npc_rizzle_sprysprocketAI : public npc_escortAI
+    {
+        npc_rizzle_sprysprocketAI(Creature* pCreature) : npc_escortAI(pCreature)
         {
-            if (!HasEscortState(STATE_ESCORT_PAUSED) && m_creature->IsWithinDistInMap(pUnit, INTERACTION_DISTANCE) && m_creature->IsWithinLOSInMap(pUnit))
+            pCreature->SetActiveObjectState(true);
+            m_bIsIntro = true;
+            m_uiIntroPhase = 0;
+            m_uiIntroTimer = 0;
+            m_uiDepthChargeTimer = 10000;
+            Reset();
+        }
+
+        bool m_bIsIntro;
+        uint8 m_uiIntroPhase;
+        uint32 m_uiIntroTimer;
+        uint32 m_uiDepthChargeTimer;
+
+        void MoveInLineOfSight(Unit* pUnit) override
+        {
+            if (HasEscortState(STATE_ESCORT_ESCORTING) && pUnit->GetTypeId() == TYPEID_PLAYER)
             {
-                if (((Player*)pUnit)->GetQuestStatus(QUEST_MOONSTONE) == QUEST_STATUS_INCOMPLETE)
-                    m_creature->CastSpell(m_creature, SPELL_SURRENDER, TRIGGERED_OLD_TRIGGERED);
+                if (!HasEscortState(STATE_ESCORT_PAUSED) && m_creature->IsWithinDistInMap(pUnit, INTERACTION_DISTANCE) && m_creature->IsWithinLOSInMap(pUnit))
+                {
+                    if (((Player*)pUnit)->GetQuestStatus(QUEST_MOONSTONE) == QUEST_STATUS_INCOMPLETE)
+                        m_creature->CastSpell(m_creature, SPELL_SURRENDER, TRIGGERED_OLD_TRIGGERED);
+                }
+            }
+
+            npc_escortAI::MoveInLineOfSight(pUnit);
+        }
+
+        void WaypointReached(uint32 uiPointId) override
+        {
+            switch (uiPointId)
+            {
+                case 1:
+                    m_creature->CastSpell(m_creature, SPELL_PERIODIC_CHECK, TRIGGERED_OLD_TRIGGERED);
+                    break;
             }
         }
 
-        npc_escortAI::MoveInLineOfSight(pUnit);
-    }
+        void Reset() override { }
 
-    void WaypointReached(uint32 uiPointId) override
-    {
-        switch (uiPointId)
+        void SpellHit(Unit* /*pCaster*/, const SpellEntry* pSpell) override
         {
-            case 1:
-                m_creature->CastSpell(m_creature, SPELL_PERIODIC_CHECK, TRIGGERED_OLD_TRIGGERED);
-                break;
-        }
-    }
-
-    void Reset() override { }
-
-    void SpellHit(Unit* /*pCaster*/, const SpellEntry* pSpell) override
-    {
-        if (pSpell->Id == SPELL_SURRENDER)
-        {
-            SetEscortPaused(true);
-            DoScriptText(SAY_END, m_creature);
-            m_creature->SetUInt32Value(UNIT_NPC_FLAGS, UNIT_NPC_FLAG_GOSSIP);
-        }
-    }
-
-    // this may be wrong (and doesn't work)
-    void SpellHitTarget(Unit* pTarget, const SpellEntry* pSpell) override
-    {
-        if (pTarget->GetTypeId() == TYPEID_PLAYER && pSpell->Id == SPELL_FROST_GRENADE)
-            DoScriptText(SAY_WHISPER_CHILL, m_creature, pTarget);
-    }
-
-    // this may be wrong
-    void JustSummoned(Creature* /*pSummoned*/) override
-    {
-        // pSummoned->CastSpell(pSummoned,SPELL_PERIODIC_GRENADE,TRIGGERED_NONE,nullptr,nullptr,m_creature->GetObjectGuid());
-    }
-
-    void UpdateEscortAI(const uint32 uiDiff) override
-    {
-        if (m_bIsIntro)
-        {
-            if (m_uiIntroTimer < uiDiff)
-                m_uiIntroTimer = 1500;
-            else
+            if (pSpell->Id == SPELL_SURRENDER)
             {
-                m_uiIntroTimer -= uiDiff;
+                SetEscortPaused(true);
+                DoScriptText(SAY_END, m_creature);
+                m_creature->SetUInt32Value(UNIT_NPC_FLAGS, UNIT_NPC_FLAG_GOSSIP);
+            }
+        }
+
+        // this may be wrong (and doesn't work)
+        void SpellHitTarget(Unit* pTarget, const SpellEntry* pSpell) override
+        {
+            if (pTarget->GetTypeId() == TYPEID_PLAYER && pSpell->Id == SPELL_FROST_GRENADE)
+                DoScriptText(SAY_WHISPER_CHILL, m_creature, pTarget);
+        }
+
+        // this may be wrong
+        void JustSummoned(Creature* /*pSummoned*/) override
+        {
+            // pSummoned->CastSpell(pSummoned,SPELL_PERIODIC_GRENADE,TRIGGERED_NONE,nullptr,nullptr,m_creature->GetObjectGuid());
+        }
+
+        void UpdateEscortAI(const uint32 uiDiff) override
+        {
+            if (m_bIsIntro)
+            {
+                if (m_uiIntroTimer < uiDiff)
+                    m_uiIntroTimer = 1500;
+                else
+                {
+                    m_uiIntroTimer -= uiDiff;
+                    return;
+                }
+
+                switch (m_uiIntroPhase)
+                {
+                    case 0:
+                        DoScriptText(SAY_START, m_creature);
+                        DoScriptText(EMOTE_START, m_creature);
+                        break;
+                    case 1:
+                        // teleports to water _before_ we Start()
+                        m_creature->CastSpell(m_creature, SPELL_ESCAPE, TRIGGERED_NONE);
+                        break;
+                    case 2:
+                        m_creature->CastSpell(m_creature, SPELL_SWIM_SPEED, TRIGGERED_NONE);
+                        m_bIsIntro = false;
+                        Start(true);
+                        break;
+                }
+
+                ++m_uiIntroPhase;
                 return;
             }
 
-            switch (m_uiIntroPhase)
+            if (m_uiDepthChargeTimer < uiDiff)
             {
-                case 0:
-                    DoScriptText(SAY_START, m_creature);
-                    DoScriptText(EMOTE_START, m_creature);
-                    break;
-                case 1:
-                    // teleports to water _before_ we Start()
-                    m_creature->CastSpell(m_creature, SPELL_ESCAPE, TRIGGERED_NONE);
-                    break;
-                case 2:
-                    m_creature->CastSpell(m_creature, SPELL_SWIM_SPEED, TRIGGERED_NONE);
-                    m_bIsIntro = false;
-                    Start(true);
-                    break;
+                if (!HasEscortState(STATE_ESCORT_PAUSED))
+                    m_creature->CastSpell(m_creature, SPELL_SUMMON_DEPTH_CHARGE, TRIGGERED_NONE);
+
+                m_uiDepthChargeTimer = urand(10000, 15000);
             }
-
-            ++m_uiIntroPhase;
-            return;
+            else
+                m_uiDepthChargeTimer -= uiDiff;
         }
+    };
 
-        if (m_uiDepthChargeTimer < uiDiff)
+
+
+};
+
+
+
+class npc_depth_charge : public CreatureScript
+{
+public:
+    npc_depth_charge() : CreatureScript("npc_depth_charge") { }
+
+    UnitAI* GetAI(Creature* pCreature)
+    {
+        return new npc_depth_chargeAI(pCreature);
+    }
+
+
+
+    struct npc_depth_chargeAI : public ScriptedAI
+    {
+        npc_depth_chargeAI(Creature* pCreature) : ScriptedAI(pCreature) { Reset(); }
+
+        void MoveInLineOfSight(Unit* pUnit) override
         {
-            if (!HasEscortState(STATE_ESCORT_PAUSED))
-                m_creature->CastSpell(m_creature, SPELL_SUMMON_DEPTH_CHARGE, TRIGGERED_NONE);
+            if (pUnit->GetTypeId() != TYPEID_PLAYER)
+                return;
 
-            m_uiDepthChargeTimer = urand(10000, 15000);
+            if (m_creature->IsWithinDistInMap(pUnit, INTERACTION_DISTANCE) && m_creature->IsWithinLOSInMap(pUnit))
+                m_creature->CastSpell(pUnit, SPELL_TRAP, TRIGGERED_NONE);
         }
-        else
-            m_uiDepthChargeTimer -= uiDiff;
-    }
+
+        void Reset() override { }
+    };
+
+
+
 };
 
-UnitAI* GetAI_npc_rizzle_sprysprocket(Creature* pCreature)
-{
-    return new npc_rizzle_sprysprocketAI(pCreature);
-}
-
-bool GossipHello_npc_rizzle_sprysprocket(Player* pPlayer, Creature* pCreature)
-{
-    if (pPlayer->GetQuestStatus(QUEST_MOONSTONE) == QUEST_STATUS_INCOMPLETE)
-        pPlayer->ADD_GOSSIP_ITEM(GOSSIP_ICON_CHAT, GOSSIP_ITEM_MOONSTONE, GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF + 1);
-
-    pPlayer->SEND_GOSSIP_MENU(pPlayer->GetGossipTextId(pCreature), pCreature->GetObjectGuid());
-    return true;
-}
-
-bool GossipSelect_npc_rizzle_sprysprocket(Player* pPlayer, Creature* /*pCreature*/, uint32 /*uiSender*/, uint32 uiAction)
-{
-    if (uiAction == GOSSIP_ACTION_INFO_DEF + 1)
-    {
-        pPlayer->CLOSE_GOSSIP_MENU();
-        pPlayer->CastSpell(pPlayer, SPELL_GIVE_MOONSTONE, TRIGGERED_NONE);
-    }
-
-    return true;
-}
-
-struct npc_depth_chargeAI : public ScriptedAI
-{
-    npc_depth_chargeAI(Creature* pCreature) : ScriptedAI(pCreature) { Reset(); }
-
-    void MoveInLineOfSight(Unit* pUnit) override
-    {
-        if (pUnit->GetTypeId() != TYPEID_PLAYER)
-            return;
-
-        if (m_creature->IsWithinDistInMap(pUnit, INTERACTION_DISTANCE) && m_creature->IsWithinLOSInMap(pUnit))
-            m_creature->CastSpell(pUnit, SPELL_TRAP, TRIGGERED_NONE);
-    }
-
-    void Reset() override { }
-};
-
-UnitAI* GetAI_npc_depth_charge(Creature* pCreature)
-{
-    return new npc_depth_chargeAI(pCreature);
-}
 
 /*######
 ## go_southfury_moonstone
 ######*/
-
-bool GOUse_go_southfury_moonstone(Player* pPlayer, GameObject* /*pGo*/)
+class go_southfury_moonstone : public GameObjectScript
 {
-    // implicitTarget=48 not implemented as of writing this code, and manual summon may be just ok for our purpose
-    // pPlayer->CastSpell(pPlayer,SPELL_SUMMON_RIZZLE,TRIGGERED_NONE);
+public:
+    go_southfury_moonstone() : GameObjectScript("go_southfury_moonstone") { }
 
-    if (Creature* pCreature = pPlayer->SummonCreature(NPC_RIZZLE, 0.0f, 0.0f, 0.0f, 0.0f, TEMPSPAWN_DEAD_DESPAWN, 0))
-        pCreature->CastSpell(pPlayer, SPELL_BLACKJACK, TRIGGERED_NONE);
+    bool OnGameObjectUse(Player* pPlayer, GameObject* /*pGo*/) override
+    {
+        // implicitTarget=48 not implemented as of writing this code, and manual summon may be just ok for our purpose
+        // pPlayer->CastSpell(pPlayer,SPELL_SUMMON_RIZZLE,TRIGGERED_NONE);
 
-    return false;
-}
+        if (Creature* pCreature = pPlayer->SummonCreature(NPC_RIZZLE, 0.0f, 0.0f, 0.0f, 0.0f, TEMPSPAWN_DEAD_DESPAWN, 0))
+            pCreature->CastSpell(pPlayer, SPELL_BLACKJACK, TRIGGERED_NONE);
+
+        return false;
+    }
+
+
+
+};
 
 /*######
 ## mobs_spitelashes
@@ -295,171 +331,193 @@ static SpitelashAbilityStruct m_aSpitelashAbility[8] =
     {NPC_SPITELASH_SIREN,       SPELL_FROST_NOVA,   TARGET_TYPE_SELF,       10000, 15000},
     {NPC_SPITELASH_MYRMIDON,    SPELL_STRIKE,       TARGET_TYPE_VICTIM,     3000,  7000}
 };
-
-struct mobs_spitelashesAI : public ScriptedAI
+class mobs_spitelashes : public CreatureScript
 {
-    mobs_spitelashesAI(Creature* pCreature) : ScriptedAI(pCreature)
-    {
-        for (uint8 i = 0; i < countof(m_aSpitelashAbility); ++i)
-        {
-            if (m_aSpitelashAbility[i].m_uiCreatureEntry == m_creature->GetEntry())
-                m_mSpellTimers[i] = m_aSpitelashAbility[i].m_uiInitialTimer;
-        }
+public:
+    mobs_spitelashes() : CreatureScript("mobs_spitelashes") { }
 
-        Reset();
+    UnitAI* GetAI(Creature* pCreature)
+    {
+        return new mobs_spitelashesAI(pCreature);
     }
 
-    uint32 m_uiMorphTimer;
 
-    std::unordered_map<uint8, uint32> m_mSpellTimers;
 
-    void Reset() override
+    struct mobs_spitelashesAI : public ScriptedAI
     {
-        m_uiMorphTimer = 0;
-
-        for (auto& m_mSpellTimer : m_mSpellTimers)
-            m_mSpellTimer.second = m_aSpitelashAbility[m_mSpellTimer.first].m_uiInitialTimer;
-    }
-
-    void SpellHit(Unit* pCaster, const SpellEntry* pSpell) override
-    {
-        // If already hit by the polymorph return
-        if (m_uiMorphTimer)
-            return;
-
-        // Creature get polymorphed into a sheep and after 5 secs despawns
-        if (pCaster->GetTypeId() == TYPEID_PLAYER && ((Player*)pCaster)->GetQuestStatus(QUEST_FRAGMENTED_MAGIC) == QUEST_STATUS_INCOMPLETE &&
-                (pSpell->Id == 118 || pSpell->Id == 12824 || pSpell->Id == 12825 || pSpell->Id == 12826))
-            m_uiMorphTimer = 5000;
-    }
-
-    bool CanUseSpecialAbility(uint32 uiIndex)
-    {
-        Unit* pTarget = nullptr;
-
-        switch (m_aSpitelashAbility[uiIndex].m_uiTargetType)
+        mobs_spitelashesAI(Creature* pCreature) : ScriptedAI(pCreature)
         {
-            case TARGET_TYPE_SELF:
-                pTarget = m_creature;
-                break;
-            case TARGET_TYPE_VICTIM:
-                pTarget = m_creature->GetVictim();
-                break;
-            case TARGET_TYPE_RANDOM:
-                pTarget = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, m_aSpitelashAbility[uiIndex].m_uiSpellId, SELECT_FLAG_IN_LOS);
-                break;
-            case TARGET_TYPE_FRIENDLY:
-                pTarget = DoSelectLowestHpFriendly(10.0f);
-                break;
-        }
-
-        if (pTarget)
-        {
-            if (DoCastSpellIfCan(pTarget, m_aSpitelashAbility[uiIndex].m_uiSpellId) == CAST_OK)
-                return true;
-        }
-
-        return false;
-    }
-
-    void UpdateAI(const uint32 uiDiff) override
-    {
-        if (!m_creature->SelectHostileTarget() || !m_creature->GetVictim())
-            return;
-
-        if (m_uiMorphTimer)
-        {
-            if (m_uiMorphTimer <= uiDiff)
+            for (uint8 i = 0; i < countof(m_aSpitelashAbility); ++i)
             {
-                if (DoCastSpellIfCan(m_creature, SPELL_POLYMORPH_BACKFIRE, CAST_TRIGGERED) == CAST_OK)
-                {
-                    m_uiMorphTimer = 0;
-                    m_creature->ForcedDespawn();
-                }
+                if (m_aSpitelashAbility[i].m_uiCreatureEntry == m_creature->GetEntry())
+                    m_mSpellTimers[i] = m_aSpitelashAbility[i].m_uiInitialTimer;
             }
-            else
-                m_uiMorphTimer -= uiDiff;
+
+            Reset();
         }
 
-        for (auto& m_mSpellTimer : m_mSpellTimers)
+        uint32 m_uiMorphTimer;
+
+        std::unordered_map<uint8, uint32> m_mSpellTimers;
+
+        void Reset() override
         {
-            if (m_mSpellTimer.second < uiDiff)
+            m_uiMorphTimer = 0;
+
+            for (auto& m_mSpellTimer : m_mSpellTimers)
+                m_mSpellTimer.second = m_aSpitelashAbility[m_mSpellTimer.first].m_uiInitialTimer;
+        }
+
+        void SpellHit(Unit* pCaster, const SpellEntry* pSpell) override
+        {
+            // If already hit by the polymorph return
+            if (m_uiMorphTimer)
+                return;
+
+            // Creature get polymorphed into a sheep and after 5 secs despawns
+            if (pCaster->GetTypeId() == TYPEID_PLAYER && ((Player*)pCaster)->GetQuestStatus(QUEST_FRAGMENTED_MAGIC) == QUEST_STATUS_INCOMPLETE &&
+                    (pSpell->Id == 118 || pSpell->Id == 12824 || pSpell->Id == 12825 || pSpell->Id == 12826))
+                m_uiMorphTimer = 5000;
+        }
+
+        bool CanUseSpecialAbility(uint32 uiIndex)
+        {
+            Unit* pTarget = nullptr;
+
+            switch (m_aSpitelashAbility[uiIndex].m_uiTargetType)
             {
-                if (CanUseSpecialAbility(m_mSpellTimer.first))
-                {
-                    m_mSpellTimer.second = m_aSpitelashAbility[m_mSpellTimer.first].m_uiCooldown;
+                case TARGET_TYPE_SELF:
+                    pTarget = m_creature;
                     break;
-                }
+                case TARGET_TYPE_VICTIM:
+                    pTarget = m_creature->GetVictim();
+                    break;
+                case TARGET_TYPE_RANDOM:
+                    pTarget = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, m_aSpitelashAbility[uiIndex].m_uiSpellId, SELECT_FLAG_IN_LOS);
+                    break;
+                case TARGET_TYPE_FRIENDLY:
+                    pTarget = DoSelectLowestHpFriendly(10.0f);
+                    break;
             }
-            else
-                m_mSpellTimer.second -= uiDiff;
+
+            if (pTarget)
+            {
+                if (DoCastSpellIfCan(pTarget, m_aSpitelashAbility[uiIndex].m_uiSpellId) == CAST_OK)
+                    return true;
+            }
+
+            return false;
         }
 
-        DoMeleeAttackIfReady();
-    }
+        void UpdateAI(const uint32 uiDiff) override
+        {
+            if (!m_creature->SelectHostileTarget() || !m_creature->GetVictim())
+                return;
+
+            if (m_uiMorphTimer)
+            {
+                if (m_uiMorphTimer <= uiDiff)
+                {
+                    if (DoCastSpellIfCan(m_creature, SPELL_POLYMORPH_BACKFIRE, CAST_TRIGGERED) == CAST_OK)
+                    {
+                        m_uiMorphTimer = 0;
+                        m_creature->ForcedDespawn();
+                    }
+                }
+                else
+                    m_uiMorphTimer -= uiDiff;
+            }
+
+            for (auto& m_mSpellTimer : m_mSpellTimers)
+            {
+                if (m_mSpellTimer.second < uiDiff)
+                {
+                    if (CanUseSpecialAbility(m_mSpellTimer.first))
+                    {
+                        m_mSpellTimer.second = m_aSpitelashAbility[m_mSpellTimer.first].m_uiCooldown;
+                        break;
+                    }
+                }
+                else
+                    m_mSpellTimer.second -= uiDiff;
+            }
+
+            DoMeleeAttackIfReady();
+        }
+    };
+
+
+
 };
 
-UnitAI* GetAI_mobs_spitelashes(Creature* pCreature)
-{
-    return new mobs_spitelashesAI(pCreature);
-}
 
 /*######
 ## npc_loramus_thalipedes
 ######*/
-
-bool GossipHello_npc_loramus_thalipedes(Player* pPlayer, Creature* pCreature)
+class npc_loramus_thalipedes : public CreatureScript
 {
-    if (pCreature->isQuestGiver())
-        pPlayer->PrepareQuestMenu(pCreature->GetObjectGuid());
+public:
+    npc_loramus_thalipedes() : CreatureScript("npc_loramus_thalipedes") { }
 
-    if (pPlayer->GetQuestStatus(2744) == QUEST_STATUS_INCOMPLETE)
-        pPlayer->ADD_GOSSIP_ITEM(GOSSIP_ICON_CHAT, "Can you help me?", GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF + 1);
-
-    if (pPlayer->GetQuestStatus(3141) == QUEST_STATUS_INCOMPLETE)
-        pPlayer->ADD_GOSSIP_ITEM(GOSSIP_ICON_CHAT, "Tell me your story", GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF + 2);
-
-    pPlayer->SEND_GOSSIP_MENU(pPlayer->GetGossipTextId(pCreature), pCreature->GetObjectGuid());
-
-    return true;
-}
-
-bool GossipSelect_npc_loramus_thalipedes(Player* pPlayer, Creature* pCreature, uint32 /*uiSender*/, uint32 uiAction)
-{
-    switch (uiAction)
+    bool OnGossipSelect(Player* pPlayer, Creature* pCreature, uint32 /*uiSender*/, uint32 uiAction) override
     {
-        case GOSSIP_ACTION_INFO_DEF+1:
-            pPlayer->CLOSE_GOSSIP_MENU();
-            pPlayer->AreaExploredOrEventHappens(2744);
-            break;
+        switch (uiAction)
+        {
+            case GOSSIP_ACTION_INFO_DEF+1:
+                pPlayer->CLOSE_GOSSIP_MENU();
+                pPlayer->AreaExploredOrEventHappens(2744);
+                break;
 
-        case GOSSIP_ACTION_INFO_DEF+2:
-            pPlayer->ADD_GOSSIP_ITEM(GOSSIP_ICON_CHAT, "Please continue", GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF + 21);
-            pPlayer->SEND_GOSSIP_MENU(1813, pCreature->GetObjectGuid());
-            break;
-        case GOSSIP_ACTION_INFO_DEF+21:
-            pPlayer->ADD_GOSSIP_ITEM(GOSSIP_ICON_CHAT, "I do not understand", GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF + 22);
-            pPlayer->SEND_GOSSIP_MENU(1814, pCreature->GetObjectGuid());
-            break;
-        case GOSSIP_ACTION_INFO_DEF+22:
-            pPlayer->ADD_GOSSIP_ITEM(GOSSIP_ICON_CHAT, "Indeed", GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF + 23);
-            pPlayer->SEND_GOSSIP_MENU(1815, pCreature->GetObjectGuid());
-            break;
-        case GOSSIP_ACTION_INFO_DEF+23:
-            pPlayer->ADD_GOSSIP_ITEM(GOSSIP_ICON_CHAT, "I will do this with or your help, Loramus", GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF + 24);
-            pPlayer->SEND_GOSSIP_MENU(1816, pCreature->GetObjectGuid());
-            break;
-        case GOSSIP_ACTION_INFO_DEF+24:
-            pPlayer->ADD_GOSSIP_ITEM(GOSSIP_ICON_CHAT, "Yes", GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF + 25);
-            pPlayer->SEND_GOSSIP_MENU(1817, pCreature->GetObjectGuid());
-            break;
-        case GOSSIP_ACTION_INFO_DEF+25:
-            pPlayer->CLOSE_GOSSIP_MENU();
-            pPlayer->AreaExploredOrEventHappens(3141);
-            break;
+            case GOSSIP_ACTION_INFO_DEF+2:
+                pPlayer->ADD_GOSSIP_ITEM(GOSSIP_ICON_CHAT, "Please continue", GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF + 21);
+                pPlayer->SEND_GOSSIP_MENU(1813, pCreature->GetObjectGuid());
+                break;
+            case GOSSIP_ACTION_INFO_DEF+21:
+                pPlayer->ADD_GOSSIP_ITEM(GOSSIP_ICON_CHAT, "I do not understand", GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF + 22);
+                pPlayer->SEND_GOSSIP_MENU(1814, pCreature->GetObjectGuid());
+                break;
+            case GOSSIP_ACTION_INFO_DEF+22:
+                pPlayer->ADD_GOSSIP_ITEM(GOSSIP_ICON_CHAT, "Indeed", GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF + 23);
+                pPlayer->SEND_GOSSIP_MENU(1815, pCreature->GetObjectGuid());
+                break;
+            case GOSSIP_ACTION_INFO_DEF+23:
+                pPlayer->ADD_GOSSIP_ITEM(GOSSIP_ICON_CHAT, "I will do this with or your help, Loramus", GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF + 24);
+                pPlayer->SEND_GOSSIP_MENU(1816, pCreature->GetObjectGuid());
+                break;
+            case GOSSIP_ACTION_INFO_DEF+24:
+                pPlayer->ADD_GOSSIP_ITEM(GOSSIP_ICON_CHAT, "Yes", GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF + 25);
+                pPlayer->SEND_GOSSIP_MENU(1817, pCreature->GetObjectGuid());
+                break;
+            case GOSSIP_ACTION_INFO_DEF+25:
+                pPlayer->CLOSE_GOSSIP_MENU();
+                pPlayer->AreaExploredOrEventHappens(3141);
+                break;
+        }
+        return true;
     }
-    return true;
-}
+
+
+
+    bool OnGossipHello(Player* pPlayer, Creature* pCreature) override
+    {
+        if (pCreature->isQuestGiver())
+            pPlayer->PrepareQuestMenu(pCreature->GetObjectGuid());
+
+        if (pPlayer->GetQuestStatus(2744) == QUEST_STATUS_INCOMPLETE)
+            pPlayer->ADD_GOSSIP_ITEM(GOSSIP_ICON_CHAT, "Can you help me?", GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF + 1);
+
+        if (pPlayer->GetQuestStatus(3141) == QUEST_STATUS_INCOMPLETE)
+            pPlayer->ADD_GOSSIP_ITEM(GOSSIP_ICON_CHAT, "Tell me your story", GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF + 2);
+
+        pPlayer->SEND_GOSSIP_MENU(pPlayer->GetGossipTextId(pCreature), pCreature->GetObjectGuid());
+
+        return true;
+    }
+
+
+
+};
+
 
 /*######
 ## npc_felhound_tracker
@@ -478,112 +536,123 @@ enum
 };
 
 static const uint32 aGOList[] = {GO_AZSHARITE_1, GO_AZSHARITE_2, GO_AZSHARITE_3, GO_AZSHARITE_4};
-
-struct npc_felhound_trackerAI : public ScriptedPetAI
+class npc_felhound_tracker : public CreatureScript
 {
-    npc_felhound_trackerAI(Creature* pCreature) : ScriptedPetAI(pCreature) { Reset(); }
+public:
+    npc_felhound_tracker() : CreatureScript("npc_felhound_tracker") { }
 
-    bool m_bIsMovementActive;
-    uint32 m_uiWaitTimer;
-
-    void Reset() override
+    UnitAI* GetAI(Creature* pCreature)
     {
-        m_bIsMovementActive  = false;
-        m_uiWaitTimer        = 0;
+        return new npc_felhound_trackerAI(pCreature);
     }
 
-    void MovementInform(uint32 uiMoveType, uint32 uiPointId) override
+
+
+    struct npc_felhound_trackerAI : public ScriptedPetAI
     {
-        if (uiMoveType != POINT_MOTION_TYPE || !uiPointId)
-            return;
+        npc_felhound_trackerAI(Creature* pCreature) : ScriptedPetAI(pCreature) { Reset(); }
 
-        m_creature->GetMotionMaster()->MoveIdle();
-        m_bIsMovementActive  = false;
-        m_uiWaitTimer = 20000;
-    }
+        bool m_bIsMovementActive;
+        uint32 m_uiWaitTimer;
 
-    void ReceiveEmote(Player* pPlayer, uint32 uiTextEmote)
-    {
-        // Only react if player is on the quest
-        if (pPlayer->GetQuestStatus(QUEST_AZSHARITE) != QUEST_STATUS_INCOMPLETE)
-            return;
-
-        if (uiTextEmote == TEXTEMOTE_ROAR)
+        void Reset() override
         {
-            m_uiWaitTimer = 0;
-            m_bIsMovementActive = false;
-            DoFindNewCrystal(pPlayer);
-        }
-    }
-
-    // Function to search for new tubber in range
-    void DoFindNewCrystal(Player* /*pMaster*/)
-    {
-        GameObjectList lCrystalsInRange;
-        for (unsigned int i : aGOList)
-        {
-            GetGameObjectListWithEntryInGrid(lCrystalsInRange, m_creature, i, 40.0f);
-            // If a crystal was found in range, stop the search here, else try with another GO
-            if (!lCrystalsInRange.empty())
-                break;
+            m_bIsMovementActive  = false;
+            m_uiWaitTimer        = 0;
         }
 
-        if (lCrystalsInRange.empty())   // Definely no GO found
+        void MovementInform(uint32 uiMoveType, uint32 uiPointId) override
         {
-            m_creature->PlayDirectSound(SOUND_GROWL);
-            return;
-        }
-        lCrystalsInRange.sort(ObjectDistanceOrder(m_creature));
-        GameObject* pNearestCrystal = nullptr;
+            if (uiMoveType != POINT_MOTION_TYPE || !uiPointId)
+                return;
 
-        // Always need to find new ones
-        for (GameObjectList::const_iterator itr = lCrystalsInRange.begin(); itr != lCrystalsInRange.end(); ++itr)
-        {
-            if ((*itr)->HasFlag(GAMEOBJECT_FLAGS, GO_FLAG_INTERACT_COND))
-            {
-                pNearestCrystal = *itr;
-                break;
-            }
+            m_creature->GetMotionMaster()->MoveIdle();
+            m_bIsMovementActive  = false;
+            m_uiWaitTimer = 20000;
         }
 
-        if (!pNearestCrystal)
+        void ReceiveEmote(Player* pPlayer, uint32 uiTextEmote)
         {
-            m_creature->PlayDirectSound(SOUND_GROWL);
-            return;
-        }
-        float fX, fY, fZ;
-        pNearestCrystal->GetContactPoint(m_creature, fX, fY, fZ, 3.0f);
-        m_creature->SetWalk(false);
-        m_creature->GetMotionMaster()->MovePoint(1, fX, fY, fZ);
-        m_bIsMovementActive = true;
-    }
+            // Only react if player is on the quest
+            if (pPlayer->GetQuestStatus(QUEST_AZSHARITE) != QUEST_STATUS_INCOMPLETE)
+                return;
 
-    void UpdateAI(const uint32 uiDiff) override
-    {
-        if (m_bIsMovementActive)
-            return;
-
-        if (m_uiWaitTimer)
-        {
-            if (m_uiWaitTimer < uiDiff)
+            if (uiTextEmote == TEXTEMOTE_ROAR)
             {
                 m_uiWaitTimer = 0;
                 m_bIsMovementActive = false;
-            }
-            else
-            {
-                m_uiWaitTimer -= uiDiff;
-                return;
+                DoFindNewCrystal(pPlayer);
             }
         }
-        ScriptedPetAI::UpdateAI(uiDiff);
-    }
+
+        // Function to search for new tubber in range
+        void DoFindNewCrystal(Player* /*pMaster*/)
+        {
+            GameObjectList lCrystalsInRange;
+            for (unsigned int i : aGOList)
+            {
+                GetGameObjectListWithEntryInGrid(lCrystalsInRange, m_creature, i, 40.0f);
+                // If a crystal was found in range, stop the search here, else try with another GO
+                if (!lCrystalsInRange.empty())
+                    break;
+            }
+
+            if (lCrystalsInRange.empty())   // Definely no GO found
+            {
+                m_creature->PlayDirectSound(SOUND_GROWL);
+                return;
+            }
+            lCrystalsInRange.sort(ObjectDistanceOrder(m_creature));
+            GameObject* pNearestCrystal = nullptr;
+
+            // Always need to find new ones
+            for (GameObjectList::const_iterator itr = lCrystalsInRange.begin(); itr != lCrystalsInRange.end(); ++itr)
+            {
+                if ((*itr)->HasFlag(GAMEOBJECT_FLAGS, GO_FLAG_INTERACT_COND))
+                {
+                    pNearestCrystal = *itr;
+                    break;
+                }
+            }
+
+            if (!pNearestCrystal)
+            {
+                m_creature->PlayDirectSound(SOUND_GROWL);
+                return;
+            }
+            float fX, fY, fZ;
+            pNearestCrystal->GetContactPoint(m_creature, fX, fY, fZ, 3.0f);
+            m_creature->SetWalk(false);
+            m_creature->GetMotionMaster()->MovePoint(1, fX, fY, fZ);
+            m_bIsMovementActive = true;
+        }
+
+        void UpdateAI(const uint32 uiDiff) override
+        {
+            if (m_bIsMovementActive)
+                return;
+
+            if (m_uiWaitTimer)
+            {
+                if (m_uiWaitTimer < uiDiff)
+                {
+                    m_uiWaitTimer = 0;
+                    m_bIsMovementActive = false;
+                }
+                else
+                {
+                    m_uiWaitTimer -= uiDiff;
+                    return;
+                }
+            }
+            ScriptedPetAI::UpdateAI(uiDiff);
+        }
+    };
+
+
+
 };
 
-UnitAI* GetAI_npc_felhound_tracker(Creature* pCreature)
-{
-    return new npc_felhound_trackerAI(pCreature);
-}
 
 /*######
 ## event_arcanite_buoy
@@ -602,38 +671,46 @@ struct SummonLocation
 };
 
 static const SummonLocation aMawsSpawn = { 3561.73f, -6647.2f, -7.5f };
-
-bool ProcessEventId_arcanite_buoy(uint32 uiEventId, Object* pSource, Object* /*pTarget*/, bool /*bIsStart*/)
+class event_arcanite_buoy : public UnknownScript
 {
-    if (uiEventId == EVENT_ARCANITE_BUOY)
+public:
+    event_arcanite_buoy() : UnknownScript("event_arcanite_buoy") { }
+
+    bool OnProcessEvent(uint32 uiEventId, Object* pSource, Object* /*pTarget*/, bool /*bIsStart*/) override
     {
-        if (pSource->GetTypeId() == TYPEID_PLAYER)
+        if (uiEventId == EVENT_ARCANITE_BUOY)
         {
-            // Do not summon it twice
-            if (Creature* temp = GetClosestCreatureWithEntry((Player*)pSource, NPC_MAWS, 200.0f))
-                return false;
-
-            // Summon Maws
-            if (Creature* maws = ((Player*)pSource)->SummonCreature(NPC_MAWS, aMawsSpawn.m_fX, aMawsSpawn.m_fY, aMawsSpawn.m_fZ, 1.6f, TEMPSPAWN_MANUAL_DESPAWN, 0))
+            if (pSource->GetTypeId() == TYPEID_PLAYER)
             {
-                maws->SetWalk(false);
-                maws->GetMotionMaster()->MoveWaypoint();
+                // Do not summon it twice
+                if (Creature* temp = GetClosestCreatureWithEntry((Player*)pSource, NPC_MAWS, 200.0f))
+                    return false;
 
-                // Respawn visual lightning GO
-                if (GameObject* lightning = GetClosestGameObjectWithEntry((Player*)pSource, GO_THEATRIC_LIGHTNING, 20.0f))
+                // Summon Maws
+                if (Creature* maws = ((Player*)pSource)->SummonCreature(NPC_MAWS, aMawsSpawn.m_fX, aMawsSpawn.m_fY, aMawsSpawn.m_fZ, 1.6f, TEMPSPAWN_MANUAL_DESPAWN, 0))
                 {
-                    if (!lightning->IsSpawned())
+                    maws->SetWalk(false);
+                    maws->GetMotionMaster()->MoveWaypoint();
+
+                    // Respawn visual lightning GO
+                    if (GameObject* lightning = GetClosestGameObjectWithEntry((Player*)pSource, GO_THEATRIC_LIGHTNING, 20.0f))
                     {
-                        lightning->SetRespawnTime(9000);
-                        lightning->Refresh();
+                        if (!lightning->IsSpawned())
+                        {
+                            lightning->SetRespawnTime(9000);
+                            lightning->Refresh();
+                        }
                     }
                 }
             }
+            return true;
         }
-        return true;
+        return false;
     }
-    return false;
-}
+
+
+
+};
 
 /*###############
 ## go_lightning
@@ -660,11 +737,19 @@ struct go_ai_lightning : public GameObjectAI
             m_uilightningTimer -= uiDiff;
     }
 };
-
-GameObjectAI* GetAI_go_lightning(GameObject* go)
+class go_lightning : public CreatureScript
 {
-    return new go_ai_lightning(go);
-}
+public:
+    go_lightning() : CreatureScript("go_lightning") { }
+
+    GameObjectAI* GetAI(GameObject* go)
+    {
+        return new go_ai_lightning(go);
+    }
+
+
+
+};
 
 /*###############
 ## boss_maws
@@ -679,137 +764,111 @@ enum
     EMOTE_GENERIC_FRENZY_KILL   = -1000001,
     EMOTE_MAWS_KILL             = -1010000      // World emote that was removed in WotLK patch 3.2
 };
-
-struct boss_mawsAI : public ScriptedAI
+class boss_maws : public CreatureScript
 {
-    boss_mawsAI(Creature* pCreature) : ScriptedAI(pCreature)
+public:
+    boss_maws() : CreatureScript("boss_maws") { }
+
+    UnitAI* GetAI(Creature* pCreature)
     {
-        Reset();
+        return new boss_mawsAI(pCreature);
     }
 
-    uint32 uiFrenzyTimer;
-    uint32 uiDarkWaterTimer;
-    uint32 uiRampageTimer;
-    uint32 uiDespawnTimer;
 
-    void Reset() override
-    {
-        uiFrenzyTimer           = 25 * IN_MILLISECONDS;
-        uiDarkWaterTimer        = 15 * IN_MILLISECONDS;
-        uiRampageTimer          = urand(20, 120) * IN_MILLISECONDS;
-        uiDespawnTimer          = 2.5 * HOUR * IN_MILLISECONDS;
-    }
 
-    void JustDied(Unit* /*pKiller*/)
+    struct boss_mawsAI : public ScriptedAI
     {
-        // Despawn visual lightning GO
-        if (GameObject* lightning = GetClosestGameObjectWithEntry(m_creature, GO_THEATRIC_LIGHTNING, 200.0f))
-            lightning->SetLootState(GO_JUST_DEACTIVATED);
-        DoScriptText(EMOTE_MAWS_KILL, m_creature);
-    }
+        boss_mawsAI(Creature* pCreature) : ScriptedAI(pCreature)
+        {
+            Reset();
+        }
 
-    void UpdateAI(const uint32 uiDiff) override
-    {
-        // Despawn timer handled in UpdateAI because creature must perform actions on despawn that cannot be done in OnDespawn() (creature is already despawned)
-        if (uiDespawnTimer < uiDiff)
+        uint32 uiFrenzyTimer;
+        uint32 uiDarkWaterTimer;
+        uint32 uiRampageTimer;
+        uint32 uiDespawnTimer;
+
+        void Reset() override
+        {
+            uiFrenzyTimer           = 25 * IN_MILLISECONDS;
+            uiDarkWaterTimer        = 15 * IN_MILLISECONDS;
+            uiRampageTimer          = urand(20, 120) * IN_MILLISECONDS;
+            uiDespawnTimer          = 2.5 * HOUR * IN_MILLISECONDS;
+        }
+
+        void JustDied(Unit* /*pKiller*/)
         {
             // Despawn visual lightning GO
             if (GameObject* lightning = GetClosestGameObjectWithEntry(m_creature, GO_THEATRIC_LIGHTNING, 200.0f))
                 lightning->SetLootState(GO_JUST_DEACTIVATED);
             DoScriptText(EMOTE_MAWS_KILL, m_creature);
-            m_creature->ForcedDespawn();
         }
-        else
-            uiDespawnTimer -= uiDiff;
 
-        // Return since we have no target
-        if (!m_creature->SelectHostileTarget() || !m_creature->GetVictim())
-            return;
-
-        if (uiFrenzyTimer < uiDiff)
+        void UpdateAI(const uint32 uiDiff) override
         {
-            DoCastSpellIfCan(m_creature, SPELL_FRENZY);
-            DoScriptText(EMOTE_GENERIC_FRENZY_KILL, m_creature);
-            uiFrenzyTimer = (m_creature->GetHealthPercent() < 20.0f ? 15 : 25) * IN_MILLISECONDS;
-        }
-        else
-            uiFrenzyTimer -= uiDiff;
-
-        if (uiRampageTimer < uiDiff)
-        {
-            DoCastSpellIfCan(m_creature->GetVictim(), SPELL_RAMPAGE);
-            uiRampageTimer = (m_creature->GetHealthPercent() < 20.0f ? 12 : urand(20, 120)) * IN_MILLISECONDS;
-        }
-        else
-            uiRampageTimer -= uiDiff;
-
-        if (m_creature->GetHealthPercent() < 20.0f)
-        {
-            if (uiDarkWaterTimer < uiDiff)
+            // Despawn timer handled in UpdateAI because creature must perform actions on despawn that cannot be done in OnDespawn() (creature is already despawned)
+            if (uiDespawnTimer < uiDiff)
             {
-                DoCastSpellIfCan(m_creature, SPELL_DARK_WATER);
-                uiDarkWaterTimer = 15 * IN_MILLISECONDS;
+                // Despawn visual lightning GO
+                if (GameObject* lightning = GetClosestGameObjectWithEntry(m_creature, GO_THEATRIC_LIGHTNING, 200.0f))
+                    lightning->SetLootState(GO_JUST_DEACTIVATED);
+                DoScriptText(EMOTE_MAWS_KILL, m_creature);
+                m_creature->ForcedDespawn();
             }
             else
-                uiDarkWaterTimer -= uiDiff;
-        }
+                uiDespawnTimer -= uiDiff;
 
-        DoMeleeAttackIfReady();
-    }
+            // Return since we have no target
+            if (!m_creature->SelectHostileTarget() || !m_creature->GetVictim())
+                return;
+
+            if (uiFrenzyTimer < uiDiff)
+            {
+                DoCastSpellIfCan(m_creature, SPELL_FRENZY);
+                DoScriptText(EMOTE_GENERIC_FRENZY_KILL, m_creature);
+                uiFrenzyTimer = (m_creature->GetHealthPercent() < 20.0f ? 15 : 25) * IN_MILLISECONDS;
+            }
+            else
+                uiFrenzyTimer -= uiDiff;
+
+            if (uiRampageTimer < uiDiff)
+            {
+                DoCastSpellIfCan(m_creature->GetVictim(), SPELL_RAMPAGE);
+                uiRampageTimer = (m_creature->GetHealthPercent() < 20.0f ? 12 : urand(20, 120)) * IN_MILLISECONDS;
+            }
+            else
+                uiRampageTimer -= uiDiff;
+
+            if (m_creature->GetHealthPercent() < 20.0f)
+            {
+                if (uiDarkWaterTimer < uiDiff)
+                {
+                    DoCastSpellIfCan(m_creature, SPELL_DARK_WATER);
+                    uiDarkWaterTimer = 15 * IN_MILLISECONDS;
+                }
+                else
+                    uiDarkWaterTimer -= uiDiff;
+            }
+
+            DoMeleeAttackIfReady();
+        }
+    };
+
+
+
 };
 
-UnitAI* GetAI_boss_maws(Creature* pCreature)
-{
-    return new boss_mawsAI(pCreature);
-}
 
 void AddSC_azshara()
 {
-    Script* pNewScript = new Script;
-    pNewScript->Name = "npc_rizzle_sprysprocket";
-    pNewScript->GetAI = &GetAI_npc_rizzle_sprysprocket;
-    pNewScript->pGossipHello = &GossipHello_npc_rizzle_sprysprocket;
-    pNewScript->pGossipSelect = &GossipSelect_npc_rizzle_sprysprocket;
-    pNewScript->RegisterSelf();
+    new npc_rizzle_sprysprocket();
+    new npc_depth_charge();
+    new go_southfury_moonstone();
+    new mobs_spitelashes();
+    new npc_loramus_thalipedes();
+    new npc_felhound_tracker();
+    new event_arcanite_buoy();
+    new go_lightning();
+    new boss_maws();
 
-    pNewScript = new Script;
-    pNewScript->Name = "npc_depth_charge";
-    pNewScript->GetAI = &GetAI_npc_depth_charge;
-    pNewScript->RegisterSelf();
-
-    pNewScript = new Script;
-    pNewScript->Name = "go_southfury_moonstone";
-    pNewScript->pGOUse = &GOUse_go_southfury_moonstone;
-    pNewScript->RegisterSelf();
-
-    pNewScript = new Script;
-    pNewScript->Name = "mobs_spitelashes";
-    pNewScript->GetAI = &GetAI_mobs_spitelashes;
-    pNewScript->RegisterSelf();
-
-    pNewScript = new Script;
-    pNewScript->Name = "npc_loramus_thalipedes";
-    pNewScript->pGossipHello =  &GossipHello_npc_loramus_thalipedes;
-    pNewScript->pGossipSelect = &GossipSelect_npc_loramus_thalipedes;
-    pNewScript->RegisterSelf();
-
-    pNewScript = new Script;
-    pNewScript->Name = "npc_felhound_tracker";
-    pNewScript->GetAI = &GetAI_npc_felhound_tracker;
-    pNewScript->RegisterSelf();
-
-    pNewScript = new Script;
-    pNewScript->Name = "event_arcanite_buoy";
-    pNewScript->pProcessEventId = &ProcessEventId_arcanite_buoy;
-    pNewScript->RegisterSelf();
-
-    pNewScript = new Script;
-    pNewScript->Name = "go_lightning";
-    pNewScript->GetGameObjectAI = &GetAI_go_lightning;
-    pNewScript->RegisterSelf();
-
-    pNewScript = new Script;
-    pNewScript->Name = "boss_maws";
-    pNewScript->GetAI = &GetAI_boss_maws;
-    pNewScript->RegisterSelf();
 }

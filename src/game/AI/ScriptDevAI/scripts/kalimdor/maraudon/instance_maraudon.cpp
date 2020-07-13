@@ -159,11 +159,20 @@ void instance_maraudon::Update(uint32 uiDiff)
             m_spewLarvaTimer -= uiDiff;
     }
 }
-
-InstanceData* GetInstanceData_instance_maraudon(Map* map)
+class instance_maraudon : public InstanceMapScript
 {
-    return new instance_maraudon(map);
-}
+public:
+    instance_maraudon() : InstanceMapScript("instance_maraudon") { }
+
+    InstanceData* GetInstanceScript(Map* map) const override
+    {
+        return new instance_maraudon(map);
+    }
+
+
+
+
+};
 
 /*################
 ## go_larva_spewer
@@ -183,21 +192,23 @@ struct go_ai_larva_spewer : public GameObjectAI
         }
     }
 };
-
-GameObjectAI* GetAI_go_larva_spewer(GameObject* go)
+class go_larva_spewer : public CreatureScript
 {
-    return new go_ai_larva_spewer(go);
-}
+public:
+    go_larva_spewer() : CreatureScript("go_larva_spewer") { }
+
+    GameObjectAI* GetAI(GameObject* go)
+    {
+        return new go_ai_larva_spewer(go);
+    }
+
+
+
+};
 
 void AddSC_instance_maraudon()
 {
-    Script* pNewScript = new Script;
-    pNewScript->Name = "instance_maraudon";
-    pNewScript->GetInstanceData = &GetInstanceData_instance_maraudon;
-    pNewScript->RegisterSelf();
+    new instance_maraudon();
+    new go_larva_spewer();
 
-    pNewScript = new Script;
-    pNewScript->Name = "go_larva_spewer";
-    pNewScript->GetGameObjectAI = &GetAI_go_larva_spewer;
-    pNewScript->RegisterSelf();
 }

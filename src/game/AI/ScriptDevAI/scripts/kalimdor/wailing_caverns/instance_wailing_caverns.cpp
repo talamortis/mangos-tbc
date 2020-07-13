@@ -141,16 +141,23 @@ uint32 instance_wailing_caverns::GetData(uint32 uiType) const
 
     return 0;
 }
-
-InstanceData* GetInstanceData_instance_wailing_caverns(Map* pMap)
+class instance_wailing_caverns : public InstanceMapScript
 {
-    return new instance_wailing_caverns(pMap);
-}
+public:
+    instance_wailing_caverns() : InstanceMapScript("instance_wailing_caverns") { }
+
+    InstanceData* GetInstanceScript(Map* pMap) const override
+    {
+        return new instance_wailing_caverns(pMap);
+    }
+
+
+
+
+};
 
 void AddSC_instance_wailing_caverns()
 {
-    Script* pNewScript = new Script;
-    pNewScript->Name = "instance_wailing_caverns";
-    pNewScript->GetInstanceData = &GetInstanceData_instance_wailing_caverns;
-    pNewScript->RegisterSelf();
+    new instance_wailing_caverns();
+
 }

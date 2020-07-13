@@ -1,0 +1,6 @@
+Error GetFunction GetAI_OuroScarab
+Error GetFunction struct OuroScarabAI
+Error GetFunction GetAI_npc_ouro_triggerAI
+Error GetFunction GetAI_npc_ouro_moundAI
+Error GetFunction GetAI_npc_ouro_spawnerAI
+Error GetFunction GetAI_boss_ouroAI

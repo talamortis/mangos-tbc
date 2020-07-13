@@ -140,16 +140,23 @@ void instance_gruuls_lair::Load(const char* chrIn)
 
     OUT_LOAD_INST_DATA_COMPLETE;
 }
-
-InstanceData* GetInstanceData_instance_gruuls_lair(Map* pMap)
+class instance_gruuls_lair : public InstanceMapScript
 {
-    return new instance_gruuls_lair(pMap);
-}
+public:
+    instance_gruuls_lair() : InstanceMapScript("instance_gruuls_lair") { }
+
+    InstanceData* GetInstanceScript(Map* pMap) const override
+    {
+        return new instance_gruuls_lair(pMap);
+    }
+
+
+
+
+};
 
 void AddSC_instance_gruuls_lair()
 {
-    Script* pNewScript = new Script;
-    pNewScript->Name = "instance_gruuls_lair";
-    pNewScript->GetInstanceData = &GetInstanceData_instance_gruuls_lair;
-    pNewScript->RegisterSelf();
+    new instance_gruuls_lair();
+
 }

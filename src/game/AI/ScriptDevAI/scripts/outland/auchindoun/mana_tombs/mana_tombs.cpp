@@ -90,211 +90,222 @@ static const DialogueEntry aIntroDialogue[] =
     {SAY_EVENT_COMPLETE,        NPC_ENGINEER_SHAEEN,     0},
     {0, 0, 0},
 };
-
-struct npc_shaheenAI : public npc_escortAI, private DialogueHelper
+class npc_shaheen : public CreatureScript
 {
-    npc_shaheenAI(Creature* pCreature) : npc_escortAI(pCreature),
-        DialogueHelper(aIntroDialogue)
+public:
+    npc_shaheen() : CreatureScript("npc_shaheen") { }
+
+    bool OnQuestAccept(Player* pPlayer, Creature* pCreature, const Quest* pQuest) override
     {
-        StartNextDialogueText(SPELL_ETHEREAL_TELEPORT);
-        Reset();
-    }
-
-    ObjectGuid m_xiraxisGuid;
-    uint32 m_uiSummonCount;
-
-    void Reset() override { }
-
-    void ReceiveAIEvent(AIEventType eventType, Unit* /*pSender*/, Unit* pInvoker, uint32 uiMiscValue) override
-    {
-        if (eventType == AI_EVENT_START_ESCORT && pInvoker->GetTypeId() == TYPEID_PLAYER)
+        if (pQuest->GetQuestId() == QUEST_ID_HARD_WORK_PAYS_OFF)
         {
-            Start(false, (Player*)pInvoker, GetQuestTemplateStore(uiMiscValue));
-            StartNextDialogueText(SAY_ESCORT_START);
+            pCreature->AI()->SendAIEvent(AI_EVENT_START_ESCORT, pPlayer, pCreature, pQuest->GetQuestId());
+            return true;
         }
+
+        return false;
     }
 
-    void JustSummoned(Creature* pSummoned) override
+
+
+    UnitAI* GetAI(Creature* pCreature)
     {
-        switch (pSummoned->GetEntry())
+        return new npc_shaheenAI(pCreature);
+    }
+
+
+
+    struct npc_shaheenAI : public npc_escortAI, private DialogueHelper
+    {
+        npc_shaheenAI(Creature* pCreature) : npc_escortAI(pCreature),
+            DialogueHelper(aIntroDialogue)
         {
-            case NPC_SHADOW_LORD_XIRAXIS:
-                m_xiraxisGuid = pSummoned->GetObjectGuid();
-                DoScriptText(SAY_XIRAXIS_SPAWN, pSummoned);
-                pSummoned->SetWalk(false);
-                pSummoned->GetMotionMaster()->MovePoint(1, -67.49f, -74.55f, -0.86f);
-                break;
-            default:
-                pSummoned->AI()->AttackStart(m_creature);
-            // no break;
-            case NPC_NEXUS_TERROR:
-                ++m_uiSummonCount;
-                break;
+            StartNextDialogueText(SPELL_ETHEREAL_TELEPORT);
+            Reset();
         }
-    }
 
-    void SummonedMovementInform(Creature* pSummoned, uint32 uiMotionType, uint32 uiPointId) override
-    {
-        if (pSummoned->GetEntry() == NPC_SHADOW_LORD_XIRAXIS && uiMotionType == POINT_MOTION_TYPE && uiPointId == 1)
-            StartNextDialogueText(SAY_FINAL_STOP_1);
-    }
+        ObjectGuid m_xiraxisGuid;
+        uint32 m_uiSummonCount;
 
-    void SummonedCreatureJustDied(Creature* pSummoned) override
-    {
-        switch (pSummoned->GetEntry())
+        void Reset() override { }
+
+        void ReceiveAIEvent(AIEventType eventType, Unit* /*pSender*/, Unit* pInvoker, uint32 uiMiscValue) override
         {
-            case NPC_SHADOW_LORD_XIRAXIS:
-                StartNextDialogueText(NPC_ENGINEER_SHAEEN);
-                m_creature->HandleEmote(EMOTE_ONESHOT_ROAR);
-                break;
-            default:
-                --m_uiSummonCount;
-                if (!m_uiSummonCount)
-                {
-                    SetEscortPaused(false);
-                    m_creature->HandleEmote(EMOTE_STATE_NONE);
-                }
-                break;
+            if (eventType == AI_EVENT_START_ESCORT && pInvoker->GetTypeId() == TYPEID_PLAYER)
+            {
+                Start(false, (Player*)pInvoker, GetQuestTemplateStore(uiMiscValue));
+                StartNextDialogueText(SAY_ESCORT_START);
+            }
         }
-    }
 
-    void WaypointReached(uint32 uiPointId) override
-    {
-        switch (uiPointId)
+        void JustSummoned(Creature* pSummoned) override
         {
-            case 8:
-                SetEscortPaused(true);
-                DoScriptText(SAY_FIRST_STOP, m_creature);
-                // summon first wave
-                m_creature->SummonCreature(NPC_ETHEREAL_THEURGIST, -375.86f, -129.16f, -0.95f, 4.82f, TEMPSPAWN_TIMED_OOC_OR_DEAD_DESPAWN, 60000);
-                m_creature->SummonCreature(NPC_ETHEREAL_THEURGIST, -370.67f, -199.79f, -0.95f, 1.52f, TEMPSPAWN_TIMED_OOC_OR_DEAD_DESPAWN, 60000);
-                m_creature->SummonCreature(NPC_ETHEREAL_SPELLBINDER, -371.12f, -129.07f, -0.95f, 4.82f, TEMPSPAWN_TIMED_OOC_OR_DEAD_DESPAWN, 60000);
-                m_creature->SummonCreature(NPC_ETHEREAL_SPELLBINDER, -375.18f, -199.58f, -0.95f, 1.52f, TEMPSPAWN_TIMED_OOC_OR_DEAD_DESPAWN, 60000);
-                break;
-            case 9:
-                DoScriptText(SAY_FIRST_STOP_COMPLETE, m_creature);
-                break;
-            case 14:
-                StartNextDialogueText(SAY_COLLECTOR_SEARCH);
-                break;
-            case 18:
-                SetEscortPaused(true);
-                DoScriptText(SAY_SECOND_STOP, m_creature);
-                // summon second wave
-                m_creature->SummonCreature(NPC_ETHEREAL_SORCERER, -278.17f, -195.50f, 0.68f, 1.22f, TEMPSPAWN_TIMED_OOC_OR_DEAD_DESPAWN, 60000);
-                m_creature->SummonCreature(NPC_ETHEREAL_SORCERER, -234.51f, -197.03f, -0.95f, 1.92f, TEMPSPAWN_TIMED_OOC_OR_DEAD_DESPAWN, 60000);
-                m_creature->SummonCreature(NPC_ETHEREAL_CRYPT_RAIDER, -282.28f, -194.44f, 0.44f, 1.22f, TEMPSPAWN_TIMED_OOC_OR_DEAD_DESPAWN, 60000);
-                m_creature->SummonCreature(NPC_ETHEREAL_CRYPT_RAIDER, -231.15f, -194.53f, -0.95f, 1.52f, TEMPSPAWN_TIMED_OOC_OR_DEAD_DESPAWN, 60000);
-                break;
-            case 25:
-                // summon third wave
-                m_creature->SummonCreature(NPC_NEXUS_TERROR, -37.30f, -222.44f, -0.33f, 3.01f, TEMPSPAWN_TIMED_OOC_OR_DEAD_DESPAWN, 240000);
-                m_creature->SummonCreature(NPC_NEXUS_TERROR, -15.76f, -225.36f,  0.79f, 2.93f, TEMPSPAWN_TIMED_OOC_OR_DEAD_DESPAWN, 240000);
-                break;
-            case 27:
-                if (m_uiSummonCount)
+            switch (pSummoned->GetEntry())
+            {
+                case NPC_SHADOW_LORD_XIRAXIS:
+                    m_xiraxisGuid = pSummoned->GetObjectGuid();
+                    DoScriptText(SAY_XIRAXIS_SPAWN, pSummoned);
+                    pSummoned->SetWalk(false);
+                    pSummoned->GetMotionMaster()->MovePoint(1, -67.49f, -74.55f, -0.86f);
+                    break;
+                default:
+                    pSummoned->AI()->AttackStart(m_creature);
+                // no break;
+                case NPC_NEXUS_TERROR:
+                    ++m_uiSummonCount;
+                    break;
+            }
+        }
+
+        void SummonedMovementInform(Creature* pSummoned, uint32 uiMotionType, uint32 uiPointId) override
+        {
+            if (pSummoned->GetEntry() == NPC_SHADOW_LORD_XIRAXIS && uiMotionType == POINT_MOTION_TYPE && uiPointId == 1)
+                StartNextDialogueText(SAY_FINAL_STOP_1);
+        }
+
+        void SummonedCreatureJustDied(Creature* pSummoned) override
+        {
+            switch (pSummoned->GetEntry())
+            {
+                case NPC_SHADOW_LORD_XIRAXIS:
+                    StartNextDialogueText(NPC_ENGINEER_SHAEEN);
+                    m_creature->HandleEmote(EMOTE_ONESHOT_ROAR);
+                    break;
+                default:
+                    --m_uiSummonCount;
+                    if (!m_uiSummonCount)
+                    {
+                        SetEscortPaused(false);
+                        m_creature->HandleEmote(EMOTE_STATE_NONE);
+                    }
+                    break;
+            }
+        }
+
+        void WaypointReached(uint32 uiPointId) override
+        {
+            switch (uiPointId)
+            {
+                case 8:
                     SetEscortPaused(true);
-                DoScriptText(SAY_THIRD_STOP, m_creature);
-                break;
-            case 30:
-                StartNextDialogueText(NPC_ETHEREAL_THEURGIST);
-                m_creature->HandleEmote(EMOTE_STATE_WORK);
-                break;
-            case 31:
-                DoScriptText(SAY_BREAK_OVER, m_creature);
-                break;
-            case 41:
-                SetEscortPaused(true);
-                m_creature->SummonCreature(NPC_SHADOW_LORD_XIRAXIS, -47.10f, -0.49f, -0.95f, 3.45f, TEMPSPAWN_TIMED_OOC_OR_DEAD_DESPAWN, 60000);
-                break;
-            case 42:
-                if (Player* pPlayer = GetPlayerForEscort())
-                    pPlayer->RewardPlayerAndGroupAtEventExplored(QUEST_ID_HARD_WORK_PAYS_OFF, m_creature);
-                break;
+                    DoScriptText(SAY_FIRST_STOP, m_creature);
+                    // summon first wave
+                    m_creature->SummonCreature(NPC_ETHEREAL_THEURGIST, -375.86f, -129.16f, -0.95f, 4.82f, TEMPSPAWN_TIMED_OOC_OR_DEAD_DESPAWN, 60000);
+                    m_creature->SummonCreature(NPC_ETHEREAL_THEURGIST, -370.67f, -199.79f, -0.95f, 1.52f, TEMPSPAWN_TIMED_OOC_OR_DEAD_DESPAWN, 60000);
+                    m_creature->SummonCreature(NPC_ETHEREAL_SPELLBINDER, -371.12f, -129.07f, -0.95f, 4.82f, TEMPSPAWN_TIMED_OOC_OR_DEAD_DESPAWN, 60000);
+                    m_creature->SummonCreature(NPC_ETHEREAL_SPELLBINDER, -375.18f, -199.58f, -0.95f, 1.52f, TEMPSPAWN_TIMED_OOC_OR_DEAD_DESPAWN, 60000);
+                    break;
+                case 9:
+                    DoScriptText(SAY_FIRST_STOP_COMPLETE, m_creature);
+                    break;
+                case 14:
+                    StartNextDialogueText(SAY_COLLECTOR_SEARCH);
+                    break;
+                case 18:
+                    SetEscortPaused(true);
+                    DoScriptText(SAY_SECOND_STOP, m_creature);
+                    // summon second wave
+                    m_creature->SummonCreature(NPC_ETHEREAL_SORCERER, -278.17f, -195.50f, 0.68f, 1.22f, TEMPSPAWN_TIMED_OOC_OR_DEAD_DESPAWN, 60000);
+                    m_creature->SummonCreature(NPC_ETHEREAL_SORCERER, -234.51f, -197.03f, -0.95f, 1.92f, TEMPSPAWN_TIMED_OOC_OR_DEAD_DESPAWN, 60000);
+                    m_creature->SummonCreature(NPC_ETHEREAL_CRYPT_RAIDER, -282.28f, -194.44f, 0.44f, 1.22f, TEMPSPAWN_TIMED_OOC_OR_DEAD_DESPAWN, 60000);
+                    m_creature->SummonCreature(NPC_ETHEREAL_CRYPT_RAIDER, -231.15f, -194.53f, -0.95f, 1.52f, TEMPSPAWN_TIMED_OOC_OR_DEAD_DESPAWN, 60000);
+                    break;
+                case 25:
+                    // summon third wave
+                    m_creature->SummonCreature(NPC_NEXUS_TERROR, -37.30f, -222.44f, -0.33f, 3.01f, TEMPSPAWN_TIMED_OOC_OR_DEAD_DESPAWN, 240000);
+                    m_creature->SummonCreature(NPC_NEXUS_TERROR, -15.76f, -225.36f,  0.79f, 2.93f, TEMPSPAWN_TIMED_OOC_OR_DEAD_DESPAWN, 240000);
+                    break;
+                case 27:
+                    if (m_uiSummonCount)
+                        SetEscortPaused(true);
+                    DoScriptText(SAY_THIRD_STOP, m_creature);
+                    break;
+                case 30:
+                    StartNextDialogueText(NPC_ETHEREAL_THEURGIST);
+                    m_creature->HandleEmote(EMOTE_STATE_WORK);
+                    break;
+                case 31:
+                    DoScriptText(SAY_BREAK_OVER, m_creature);
+                    break;
+                case 41:
+                    SetEscortPaused(true);
+                    m_creature->SummonCreature(NPC_SHADOW_LORD_XIRAXIS, -47.10f, -0.49f, -0.95f, 3.45f, TEMPSPAWN_TIMED_OOC_OR_DEAD_DESPAWN, 60000);
+                    break;
+                case 42:
+                    if (Player* pPlayer = GetPlayerForEscort())
+                        pPlayer->RewardPlayerAndGroupAtEventExplored(QUEST_ID_HARD_WORK_PAYS_OFF, m_creature);
+                    break;
+            }
         }
-    }
 
-    void JustDidDialogueStep(int32 iEntry) override
-    {
-        switch (iEntry)
+        void JustDidDialogueStep(int32 iEntry) override
         {
-            case SPELL_ETHEREAL_TELEPORT:
-                DoCastSpellIfCan(m_creature, SPELL_ETHEREAL_TELEPORT);
-                m_creature->RemoveFlag(UNIT_NPC_FLAGS, UNIT_NPC_FLAG_QUESTGIVER);
-                break;
-            case NPC_ETHEREAL_SPELLBINDER:
-                if (m_creature->IsTemporarySummon())
-                {
-                    if (Player* pSummoner = m_creature->GetMap()->GetPlayer(m_creature->GetSpawnerGuid()))
-                        DoScriptText(SAY_SPAWN, m_creature, pSummoner);
-                }
-                break;
-            case SAY_ESCORT_READY:
-                m_creature->HandleEmote(EMOTE_STATE_NONE);
-                m_creature->SetFlag(UNIT_NPC_FLAGS, UNIT_NPC_FLAG_QUESTGIVER);
-                break;
-            case SAY_REST:
-                m_creature->HandleEmote(EMOTE_STATE_NONE);
-                break;
-            case NPC_SHADOW_LORD_XIRAXIS:
-                if (Creature* pXiraxis = m_creature->GetMap()->GetCreature(m_xiraxisGuid))
-                {
-                    pXiraxis->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_NPC | UNIT_FLAG_IMMUNE_TO_PLAYER);
-                    pXiraxis->AI()->AttackStart(m_creature);
-                }
-                break;
-            case SAY_EVENT_COMPLETE:
-                SetRun();
-                SetEscortPaused(false);
-                break;
+            switch (iEntry)
+            {
+                case SPELL_ETHEREAL_TELEPORT:
+                    DoCastSpellIfCan(m_creature, SPELL_ETHEREAL_TELEPORT);
+                    m_creature->RemoveFlag(UNIT_NPC_FLAGS, UNIT_NPC_FLAG_QUESTGIVER);
+                    break;
+                case NPC_ETHEREAL_SPELLBINDER:
+                    if (m_creature->IsTemporarySummon())
+                    {
+                        if (Player* pSummoner = m_creature->GetMap()->GetPlayer(m_creature->GetSpawnerGuid()))
+                            DoScriptText(SAY_SPAWN, m_creature, pSummoner);
+                    }
+                    break;
+                case SAY_ESCORT_READY:
+                    m_creature->HandleEmote(EMOTE_STATE_NONE);
+                    m_creature->SetFlag(UNIT_NPC_FLAGS, UNIT_NPC_FLAG_QUESTGIVER);
+                    break;
+                case SAY_REST:
+                    m_creature->HandleEmote(EMOTE_STATE_NONE);
+                    break;
+                case NPC_SHADOW_LORD_XIRAXIS:
+                    if (Creature* pXiraxis = m_creature->GetMap()->GetCreature(m_xiraxisGuid))
+                    {
+                        pXiraxis->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_NPC | UNIT_FLAG_IMMUNE_TO_PLAYER);
+                        pXiraxis->AI()->AttackStart(m_creature);
+                    }
+                    break;
+                case SAY_EVENT_COMPLETE:
+                    SetRun();
+                    SetEscortPaused(false);
+                    break;
+            }
         }
-    }
 
-    Creature* GetSpeakerByEntry(uint32 uiEntry) override
-    {
-        switch (uiEntry)
+        Creature* GetSpeakerByEntry(uint32 uiEntry) override
         {
-            case NPC_ENGINEER_SHAEEN:        return m_creature;
-            case NPC_SHADOW_LORD_XIRAXIS:    return m_creature->GetMap()->GetCreature(m_xiraxisGuid);
-            default:
-                return nullptr;
+            switch (uiEntry)
+            {
+                case NPC_ENGINEER_SHAEEN:        return m_creature;
+                case NPC_SHADOW_LORD_XIRAXIS:    return m_creature->GetMap()->GetCreature(m_xiraxisGuid);
+                default:
+                    return nullptr;
+            }
         }
-    }
 
-    void UpdateEscortAI(const uint32 uiDiff) override
-    {
-        DialogueUpdate(uiDiff);
+        void UpdateEscortAI(const uint32 uiDiff) override
+        {
+            DialogueUpdate(uiDiff);
 
-        if (!m_creature->SelectHostileTarget() || !m_creature->GetVictim())
-            return;
+            if (!m_creature->SelectHostileTarget() || !m_creature->GetVictim())
+                return;
 
-        // ToDo: add combat spells
+            // ToDo: add combat spells
 
-        DoMeleeAttackIfReady();
-    }
+            DoMeleeAttackIfReady();
+        }
+    };
+
+
+
 };
 
-UnitAI* GetAI_npc_shaheen(Creature* pCreature)
-{
-    return new npc_shaheenAI(pCreature);
-}
 
-bool QuestAccept_npc_shaheen(Player* pPlayer, Creature* pCreature, const Quest* pQuest)
-{
-    if (pQuest->GetQuestId() == QUEST_ID_HARD_WORK_PAYS_OFF)
-    {
-        pCreature->AI()->SendAIEvent(AI_EVENT_START_ESCORT, pPlayer, pCreature, pQuest->GetQuestId());
-        return true;
-    }
-
-    return false;
-}
 
 void AddSC_mana_tombs()
 {
-    Script* pNewScript = new Script;
-    pNewScript->Name = "npc_shaheen";
-    pNewScript->GetAI = &GetAI_npc_shaheen;
-    pNewScript->pQuestAcceptNPC = &QuestAccept_npc_shaheen;
-    pNewScript->RegisterSelf();
+    new npc_shaheen();
+
 }

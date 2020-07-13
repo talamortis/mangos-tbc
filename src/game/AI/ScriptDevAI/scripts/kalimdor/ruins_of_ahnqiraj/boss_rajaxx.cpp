@@ -83,236 +83,253 @@ enum AndorovActions
     ANDOROV_MOVE,
     ANDOROV_DESPAWN,
 };
-
-struct npc_general_andorovAI : public CombatAI, private DialogueHelper
+class npc_general_andorov : public CreatureScript
 {
-    npc_general_andorovAI(Creature* creature) : CombatAI(creature, ANDOROV_ACTION_MAX), m_instance(static_cast<instance_ruins_of_ahnqiraj*>(creature->GetInstanceData())),
-        DialogueHelper(aIntroDialogue)
+public:
+    npc_general_andorov() : CreatureScript("npc_general_andorov") { }
+
+    bool OnGossipSelect(Player* player, Creature* creature, uint32 /*sender*/, uint32 action) override
     {
-        InitializeDialogueHelper(m_instance);
-        m_pointId = 0;
-        AddCombatAction(ANDOROV_COMMAND_AURA, 1000, 3000);
-        AddCombatAction(ANDOROV_BASH, 8000, 11000);
-        AddCombatAction(ANDOROV_STRIKE, 2000, 5000);
-        AddCustomAction(ANDOROV_MOVE, true, [&]() { HandleMove(); });
-        AddCustomAction(ANDOROV_DESPAWN, true, [&]() { HandleDespawn(); });
-    }
-
-    instance_ruins_of_ahnqiraj* m_instance;
-
-    uint8 m_pointId;
-
-    void JustRespawned() override
-    {
-        ResetTimer(ANDOROV_MOVE, 5000);
-    }
-
-    void MoveInLineOfSight(Unit* who) override
-    {
-        // If Rajaxx is in range attack him
-        if (who->GetEntry() == NPC_RAJAXX && m_creature->IsWithinDistInMap(who, 50.0f))
-            AttackStart(who);
-
-        ScriptedAI::MoveInLineOfSight(who);
-    }
-
-    void JustDied(Unit* killer) override
-    {
-        if (killer->GetEntry() != NPC_RAJAXX)
-            return;
-
-        // Yell when killed by Rajaxx
-        if (m_instance)
+        if (action == GOSSIP_ACTION_INFO_DEF + 1)
         {
-            if (Creature* pRajaxx = m_instance->GetSingleCreatureFromStorage(NPC_RAJAXX))
-                DoScriptText(SAY_KILLS_ANDOROV, pRajaxx);
+            if (npc_general_andorovAI* andorovAI = dynamic_cast<npc_general_andorovAI*>(creature->AI()))
+                andorovAI->DoMoveToEventLocation();
+
+            player->CLOSE_GOSSIP_MENU();
         }
+
+        if (action == GOSSIP_ACTION_TRADE)
+            player->SEND_VENDORLIST(creature->GetObjectGuid());
+
+        return true;
     }
 
-    void JustDidDialogueStep(int32 entry) override
+
+
+    bool OnGossipHello(Player* player, Creature* creature) override
     {
-        // Start the event when the dialogue is finished
-        if (entry == SAY_ANDOROV_ATTACK_START)
+        if (instance_ruins_of_ahnqiraj* instance = static_cast<instance_ruins_of_ahnqiraj*>(creature->GetInstanceData()))
         {
+            if (instance->GetData(TYPE_RAJAXX) == IN_PROGRESS)
+                return true;
+
+            if (instance->GetData(TYPE_RAJAXX) == NOT_STARTED || instance->GetData(TYPE_RAJAXX) == FAIL)
+                player->ADD_GOSSIP_ITEM_ID(GOSSIP_ICON_CHAT, GOSSIP_ITEM_START, GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF + 1);
+
+            if (creature->HasFlag(UNIT_NPC_FLAGS, UNIT_NPC_FLAG_VENDOR))
+                player->ADD_GOSSIP_ITEM_ID(GOSSIP_ICON_VENDOR, GOSSIP_ITEM_TRADE, GOSSIP_SENDER_MAIN, GOSSIP_ACTION_TRADE);
+
+            player->SEND_GOSSIP_MENU(GOSSIP_TEXT_ID_INTRO, creature->GetObjectGuid());
+        }
+
+        return true;
+    }
+
+
+
+    UnitAI* GetAI(Creature* creature)
+    {
+        return new npc_general_andorovAI(creature);
+    }
+
+
+
+    struct npc_general_andorovAI : public CombatAI, private DialogueHelper
+    {
+        npc_general_andorovAI(Creature* creature) : CombatAI(creature, ANDOROV_ACTION_MAX), m_instance(static_cast<instance_ruins_of_ahnqiraj*>(creature->GetInstanceData())),
+            DialogueHelper(aIntroDialogue)
+        {
+            InitializeDialogueHelper(m_instance);
+            m_pointId = 0;
+            AddCombatAction(ANDOROV_COMMAND_AURA, 1000, 3000);
+            AddCombatAction(ANDOROV_BASH, 8000, 11000);
+            AddCombatAction(ANDOROV_STRIKE, 2000, 5000);
+            AddCustomAction(ANDOROV_MOVE, true, [&]() { HandleMove(); });
+            AddCustomAction(ANDOROV_DESPAWN, true, [&]() { HandleDespawn(); });
+        }
+
+        instance_ruins_of_ahnqiraj* m_instance;
+
+        uint8 m_pointId;
+
+        void JustRespawned() override
+        {
+            ResetTimer(ANDOROV_MOVE, 5000);
+        }
+
+        void MoveInLineOfSight(Unit* who) override
+        {
+            // If Rajaxx is in range attack him
+            if (who->GetEntry() == NPC_RAJAXX && m_creature->IsWithinDistInMap(who, 50.0f))
+                AttackStart(who);
+
+            ScriptedAI::MoveInLineOfSight(who);
+        }
+
+        void JustDied(Unit* killer) override
+        {
+            if (killer->GetEntry() != NPC_RAJAXX)
+                return;
+
+            // Yell when killed by Rajaxx
             if (m_instance)
-                m_instance->SetData(TYPE_RAJAXX, IN_PROGRESS);
+            {
+                if (Creature* pRajaxx = m_instance->GetSingleCreatureFromStorage(NPC_RAJAXX))
+                    DoScriptText(SAY_KILLS_ANDOROV, pRajaxx);
+            }
         }
-    }
 
-    void MovementInform(uint32 uiType, uint32 uiPointId) override
-    {
-        if (uiType != POINT_MOTION_TYPE)
-            return;
-
-        switch (uiPointId)
+        void JustDidDialogueStep(int32 entry) override
         {
-            case 0:
-            case 1:
-            case 3:
-                ++m_pointId;
-                m_creature->GetMotionMaster()->MovePoint(m_pointId, aAndorovMoveLocs[m_pointId].m_fX, aAndorovMoveLocs[m_pointId].m_fY, aAndorovMoveLocs[m_pointId].m_fZ);
-                break;
-            case POINT_ID_MOVE_INTRO:
-                m_creature->SetFlag(UNIT_NPC_FLAGS, UNIT_NPC_FLAG_GOSSIP);
-                m_creature->SetFacingTo(aAndorovMoveLocs[3].m_fO);
-                ++m_pointId;
-                break;
-            case POINT_ID_MOVE_ATTACK:
-                // Start dialogue only the first time it reaches the point
-                if (m_pointId == 4)
-                {
-                    StartNextDialogueText(SAY_ANDOROV_INTRO_3);
+            // Start the event when the dialogue is finished
+            if (entry == SAY_ANDOROV_ATTACK_START)
+            {
+                if (m_instance)
+                    m_instance->SetData(TYPE_RAJAXX, IN_PROGRESS);
+            }
+        }
+
+        void MovementInform(uint32 uiType, uint32 uiPointId) override
+        {
+            if (uiType != POINT_MOTION_TYPE)
+                return;
+
+            switch (uiPointId)
+            {
+                case 0:
+                case 1:
+                case 3:
                     ++m_pointId;
+                    m_creature->GetMotionMaster()->MovePoint(m_pointId, aAndorovMoveLocs[m_pointId].m_fX, aAndorovMoveLocs[m_pointId].m_fY, aAndorovMoveLocs[m_pointId].m_fZ);
+                    break;
+                case POINT_ID_MOVE_INTRO:
+                    m_creature->SetFlag(UNIT_NPC_FLAGS, UNIT_NPC_FLAG_GOSSIP);
+                    m_creature->SetFacingTo(aAndorovMoveLocs[3].m_fO);
+                    ++m_pointId;
+                    break;
+                case POINT_ID_MOVE_ATTACK:
+                    // Start dialogue only the first time it reaches the point
+                    if (m_pointId == 4)
+                    {
+                        StartNextDialogueText(SAY_ANDOROV_INTRO_3);
+                        ++m_pointId;
+                    }
+                    break;
+            }
+        }
+
+        void EnterEvadeMode() override
+        {
+            if (!m_instance)
+                return;
+
+            m_creature->RemoveAllAurasOnEvade();
+            m_creature->CombatStop(true);
+
+            if (m_creature->IsAlive())
+            {
+                // reset to combat position
+                if (m_pointId >= 4)
+                    m_creature->GetMotionMaster()->MovePoint(POINT_ID_MOVE_ATTACK, aAndorovMoveLocs[4].m_fX, aAndorovMoveLocs[4].m_fY, aAndorovMoveLocs[4].m_fZ);
+                // reset to intro position
+                else
+                    m_creature->GetMotionMaster()->MovePoint(POINT_ID_MOVE_INTRO, aAndorovMoveLocs[2].m_fX, aAndorovMoveLocs[2].m_fY, aAndorovMoveLocs[2].m_fZ);
+            }
+
+            m_creature->SetLootRecipient(nullptr);
+
+            Reset();
+        }
+
+        // Wrapper to start initialize Kaldorei followers
+        void DoInitializeFollowers()
+        {
+            if (!m_instance)
+                return;
+
+            GuidList m_lKaldoreiGuids;
+            m_instance->GetKaldoreiGuidList(m_lKaldoreiGuids);
+
+            for (GuidList::const_iterator itr = m_lKaldoreiGuids.begin(); itr != m_lKaldoreiGuids.end(); ++itr)
+                if (Creature* kaldorei = m_creature->GetMap()->GetCreature(*itr))
+                    kaldorei->GetMotionMaster()->MoveFollow(m_creature, kaldorei->GetDistance(m_creature), kaldorei->GetAngle(m_creature));
+        }
+
+        // Wrapper to start the event
+        void DoMoveToEventLocation()
+        {
+            m_creature->GetMotionMaster()->MovePoint(m_pointId, aAndorovMoveLocs[m_pointId].m_fX, aAndorovMoveLocs[m_pointId].m_fY, aAndorovMoveLocs[m_pointId].m_fZ);
+            m_creature->RemoveFlag(UNIT_NPC_FLAGS, UNIT_NPC_FLAG_GOSSIP);
+            m_creature->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_NPC);
+            GuidList m_lKaldoreiGuids;
+            m_instance->GetKaldoreiGuidList(m_lKaldoreiGuids);
+            for (GuidList::const_iterator itr = m_lKaldoreiGuids.begin(); itr != m_lKaldoreiGuids.end(); ++itr)
+                if (Creature* kaldorei = m_creature->GetMap()->GetCreature(*itr))
+                    kaldorei->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_NPC);
+            StartNextDialogueText(SAY_ANDOROV_INTRO_1);
+        }
+
+        void ReceiveAIEvent(AIEventType eventType, Unit* /*sender*/, Unit* /*invoker*/, uint32 /*miscValue*/) override
+        {
+            if (eventType == AI_EVENT_CUSTOM_A)
+            {
+                m_creature->SetFlag(UNIT_NPC_FLAGS, UNIT_NPC_FLAG_GOSSIP | UNIT_NPC_FLAG_VENDOR);
+                ResetTimer(ANDOROV_DESPAWN, 135000u);
+            }
+        }
+
+        void HandleDespawn()
+        {
+            DoScriptText(SAY_ANDOROV_DESPAWN, m_creature);
+            m_creature->ForcedDespawn(2500);
+        }
+
+        void HandleMove()
+        {
+            m_creature->SetWalk(false);
+            m_creature->GetMotionMaster()->MovePoint(m_pointId, aAndorovMoveLocs[m_pointId].m_fX, aAndorovMoveLocs[m_pointId].m_fY, aAndorovMoveLocs[m_pointId].m_fZ);
+
+            DoInitializeFollowers();
+        }
+
+        void ExecuteAction(uint32 action) override
+        {
+            switch (action)
+            {
+                case ANDOROV_COMMAND_AURA:
+                {
+                    if (DoCastSpellIfCan(nullptr, SPELL_AURA_OF_COMMAND) == CAST_OK)
+                        ResetCombatAction(action, urand(30000, 45000));
+                    break;
                 }
-                break;
-        }
-    }
-
-    void EnterEvadeMode() override
-    {
-        if (!m_instance)
-            return;
-
-        m_creature->RemoveAllAurasOnEvade();
-        m_creature->CombatStop(true);
-
-        if (m_creature->IsAlive())
-        {
-            // reset to combat position
-            if (m_pointId >= 4)
-                m_creature->GetMotionMaster()->MovePoint(POINT_ID_MOVE_ATTACK, aAndorovMoveLocs[4].m_fX, aAndorovMoveLocs[4].m_fY, aAndorovMoveLocs[4].m_fZ);
-            // reset to intro position
-            else
-                m_creature->GetMotionMaster()->MovePoint(POINT_ID_MOVE_INTRO, aAndorovMoveLocs[2].m_fX, aAndorovMoveLocs[2].m_fY, aAndorovMoveLocs[2].m_fZ);
-        }
-
-        m_creature->SetLootRecipient(nullptr);
-
-        Reset();
-    }
-
-    // Wrapper to start initialize Kaldorei followers
-    void DoInitializeFollowers()
-    {
-        if (!m_instance)
-            return;
-
-        GuidList m_lKaldoreiGuids;
-        m_instance->GetKaldoreiGuidList(m_lKaldoreiGuids);
-
-        for (GuidList::const_iterator itr = m_lKaldoreiGuids.begin(); itr != m_lKaldoreiGuids.end(); ++itr)
-            if (Creature* kaldorei = m_creature->GetMap()->GetCreature(*itr))
-                kaldorei->GetMotionMaster()->MoveFollow(m_creature, kaldorei->GetDistance(m_creature), kaldorei->GetAngle(m_creature));
-    }
-
-    // Wrapper to start the event
-    void DoMoveToEventLocation()
-    {
-        m_creature->GetMotionMaster()->MovePoint(m_pointId, aAndorovMoveLocs[m_pointId].m_fX, aAndorovMoveLocs[m_pointId].m_fY, aAndorovMoveLocs[m_pointId].m_fZ);
-        m_creature->RemoveFlag(UNIT_NPC_FLAGS, UNIT_NPC_FLAG_GOSSIP);
-        m_creature->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_NPC);
-        GuidList m_lKaldoreiGuids;
-        m_instance->GetKaldoreiGuidList(m_lKaldoreiGuids);
-        for (GuidList::const_iterator itr = m_lKaldoreiGuids.begin(); itr != m_lKaldoreiGuids.end(); ++itr)
-            if (Creature* kaldorei = m_creature->GetMap()->GetCreature(*itr))
-                kaldorei->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_NPC);
-        StartNextDialogueText(SAY_ANDOROV_INTRO_1);
-    }
-
-    void ReceiveAIEvent(AIEventType eventType, Unit* /*sender*/, Unit* /*invoker*/, uint32 /*miscValue*/) override
-    {
-        if (eventType == AI_EVENT_CUSTOM_A)
-        {
-            m_creature->SetFlag(UNIT_NPC_FLAGS, UNIT_NPC_FLAG_GOSSIP | UNIT_NPC_FLAG_VENDOR);
-            ResetTimer(ANDOROV_DESPAWN, 135000u);
-        }
-    }
-
-    void HandleDespawn()
-    {
-        DoScriptText(SAY_ANDOROV_DESPAWN, m_creature);
-        m_creature->ForcedDespawn(2500);
-    }
-
-    void HandleMove()
-    {
-        m_creature->SetWalk(false);
-        m_creature->GetMotionMaster()->MovePoint(m_pointId, aAndorovMoveLocs[m_pointId].m_fX, aAndorovMoveLocs[m_pointId].m_fY, aAndorovMoveLocs[m_pointId].m_fZ);
-
-        DoInitializeFollowers();
-    }
-
-    void ExecuteAction(uint32 action) override
-    {
-        switch (action)
-        {
-            case ANDOROV_COMMAND_AURA:
-            {
-                if (DoCastSpellIfCan(nullptr, SPELL_AURA_OF_COMMAND) == CAST_OK)
-                    ResetCombatAction(action, urand(30000, 45000));
-                break;
-            }
-            case ANDOROV_BASH:
-            {
-                if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_BASH) == CAST_OK)
-                    ResetCombatAction(action, urand(12000, 15000));
-                break;
-            }
-            case ANDOROV_STRIKE:
-            {
-                if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_STRIKE) == CAST_OK)
-                    ResetCombatAction(action, urand(4000, 6000));
-                break;
+                case ANDOROV_BASH:
+                {
+                    if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_BASH) == CAST_OK)
+                        ResetCombatAction(action, urand(12000, 15000));
+                    break;
+                }
+                case ANDOROV_STRIKE:
+                {
+                    if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_STRIKE) == CAST_OK)
+                        ResetCombatAction(action, urand(4000, 6000));
+                    break;
+                }
             }
         }
-    }
 
-    void UpdateAI(const uint32 diff) override
-    {
-        DialogueUpdate(diff);
-        CombatAI::UpdateAI(diff);
-    }
+        void UpdateAI(const uint32 diff) override
+        {
+            DialogueUpdate(diff);
+            CombatAI::UpdateAI(diff);
+        }
+    };
+
+
+
 };
 
-UnitAI* GetAI_npc_general_andorov(Creature* creature)
-{
-    return new npc_general_andorovAI(creature);
-}
 
-bool GossipHello_npc_general_andorov(Player* player, Creature* creature)
-{
-    if (instance_ruins_of_ahnqiraj* instance = static_cast<instance_ruins_of_ahnqiraj*>(creature->GetInstanceData()))
-    {
-        if (instance->GetData(TYPE_RAJAXX) == IN_PROGRESS)
-            return true;
 
-        if (instance->GetData(TYPE_RAJAXX) == NOT_STARTED || instance->GetData(TYPE_RAJAXX) == FAIL)
-            player->ADD_GOSSIP_ITEM_ID(GOSSIP_ICON_CHAT, GOSSIP_ITEM_START, GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF + 1);
-
-        if (creature->HasFlag(UNIT_NPC_FLAGS, UNIT_NPC_FLAG_VENDOR))
-            player->ADD_GOSSIP_ITEM_ID(GOSSIP_ICON_VENDOR, GOSSIP_ITEM_TRADE, GOSSIP_SENDER_MAIN, GOSSIP_ACTION_TRADE);
-
-        player->SEND_GOSSIP_MENU(GOSSIP_TEXT_ID_INTRO, creature->GetObjectGuid());
-    }
-
-    return true;
-}
-
-bool GossipSelect_npc_general_andorov(Player* player, Creature* creature, uint32 /*sender*/, uint32 action)
-{
-    if (action == GOSSIP_ACTION_INFO_DEF + 1)
-    {
-        if (npc_general_andorovAI* andorovAI = dynamic_cast<npc_general_andorovAI*>(creature->AI()))
-            andorovAI->DoMoveToEventLocation();
-
-        player->CLOSE_GOSSIP_MENU();
-    }
-
-    if (action == GOSSIP_ACTION_TRADE)
-        player->SEND_VENDORLIST(creature->GetObjectGuid());
-
-    return true;
-}
 
 enum KaldoreiEliteActions
 {
@@ -320,76 +337,79 @@ enum KaldoreiEliteActions
     KALDOREI_STRIKE,
     KALDOREI_ACTION_MAX,
 };
-
-struct npc_kaldorei_eliteAI : public CombatAI
+class npc_kaldorei_elite : public CreatureScript
 {
-    npc_kaldorei_eliteAI(Creature* creature) : CombatAI(creature, KALDOREI_ACTION_MAX), m_instance(static_cast<ScriptedInstance*>(creature->GetInstanceData()))
+public:
+    npc_kaldorei_elite() : CreatureScript("npc_kaldorei_elite") { }
+
+    UnitAI* GetAI(Creature* creature)
     {
-        AddCombatAction(KALDOREI_CLEAVE, 2000, 4000);
-        AddCombatAction(KALDOREI_STRIKE, 8000, 11000);
+        return new npc_kaldorei_eliteAI(creature);
     }
 
-    ScriptedInstance* m_instance;
 
-    void EnterEvadeMode() override
+
+    struct npc_kaldorei_eliteAI : public CombatAI
     {
-        if (!m_instance)
-            return;
-
-        m_creature->RemoveAllAurasOnEvade();
-        m_creature->CombatStop(true);
-
-        // reset only to the last position
-        if (m_creature->IsAlive())
+        npc_kaldorei_eliteAI(Creature* creature) : CombatAI(creature, KALDOREI_ACTION_MAX), m_instance(static_cast<ScriptedInstance*>(creature->GetInstanceData()))
         {
-            if (Creature* andorov = m_instance->GetSingleCreatureFromStorage(NPC_GENERAL_ANDOROV))
-            {
-                if (andorov->IsAlive())
-                    m_creature->GetMotionMaster()->MoveFollow(andorov, m_creature->GetDistance(andorov), m_creature->GetAngle(andorov));
-            }
+            AddCombatAction(KALDOREI_CLEAVE, 2000, 4000);
+            AddCombatAction(KALDOREI_STRIKE, 8000, 11000);
         }
 
-        m_creature->SetLootRecipient(nullptr);
+        ScriptedInstance* m_instance;
 
-        Reset();
-    }
-
-    void ExecuteAction(uint32 action) override
-    {
-        switch (action)
+        void EnterEvadeMode() override
         {
-            case KALDOREI_CLEAVE:
+            if (!m_instance)
+                return;
+
+            m_creature->RemoveAllAurasOnEvade();
+            m_creature->CombatStop(true);
+
+            // reset only to the last position
+            if (m_creature->IsAlive())
             {
-                if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_CLEAVE) == CAST_OK)
-                    ResetCombatAction(action, urand(5000, 7000));
-                break;
+                if (Creature* andorov = m_instance->GetSingleCreatureFromStorage(NPC_GENERAL_ANDOROV))
+                {
+                    if (andorov->IsAlive())
+                        m_creature->GetMotionMaster()->MoveFollow(andorov, m_creature->GetDistance(andorov), m_creature->GetAngle(andorov));
+                }
             }
-            case KALDOREI_STRIKE:
+
+            m_creature->SetLootRecipient(nullptr);
+
+            Reset();
+        }
+
+        void ExecuteAction(uint32 action) override
+        {
+            switch (action)
             {
-                if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_MORTAL_STRIKE) == CAST_OK)
-                    ResetCombatAction(action, urand(9000, 13000));
-                break;
+                case KALDOREI_CLEAVE:
+                {
+                    if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_CLEAVE) == CAST_OK)
+                        ResetCombatAction(action, urand(5000, 7000));
+                    break;
+                }
+                case KALDOREI_STRIKE:
+                {
+                    if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_MORTAL_STRIKE) == CAST_OK)
+                        ResetCombatAction(action, urand(9000, 13000));
+                    break;
+                }
             }
         }
-    }
+    };
+
+
+
 };
 
-UnitAI* GetAI_npc_kaldorei_elite(Creature* creature)
-{
-    return new npc_kaldorei_eliteAI(creature);
-}
 
 void AddSC_boss_rajaxx()
 {
-    Script* pNewScript = new Script;
-    pNewScript->Name = "npc_general_andorov";
-    pNewScript->GetAI = &GetAI_npc_general_andorov;
-    pNewScript->pGossipHello = &GossipHello_npc_general_andorov;
-    pNewScript->pGossipSelect = &GossipSelect_npc_general_andorov;
-    pNewScript->RegisterSelf();
+    new npc_general_andorov();
+    new npc_kaldorei_elite();
 
-    pNewScript = new Script;
-    pNewScript->Name = "npc_kaldorei_elite";
-    pNewScript->GetAI = &GetAI_npc_kaldorei_elite;
-    pNewScript->RegisterSelf();
 }

@@ -1219,16 +1219,23 @@ void instance_stratholme::Update(uint32 uiDiff)
             m_uiSlaugtherSquareTimer -= uiDiff;
     }
 }
-
-InstanceData* GetInstanceData_instance_stratholme(Map* pMap)
+class instance_stratholme : public InstanceMapScript
 {
-    return new instance_stratholme(pMap);
-}
+public:
+    instance_stratholme() : InstanceMapScript("instance_stratholme") { }
+
+    InstanceData* GetInstanceScript(Map* pMap) const override
+    {
+        return new instance_stratholme(pMap);
+    }
+
+
+
+
+};
 
 void AddSC_instance_stratholme()
 {
-    Script* pNewScript = new Script;
-    pNewScript->Name = "instance_stratholme";
-    pNewScript->GetInstanceData = &GetInstanceData_instance_stratholme;
-    pNewScript->RegisterSelf();
+    new instance_stratholme();
+
 }

@@ -43,86 +43,95 @@ enum FlamegorActions
     FLAMEGOR_THRASH,
     FLAMEGOR_ACTION_MAX,
 };
-
-struct boss_flamegorAI : public CombatAI
+class boss_flamegor : public CreatureScript
 {
-    boss_flamegorAI(Creature* creature) : CombatAI(creature, FLAMEGOR_ACTION_MAX), m_instance(static_cast<ScriptedInstance*>(creature->GetInstanceData()))
+public:
+    boss_flamegor() : CreatureScript("boss_flamegor") { }
+
+    UnitAI* GetAI(Creature* creature)
     {
-        AddCombatAction(FLAMEGOR_FRENZY, 10000u);
-        AddCombatAction(FLAMEGOR_SHADOW_FLAME, uint32(18 * IN_MILLISECONDS));
-        AddCombatAction(FLAMEGOR_WING_BUFFET, uint32(30 * IN_MILLISECONDS));
-        AddCombatAction(FLAMEGOR_THRASH, uint32(6 * IN_MILLISECONDS));
+        return new boss_flamegorAI(creature);
     }
 
-    ScriptedInstance* m_instance;
 
-    void Aggro(Unit* /*who*/) override
-    {
-        if (m_instance)
-            m_instance->SetData(TYPE_FLAMEGOR, IN_PROGRESS);
-    }
 
-    void JustDied(Unit* /*killer*/) override
+    struct boss_flamegorAI : public CombatAI
     {
-        if (m_instance)
-            m_instance->SetData(TYPE_FLAMEGOR, DONE);
-    }
-
-    void JustReachedHome() override
-    {
-        if (m_instance)
-            m_instance->SetData(TYPE_FLAMEGOR, FAIL);
-    }
-
-    void SpellHitTarget(Unit* target, const SpellEntry* spellInfo, SpellMissInfo /*missInfo*/) override
-    {
-        if (spellInfo->Id == SPELL_WING_BUFFET) // reduces threat of everyone hit
-            m_creature->getThreatManager().modifyThreatPercent(target, -50);
-    }
-
-    void ExecuteAction(uint32 action) override
-    {
-        switch (action)
+        boss_flamegorAI(Creature* creature) : CombatAI(creature, FLAMEGOR_ACTION_MAX), m_instance(static_cast<ScriptedInstance*>(creature->GetInstanceData()))
         {
-            case FLAMEGOR_FRENZY:
+            AddCombatAction(FLAMEGOR_FRENZY, 10000u);
+            AddCombatAction(FLAMEGOR_SHADOW_FLAME, uint32(18 * IN_MILLISECONDS));
+            AddCombatAction(FLAMEGOR_WING_BUFFET, uint32(30 * IN_MILLISECONDS));
+            AddCombatAction(FLAMEGOR_THRASH, uint32(6 * IN_MILLISECONDS));
+        }
+
+        ScriptedInstance* m_instance;
+
+        void Aggro(Unit* /*who*/) override
+        {
+            if (m_instance)
+                m_instance->SetData(TYPE_FLAMEGOR, IN_PROGRESS);
+        }
+
+        void JustDied(Unit* /*killer*/) override
+        {
+            if (m_instance)
+                m_instance->SetData(TYPE_FLAMEGOR, DONE);
+        }
+
+        void JustReachedHome() override
+        {
+            if (m_instance)
+                m_instance->SetData(TYPE_FLAMEGOR, FAIL);
+        }
+
+        void SpellHitTarget(Unit* target, const SpellEntry* spellInfo, SpellMissInfo /*missInfo*/) override
+        {
+            if (spellInfo->Id == SPELL_WING_BUFFET) // reduces threat of everyone hit
+                m_creature->getThreatManager().modifyThreatPercent(target, -50);
+        }
+
+        void ExecuteAction(uint32 action) override
+        {
+            switch (action)
             {
-                if (DoCastSpellIfCan(nullptr, SPELL_FRENZY) == CAST_OK)
+                case FLAMEGOR_FRENZY:
                 {
-                    DoScriptText(EMOTE_GENERIC_FRENZY, m_creature);
-                    ResetCombatAction(action, urand(10 * IN_MILLISECONDS, 15 * IN_MILLISECONDS));
+                    if (DoCastSpellIfCan(nullptr, SPELL_FRENZY) == CAST_OK)
+                    {
+                        DoScriptText(EMOTE_GENERIC_FRENZY, m_creature);
+                        ResetCombatAction(action, urand(10 * IN_MILLISECONDS, 15 * IN_MILLISECONDS));
+                    }
+                    break;
                 }
-                break;
-            }
-            case FLAMEGOR_SHADOW_FLAME:
-            {
-                if (DoCastSpellIfCan(nullptr, SPELL_SHADOW_FLAME) == CAST_OK)
-                    ResetCombatAction(action, urand(15 * IN_MILLISECONDS, 18 * IN_MILLISECONDS));
-                break;
-            }
-            case FLAMEGOR_WING_BUFFET:
-            {
-                if (DoCastSpellIfCan(nullptr, SPELL_WING_BUFFET) == CAST_OK)
-                    ResetCombatAction(action, urand(30 * IN_MILLISECONDS, 35 * IN_MILLISECONDS));
-                break;
-            }
-            case FLAMEGOR_THRASH:
-            {
-                if (DoCastSpellIfCan(nullptr, SPELL_THRASH) == CAST_OK)
-                    ResetCombatAction(action, urand(2 * IN_MILLISECONDS, 6 * IN_MILLISECONDS));
-                break;
+                case FLAMEGOR_SHADOW_FLAME:
+                {
+                    if (DoCastSpellIfCan(nullptr, SPELL_SHADOW_FLAME) == CAST_OK)
+                        ResetCombatAction(action, urand(15 * IN_MILLISECONDS, 18 * IN_MILLISECONDS));
+                    break;
+                }
+                case FLAMEGOR_WING_BUFFET:
+                {
+                    if (DoCastSpellIfCan(nullptr, SPELL_WING_BUFFET) == CAST_OK)
+                        ResetCombatAction(action, urand(30 * IN_MILLISECONDS, 35 * IN_MILLISECONDS));
+                    break;
+                }
+                case FLAMEGOR_THRASH:
+                {
+                    if (DoCastSpellIfCan(nullptr, SPELL_THRASH) == CAST_OK)
+                        ResetCombatAction(action, urand(2 * IN_MILLISECONDS, 6 * IN_MILLISECONDS));
+                    break;
+                }
             }
         }
-    }
+    };
+
+
+
 };
-UnitAI* GetAI_boss_flamegor(Creature* creature)
-{
-    return new boss_flamegorAI(creature);
-}
 
 void AddSC_boss_flamegor()
 {
-    Script* pNewScript = new Script;
-    pNewScript->Name = "boss_flamegor";
-    pNewScript->GetAI = &GetAI_boss_flamegor;
-    pNewScript->RegisterSelf();
+    new boss_flamegor();
+
 }

@@ -849,16 +849,23 @@ void instance_karazhan::Update(uint32 uiDiff)
         }
     }
 }
-
-InstanceData* GetInstanceData_instance_karazhan(Map* pMap)
+class instance_karazhan : public InstanceMapScript
 {
-    return new instance_karazhan(pMap);
-}
+public:
+    instance_karazhan() : InstanceMapScript("instance_karazhan") { }
+
+    InstanceData* GetInstanceScript(Map* pMap) const override
+    {
+        return new instance_karazhan(pMap);
+    }
+
+
+
+
+};
 
 void AddSC_instance_karazhan()
 {
-    Script* pNewScript = new Script;
-    pNewScript->Name = "instance_karazhan";
-    pNewScript->GetInstanceData = &GetInstanceData_instance_karazhan;
-    pNewScript->RegisterSelf();
+    new instance_karazhan();
+
 }

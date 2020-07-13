@@ -23,25 +23,31 @@ EndScriptData */
 
 #include "AI/ScriptDevAI/include/sc_common.h"
 #include "deadmines.h"
-
-bool GOUse_go_defias_cannon(Player* /*pPlayer*/, GameObject* pGo)
+class go_defias_cannon : public GameObjectScript
 {
-    ScriptedInstance* pInstance = (ScriptedInstance*)pGo->GetInstanceData();
+public:
+    go_defias_cannon() : GameObjectScript("go_defias_cannon") { }
 
-    if (!pInstance)
+    bool OnGameObjectUse(Player* /*pPlayer*/, GameObject* pGo) override
+    {
+        ScriptedInstance* pInstance = (ScriptedInstance*)pGo->GetInstanceData();
+
+        if (!pInstance)
+            return false;
+
+        if (pInstance->GetData(TYPE_IRON_CLAD_DOOR) == DONE)
+            return false;
+
+        pInstance->SetData(TYPE_IRON_CLAD_DOOR, DONE);
         return false;
+    }
 
-    if (pInstance->GetData(TYPE_IRON_CLAD_DOOR) == DONE)
-        return false;
 
-    pInstance->SetData(TYPE_IRON_CLAD_DOOR, DONE);
-    return false;
-}
+
+};
 
 void AddSC_deadmines()
 {
-    Script* pNewScript = new Script;
-    pNewScript->Name = "go_defias_cannon";
-    pNewScript->pGOUse = &GOUse_go_defias_cannon;
-    pNewScript->RegisterSelf();
+    new go_defias_cannon();
+
 }

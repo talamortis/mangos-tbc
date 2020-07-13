@@ -72,139 +72,148 @@ static const float SPELL_THUNDERING_STORM_MINRANGE = 34;             // 34 yards
 static const float SPELL_THUNDERING_STORM_MAXRANGE = 100;            // 100 yards from boss
 static const uint32 SPELL_THUNDERING_STORM_MIN_TIMER = 6000;         //15 seconds (Both)
 static const uint32 SPELL_THUNDERING_STORM_MAX_TIMER = 10000;        //15 seconds (Both)
-
-struct boss_murmurAI : public Scripted_NoMovementAI
+class boss_murmur : public CreatureScript
 {
-    boss_murmurAI(Creature* pCreature) : Scripted_NoMovementAI(pCreature)
+public:
+    boss_murmur() : CreatureScript("boss_murmur") { }
+
+    UnitAI* GetAI(Creature* pCreature)
     {
-        m_pInstance = (ScriptedInstance*)pCreature->GetInstanceData();
-        m_bIsRegularMode = pCreature->GetMap()->IsRegularDifficulty();
-        m_thunderingParams.range.minRange = SPELL_THUNDERING_STORM_MINRANGE;
-        m_thunderingParams.range.maxRange = SPELL_THUNDERING_STORM_MAXRANGE;
-        Reset();
+        return new boss_murmurAI(pCreature);
     }
 
-    ScriptedInstance* m_pInstance;
-    bool m_bIsRegularMode;
 
-    uint32 m_uiSonicBoomTimer;
-    uint32 m_uiMurmursTouchTimer;
-    uint32 m_uiResonanceTimer;
-    uint32 m_uiMagneticPullTimer;
-    uint32 m_uiSonicShockTimer;
-    uint32 m_uiThunderingStormTimer;
 
-    SelectAttackingTargetParams m_thunderingParams;
-
-    void Reset() override
+    struct boss_murmurAI : public Scripted_NoMovementAI
     {
-        m_creature->SetImmobilizedState(true);
-
-        m_uiSonicBoomTimer       = urand(SPELL_SONIC_BOOM_MIN_TIMER, SPELL_SONIC_BOOM_MAX_TIMER);
-        m_uiMurmursTouchTimer    = m_bIsRegularMode ? SPELL_MURMURS_TOUCH_TIMER_N : urand(SPELL_MURMURS_TOUCH_MIN_TIMER_H, SPELL_MURMURS_TOUCH_MAX_TIMER_H);
-        m_uiResonanceTimer       = urand(SPELL_RESONANCE_MIN_TIMER, SPELL_RESONANCE_MAX_TIMER);
-        m_uiMagneticPullTimer    = urand(SPELL_MAGNETIC_PULL_MIN_TIMER, SPELL_MAGNETIC_PULL_MAX_TIMER);
-        m_uiSonicShockTimer      = urand(SPELL_SONIC_SHOCK_MIN_TIMER, SPELL_SONIC_SHOCK_MAX_TIMER);
-        m_uiThunderingStormTimer = urand(SPELL_THUNDERING_STORM_MIN_TIMER, SPELL_THUNDERING_STORM_MAX_TIMER);
-
-        // Boss has only 0.4 of max health
-        m_creature->SetHealth(uint32(m_creature->GetMaxHealth()*.4));
-    }
-
-    void UpdateAI(const uint32 uiDiff) override
-    {
-        // Return since we have no target
-        if (!m_creature->SelectHostileTarget())
-            return;
-
-        // SonicBoom_Timer
-        if (m_uiSonicBoomTimer < uiDiff)
+        boss_murmurAI(Creature* pCreature) : Scripted_NoMovementAI(pCreature)
         {
-            if (DoCastSpellIfCan(m_creature, m_bIsRegularMode ? SPELL_SONIC_BOOM : SPELL_SONIC_BOOM_H) == CAST_OK)
-            {
-                DoScriptText(EMOTE_SONIC_BOOM, m_creature);
-                m_uiSonicBoomTimer = urand(SPELL_SONIC_BOOM_MIN_TIMER, SPELL_SONIC_BOOM_MAX_TIMER);
-            }
+            m_pInstance = (ScriptedInstance*)pCreature->GetInstanceData();
+            m_bIsRegularMode = pCreature->GetMap()->IsRegularDifficulty();
+            m_thunderingParams.range.minRange = SPELL_THUNDERING_STORM_MINRANGE;
+            m_thunderingParams.range.maxRange = SPELL_THUNDERING_STORM_MAXRANGE;
+            Reset();
         }
-        else
-            m_uiSonicBoomTimer -= uiDiff;
 
-        // MurmursTouch_Timer
-        if (m_uiMurmursTouchTimer < uiDiff)
+        ScriptedInstance* m_pInstance;
+        bool m_bIsRegularMode;
+
+        uint32 m_uiSonicBoomTimer;
+        uint32 m_uiMurmursTouchTimer;
+        uint32 m_uiResonanceTimer;
+        uint32 m_uiMagneticPullTimer;
+        uint32 m_uiSonicShockTimer;
+        uint32 m_uiThunderingStormTimer;
+
+        SelectAttackingTargetParams m_thunderingParams;
+
+        void Reset() override
         {
-            if (DoCastSpellIfCan(m_creature, m_bIsRegularMode ? SPELL_MURMURS_TOUCH : SPELL_MURMURS_TOUCH_H) == CAST_OK)
-                m_uiMurmursTouchTimer = m_bIsRegularMode ? SPELL_MURMURS_TOUCH_TIMER_N : urand(SPELL_MURMURS_TOUCH_MIN_TIMER_H, SPELL_MURMURS_TOUCH_MAX_TIMER_H);
+            m_creature->SetImmobilizedState(true);
+
+            m_uiSonicBoomTimer       = urand(SPELL_SONIC_BOOM_MIN_TIMER, SPELL_SONIC_BOOM_MAX_TIMER);
+            m_uiMurmursTouchTimer    = m_bIsRegularMode ? SPELL_MURMURS_TOUCH_TIMER_N : urand(SPELL_MURMURS_TOUCH_MIN_TIMER_H, SPELL_MURMURS_TOUCH_MAX_TIMER_H);
+            m_uiResonanceTimer       = urand(SPELL_RESONANCE_MIN_TIMER, SPELL_RESONANCE_MAX_TIMER);
+            m_uiMagneticPullTimer    = urand(SPELL_MAGNETIC_PULL_MIN_TIMER, SPELL_MAGNETIC_PULL_MAX_TIMER);
+            m_uiSonicShockTimer      = urand(SPELL_SONIC_SHOCK_MIN_TIMER, SPELL_SONIC_SHOCK_MAX_TIMER);
+            m_uiThunderingStormTimer = urand(SPELL_THUNDERING_STORM_MIN_TIMER, SPELL_THUNDERING_STORM_MAX_TIMER);
+
+            // Boss has only 0.4 of max health
+            m_creature->SetHealth(uint32(m_creature->GetMaxHealth()*.4));
         }
-        else
-            m_uiMurmursTouchTimer -= uiDiff;
 
-        if (m_bIsRegularMode)
+        void UpdateAI(const uint32 uiDiff) override
         {
-            // Magnetic Pull
-            if (m_uiMagneticPullTimer < uiDiff)
+            // Return since we have no target
+            if (!m_creature->SelectHostileTarget())
+                return;
+
+            // SonicBoom_Timer
+            if (m_uiSonicBoomTimer < uiDiff)
             {
-                if (Unit* pTarget = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, SPELL_MAGNETIC_PULL, SELECT_FLAG_PLAYER))
+                if (DoCastSpellIfCan(m_creature, m_bIsRegularMode ? SPELL_SONIC_BOOM : SPELL_SONIC_BOOM_H) == CAST_OK)
                 {
-                    if (DoCastSpellIfCan(pTarget, SPELL_MAGNETIC_PULL) == CAST_OK)
-                        m_uiMagneticPullTimer = urand(SPELL_MAGNETIC_PULL_MIN_TIMER, SPELL_MAGNETIC_PULL_MAX_TIMER);
+                    DoScriptText(EMOTE_SONIC_BOOM, m_creature);
+                    m_uiSonicBoomTimer = urand(SPELL_SONIC_BOOM_MIN_TIMER, SPELL_SONIC_BOOM_MAX_TIMER);
                 }
             }
             else
-                m_uiMagneticPullTimer -= uiDiff;
-        }
-        else
-        {
-		    //Sonic Shock
-            if (m_uiSonicShockTimer < uiDiff)
+                m_uiSonicBoomTimer -= uiDiff;
+
+            // MurmursTouch_Timer
+            if (m_uiMurmursTouchTimer < uiDiff)
             {
-                if (Unit* pTarget = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, SPELL_SONIC_SHOCK, SELECT_FLAG_PLAYER | SELECT_FLAG_IN_MELEE_RANGE))
+                if (DoCastSpellIfCan(m_creature, m_bIsRegularMode ? SPELL_MURMURS_TOUCH : SPELL_MURMURS_TOUCH_H) == CAST_OK)
+                    m_uiMurmursTouchTimer = m_bIsRegularMode ? SPELL_MURMURS_TOUCH_TIMER_N : urand(SPELL_MURMURS_TOUCH_MIN_TIMER_H, SPELL_MURMURS_TOUCH_MAX_TIMER_H);
+            }
+            else
+                m_uiMurmursTouchTimer -= uiDiff;
+
+            if (m_bIsRegularMode)
+            {
+                // Magnetic Pull
+                if (m_uiMagneticPullTimer < uiDiff)
                 {
-                    if (DoCastSpellIfCan(pTarget, SPELL_SONIC_SHOCK) == CAST_OK)
-                        m_uiSonicShockTimer = urand(SPELL_SONIC_SHOCK_MIN_TIMER, SPELL_SONIC_SHOCK_MAX_TIMER);
+                    if (Unit* pTarget = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, SPELL_MAGNETIC_PULL, SELECT_FLAG_PLAYER))
+                    {
+                        if (DoCastSpellIfCan(pTarget, SPELL_MAGNETIC_PULL) == CAST_OK)
+                            m_uiMagneticPullTimer = urand(SPELL_MAGNETIC_PULL_MIN_TIMER, SPELL_MAGNETIC_PULL_MAX_TIMER);
+                    }
                 }
+                else
+                    m_uiMagneticPullTimer -= uiDiff;
             }
             else
-                m_uiSonicShockTimer -= uiDiff;
-
-            // Thundering Storm
-            if (m_uiThunderingStormTimer < uiDiff)
             {
-                m_uiThunderingStormTimer = 0;
-                if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_FARTHEST_AWAY, 0, nullptr, SELECT_FLAG_PLAYER | SELECT_FLAG_RANGE_AOE_RANGE, m_thunderingParams))
+    		    //Sonic Shock
+                if (m_uiSonicShockTimer < uiDiff)
                 {
-                    if (DoCastSpellIfCan(target, SPELL_THUNDERING_STORM) == CAST_OK)
-                        m_uiThunderingStormTimer = urand(SPELL_THUNDERING_STORM_MIN_TIMER, SPELL_THUNDERING_STORM_MAX_TIMER);
-                }                
-            }
-            else
-                m_uiThunderingStormTimer -= uiDiff;
-        }
+                    if (Unit* pTarget = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, SPELL_SONIC_SHOCK, SELECT_FLAG_PLAYER | SELECT_FLAG_IN_MELEE_RANGE))
+                    {
+                        if (DoCastSpellIfCan(pTarget, SPELL_SONIC_SHOCK) == CAST_OK)
+                            m_uiSonicShockTimer = urand(SPELL_SONIC_SHOCK_MIN_TIMER, SPELL_SONIC_SHOCK_MAX_TIMER);
+                    }
+                }
+                else
+                    m_uiSonicShockTimer -= uiDiff;
 
-        // Resonance_Timer - cast if no target is in range
-        if (m_creature->GetVictim() && m_creature->CanReachWithMeleeAttack(m_creature->GetVictim()))
-            DoMeleeAttackIfReady();
-        else
-        {
-            if (m_uiResonanceTimer < uiDiff)
-            {
-                if (DoCastSpellIfCan(m_creature, SPELL_RESONANCE) == CAST_OK)
-                    m_uiResonanceTimer = urand(SPELL_RESONANCE_MIN_TIMER, SPELL_RESONANCE_MAX_TIMER);
+                // Thundering Storm
+                if (m_uiThunderingStormTimer < uiDiff)
+                {
+                    m_uiThunderingStormTimer = 0;
+                    if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_FARTHEST_AWAY, 0, nullptr, SELECT_FLAG_PLAYER | SELECT_FLAG_RANGE_AOE_RANGE, m_thunderingParams))
+                    {
+                        if (DoCastSpellIfCan(target, SPELL_THUNDERING_STORM) == CAST_OK)
+                            m_uiThunderingStormTimer = urand(SPELL_THUNDERING_STORM_MIN_TIMER, SPELL_THUNDERING_STORM_MAX_TIMER);
+                    }            
+                }
+                else
+                    m_uiThunderingStormTimer -= uiDiff;
             }
+
+            // Resonance_Timer - cast if no target is in range
+            if (m_creature->GetVictim() && m_creature->CanReachWithMeleeAttack(m_creature->GetVictim()))
+                DoMeleeAttackIfReady();
             else
-                m_uiResonanceTimer -= uiDiff;
+            {
+                if (m_uiResonanceTimer < uiDiff)
+                {
+                    if (DoCastSpellIfCan(m_creature, SPELL_RESONANCE) == CAST_OK)
+                        m_uiResonanceTimer = urand(SPELL_RESONANCE_MIN_TIMER, SPELL_RESONANCE_MAX_TIMER);
+                }
+                else
+                    m_uiResonanceTimer -= uiDiff;
+            }
         }
-    }
+    };
+
+
+
 };
 
-UnitAI* GetAI_boss_murmur(Creature* pCreature)
-{
-    return new boss_murmurAI(pCreature);
-}
 
 void AddSC_boss_murmur()
 {
-    Script* pNewScript = new Script;
-    pNewScript->Name = "boss_murmur";
-    pNewScript->GetAI = &GetAI_boss_murmur;
-    pNewScript->RegisterSelf();
+    new boss_murmur();
+
 }

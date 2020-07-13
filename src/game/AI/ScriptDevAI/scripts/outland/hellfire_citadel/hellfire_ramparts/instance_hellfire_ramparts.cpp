@@ -141,16 +141,23 @@ void instance_ramparts::DoFailVazruden()
     if (Creature* pVazruden = GetSingleCreatureFromStorage(NPC_VAZRUDEN))
         pVazruden->ForcedDespawn();
 }
-
-InstanceData* GetInstanceData_instance_ramparts(Map* pMap)
+class instance_ramparts : public InstanceMapScript
 {
-    return new instance_ramparts(pMap);
-}
+public:
+    instance_ramparts() : InstanceMapScript("instance_ramparts") { }
+
+    InstanceData* GetInstanceScript(Map* pMap) const override
+    {
+        return new instance_ramparts(pMap);
+    }
+
+
+
+
+};
 
 void AddSC_instance_ramparts()
 {
-    Script* pNewScript = new Script;
-    pNewScript->Name = "instance_ramparts";
-    pNewScript->GetInstanceData = &GetInstanceData_instance_ramparts;
-    pNewScript->RegisterSelf();
+    new instance_ramparts();
+
 }

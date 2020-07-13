@@ -51,38 +51,46 @@ enum
     ITEM_RED_SNAPPER            = 23614,
     // SPELL_SUMMON_TEST           = 49214                  // ! Just wrong spell name? It summon correct creature (17102)but does not appear to be used.
 };
-
-bool EffectDummyGameObj_spell_dummy_go(Unit* pCaster, uint32 uiSpellId, SpellEffectIndex uiEffIndex, GameObject* pGOTarget, ObjectGuid /*originalCasterGuid*/)
+class spell_dummy_go : public UnknownScript
 {
-    switch (uiSpellId)
+public:
+    spell_dummy_go() : UnknownScript("spell_dummy_go") { }
+
+    bool OnEffectDummy(Unit* pCaster, uint32 uiSpellId, SpellEffectIndex uiEffIndex, GameObject* pGOTarget, ObjectGuid /*originalCasterGuid*/) override
     {
-        case SPELL_CAST_FISHING_NET:
+        switch (uiSpellId)
         {
-            if (uiEffIndex == EFFECT_INDEX_0)
+            case SPELL_CAST_FISHING_NET:
             {
-                if (pGOTarget->GetRespawnTime() != 0 || pGOTarget->GetEntry() != GO_RED_SNAPPER || pCaster->GetTypeId() != TYPEID_PLAYER)
+                if (uiEffIndex == EFFECT_INDEX_0)
+                {
+                    if (pGOTarget->GetRespawnTime() != 0 || pGOTarget->GetEntry() != GO_RED_SNAPPER || pCaster->GetTypeId() != TYPEID_PLAYER)
+                        return true;
+
+                    if (urand(0, 2))
+                    {
+                        if (Creature* pMurloc = pCaster->SummonCreature(NPC_ANGRY_MURLOC, pCaster->GetPositionX(), pCaster->GetPositionY() + 20.0f, pCaster->GetPositionZ(), 0.0f, TEMPSPAWN_TIMED_OOC_DESPAWN, 10000))
+                            pMurloc->AI()->AttackStart(pCaster);
+                    }
+                    else
+                    {
+                        if (Item* pItem = ((Player*)pCaster)->StoreNewItemInInventorySlot(ITEM_RED_SNAPPER, 1))
+                            ((Player*)pCaster)->SendNewItem(pItem, 1, true, false);
+                    }
+
+                    pGOTarget->SetLootState(GO_JUST_DEACTIVATED);
                     return true;
-
-                if (urand(0, 2))
-                {
-                    if (Creature* pMurloc = pCaster->SummonCreature(NPC_ANGRY_MURLOC, pCaster->GetPositionX(), pCaster->GetPositionY() + 20.0f, pCaster->GetPositionZ(), 0.0f, TEMPSPAWN_TIMED_OOC_DESPAWN, 10000))
-                        pMurloc->AI()->AttackStart(pCaster);
                 }
-                else
-                {
-                    if (Item* pItem = ((Player*)pCaster)->StoreNewItemInInventorySlot(ITEM_RED_SNAPPER, 1))
-                        ((Player*)pCaster)->SendNewItem(pItem, 1, true, false);
-                }
-
-                pGOTarget->SetLootState(GO_JUST_DEACTIVATED);
                 return true;
             }
-            return true;
         }
+
+        return false;
     }
 
-    return false;
-}
+
+
+};
 
 enum
 {
@@ -160,272 +168,283 @@ enum
     NPC_DEEPRUN_RAT                     = 13016,
     NPC_ENTHRALLED_DEEPRUN_RAT          = 13017,
 };
-
-bool EffectAuraDummy_spell_aura_dummy_npc(const Aura* pAura, bool bApply)
+class spell_dummy_npc : public UnknownScript
 {
-    switch (pAura->GetId())
+public:
+    spell_dummy_npc() : UnknownScript("spell_dummy_npc") { }
+
+    bool OnAuraDummy(const Aura* pAura, bool bApply) override
     {
-        case SPELL_HEALING_SALVE:
+        switch (pAura->GetId())
         {
-            if (pAura->GetEffIndex() != EFFECT_INDEX_0)
-                return true;
-
-            if (bApply)
+            case SPELL_HEALING_SALVE:
             {
-                if (Unit* pCaster = pAura->GetCaster())
-                    pCaster->CastSpell(pAura->GetTarget(), SPELL_HEALING_SALVE_DUMMY, TRIGGERED_OLD_TRIGGERED);
-            }
+                if (pAura->GetEffIndex() != EFFECT_INDEX_0)
+                    return true;
 
-            return true;
-        }
-        case SPELL_HEALING_SALVE_DUMMY:
-        {
-            if (pAura->GetEffIndex() != EFFECT_INDEX_0)
+                if (bApply)
+                {
+                    if (Unit* pCaster = pAura->GetCaster())
+                        pCaster->CastSpell(pAura->GetTarget(), SPELL_HEALING_SALVE_DUMMY, TRIGGERED_OLD_TRIGGERED);
+                }
+
                 return true;
+            }
+            case SPELL_HEALING_SALVE_DUMMY:
+            {
+                if (pAura->GetEffIndex() != EFFECT_INDEX_0)
+                    return true;
 
-            if (!bApply)
+                if (!bApply)
+                {
+                    Creature* pCreature = (Creature*)pAura->GetTarget();
+
+                    pCreature->UpdateEntry(NPC_MAGHAR_GRUNT);
+
+                    if (pCreature->getStandState() == UNIT_STAND_STATE_KNEEL)
+                        pCreature->SetStandState(UNIT_STAND_STATE_STAND);
+
+                    pCreature->ForcedDespawn(60 * IN_MILLISECONDS);
+                }
+
+                return true;
+            }
+            case SPELL_RECHARGING_BATTERY:
+            {
+                if (pAura->GetEffIndex() != EFFECT_INDEX_0)
+                    return true;
+
+                if (!bApply)
+                {
+                    if (pAura->GetTarget()->HasAuraState(AURA_STATE_HEALTHLESS_35_PERCENT))
+                        ((Creature*)pAura->GetTarget())->UpdateEntry(NPC_DRAINED_PHASE_HUNTER);
+                }
+
+                return true;
+            }
+            case SPELL_TAG_MURLOC:
             {
                 Creature* pCreature = (Creature*)pAura->GetTarget();
 
-                pCreature->UpdateEntry(NPC_MAGHAR_GRUNT);
+                if (pAura->GetEffIndex() != EFFECT_INDEX_0)
+                    return true;
 
-                if (pCreature->getStandState() == UNIT_STAND_STATE_KNEEL)
-                    pCreature->SetStandState(UNIT_STAND_STATE_STAND);
-
-                pCreature->ForcedDespawn(60 * IN_MILLISECONDS);
-            }
-
-            return true;
-        }
-        case SPELL_RECHARGING_BATTERY:
-        {
-            if (pAura->GetEffIndex() != EFFECT_INDEX_0)
-                return true;
-
-            if (!bApply)
-            {
-                if (pAura->GetTarget()->HasAuraState(AURA_STATE_HEALTHLESS_35_PERCENT))
-                    ((Creature*)pAura->GetTarget())->UpdateEntry(NPC_DRAINED_PHASE_HUNTER);
-            }
-
-            return true;
-        }
-        case SPELL_TAG_MURLOC:
-        {
-            Creature* pCreature = (Creature*)pAura->GetTarget();
-
-            if (pAura->GetEffIndex() != EFFECT_INDEX_0)
-                return true;
-
-            if (bApply)
-            {
-                if (pCreature->GetEntry() == NPC_BLACKSILT_MURLOC)
+                if (bApply)
                 {
-                    if (Unit* pCaster = pAura->GetCaster())
-                        pCaster->CastSpell(pCreature, SPELL_TAG_MURLOC_PROC, TRIGGERED_OLD_TRIGGERED);
+                    if (pCreature->GetEntry() == NPC_BLACKSILT_MURLOC)
+                    {
+                        if (Unit* pCaster = pAura->GetCaster())
+                            pCaster->CastSpell(pCreature, SPELL_TAG_MURLOC_PROC, TRIGGERED_OLD_TRIGGERED);
+                    }
                 }
-            }
-            else
-            {
-                if (pCreature->GetEntry() == NPC_TAGGED_MURLOC)
-                    pCreature->ForcedDespawn();
-            }
+                else
+                {
+                    if (pCreature->GetEntry() == NPC_TAGGED_MURLOC)
+                        pCreature->ForcedDespawn();
+                }
 
-            return true;
-        }
-        case SPELL_ENRAGE:
-        {
-            if (!bApply || pAura->GetTarget()->GetTypeId() != TYPEID_UNIT)
+                return true;
+            }
+            case SPELL_ENRAGE:
+            {
+                if (!bApply || pAura->GetTarget()->GetTypeId() != TYPEID_UNIT)
+                    return false;
+
+                Creature* pTarget = (Creature*)pAura->GetTarget();
+
+                if (Creature* pCreature = GetClosestCreatureWithEntry(pTarget, NPC_DARKSPINE_MYRMIDON, 25.0f))
+                {
+                    pTarget->AI()->AttackStart(pCreature);
+                    return true;
+                }
+
+                if (Creature* pCreature = GetClosestCreatureWithEntry(pTarget, NPC_DARKSPINE_SIREN, 25.0f))
+                {
+                    pTarget->AI()->AttackStart(pCreature);
+                    return true;
+                }
+
                 return false;
-
-            Creature* pTarget = (Creature*)pAura->GetTarget();
-
-            if (Creature* pCreature = GetClosestCreatureWithEntry(pTarget, NPC_DARKSPINE_MYRMIDON, 25.0f))
-            {
-                pTarget->AI()->AttackStart(pCreature);
-                return true;
             }
-
-            if (Creature* pCreature = GetClosestCreatureWithEntry(pTarget, NPC_DARKSPINE_SIREN, 25.0f))
+            case SPELL_SHROUD_OF_DEATH:
+            case SPELL_SPIRIT_PARTICLES:
             {
-                pTarget->AI()->AttackStart(pCreature);
-                return true;
-            }
+                Creature* pCreature = (Creature*)pAura->GetTarget();
 
-            return false;
-        }
-        case SPELL_SHROUD_OF_DEATH:
-        case SPELL_SPIRIT_PARTICLES:
-        {
-            Creature* pCreature = (Creature*)pAura->GetTarget();
+                if (!pCreature || (pCreature->GetEntry() != NPC_FRANCLORN_FORGEWRIGHT && pCreature->GetEntry() != NPC_GAERIYAN))
+                    return false;
 
-            if (!pCreature || (pCreature->GetEntry() != NPC_FRANCLORN_FORGEWRIGHT && pCreature->GetEntry() != NPC_GAERIYAN))
+                if (bApply)
+                    pCreature->m_AuraFlags |= UNIT_AURAFLAG_ALIVE_INVISIBLE;
+                else
+                    pCreature->m_AuraFlags &= ~UNIT_AURAFLAG_ALIVE_INVISIBLE;
+
                 return false;
+            }
+            case SPELL_PROTOVOLTAIC_MAGNETO_COLLECTOR:
+            {
+                if (pAura->GetEffIndex() != EFFECT_INDEX_0)
+                    return true;
 
-            if (bApply)
-                pCreature->m_AuraFlags |= UNIT_AURAFLAG_ALIVE_INVISIBLE;
-            else
-                pCreature->m_AuraFlags &= ~UNIT_AURAFLAG_ALIVE_INVISIBLE;
-
-            return false;
-        }
-        case SPELL_PROTOVOLTAIC_MAGNETO_COLLECTOR:
-        {
-            if (pAura->GetEffIndex() != EFFECT_INDEX_0)
+                Unit* pTarget = pAura->GetTarget();
+                if (bApply && pTarget->GetTypeId() == TYPEID_UNIT)
+                    ((Creature*)pTarget)->UpdateEntry(NPC_ENCASED_ELECTROMENTAL);
                 return true;
-
-            Unit* pTarget = pAura->GetTarget();
-            if (bApply && pTarget->GetTypeId() == TYPEID_UNIT)
-                ((Creature*)pTarget)->UpdateEntry(NPC_ENCASED_ELECTROMENTAL);
-            return true;
+            }
         }
+
+        return false;
     }
 
-    return false;
-}
 
-bool EffectDummyCreature_spell_dummy_npc(Unit* pCaster, uint32 uiSpellId, SpellEffectIndex uiEffIndex, Creature* pCreatureTarget, ObjectGuid /*originalCasterGuid*/)
-{
-    switch (uiSpellId)
+
+    bool OnEffectDummy(Unit* pCaster, uint32 uiSpellId, SpellEffectIndex uiEffIndex, Creature* pCreatureTarget, ObjectGuid /*originalCasterGuid*/) override
     {
-        case SPELL_ADMINISTER_ANTIDOTE:
+        switch (uiSpellId)
         {
-            if (uiEffIndex == EFFECT_INDEX_0)
+            case SPELL_ADMINISTER_ANTIDOTE:
             {
-                if (pCreatureTarget->GetEntry() != NPC_HELBOAR)
-                    return true;
-
-                // possible needs check for quest state, to not have any effect when quest really complete
-
-                pCreatureTarget->UpdateEntry(NPC_DREADTUSK);
-                return true;
-            }
-            return true;
-        }
-        case SPELL_APPLY_SALVE:
-        {
-            if (uiEffIndex == EFFECT_INDEX_0)
-            {
-                if (pCaster->GetTypeId() != TYPEID_PLAYER)
-                    return true;
-
-                if (pCreatureTarget->GetEntry() != NPC_SICKLY_DEER && pCreatureTarget->GetEntry() != NPC_SICKLY_GAZELLE)
-                    return true;
-
-                // Update entry, remove aura, set the kill credit and despawn
-                uint32 uiUpdateEntry = pCreatureTarget->GetEntry() == NPC_SICKLY_DEER ? NPC_CURED_DEER : NPC_CURED_GAZELLE;
-                pCreatureTarget->RemoveAurasDueToSpell(SPELL_SICKLY_AURA);
-                pCreatureTarget->UpdateEntry(uiUpdateEntry);
-                ((Player*)pCaster)->KilledMonsterCredit(uiUpdateEntry);
-                pCreatureTarget->SetImmuneToPlayer(true);
-                pCreatureTarget->ForcedDespawn(20000);
-
-                return true;
-            }
-            return true;
-        }
-        case SPELL_INOCULATE_OWLKIN:
-        {
-            if (uiEffIndex == EFFECT_INDEX_0)
-            {
-                if (pCreatureTarget->GetEntry() != NPC_OWLKIN)
-                    return true;
-
-                pCreatureTarget->UpdateEntry(NPC_OWLKIN_INOC);
-                pCreatureTarget->AIM_Initialize();
-                ((Player*)pCaster)->KilledMonsterCredit(NPC_OWLKIN_INOC);
-
-                // set despawn timer, since we want to remove creature after a short time
-                pCreatureTarget->ForcedDespawn(15000);
-
-                return true;
-            }
-            return true;
-        }
-        case SPELL_FEL_SIPHON_DUMMY:
-        {
-            if (uiEffIndex == EFFECT_INDEX_0)
-            {
-                if (pCreatureTarget->GetEntry() != NPC_FELBLOOD_INITIATE)
-                    return true;
-
-                pCreatureTarget->UpdateEntry(NPC_EMACIATED_FELBLOOD);
-                return true;
-            }
-            return true;
-        }
-        case SPELL_TAG_MURLOC_PROC:
-        {
-            if (uiEffIndex == EFFECT_INDEX_0)
-            {
-                if (pCreatureTarget->GetEntry() == NPC_BLACKSILT_MURLOC)
-                    pCreatureTarget->UpdateEntry(NPC_TAGGED_MURLOC);
-            }
-            return true;
-        }
-        case SPELL_ORB_OF_MURLOC_CONTROL:
-        {
-            pCreatureTarget->CastSpell(pCaster, SPELL_GREENGILL_SLAVE_FREED, TRIGGERED_OLD_TRIGGERED);
-
-            // Freed Greengill Slave
-            pCreatureTarget->UpdateEntry(NPC_FREED_GREENGILL_SLAVE);
-
-            pCreatureTarget->CastSpell(pCreatureTarget, SPELL_ENRAGE, TRIGGERED_OLD_TRIGGERED);
-
-            return true;
-        }
-        case SPELL_THROW_GORDAWG_BOULDER:
-        {
-            if (uiEffIndex == EFFECT_INDEX_0)
-            {
-                for (int i = 0; i < 3; ++i)
+                if (uiEffIndex == EFFECT_INDEX_0)
                 {
-                    if (irand(i, 2))                        // 2-3 summons
-                        pCreatureTarget->SummonCreature(NPC_MINION_OF_GUROK, 0.0f, 0.0f, 0.0f, 0.0f, TEMPSPAWN_CORPSE_DESPAWN, 5000);
-                }
-
-                pCreatureTarget->CastSpell(nullptr, 3617, TRIGGERED_OLD_TRIGGERED); // suicide spell
-                return true;
-            }
-            return true;
-        }
-        case SPELL_EXPOSE_RAZORTHORN_ROOT:
-        {
-            if (uiEffIndex == EFFECT_INDEX_0)
-            {
-                if (pCreatureTarget->GetEntry() != NPC_RAZORTHORN_RAVAGER)
-                    return true;
-
-                if (GameObject* pMound = GetClosestGameObjectWithEntry(pCreatureTarget, GO_RAZORTHORN_DIRT_MOUND, 20.0f))
-                {
-                    if (pMound->GetRespawnTime() != 0)
+                    if (pCreatureTarget->GetEntry() != NPC_HELBOAR)
                         return true;
 
-                    pCreatureTarget->CastSpell(pCreatureTarget, SPELL_SUMMON_RAZORTHORN_ROOT, TRIGGERED_OLD_TRIGGERED);
-                    pMound->SetLootState(GO_JUST_DEACTIVATED);
-                }
-            }
-            return true;
-        }
-        case SPELL_MELODIOUS_RAPTURE:
-        {
-            if (uiEffIndex == EFFECT_INDEX_0)
-            {
-                if (pCaster->GetTypeId() != TYPEID_PLAYER && pCreatureTarget->GetEntry() != NPC_DEEPRUN_RAT)
+                    // possible needs check for quest state, to not have any effect when quest really complete
+
+                    pCreatureTarget->UpdateEntry(NPC_DREADTUSK);
                     return true;
-
-                pCreatureTarget->UpdateEntry(NPC_ENTHRALLED_DEEPRUN_RAT);
-                pCreatureTarget->CastSpell(pCreatureTarget, SPELL_MELODIOUS_RAPTURE_VISUAL, TRIGGERED_NONE);
-                pCreatureTarget->GetMotionMaster()->MoveFollow(pCaster, frand(0.5f, 3.0f), frand(M_PI_F * 0.8f, M_PI_F * 1.2f));
-
-                ((Player*)pCaster)->KilledMonsterCredit(NPC_ENTHRALLED_DEEPRUN_RAT);
+                }
+                return true;
             }
-            return true;
+            case SPELL_APPLY_SALVE:
+            {
+                if (uiEffIndex == EFFECT_INDEX_0)
+                {
+                    if (pCaster->GetTypeId() != TYPEID_PLAYER)
+                        return true;
+
+                    if (pCreatureTarget->GetEntry() != NPC_SICKLY_DEER && pCreatureTarget->GetEntry() != NPC_SICKLY_GAZELLE)
+                        return true;
+
+                    // Update entry, remove aura, set the kill credit and despawn
+                    uint32 uiUpdateEntry = pCreatureTarget->GetEntry() == NPC_SICKLY_DEER ? NPC_CURED_DEER : NPC_CURED_GAZELLE;
+                    pCreatureTarget->RemoveAurasDueToSpell(SPELL_SICKLY_AURA);
+                    pCreatureTarget->UpdateEntry(uiUpdateEntry);
+                    ((Player*)pCaster)->KilledMonsterCredit(uiUpdateEntry);
+                    pCreatureTarget->SetImmuneToPlayer(true);
+                    pCreatureTarget->ForcedDespawn(20000);
+
+                    return true;
+                }
+                return true;
+            }
+            case SPELL_INOCULATE_OWLKIN:
+            {
+                if (uiEffIndex == EFFECT_INDEX_0)
+                {
+                    if (pCreatureTarget->GetEntry() != NPC_OWLKIN)
+                        return true;
+
+                    pCreatureTarget->UpdateEntry(NPC_OWLKIN_INOC);
+                    pCreatureTarget->AIM_Initialize();
+                    ((Player*)pCaster)->KilledMonsterCredit(NPC_OWLKIN_INOC);
+
+                    // set despawn timer, since we want to remove creature after a short time
+                    pCreatureTarget->ForcedDespawn(15000);
+
+                    return true;
+                }
+                return true;
+            }
+            case SPELL_FEL_SIPHON_DUMMY:
+            {
+                if (uiEffIndex == EFFECT_INDEX_0)
+                {
+                    if (pCreatureTarget->GetEntry() != NPC_FELBLOOD_INITIATE)
+                        return true;
+
+                    pCreatureTarget->UpdateEntry(NPC_EMACIATED_FELBLOOD);
+                    return true;
+                }
+                return true;
+            }
+            case SPELL_TAG_MURLOC_PROC:
+            {
+                if (uiEffIndex == EFFECT_INDEX_0)
+                {
+                    if (pCreatureTarget->GetEntry() == NPC_BLACKSILT_MURLOC)
+                        pCreatureTarget->UpdateEntry(NPC_TAGGED_MURLOC);
+                }
+                return true;
+            }
+            case SPELL_ORB_OF_MURLOC_CONTROL:
+            {
+                pCreatureTarget->CastSpell(pCaster, SPELL_GREENGILL_SLAVE_FREED, TRIGGERED_OLD_TRIGGERED);
+
+                // Freed Greengill Slave
+                pCreatureTarget->UpdateEntry(NPC_FREED_GREENGILL_SLAVE);
+
+                pCreatureTarget->CastSpell(pCreatureTarget, SPELL_ENRAGE, TRIGGERED_OLD_TRIGGERED);
+
+                return true;
+            }
+            case SPELL_THROW_GORDAWG_BOULDER:
+            {
+                if (uiEffIndex == EFFECT_INDEX_0)
+                {
+                    for (int i = 0; i < 3; ++i)
+                    {
+                        if (irand(i, 2))                        // 2-3 summons
+                            pCreatureTarget->SummonCreature(NPC_MINION_OF_GUROK, 0.0f, 0.0f, 0.0f, 0.0f, TEMPSPAWN_CORPSE_DESPAWN, 5000);
+                    }
+
+                    pCreatureTarget->CastSpell(nullptr, 3617, TRIGGERED_OLD_TRIGGERED); // suicide spell
+                    return true;
+                }
+                return true;
+            }
+            case SPELL_EXPOSE_RAZORTHORN_ROOT:
+            {
+                if (uiEffIndex == EFFECT_INDEX_0)
+                {
+                    if (pCreatureTarget->GetEntry() != NPC_RAZORTHORN_RAVAGER)
+                        return true;
+
+                    if (GameObject* pMound = GetClosestGameObjectWithEntry(pCreatureTarget, GO_RAZORTHORN_DIRT_MOUND, 20.0f))
+                    {
+                        if (pMound->GetRespawnTime() != 0)
+                            return true;
+
+                        pCreatureTarget->CastSpell(pCreatureTarget, SPELL_SUMMON_RAZORTHORN_ROOT, TRIGGERED_OLD_TRIGGERED);
+                        pMound->SetLootState(GO_JUST_DEACTIVATED);
+                    }
+                }
+                return true;
+            }
+            case SPELL_MELODIOUS_RAPTURE:
+            {
+                if (uiEffIndex == EFFECT_INDEX_0)
+                {
+                    if (pCaster->GetTypeId() != TYPEID_PLAYER && pCreatureTarget->GetEntry() != NPC_DEEPRUN_RAT)
+                        return true;
+
+                    pCreatureTarget->UpdateEntry(NPC_ENTHRALLED_DEEPRUN_RAT);
+                    pCreatureTarget->CastSpell(pCreatureTarget, SPELL_MELODIOUS_RAPTURE_VISUAL, TRIGGERED_NONE);
+                    pCreatureTarget->GetMotionMaster()->MoveFollow(pCaster, frand(0.5f, 3.0f), frand(M_PI_F * 0.8f, M_PI_F * 1.2f));
+
+                    ((Player*)pCaster)->KilledMonsterCredit(NPC_ENTHRALLED_DEEPRUN_RAT);
+                }
+                return true;
+            }
         }
+
+        return false;
     }
 
-    return false;
-}
+
+
+};
+
 
 struct SpellStackingRulesOverride : public SpellScript
 {
@@ -466,16 +485,8 @@ struct SpellStackingRulesOverride : public SpellScript
 
 void AddSC_spell_scripts()
 {
-    Script* pNewScript = new Script;
-    pNewScript->Name = "spell_dummy_go";
-    pNewScript->pEffectDummyGO = &EffectDummyGameObj_spell_dummy_go;
-    pNewScript->RegisterSelf();
-
-    pNewScript = new Script;
-    pNewScript->Name = "spell_dummy_npc";
-    pNewScript->pEffectDummyNPC = &EffectDummyCreature_spell_dummy_npc;
-    pNewScript->pEffectAuraDummy = &EffectAuraDummy_spell_aura_dummy_npc;
-    pNewScript->RegisterSelf();
+    new spell_dummy_go();
+    new spell_dummy_npc();
 
     RegisterSpellScript<SpellStackingRulesOverride>("spell_stacking_rules_override");
 }

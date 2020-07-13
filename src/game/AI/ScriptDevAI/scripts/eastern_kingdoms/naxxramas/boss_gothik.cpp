@@ -507,17 +507,8 @@ struct GothikSideAssault : public SpellScript
 
 void AddSC_boss_gothik()
 {
-    Script* newScript = new Script;
-    newScript->Name = "boss_gothik";
-    newScript->GetAI = &GetAI_boss_gothik;
-    newScript->RegisterSelf();
 
-    newScript = new Script;
-    newScript->Name = "spell_anchor";
-    newScript->pEffectDummyNPC = &EffectDummyCreature_spell_anchor;
-    newScript->RegisterSelf();
-
-    RegisterAuraScript<SummonUnrelenting>("spell_summon_unrelenting");
-    RegisterSpellScript<CheckGothikSide>("spell_check_gothik_side");
     RegisterSpellScript<GothikSideAssault>("spell_gothik_side_assault");
+    RegisterSpellScript<CheckGothikSide>("spell_check_gothik_side");
+    RegisterAuraScript<SummonUnrelenting>("spell_summon_unrelenting");
 }

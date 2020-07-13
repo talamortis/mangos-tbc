@@ -44,112 +44,121 @@ const float afLocations[4][4] =
     { -39.355381f, -513.456482f, 88.472046f, 4.679872f},    // destination
     { -49.875881f, -511.896942f, 88.195160f, 4.613114f}
 };
-
-struct boss_overlordwyrmthalakAI : public ScriptedAI
+class boss_overlord_wyrmthalak : public CreatureScript
 {
-    boss_overlordwyrmthalakAI(Creature* pCreature) : ScriptedAI(pCreature) {Reset();}
+public:
+    boss_overlord_wyrmthalak() : CreatureScript("boss_overlord_wyrmthalak") { }
 
-    uint32 m_uiBlastWaveTimer;
-    uint32 m_uiShoutTimer;
-    uint32 m_uiCleaveTimer;
-    uint32 m_uiKnockawayTimer;
-    bool m_bSummoned;
-
-    void Reset() override
+    UnitAI* GetAI_boss_overlordwyrmthalak(Creature* pCreature)
     {
-        m_uiBlastWaveTimer = 20000;
-        m_uiShoutTimer     = 2000;
-        m_uiCleaveTimer    = 6000;
-        m_uiKnockawayTimer = 12000;
-        m_bSummoned = false;
+        return new boss_overlordwyrmthalakAI(pCreature);
     }
 
-    void JustSummoned(Creature* pSummoned) override
+
+
+    struct boss_overlordwyrmthalakAI : public ScriptedAI
     {
-        if (pSummoned->GetEntry() != NPC_SPIRESTONE_WARLORD && pSummoned->GetEntry() != NPC_SMOLDERTHORN_BERSERKER && pSummoned->GetEntry() != NPC_BLOODAXE_VETERAN)
-            return;
+        boss_overlordwyrmthalakAI(Creature* pCreature) : ScriptedAI(pCreature) {Reset();}
 
-        if (m_creature->GetVictim())
+        uint32 m_uiBlastWaveTimer;
+        uint32 m_uiShoutTimer;
+        uint32 m_uiCleaveTimer;
+        uint32 m_uiKnockawayTimer;
+        bool m_bSummoned;
+
+        void Reset() override
         {
-            Unit* pTarget = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0);
-            pSummoned->AI()->AttackStart(pTarget ? pTarget : m_creature->GetVictim());
-        }
-    }
-
-    void UpdateAI(const uint32 uiDiff) override
-    {
-        // Return since we have no target
-        if (!m_creature->SelectHostileTarget() || !m_creature->GetVictim())
-            return;
-
-        // BlastWave
-        if (m_uiBlastWaveTimer < uiDiff)
-        {
-            DoCastSpellIfCan(m_creature, SPELL_BLASTWAVE);
             m_uiBlastWaveTimer = 20000;
+            m_uiShoutTimer     = 2000;
+            m_uiCleaveTimer    = 6000;
+            m_uiKnockawayTimer = 12000;
+            m_bSummoned = false;
         }
-        else
-            m_uiBlastWaveTimer -= uiDiff;
 
-        // Shout
-        if (m_uiShoutTimer < uiDiff)
+        void JustSummoned(Creature* pSummoned) override
         {
-            DoCastSpellIfCan(m_creature, SPELL_SHOUT);
-            m_uiShoutTimer = 10000;
-        }
-        else
-            m_uiShoutTimer -= uiDiff;
+            if (pSummoned->GetEntry() != NPC_SPIRESTONE_WARLORD && pSummoned->GetEntry() != NPC_SMOLDERTHORN_BERSERKER && pSummoned->GetEntry() != NPC_BLOODAXE_VETERAN)
+                return;
 
-        // Cleave
-        if (m_uiCleaveTimer < uiDiff)
-        {
-            DoCastSpellIfCan(m_creature->GetVictim(), SPELL_CLEAVE);
-            m_uiCleaveTimer = 7000;
-        }
-        else
-            m_uiCleaveTimer -= uiDiff;
-
-        // Knockaway
-        if (m_uiKnockawayTimer < uiDiff)
-        {
-            DoCastSpellIfCan(m_creature, SPELL_KNOCKAWAY);
-            m_uiKnockawayTimer = 14000;
-        }
-        else
-            m_uiKnockawayTimer -= uiDiff;
-
-        // Summon two Beserks
-        if (!m_bSummoned && m_creature->GetHealthPercent() < 51.0f)
-        {
-            Creature* pGuard1 = m_creature->SummonCreature(uSummons[urand(0, 2)], afLocations[0][0], afLocations[0][1], afLocations[0][2], afLocations[0][3], TEMPSPAWN_TIMED_DESPAWN, 300000);
-            Creature* pGuard2 = m_creature->SummonCreature(uSummons[urand(0, 2)], afLocations[1][0], afLocations[1][1], afLocations[1][2], afLocations[1][3], TEMPSPAWN_TIMED_DESPAWN, 300000);
-            if (pGuard1)
+            if (m_creature->GetVictim())
             {
-                pGuard1->SetWalk(false);
-                pGuard1->GetMotionMaster()->MovePoint(0, afLocations[2][0], afLocations[2][1], afLocations[2][2]);
+                Unit* pTarget = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0);
+                pSummoned->AI()->AttackStart(pTarget ? pTarget : m_creature->GetVictim());
             }
-            if (pGuard2)
-            {
-                pGuard1->SetWalk(false);
-                pGuard1->GetMotionMaster()->MovePoint(0, afLocations[3][0], afLocations[3][1], afLocations[3][2]);
-            }
-
-            m_bSummoned = true;
         }
 
-        DoMeleeAttackIfReady();
-    }
+        void UpdateAI(const uint32 uiDiff) override
+        {
+            // Return since we have no target
+            if (!m_creature->SelectHostileTarget() || !m_creature->GetVictim())
+                return;
+
+            // BlastWave
+            if (m_uiBlastWaveTimer < uiDiff)
+            {
+                DoCastSpellIfCan(m_creature, SPELL_BLASTWAVE);
+                m_uiBlastWaveTimer = 20000;
+            }
+            else
+                m_uiBlastWaveTimer -= uiDiff;
+
+            // Shout
+            if (m_uiShoutTimer < uiDiff)
+            {
+                DoCastSpellIfCan(m_creature, SPELL_SHOUT);
+                m_uiShoutTimer = 10000;
+            }
+            else
+                m_uiShoutTimer -= uiDiff;
+
+            // Cleave
+            if (m_uiCleaveTimer < uiDiff)
+            {
+                DoCastSpellIfCan(m_creature->GetVictim(), SPELL_CLEAVE);
+                m_uiCleaveTimer = 7000;
+            }
+            else
+                m_uiCleaveTimer -= uiDiff;
+
+            // Knockaway
+            if (m_uiKnockawayTimer < uiDiff)
+            {
+                DoCastSpellIfCan(m_creature, SPELL_KNOCKAWAY);
+                m_uiKnockawayTimer = 14000;
+            }
+            else
+                m_uiKnockawayTimer -= uiDiff;
+
+            // Summon two Beserks
+            if (!m_bSummoned && m_creature->GetHealthPercent() < 51.0f)
+            {
+                Creature* pGuard1 = m_creature->SummonCreature(uSummons[urand(0, 2)], afLocations[0][0], afLocations[0][1], afLocations[0][2], afLocations[0][3], TEMPSPAWN_TIMED_DESPAWN, 300000);
+                Creature* pGuard2 = m_creature->SummonCreature(uSummons[urand(0, 2)], afLocations[1][0], afLocations[1][1], afLocations[1][2], afLocations[1][3], TEMPSPAWN_TIMED_DESPAWN, 300000);
+                if (pGuard1)
+                {
+                    pGuard1->SetWalk(false);
+                    pGuard1->GetMotionMaster()->MovePoint(0, afLocations[2][0], afLocations[2][1], afLocations[2][2]);
+                }
+                if (pGuard2)
+                {
+                    pGuard1->SetWalk(false);
+                    pGuard1->GetMotionMaster()->MovePoint(0, afLocations[3][0], afLocations[3][1], afLocations[3][2]);
+                }
+
+                m_bSummoned = true;
+            }
+
+            DoMeleeAttackIfReady();
+        }
+    };
+
+
+
 };
 
-UnitAI* GetAI_boss_overlordwyrmthalak(Creature* pCreature)
-{
-    return new boss_overlordwyrmthalakAI(pCreature);
-}
 
 void AddSC_boss_overlordwyrmthalak()
 {
-    Script* pNewScript = new Script;
-    pNewScript->Name = "boss_overlord_wyrmthalak";
-    pNewScript->GetAI = &GetAI_boss_overlordwyrmthalak;
-    pNewScript->RegisterSelf();
+    new boss_overlord_wyrmthalak();
+
 }

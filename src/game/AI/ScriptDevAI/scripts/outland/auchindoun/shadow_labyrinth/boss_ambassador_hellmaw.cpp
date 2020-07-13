@@ -38,146 +38,155 @@ enum
     SPELL_FEAR              = 33547,
     SPELL_ENRAGE            = 34970
 };
-
-struct boss_ambassador_hellmawAI : public ScriptedAI
+class boss_ambassador_hellmaw : public CreatureScript
 {
-    boss_ambassador_hellmawAI(Creature* pCreature) : ScriptedAI(pCreature)
+public:
+    boss_ambassador_hellmaw() : CreatureScript("boss_ambassador_hellmaw") { }
+
+    UnitAI* GetAI(Creature* pCreature)
     {
-        m_pInstance = (instance_shadow_labyrinth*)pCreature->GetInstanceData();
-        m_bIsRegularMode = pCreature->GetMap()->IsRegularDifficulty();
-        m_creature->SetCanEnterCombat(false);
-        SetReactState(REACT_PASSIVE);
-        Reset();
+        return new boss_ambassador_hellmawAI(pCreature);
     }
 
-    instance_shadow_labyrinth* m_pInstance;
-    bool m_bIsRegularMode;
 
-    uint32 m_uiBanishTimer;
-    uint32 m_uiCorrosiveAcidTimer;
-    uint32 m_uiFearTimer;
-    uint32 m_uiEnrageTimer;
-    bool m_bIsEnraged;
 
-    void Reset() override
+    struct boss_ambassador_hellmawAI : public ScriptedAI
     {
-        m_uiBanishTimer         = 2000;
-        m_uiCorrosiveAcidTimer  = urand(20000, 23000);
-        m_uiFearTimer           = urand(20000, 26000);
-        m_uiEnrageTimer         = 3 * MINUTE * IN_MILLISECONDS;
-        m_bIsEnraged            = false;
-    }
-
-    void ReceiveAIEvent(AIEventType eventType, Unit* /*sender*/, Unit* /*invoker*/, uint32 /*miscValue*/) override
-    {
-        if (eventType == AI_EVENT_CUSTOM_A)
+        boss_ambassador_hellmawAI(Creature* pCreature) : ScriptedAI(pCreature)
         {
-            // yell intro and remove banish aura
-            DoScriptText(SAY_HELLMAW_INTRO, m_creature);
-            m_creature->GetMotionMaster()->MoveWaypoint();
-            m_creature->RemoveAurasDueToSpell(SPELL_BANISH);
-            m_creature->SetCanEnterCombat(true);
-            SetReactState(REACT_AGGRESSIVE);
-        }
-    }
-
-    void JustReachedHome() override
-    {
-        if (m_pInstance)
-            m_pInstance->SetData(TYPE_HELLMAW, FAIL);
-    }
-
-    void Aggro(Unit* /*pWho*/) override
-    {
-        switch (urand(0, 2))
-        {
-            case 0: DoScriptText(SAY_AGGRO_1, m_creature); break;
-            case 1: DoScriptText(SAY_AGGRO_2, m_creature); break;
-            case 2: DoScriptText(SAY_AGGRO_3, m_creature); break;
+            m_pInstance = (instance_shadow_labyrinth*)pCreature->GetInstanceData();
+            m_bIsRegularMode = pCreature->GetMap()->IsRegularDifficulty();
+            m_creature->SetCanEnterCombat(false);
+            SetReactState(REACT_PASSIVE);
+            Reset();
         }
 
-        if (m_pInstance)
-            m_pInstance->SetData(TYPE_HELLMAW, IN_PROGRESS);
-    }
+        instance_shadow_labyrinth* m_pInstance;
+        bool m_bIsRegularMode;
 
-    void KilledUnit(Unit* /*pVictim*/) override
-    {
-        DoScriptText(urand(0, 1) ? SAY_SLAY_1 : SAY_SLAY_2, m_creature);
-    }
+        uint32 m_uiBanishTimer;
+        uint32 m_uiCorrosiveAcidTimer;
+        uint32 m_uiFearTimer;
+        uint32 m_uiEnrageTimer;
+        bool m_bIsEnraged;
 
-    void JustDied(Unit* /*pKiller*/) override
-    {
-        DoScriptText(SAY_DEATH, m_creature);
-
-        if (m_pInstance)
-            m_pInstance->SetData(TYPE_HELLMAW, DONE);
-    }
-
-    void UpdateAI(const uint32 uiDiff) override
-    {
-        if (m_uiBanishTimer)
+        void Reset() override
         {
-            if (m_uiBanishTimer <= uiDiff)
+            m_uiBanishTimer         = 2000;
+            m_uiCorrosiveAcidTimer  = urand(20000, 23000);
+            m_uiFearTimer           = urand(20000, 26000);
+            m_uiEnrageTimer         = 3 * MINUTE * IN_MILLISECONDS;
+            m_bIsEnraged            = false;
+        }
+
+        void ReceiveAIEvent(AIEventType eventType, Unit* /*sender*/, Unit* /*invoker*/, uint32 /*miscValue*/) override
+        {
+            if (eventType == AI_EVENT_CUSTOM_A)
             {
-                if (!m_pInstance)
-                    return;
+                // yell intro and remove banish aura
+                DoScriptText(SAY_HELLMAW_INTRO, m_creature);
+                m_creature->GetMotionMaster()->MoveWaypoint();
+                m_creature->RemoveAurasDueToSpell(SPELL_BANISH);
+                m_creature->SetCanEnterCombat(true);
+                SetReactState(REACT_AGGRESSIVE);
+            }
+        }
 
-                // Check for banish
-                if (m_pInstance->IsHellmawUnbanished())
+        void JustReachedHome() override
+        {
+            if (m_pInstance)
+                m_pInstance->SetData(TYPE_HELLMAW, FAIL);
+        }
+
+        void Aggro(Unit* /*pWho*/) override
+        {
+            switch (urand(0, 2))
+            {
+                case 0: DoScriptText(SAY_AGGRO_1, m_creature); break;
+                case 1: DoScriptText(SAY_AGGRO_2, m_creature); break;
+                case 2: DoScriptText(SAY_AGGRO_3, m_creature); break;
+            }
+
+            if (m_pInstance)
+                m_pInstance->SetData(TYPE_HELLMAW, IN_PROGRESS);
+        }
+
+        void KilledUnit(Unit* /*pVictim*/) override
+        {
+            DoScriptText(urand(0, 1) ? SAY_SLAY_1 : SAY_SLAY_2, m_creature);
+        }
+
+        void JustDied(Unit* /*pKiller*/) override
+        {
+            DoScriptText(SAY_DEATH, m_creature);
+
+            if (m_pInstance)
+                m_pInstance->SetData(TYPE_HELLMAW, DONE);
+        }
+
+        void UpdateAI(const uint32 uiDiff) override
+        {
+            if (m_uiBanishTimer)
+            {
+                if (m_uiBanishTimer <= uiDiff)
                 {
-                    m_creature->RemoveAurasDueToSpell(SPELL_BANISH);
-                    SetReactState(REACT_AGGRESSIVE);
-                    m_creature->GetMotionMaster()->MoveWaypoint();
-                    m_uiBanishTimer = 0;
+                    if (!m_pInstance)
+                        return;
+
+                    // Check for banish
+                    if (m_pInstance->IsHellmawUnbanished())
+                    {
+                        m_creature->RemoveAurasDueToSpell(SPELL_BANISH);
+                        SetReactState(REACT_AGGRESSIVE);
+                        m_creature->GetMotionMaster()->MoveWaypoint();
+                        m_uiBanishTimer = 0;
+                    }
                 }
+                else
+                    m_uiBanishTimer -= uiDiff;
             }
-            else
-                m_uiBanishTimer -= uiDiff;
-        }
 
-        if (!m_creature->SelectHostileTarget() || !m_creature->GetVictim())
-            return;
+            if (!m_creature->SelectHostileTarget() || !m_creature->GetVictim())
+                return;
 
-        if (m_uiCorrosiveAcidTimer < uiDiff)
-        {
-            if (DoCastSpellIfCan(m_creature, SPELL_CORROSIVE_ACID) == CAST_OK)
-                m_uiCorrosiveAcidTimer = urand(23000, 35000);
-        }
-        else
-            m_uiCorrosiveAcidTimer -= uiDiff;
-
-        if (m_uiFearTimer < uiDiff)
-        {
-            if (DoCastSpellIfCan(m_creature, SPELL_FEAR) == CAST_OK)
-                m_uiFearTimer = urand(20000, 38000);
-        }
-        else
-            m_uiFearTimer -= uiDiff;
-
-        if (!m_bIsRegularMode && !m_bIsEnraged)
-        {
-            if (m_uiEnrageTimer < uiDiff)
+            if (m_uiCorrosiveAcidTimer < uiDiff)
             {
-                if (DoCastSpellIfCan(m_creature, SPELL_ENRAGE) == CAST_OK)
-                    m_bIsEnraged = true;
+                if (DoCastSpellIfCan(m_creature, SPELL_CORROSIVE_ACID) == CAST_OK)
+                    m_uiCorrosiveAcidTimer = urand(23000, 35000);
             }
             else
-                m_uiEnrageTimer -= uiDiff;
-        }
+                m_uiCorrosiveAcidTimer -= uiDiff;
 
-        DoMeleeAttackIfReady();
-    }
+            if (m_uiFearTimer < uiDiff)
+            {
+                if (DoCastSpellIfCan(m_creature, SPELL_FEAR) == CAST_OK)
+                    m_uiFearTimer = urand(20000, 38000);
+            }
+            else
+                m_uiFearTimer -= uiDiff;
+
+            if (!m_bIsRegularMode && !m_bIsEnraged)
+            {
+                if (m_uiEnrageTimer < uiDiff)
+                {
+                    if (DoCastSpellIfCan(m_creature, SPELL_ENRAGE) == CAST_OK)
+                        m_bIsEnraged = true;
+                }
+                else
+                    m_uiEnrageTimer -= uiDiff;
+            }
+
+            DoMeleeAttackIfReady();
+        }
+    };
+
+
+
 };
 
-UnitAI* GetAI_boss_ambassador_hellmaw(Creature* pCreature)
-{
-    return new boss_ambassador_hellmawAI(pCreature);
-}
 
 void AddSC_boss_ambassador_hellmaw()
 {
-    Script* pNewScript = new Script;
-    pNewScript->Name = "boss_ambassador_hellmaw";
-    pNewScript->GetAI = &GetAI_boss_ambassador_hellmaw;
-    pNewScript->RegisterSelf();
+    new boss_ambassador_hellmaw();
+
 }

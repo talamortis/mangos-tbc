@@ -29,21 +29,29 @@ EndScriptData */
 2 - Mekgineer Steamrigger Event
 3 - Warlord Kalithresh Event
 */
-
-bool GOUse_go_main_chambers_access_panel(Player* /*pPlayer*/, GameObject* pGo)
+class go_main_chambers_access_panel : public GameObjectScript
 {
-    ScriptedInstance* pInstance = (ScriptedInstance*)pGo->GetInstanceData();
+public:
+    go_main_chambers_access_panel() : GameObjectScript("go_main_chambers_access_panel") { }
 
-    if (!pInstance)
-        return true;
+    bool OnGameObjectUse(Player* /*pPlayer*/, GameObject* pGo) override
+    {
+        ScriptedInstance* pInstance = (ScriptedInstance*)pGo->GetInstanceData();
 
-    if (pGo->GetEntry() == GO_ACCESS_PANEL_HYDRO && pInstance->GetData(TYPE_HYDROMANCER_THESPIA) != SPECIAL)
-        pInstance->SetData(TYPE_HYDROMANCER_THESPIA, SPECIAL);
-    else if (pGo->GetEntry() == GO_ACCESS_PANEL_MEK && pInstance->GetData(TYPE_MEKGINEER_STEAMRIGGER) != SPECIAL)
-        pInstance->SetData(TYPE_MEKGINEER_STEAMRIGGER, SPECIAL);
+        if (!pInstance)
+            return true;
 
-    return false;
-}
+        if (pGo->GetEntry() == GO_ACCESS_PANEL_HYDRO && pInstance->GetData(TYPE_HYDROMANCER_THESPIA) != SPECIAL)
+            pInstance->SetData(TYPE_HYDROMANCER_THESPIA, SPECIAL);
+        else if (pGo->GetEntry() == GO_ACCESS_PANEL_MEK && pInstance->GetData(TYPE_MEKGINEER_STEAMRIGGER) != SPECIAL)
+            pInstance->SetData(TYPE_MEKGINEER_STEAMRIGGER, SPECIAL);
+
+        return false;
+    }
+
+
+
+};
 
 instance_steam_vault::instance_steam_vault(Map* pMap) : ScriptedInstance(pMap)
 {
@@ -186,21 +194,24 @@ void instance_steam_vault::Load(const char* chrIn)
 
     OUT_LOAD_INST_DATA_COMPLETE;
 }
-
-InstanceData* GetInstanceData_instance_steam_vault(Map* pMap)
+class instance_steam_vault : public InstanceMapScript
 {
-    return new instance_steam_vault(pMap);
-}
+public:
+    instance_steam_vault() : InstanceMapScript("instance_steam_vault") { }
+
+    InstanceData* GetInstanceScript(Map* pMap) const override
+    {
+        return new instance_steam_vault(pMap);
+    }
+
+
+
+
+};
 
 void AddSC_instance_steam_vault()
 {
-    Script* pNewScript = new Script;
-    pNewScript->Name = "go_main_chambers_access_panel";
-    pNewScript->pGOUse = &GOUse_go_main_chambers_access_panel;
-    pNewScript->RegisterSelf();
+    new go_main_chambers_access_panel();
+    new instance_steam_vault();
 
-    pNewScript = new Script;
-    pNewScript->Name = "instance_steam_vault";
-    pNewScript->GetInstanceData = &GetInstanceData_instance_steam_vault;
-    pNewScript->RegisterSelf();
 }

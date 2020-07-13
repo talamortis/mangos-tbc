@@ -109,407 +109,423 @@ enum FelbloodKaelthasActions
     KAEL_GRAVITY_LAPSE_SCRIPT,
     KAEL_OUTRO,
 };
-
-struct boss_felblood_kaelthasAI : public CombatAI
+class boss_felblood_kaelthas : public CreatureScript
 {
-    boss_felblood_kaelthasAI(Creature* creature) : CombatAI(creature, KAEL_ACTION_MAX),
-        m_instance(static_cast<ScriptedInstance*>(creature->GetInstanceData())), m_isRegularMode(creature->GetMap()->IsRegularDifficulty()), m_introStarted(false)
+public:
+    boss_felblood_kaelthas() : CreatureScript("boss_felblood_kaelthas") { }
+
+    UnitAI* GetAI(Creature* creature)
     {
-        AddTimerlessCombatAction(KAEL_ACTION_ENERGY_FEEDBACK, false);
-        AddTimerlessCombatAction(KAEL_ACTION_GRAVITY_LAPSE, false);
-        AddTimerlessCombatAction(KAEL_ACTION_PHASE_TRANSITION, true);
-        AddCombatAction(KAEL_ACTION_PYROBLAST, true);
-        if (!m_isRegularMode)
-            AddCombatAction(KAEL_ACTION_SHOCK_BARRIER, 60000u);
-        else
-            AddCombatAction(KAEL_ACTION_SHOCK_BARRIER, true);
-        AddCombatAction(KAEL_ACTION_FLAMESTRIKE, 25000u);
-        AddCombatAction(KAEL_ACTION_PHOENIX, 10000u);
-        AddCombatAction(KAEL_ACTION_FIREBALL, 0u);
-        AddCustomAction(KAEL_INTRO, true, [&]()
+        return new boss_felblood_kaelthasAI(creature);
+    }
+
+
+
+    struct boss_felblood_kaelthasAI : public CombatAI
+    {
+        boss_felblood_kaelthasAI(Creature* creature) : CombatAI(creature, KAEL_ACTION_MAX),
+            m_instance(static_cast<ScriptedInstance*>(creature->GetInstanceData())), m_isRegularMode(creature->GetMap()->IsRegularDifficulty()), m_introStarted(false)
         {
-            HandleIntro();
-        });
-        AddCustomAction(KAEL_GRAVITY_LAPSE_SCRIPT, true, [&]()
+            AddTimerlessCombatAction(KAEL_ACTION_ENERGY_FEEDBACK, false);
+            AddTimerlessCombatAction(KAEL_ACTION_GRAVITY_LAPSE, false);
+            AddTimerlessCombatAction(KAEL_ACTION_PHASE_TRANSITION, true);
+            AddCombatAction(KAEL_ACTION_PYROBLAST, true);
+            if (!m_isRegularMode)
+                AddCombatAction(KAEL_ACTION_SHOCK_BARRIER, 60000u);
+            else
+                AddCombatAction(KAEL_ACTION_SHOCK_BARRIER, true);
+            AddCombatAction(KAEL_ACTION_FLAMESTRIKE, 25000u);
+            AddCombatAction(KAEL_ACTION_PHOENIX, 10000u);
+            AddCombatAction(KAEL_ACTION_FIREBALL, 0u);
+            AddCustomAction(KAEL_INTRO, true, [&]()
+            {
+                HandleIntro();
+            });
+            AddCustomAction(KAEL_GRAVITY_LAPSE_SCRIPT, true, [&]()
+            {
+                HandleGravityLapse();
+            });
+            AddCustomAction(KAEL_OUTRO, true, [&]()
+            {
+                HandleOutro();
+            });
+            SetDeathPrevention(true);
+            Reset();
+        }
+
+        ScriptedInstance* m_instance;
+        bool m_isRegularMode;
+
+        uint32 m_gravityLapseStage;
+
+        bool m_isFirstPhase;
+        bool m_firstGravityLapse;
+        bool m_introStarted;
+
+        uint32 m_introStage;
+        uint32 m_outroStage;
+
+        GuidVector m_spawns;
+
+        void Reset() override
         {
-            HandleGravityLapse();
-        });
-        AddCustomAction(KAEL_OUTRO, true, [&]()
+            CombatAI::Reset();
+
+            SetReactState(REACT_PASSIVE);
+            m_gravityLapseStage   = 0;
+
+            m_firstGravityLapse    = true;
+            m_isFirstPhase         = true;
+
+            m_introStage = 0;
+            m_outroStage = 0;
+
+            m_attackDistance = 20.0f;
+
+            SetCombatMovement(true);
+
+            m_attackDistance = 20.0f;
+
+            DespawnGuids(m_spawns);
+        }
+
+        void JustDied(Unit* /*killer*/) override
         {
+            if (m_instance)
+                m_instance->SetData(TYPE_KAELTHAS, DONE);
+            DespawnGuids(m_spawns);
+        }
+
+        void Aggro(Unit* /*who*/) override
+        {
+            if (m_instance)
+                m_instance->SetData(TYPE_KAELTHAS, IN_PROGRESS);
+        }
+
+        void JustReachedHome() override
+        {
+            if (m_instance)
+                m_instance->SetData(TYPE_KAELTHAS, FAIL);
+        }
+
+        void JustPreventedDeath(Unit* /*attacker*/) override
+        {
+            m_creature->HandleEmote(EMOTE_STATE_TALK);
+            DoFakeDeath();
             HandleOutro();
-        });
-        SetDeathPrevention(true);
-        Reset();
-    }
-
-    ScriptedInstance* m_instance;
-    bool m_isRegularMode;
-
-    uint32 m_gravityLapseStage;
-
-    bool m_isFirstPhase;
-    bool m_firstGravityLapse;
-    bool m_introStarted;
-
-    uint32 m_introStage;
-    uint32 m_outroStage;
-
-    GuidVector m_spawns;
-
-    void Reset() override
-    {
-        CombatAI::Reset();
-
-        SetReactState(REACT_PASSIVE);
-        m_gravityLapseStage   = 0;
-
-        m_firstGravityLapse    = true;
-        m_isFirstPhase         = true;
-
-        m_introStage = 0;
-        m_outroStage = 0;
-
-        m_attackDistance = 20.0f;
-
-        SetCombatMovement(true);
-
-        m_attackDistance = 20.0f;
-
-        DespawnGuids(m_spawns);
-    }
-
-    void JustDied(Unit* /*killer*/) override
-    {
-        if (m_instance)
-            m_instance->SetData(TYPE_KAELTHAS, DONE);
-        DespawnGuids(m_spawns);
-    }
-
-    void Aggro(Unit* /*who*/) override
-    {
-        if (m_instance)
-            m_instance->SetData(TYPE_KAELTHAS, IN_PROGRESS);
-    }
-
-    void JustReachedHome() override
-    {
-        if (m_instance)
-            m_instance->SetData(TYPE_KAELTHAS, FAIL);
-    }
-
-    void JustPreventedDeath(Unit* /*attacker*/) override
-    {
-        m_creature->HandleEmote(EMOTE_STATE_TALK);
-        DoFakeDeath();
-        HandleOutro();
-    }
-
-    void MoveInLineOfSight(Unit* who) override
-    {
-        if (!m_introStarted && who->GetTypeId() == TYPEID_PLAYER && !static_cast<Player*>(who)->isGameMaster() &&
-                m_creature->IsWithinDistInMap(who, 55.0) && m_creature->IsWithinLOSInMap(who))
-        {
-            m_introStarted = true;
-            HandleIntro();
         }
 
-        ScriptedAI::MoveInLineOfSight(who);
-    }
-
-    void ReceiveAIEvent(AIEventType eventType, Unit* /*sender*/, Unit* /*invoker*/, uint32 miscValue) override
-    {
-        if (eventType == AI_EVENT_CUSTOM_A && bool(miscValue) && !m_outroStage) // Gravity Lapse end
-            SetActionReadyStatus(KAEL_ACTION_ENERGY_FEEDBACK, true);
-    }
-
-    void HandleIntro()
-    {
-        uint32 timer = 0;
-        switch (m_introStage)
+        void MoveInLineOfSight(Unit* who) override
         {
-            case 0:
-                m_creature->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_PLAYER);
-                timer = 5500;
-                break;
-            case 1:
-                m_creature->HandleEmote(EMOTE_STATE_TALK);
-                DoScriptText(SAY_INTRO_1, m_creature);
-                timer = 15000;
-                break;
-            case 2:
-                m_creature->HandleEmote(EMOTE_ONESHOT_LAUGH_NOSHEATHE);
-                timer = 5000;
-                break;
-            case 3:
-                DoScriptText(SAY_INTRO_2, m_creature);
-                timer = 15500;
-                break;
-            case 4:
-                m_creature->HandleEmote(0);
-                m_creature->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_PLAYER);
-                SetReactState(REACT_AGGRESSIVE);
-                break;
-        }
-        ++m_introStage;
-        if (timer)
-            ResetTimer(KAEL_INTRO, timer);
-    }
-
-    void HandleOutro()
-    {
-        uint32 timer = 0;
-        switch (m_outroStage)
-        {
-            case 0:
-                SetCombatScriptStatus(true);
-                m_creature->SetTarget(nullptr);
-                DoScriptText(SAY_DEATH, m_creature);
-                timer = 1200;
-                break;
-            case 1:
-                m_creature->CastSpell(nullptr, SPELL_EMOTE_TALK_EXCLAMATION, TRIGGERED_NONE);
-                timer = 2500;
-                break;
-            case 2:
-                m_creature->CastSpell(nullptr, SPELL_EMOTE_POINT, TRIGGERED_NONE);
-                timer = 2500;
-                break;
-            case 3:
-                m_creature->CastSpell(nullptr, SPELL_EMOTE_ROAR, TRIGGERED_NONE);
-                timer = 2500;
-                break;
-            case 4:
-                m_creature->CastSpell(nullptr, SPELL_EMOTE_ROAR, TRIGGERED_NONE);
-                timer = 1500;
-                break;
-            case 5:
-                SetCombatScriptStatus(false);
-                m_creature->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE);
-                m_creature->CastSpell(nullptr, SPELL_SUICIDE, TRIGGERED_NONE);
-                break;
-        }
-        ++m_outroStage;
-        if (timer)
-            ResetTimer(KAEL_OUTRO, timer);
-    }
-
-    void JustSummoned(Creature* summoned) override
-    {
-        if (summoned->GetEntry() == NPC_FLAME_STRIKE_TRIGGER)
-        {
-            summoned->AI()->SetCombatMovement(false);
-            summoned->AI()->SetReactState(REACT_PASSIVE);
-            summoned->CastSpell(nullptr, SPELL_FLAME_STRIKE_DUMMY, TRIGGERED_NONE);
-        }
-        else if (summoned->GetEntry() != NPC_ARCANE_SPHERE)
-        {
-            // Attack or follow target
-            if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, nullptr, SELECT_FLAG_PLAYER))
-                summoned->AI()->AttackStart(target);
-        }
-        m_spawns.push_back(summoned->GetObjectGuid());
-    }
-
-    void HandleGravityLapse()
-    {
-        uint32 timer = 0;
-        switch (m_gravityLapseStage)
-        {
-            case 0:
-                for (uint8 i = 0; i < MAX_ARCANE_SPHERES; ++i)
-                    DoCastSpellIfCan(nullptr, SPELL_ARCANE_SPHERE_SUMMON);
-                timer = 1500;
-                break;
-            case 1:
-                DoCastSpellIfCan(nullptr, SPELL_GRAVITY_LAPSE_VISUAL);
-                SetCombatScriptStatus(false);
-                SetMeleeEnabled(false);
-                break;
-        }
-        ++m_gravityLapseStage;
-        if (timer)
-            ResetTimer(KAEL_GRAVITY_LAPSE_SCRIPT, timer);
-    }
-
-    void ExecuteAction(uint32 action) override
-    {
-        switch (action)
-        {
-            case KAEL_ACTION_ENERGY_FEEDBACK:
+            if (!m_introStarted && who->GetTypeId() == TYPEID_PLAYER && !static_cast<Player*>(who)->isGameMaster() &&
+                    m_creature->IsWithinDistInMap(who, 55.0) && m_creature->IsWithinLOSInMap(who))
             {
-                DoScriptText(SAY_TIRED, m_creature);
-                DoCastSpellIfCan(nullptr, m_isRegularMode ? SPELL_POWER_FEEDBACK : SPELL_POWER_FEEDBACK_H);
-                SetActionReadyStatus(action, false);
-                return;
+                m_introStarted = true;
+                HandleIntro();
             }
-            case KAEL_ACTION_GRAVITY_LAPSE:
-            {
-                // Cast Gravity Lapse on Players
-                if (DoCastSpellIfCan(nullptr, SPELL_GRAVITY_LAPSE) == CAST_OK)
-                {
-                    if (m_firstGravityLapse)
-                    {
-                        DoScriptText(SAY_GRAVITY_LAPSE, m_creature);
-                        m_firstGravityLapse = false;
-                    }
-                    else
-                        DoScriptText(SAY_RECAST_GRAVITY, m_creature);
 
-                    ResetTimer(KAEL_GRAVITY_LAPSE_SCRIPT, 4500);
-                    m_gravityLapseStage = 0;
+            ScriptedAI::MoveInLineOfSight(who);
+        }
+
+        void ReceiveAIEvent(AIEventType eventType, Unit* /*sender*/, Unit* /*invoker*/, uint32 miscValue) override
+        {
+            if (eventType == AI_EVENT_CUSTOM_A && bool(miscValue) && !m_outroStage) // Gravity Lapse end
+                SetActionReadyStatus(KAEL_ACTION_ENERGY_FEEDBACK, true);
+        }
+
+        void HandleIntro()
+        {
+            uint32 timer = 0;
+            switch (m_introStage)
+            {
+                case 0:
+                    m_creature->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_PLAYER);
+                    timer = 5500;
+                    break;
+                case 1:
+                    m_creature->HandleEmote(EMOTE_STATE_TALK);
+                    DoScriptText(SAY_INTRO_1, m_creature);
+                    timer = 15000;
+                    break;
+                case 2:
+                    m_creature->HandleEmote(EMOTE_ONESHOT_LAUGH_NOSHEATHE);
+                    timer = 5000;
+                    break;
+                case 3:
+                    DoScriptText(SAY_INTRO_2, m_creature);
+                    timer = 15500;
+                    break;
+                case 4:
+                    m_creature->HandleEmote(0);
+                    m_creature->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_PLAYER);
+                    SetReactState(REACT_AGGRESSIVE);
+                    break;
+            }
+            ++m_introStage;
+            if (timer)
+                ResetTimer(KAEL_INTRO, timer);
+        }
+
+        void HandleOutro()
+        {
+            uint32 timer = 0;
+            switch (m_outroStage)
+            {
+                case 0:
                     SetCombatScriptStatus(true);
                     m_creature->SetTarget(nullptr);
-                }
-                return;
+                    DoScriptText(SAY_DEATH, m_creature);
+                    timer = 1200;
+                    break;
+                case 1:
+                    m_creature->CastSpell(nullptr, SPELL_EMOTE_TALK_EXCLAMATION, TRIGGERED_NONE);
+                    timer = 2500;
+                    break;
+                case 2:
+                    m_creature->CastSpell(nullptr, SPELL_EMOTE_POINT, TRIGGERED_NONE);
+                    timer = 2500;
+                    break;
+                case 3:
+                    m_creature->CastSpell(nullptr, SPELL_EMOTE_ROAR, TRIGGERED_NONE);
+                    timer = 2500;
+                    break;
+                case 4:
+                    m_creature->CastSpell(nullptr, SPELL_EMOTE_ROAR, TRIGGERED_NONE);
+                    timer = 1500;
+                    break;
+                case 5:
+                    SetCombatScriptStatus(false);
+                    m_creature->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE);
+                    m_creature->CastSpell(nullptr, SPELL_SUICIDE, TRIGGERED_NONE);
+                    break;
             }
-            case KAEL_ACTION_PHASE_TRANSITION:
-            {
-                // Below 50%
-                if (m_creature->GetHealthPercent() < 50.0f)
-                {
-                    if (DoCastSpellIfCan(nullptr, SPELL_TELEPORT_CENTER) == CAST_OK)
-                    {
-                        SetCombatMovement(false);
-                        SetMeleeEnabled(false);
+            ++m_outroStage;
+            if (timer)
+                ResetTimer(KAEL_OUTRO, timer);
+        }
 
-                        m_isFirstPhase = false;
-                        SetActionReadyStatus(action, false);
-                        DisableCombatAction(KAEL_ACTION_PYROBLAST);
-                        DisableCombatAction(KAEL_ACTION_SHOCK_BARRIER);
-                        DisableCombatAction(KAEL_ACTION_FLAMESTRIKE);
-                        DisableCombatAction(KAEL_ACTION_PHOENIX);
-                        DisableCombatAction(KAEL_ACTION_FIREBALL);
-                        SetActionReadyStatus(KAEL_ACTION_GRAVITY_LAPSE, true);
-                    }
-                }
-                return;
-            }
-            case KAEL_ACTION_PYROBLAST:
+        void JustSummoned(Creature* summoned) override
+        {
+            if (summoned->GetEntry() == NPC_FLAME_STRIKE_TRIGGER)
             {
-                if (DoCastSpellIfCan(nullptr, SPELL_PYROBLAST) == CAST_OK)
-                {
-                    DoScriptText(SAY_PYROBLAST, m_creature);
-                    DisableCombatAction(action);
-                }
-                return;
+                summoned->AI()->SetCombatMovement(false);
+                summoned->AI()->SetReactState(REACT_PASSIVE);
+                summoned->CastSpell(nullptr, SPELL_FLAME_STRIKE_DUMMY, TRIGGERED_NONE);
             }
-            case KAEL_ACTION_SHOCK_BARRIER:
+            else if (summoned->GetEntry() != NPC_ARCANE_SPHERE)
             {
-                if (DoCastSpellIfCan(nullptr, SPELL_SHOCK_BARRIER) == CAST_OK)
-                {
-                    ResetCombatAction(KAEL_ACTION_PYROBLAST, 1000);
-                    ResetCombatAction(action, 60000);
-                }
-                return;
-            }
-            case KAEL_ACTION_FLAMESTRIKE:
-            {
-                if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, SPELL_FLAME_STRIKE, SELECT_FLAG_PLAYER))
-                {
-                    if (DoCastSpellIfCan(target, m_isRegularMode ? SPELL_FLAME_STRIKE : SPELL_FLAME_STRIKE_H) == CAST_OK)
-                    {
-                        DoScriptText(SAY_FLAMESTRIKE, m_creature);
-                        ResetCombatAction(action, urand(15000, 25000));
-                    }
-                }
-                return;
-            }
-            case KAEL_ACTION_PHOENIX:
-            {
-                if (DoCastSpellIfCan(nullptr, SPELL_PHOENIX) == CAST_OK)
-                {
-                    DoScriptText(SAY_PHOENIX, m_creature);
-                    ResetCombatAction(action, 45000);
-                }
-                return;
-            }
-            case KAEL_ACTION_FIREBALL:
-            {
+                // Attack or follow target
                 if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, nullptr, SELECT_FLAG_PLAYER))
-                    if (DoCastSpellIfCan(target, m_isRegularMode ? SPELL_FIREBALL : SPELL_FIREBALL_H) == CAST_OK)
-                        ResetCombatAction(action, urand(2000, 4000));
-                return;
+                    summoned->AI()->AttackStart(target);
+            }
+            m_spawns.push_back(summoned->GetObjectGuid());
+        }
+
+        void HandleGravityLapse()
+        {
+            uint32 timer = 0;
+            switch (m_gravityLapseStage)
+            {
+                case 0:
+                    for (uint8 i = 0; i < MAX_ARCANE_SPHERES; ++i)
+                        DoCastSpellIfCan(nullptr, SPELL_ARCANE_SPHERE_SUMMON);
+                    timer = 1500;
+                    break;
+                case 1:
+                    DoCastSpellIfCan(nullptr, SPELL_GRAVITY_LAPSE_VISUAL);
+                    SetCombatScriptStatus(false);
+                    SetMeleeEnabled(false);
+                    break;
+            }
+            ++m_gravityLapseStage;
+            if (timer)
+                ResetTimer(KAEL_GRAVITY_LAPSE_SCRIPT, timer);
+        }
+
+        void ExecuteAction(uint32 action) override
+        {
+            switch (action)
+            {
+                case KAEL_ACTION_ENERGY_FEEDBACK:
+                {
+                    DoScriptText(SAY_TIRED, m_creature);
+                    DoCastSpellIfCan(nullptr, m_isRegularMode ? SPELL_POWER_FEEDBACK : SPELL_POWER_FEEDBACK_H);
+                    SetActionReadyStatus(action, false);
+                    return;
+                }
+                case KAEL_ACTION_GRAVITY_LAPSE:
+                {
+                    // Cast Gravity Lapse on Players
+                    if (DoCastSpellIfCan(nullptr, SPELL_GRAVITY_LAPSE) == CAST_OK)
+                    {
+                        if (m_firstGravityLapse)
+                        {
+                            DoScriptText(SAY_GRAVITY_LAPSE, m_creature);
+                            m_firstGravityLapse = false;
+                        }
+                        else
+                            DoScriptText(SAY_RECAST_GRAVITY, m_creature);
+
+                        ResetTimer(KAEL_GRAVITY_LAPSE_SCRIPT, 4500);
+                        m_gravityLapseStage = 0;
+                        SetCombatScriptStatus(true);
+                        m_creature->SetTarget(nullptr);
+                    }
+                    return;
+                }
+                case KAEL_ACTION_PHASE_TRANSITION:
+                {
+                    // Below 50%
+                    if (m_creature->GetHealthPercent() < 50.0f)
+                    {
+                        if (DoCastSpellIfCan(nullptr, SPELL_TELEPORT_CENTER) == CAST_OK)
+                        {
+                            SetCombatMovement(false);
+                            SetMeleeEnabled(false);
+
+                            m_isFirstPhase = false;
+                            SetActionReadyStatus(action, false);
+                            DisableCombatAction(KAEL_ACTION_PYROBLAST);
+                            DisableCombatAction(KAEL_ACTION_SHOCK_BARRIER);
+                            DisableCombatAction(KAEL_ACTION_FLAMESTRIKE);
+                            DisableCombatAction(KAEL_ACTION_PHOENIX);
+                            DisableCombatAction(KAEL_ACTION_FIREBALL);
+                            SetActionReadyStatus(KAEL_ACTION_GRAVITY_LAPSE, true);
+                        }
+                    }
+                    return;
+                }
+                case KAEL_ACTION_PYROBLAST:
+                {
+                    if (DoCastSpellIfCan(nullptr, SPELL_PYROBLAST) == CAST_OK)
+                    {
+                        DoScriptText(SAY_PYROBLAST, m_creature);
+                        DisableCombatAction(action);
+                    }
+                    return;
+                }
+                case KAEL_ACTION_SHOCK_BARRIER:
+                {
+                    if (DoCastSpellIfCan(nullptr, SPELL_SHOCK_BARRIER) == CAST_OK)
+                    {
+                        ResetCombatAction(KAEL_ACTION_PYROBLAST, 1000);
+                        ResetCombatAction(action, 60000);
+                    }
+                    return;
+                }
+                case KAEL_ACTION_FLAMESTRIKE:
+                {
+                    if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, SPELL_FLAME_STRIKE, SELECT_FLAG_PLAYER))
+                    {
+                        if (DoCastSpellIfCan(target, m_isRegularMode ? SPELL_FLAME_STRIKE : SPELL_FLAME_STRIKE_H) == CAST_OK)
+                        {
+                            DoScriptText(SAY_FLAMESTRIKE, m_creature);
+                            ResetCombatAction(action, urand(15000, 25000));
+                        }
+                    }
+                    return;
+                }
+                case KAEL_ACTION_PHOENIX:
+                {
+                    if (DoCastSpellIfCan(nullptr, SPELL_PHOENIX) == CAST_OK)
+                    {
+                        DoScriptText(SAY_PHOENIX, m_creature);
+                        ResetCombatAction(action, 45000);
+                    }
+                    return;
+                }
+                case KAEL_ACTION_FIREBALL:
+                {
+                    if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, nullptr, SELECT_FLAG_PLAYER))
+                        if (DoCastSpellIfCan(target, m_isRegularMode ? SPELL_FIREBALL : SPELL_FIREBALL_H) == CAST_OK)
+                            ResetCombatAction(action, urand(2000, 4000));
+                    return;
+                }
             }
         }
-    }
+    };
+
+
+
 };
 
 /*######
 ## mob_arcane_sphere
 ######*/
-
-struct mob_arcane_sphereAI : public ScriptedAI
+class mob_arcane_sphere : public CreatureScript
 {
-    mob_arcane_sphereAI(Creature* creature) : ScriptedAI(creature), m_instance(static_cast<ScriptedInstance*>(creature->GetInstanceData()))
+public:
+    mob_arcane_sphere() : CreatureScript("mob_arcane_sphere") { }
+
+    UnitAI* GetAI(Creature* creature)
     {
-        Reset();
+        return new mob_arcane_sphereAI(creature);
     }
 
-    ScriptedInstance* m_instance;
 
-    uint32 m_uiDespawnTimer;
-    uint32 m_uiChangeTargetTimer;
 
-    void Reset() override
+    struct mob_arcane_sphereAI : public ScriptedAI
     {
-        m_uiDespawnTimer      = 30000;
-        m_uiChangeTargetTimer = urand(1000, 2000);
-
-        DoCastSpellIfCan(nullptr, SPELL_ARCANE_SPHERE_PASSIVE);
-    }
-
-    void UpdateAI(const uint32 diff) override
-    {
-        // Should despawn when aura 44251 expires
-        if (m_uiDespawnTimer < diff)
+        mob_arcane_sphereAI(Creature* creature) : ScriptedAI(creature), m_instance(static_cast<ScriptedInstance*>(creature->GetInstanceData()))
         {
-            m_creature->Suicide();
-            m_uiDespawnTimer = 0;
+            Reset();
         }
-        else
-            m_uiDespawnTimer -= diff;
 
-        if (m_uiChangeTargetTimer < diff)
+        ScriptedInstance* m_instance;
+
+        uint32 m_uiDespawnTimer;
+        uint32 m_uiChangeTargetTimer;
+
+        void Reset() override
         {
-            if (!m_instance)
-                return;
+            m_uiDespawnTimer      = 30000;
+            m_uiChangeTargetTimer = urand(1000, 2000);
 
-            // Follow the target - do not attack
-            if (Creature* kael = m_instance->GetSingleCreatureFromStorage(NPC_KAELTHAS))
+            DoCastSpellIfCan(nullptr, SPELL_ARCANE_SPHERE_PASSIVE);
+        }
+
+        void UpdateAI(const uint32 diff) override
+        {
+            // Should despawn when aura 44251 expires
+            if (m_uiDespawnTimer < diff)
             {
-                if (Unit* target = kael->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, nullptr, SELECT_FLAG_PLAYER))
-                {
-                    m_creature->AddThreat(target, 1000000.f);
-                    AttackStart(target);
-                }
+                m_creature->Suicide();
+                m_uiDespawnTimer = 0;
             }
+            else
+                m_uiDespawnTimer -= diff;
 
-            m_uiChangeTargetTimer = urand(5000, 15000);
+            if (m_uiChangeTargetTimer < diff)
+            {
+                if (!m_instance)
+                    return;
+
+                // Follow the target - do not attack
+                if (Creature* kael = m_instance->GetSingleCreatureFromStorage(NPC_KAELTHAS))
+                {
+                    if (Unit* target = kael->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, nullptr, SELECT_FLAG_PLAYER))
+                    {
+                        m_creature->AddThreat(target, 1000000.f);
+                        AttackStart(target);
+                    }
+                }
+
+                m_uiChangeTargetTimer = urand(5000, 15000);
+            }
+            else
+                m_uiChangeTargetTimer -= diff;
         }
-        else
-            m_uiChangeTargetTimer -= diff;
-    }
+    };
+
+
+
 };
 
-UnitAI* GetAI_boss_felblood_kaelthas(Creature* creature)
-{
-    return new boss_felblood_kaelthasAI(creature);
-}
 
-UnitAI* GetAI_mob_arcane_sphere(Creature* creature)
-{
-    return new mob_arcane_sphereAI(creature);
-}
 
 void AddSC_boss_felblood_kaelthas()
 {
-    Script* pNewScript = new Script;
-    pNewScript->Name = "boss_felblood_kaelthas";
-    pNewScript->GetAI = &GetAI_boss_felblood_kaelthas;
-    pNewScript->RegisterSelf();
+    new boss_felblood_kaelthas();
+    new mob_arcane_sphere();
 
-    pNewScript = new Script;
-    pNewScript->Name = "mob_arcane_sphere";
-    pNewScript->GetAI = &GetAI_mob_arcane_sphere;
-    pNewScript->RegisterSelf();
 }

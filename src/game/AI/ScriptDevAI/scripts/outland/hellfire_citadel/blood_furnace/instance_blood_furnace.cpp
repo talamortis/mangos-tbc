@@ -399,41 +399,52 @@ void instance_blood_furnace::DoSortBroggokOrcs()
         }
     }
 }
-
-InstanceData* GetInstanceData_instance_blood_furnace(Map* pMap)
+class instance_blood_furnace : public InstanceMapScript
 {
-    return new instance_blood_furnace(pMap);
-}
+public:
+    instance_blood_furnace() : InstanceMapScript("instance_blood_furnace") { }
 
-bool GOUse_go_prison_cell_lever(Player* /*pPlayer*/, GameObject* pGo)
-{
-    ScriptedInstance* pInstance = (ScriptedInstance*)pGo->GetInstanceData();
-
-    if (!pInstance)
-        return false;
-
-    // Set broggok event in progress
-    if (pInstance->GetData(TYPE_BROGGOK_EVENT) != DONE && pInstance->GetData(TYPE_BROGGOK_EVENT) != IN_PROGRESS)
+    InstanceData* GetInstanceScript(Map* pMap) const override
     {
-        pInstance->SetData(TYPE_BROGGOK_EVENT, IN_PROGRESS);
-
-        // Yell intro
-        if (Creature* pBroggok = pInstance->GetSingleCreatureFromStorage(NPC_BROGGOK))
-            DoScriptText(SAY_BROGGOK_INTRO, pBroggok);
+        return new instance_blood_furnace(pMap);
     }
 
-    return false;
-}
+
+
+
+};
+class go_prison_cell_lever : public GameObjectScript
+{
+public:
+    go_prison_cell_lever() : GameObjectScript("go_prison_cell_lever") { }
+
+    bool OnGameObjectUse(Player* /*pPlayer*/, GameObject* pGo) override
+    {
+        ScriptedInstance* pInstance = (ScriptedInstance*)pGo->GetInstanceData();
+
+        if (!pInstance)
+            return false;
+
+        // Set broggok event in progress
+        if (pInstance->GetData(TYPE_BROGGOK_EVENT) != DONE && pInstance->GetData(TYPE_BROGGOK_EVENT) != IN_PROGRESS)
+        {
+            pInstance->SetData(TYPE_BROGGOK_EVENT, IN_PROGRESS);
+
+            // Yell intro
+            if (Creature* pBroggok = pInstance->GetSingleCreatureFromStorage(NPC_BROGGOK))
+                DoScriptText(SAY_BROGGOK_INTRO, pBroggok);
+        }
+
+        return false;
+    }
+
+
+
+};
 
 void AddSC_instance_blood_furnace()
 {
-    Script* pNewScript = new Script;
-    pNewScript->Name = "instance_blood_furnace";
-    pNewScript->GetInstanceData = &GetInstanceData_instance_blood_furnace;
-    pNewScript->RegisterSelf();
+    new instance_blood_furnace();
+    new go_prison_cell_lever();
 
-    pNewScript = new Script;
-    pNewScript->Name = "go_prison_cell_lever";
-    pNewScript->pGOUse = &GOUse_go_prison_cell_lever;
-    pNewScript->RegisterSelf();
 }

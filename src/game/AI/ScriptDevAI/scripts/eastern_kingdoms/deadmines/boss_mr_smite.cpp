@@ -47,219 +47,228 @@ enum
     PHASE_EQUIP_PROCESS             = 6,
     PHASE_EQUIP_END                 = 7,
 };
-
-struct boss_mr_smiteAI : public ScriptedAI
+class boss_mr_smite : public CreatureScript
 {
-    boss_mr_smiteAI(Creature* pCreature) : ScriptedAI(pCreature) { Reset(); }
+public:
+    boss_mr_smite() : CreatureScript("boss_mr_smite") { }
 
-    uint32 m_uiPhase;
-    uint32 m_uiEquipTimer;
-    uint32 m_uiSlamTimer;
-
-    void Reset() override
+    UnitAI* GetAI(Creature* pCreature)
     {
-        m_uiPhase = PHASE_1;
-        m_uiEquipTimer = 0;
-        m_uiSlamTimer = 9000;
-
-        DoCastSpellIfCan(m_creature, SPELL_NIBLE_REFLEXES, CAST_TRIGGERED);
-
-        // must assume database has the default equipment set
-        SetEquipmentSlots(true);
+        return new boss_mr_smiteAI(pCreature);
     }
 
-    void AttackedBy(Unit* pAttacker) override
+
+
+    struct boss_mr_smiteAI : public ScriptedAI
     {
-        if (m_creature->GetVictim())
-            return;
+        boss_mr_smiteAI(Creature* pCreature) : ScriptedAI(pCreature) { Reset(); }
 
-        if (m_uiPhase > PHASE_3)
-            return;
+        uint32 m_uiPhase;
+        uint32 m_uiEquipTimer;
+        uint32 m_uiSlamTimer;
 
-        AttackStart(pAttacker);
-    }
-
-    void AttackStart(Unit* pWho) override
-    {
-        if (m_uiPhase > PHASE_3)
-            return;
-
-        ScriptedAI::AttackStart(pWho);
-    }
-
-    void JustReachedHome() override
-    {
-        DoCastSpellIfCan(m_creature, SPELL_NIBLE_REFLEXES, CAST_TRIGGERED | CAST_AURA_NOT_PRESENT);
-    }
-
-    void MovementInform(uint32 uiMotionType, uint32 /*uiPointId*/) override
-    {
-        if (uiMotionType != POINT_MOTION_TYPE)
-            return;
-
-        m_creature->SetSheath(SHEATH_STATE_UNARMED);
-        m_creature->SetStandState(UNIT_STAND_STATE_KNEEL);
-
-        m_uiEquipTimer = 3000;
-        m_uiPhase = PHASE_EQUIP_PROCESS;
-    }
-
-    void PhaseEquipStart()
-    {
-        ScriptedInstance* pInstance = (ScriptedInstance*)m_creature->GetInstanceData();
-
-        if (!pInstance)
-            return;
-
-        GameObject* pChest = pInstance->GetSingleGameObjectFromStorage(GO_SMITE_CHEST);
-
-        if (!pChest)
-            return;
-
-        m_uiPhase = PHASE_EQUIP_NULL;
-
-        float fX, fY, fZ;
-        pChest->GetContactPoint(m_creature, fX, fY, fZ, CONTACT_DISTANCE);
-
-        m_creature->GetMotionMaster()->Clear();
-        m_creature->SetFacingToObject(pChest);
-        m_creature->GetMotionMaster()->MovePoint(0, fX, fY, fZ);
-    }
-
-    void PhaseEquipProcess()
-    {
-        if (m_creature->GetHealthPercent() < 33.0f)
+        void Reset() override
         {
-            // It's Hammer, go Hammer!
-            SetEquipmentSlots(false, EQUIP_ID_HAMMER, EQUIP_UNEQUIP);
-            DoCastSpellIfCan(m_creature, SPELL_SMITE_HAMMER);
-        }
-        else
-            SetEquipmentSlots(false, EQUIP_ID_AXE, EQUIP_ID_AXE);
+            m_uiPhase = PHASE_1;
+            m_uiEquipTimer = 0;
+            m_uiSlamTimer = 9000;
 
-        m_creature->SetStandState(UNIT_STAND_STATE_STAND);
-        m_uiPhase = PHASE_EQUIP_END;
-        m_uiEquipTimer = 1000;
-    }
+            DoCastSpellIfCan(m_creature, SPELL_NIBLE_REFLEXES, CAST_TRIGGERED);
 
-    void PhaseEquipEnd()
-    {
-        // We don't have GetVictim, so select from threat list
-        Unit* pVictim = m_creature->SelectAttackingTarget(ATTACKING_TARGET_TOPAGGRO, 0);
-
-        if (!pVictim)
-        {
-            EnterEvadeMode();
-            return;
+            // must assume database has the default equipment set
+            SetEquipmentSlots(true);
         }
 
-        m_creature->SetSheath(SHEATH_STATE_MELEE);
-
-        m_uiPhase = m_creature->GetHealthPercent() < 33.0f ? PHASE_3 : PHASE_2;
-
-        if (m_uiPhase == PHASE_2)
-            DoCastSpellIfCan(m_creature, SPELL_THRASH, CAST_TRIGGERED);
-
-        AttackStart(pVictim);
-    }
-
-    void UpdateAI(const uint32 uiDiff) override
-    {
-        if (!m_creature->SelectHostileTarget() || !m_creature->GetVictim())
+        void AttackedBy(Unit* pAttacker) override
         {
-            if (m_uiEquipTimer)
+            if (m_creature->GetVictim())
+                return;
+
+            if (m_uiPhase > PHASE_3)
+                return;
+
+            AttackStart(pAttacker);
+        }
+
+        void AttackStart(Unit* pWho) override
+        {
+            if (m_uiPhase > PHASE_3)
+                return;
+
+            ScriptedAI::AttackStart(pWho);
+        }
+
+        void JustReachedHome() override
+        {
+            DoCastSpellIfCan(m_creature, SPELL_NIBLE_REFLEXES, CAST_TRIGGERED | CAST_AURA_NOT_PRESENT);
+        }
+
+        void MovementInform(uint32 uiMotionType, uint32 /*uiPointId*/) override
+        {
+            if (uiMotionType != POINT_MOTION_TYPE)
+                return;
+
+            m_creature->SetSheath(SHEATH_STATE_UNARMED);
+            m_creature->SetStandState(UNIT_STAND_STATE_KNEEL);
+
+            m_uiEquipTimer = 3000;
+            m_uiPhase = PHASE_EQUIP_PROCESS;
+        }
+
+        void PhaseEquipStart()
+        {
+            ScriptedInstance* pInstance = (ScriptedInstance*)m_creature->GetInstanceData();
+
+            if (!pInstance)
+                return;
+
+            GameObject* pChest = pInstance->GetSingleGameObjectFromStorage(GO_SMITE_CHEST);
+
+            if (!pChest)
+                return;
+
+            m_uiPhase = PHASE_EQUIP_NULL;
+
+            float fX, fY, fZ;
+            pChest->GetContactPoint(m_creature, fX, fY, fZ, CONTACT_DISTANCE);
+
+            m_creature->GetMotionMaster()->Clear();
+            m_creature->SetFacingToObject(pChest);
+            m_creature->GetMotionMaster()->MovePoint(0, fX, fY, fZ);
+        }
+
+        void PhaseEquipProcess()
+        {
+            if (m_creature->GetHealthPercent() < 33.0f)
             {
-                // decrease the cooldown in between equipment change phases
-                if (m_uiEquipTimer > uiDiff)
-                {
-                    m_uiEquipTimer -= uiDiff;
-                    return;
-                }
-                m_uiEquipTimer = 0;
+                // It's Hammer, go Hammer!
+                SetEquipmentSlots(false, EQUIP_ID_HAMMER, EQUIP_UNEQUIP);
+                DoCastSpellIfCan(m_creature, SPELL_SMITE_HAMMER);
+            }
+            else
+                SetEquipmentSlots(false, EQUIP_ID_AXE, EQUIP_ID_AXE);
+
+            m_creature->SetStandState(UNIT_STAND_STATE_STAND);
+            m_uiPhase = PHASE_EQUIP_END;
+            m_uiEquipTimer = 1000;
+        }
+
+        void PhaseEquipEnd()
+        {
+            // We don't have GetVictim, so select from threat list
+            Unit* pVictim = m_creature->SelectAttackingTarget(ATTACKING_TARGET_TOPAGGRO, 0);
+
+            if (!pVictim)
+            {
+                EnterEvadeMode();
+                return;
             }
 
+            m_creature->SetSheath(SHEATH_STATE_MELEE);
+
+            m_uiPhase = m_creature->GetHealthPercent() < 33.0f ? PHASE_3 : PHASE_2;
+
+            if (m_uiPhase == PHASE_2)
+                DoCastSpellIfCan(m_creature, SPELL_THRASH, CAST_TRIGGERED);
+
+            AttackStart(pVictim);
+        }
+
+        void UpdateAI(const uint32 uiDiff) override
+        {
+            if (!m_creature->SelectHostileTarget() || !m_creature->GetVictim())
+            {
+                if (m_uiEquipTimer)
+                {
+                    // decrease the cooldown in between equipment change phases
+                    if (m_uiEquipTimer > uiDiff)
+                    {
+                        m_uiEquipTimer -= uiDiff;
+                        return;
+                    }
+                    m_uiEquipTimer = 0;
+                }
+
+                switch (m_uiPhase)
+                {
+                    case PHASE_EQUIP_START:
+                        PhaseEquipStart();
+                        break;
+                    case PHASE_EQUIP_PROCESS:
+                        PhaseEquipProcess();
+                        break;
+                    case PHASE_EQUIP_END:
+                        PhaseEquipEnd();
+                        break;
+                }
+
+                return;
+            }
+
+            // the normal combat phases
             switch (m_uiPhase)
             {
-                case PHASE_EQUIP_START:
-                    PhaseEquipStart();
-                    break;
-                case PHASE_EQUIP_PROCESS:
-                    PhaseEquipProcess();
-                    break;
-                case PHASE_EQUIP_END:
-                    PhaseEquipEnd();
-                    break;
-            }
-
-            return;
-        }
-
-        // the normal combat phases
-        switch (m_uiPhase)
-        {
-            case PHASE_1:
-            {
-                if (m_creature->GetHealthPercent() < 66.0f)
+                case PHASE_1:
                 {
-                    if (DoCastSpellIfCan(m_creature, SPELL_SMITE_STOMP) == CAST_OK)
+                    if (m_creature->GetHealthPercent() < 66.0f)
                     {
-                        DoScriptText(m_creature->GetHealthPercent() < 33.0f ? SAY_PHASE_3 : SAY_PHASE_2, m_creature);
-                        m_uiPhase = PHASE_EQUIP_START;
-                        m_uiEquipTimer = 2500;
+                        if (DoCastSpellIfCan(m_creature, SPELL_SMITE_STOMP) == CAST_OK)
+                        {
+                            DoScriptText(m_creature->GetHealthPercent() < 33.0f ? SAY_PHASE_3 : SAY_PHASE_2, m_creature);
+                            m_uiPhase = PHASE_EQUIP_START;
+                            m_uiEquipTimer = 2500;
 
-                        // will clear GetVictim (m_attacking)
-                        m_creature->AttackStop(true);
-                        m_creature->RemoveAurasDueToSpell(SPELL_NIBLE_REFLEXES);
+                            // will clear GetVictim (m_attacking)
+                            m_creature->AttackStop(true);
+                            m_creature->RemoveAurasDueToSpell(SPELL_NIBLE_REFLEXES);
+                        }
+                        return;
                     }
-                    return;
+                    break;
                 }
-                break;
-            }
-            case PHASE_2:
-            {
-                if (m_creature->GetHealthPercent() < 33.0f)
+                case PHASE_2:
                 {
-                    if (DoCastSpellIfCan(m_creature, SPELL_SMITE_STOMP) == CAST_OK)
+                    if (m_creature->GetHealthPercent() < 33.0f)
                     {
-                        DoScriptText(SAY_PHASE_3, m_creature);
-                        m_uiPhase = PHASE_EQUIP_START;
-                        m_uiEquipTimer = 2500;
+                        if (DoCastSpellIfCan(m_creature, SPELL_SMITE_STOMP) == CAST_OK)
+                        {
+                            DoScriptText(SAY_PHASE_3, m_creature);
+                            m_uiPhase = PHASE_EQUIP_START;
+                            m_uiEquipTimer = 2500;
 
-                        // will clear GetVictim (m_attacking)
-                        m_creature->AttackStop(true);
-                        m_creature->RemoveAurasDueToSpell(SPELL_THRASH);
+                            // will clear GetVictim (m_attacking)
+                            m_creature->AttackStop(true);
+                            m_creature->RemoveAurasDueToSpell(SPELL_THRASH);
+                        }
+                        return;
                     }
-                    return;
+                    break;
                 }
-                break;
-            }
-            case PHASE_3:
-            {
-                if (m_uiSlamTimer < uiDiff)
+                case PHASE_3:
                 {
-                    if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_SMITE_SLAM) == CAST_OK)
-                        m_uiSlamTimer = 11000;
+                    if (m_uiSlamTimer < uiDiff)
+                    {
+                        if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_SMITE_SLAM) == CAST_OK)
+                            m_uiSlamTimer = 11000;
+                    }
+                    else
+                        m_uiSlamTimer -= uiDiff;
+
+                    break;
                 }
-                else
-                    m_uiSlamTimer -= uiDiff;
-
-                break;
             }
-        }
 
-        DoMeleeAttackIfReady();
-    }
+            DoMeleeAttackIfReady();
+        }
+    };
+
+
+
 };
 
-UnitAI* GetAI_boss_mr_smite(Creature* pCreature)
-{
-    return new boss_mr_smiteAI(pCreature);
-}
 
 void AddSC_boss_mr_smite()
 {
-    Script* pNewScript = new Script;
-    pNewScript->Name = "boss_mr_smite";
-    pNewScript->GetAI = &GetAI_boss_mr_smite;
-    pNewScript->RegisterSelf();
+    new boss_mr_smite();
+
 }

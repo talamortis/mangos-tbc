@@ -270,16 +270,23 @@ void instance_gnomeregan::DoDeactivateBombFace(uint8 uiIndex)
         m_asBombFaces[uiIndex].m_uiBombTimer = 0;
     }
 }
-
-InstanceData* GetInstanceData_instance_gnomeregan(Map* pMap)
+class instance_gnomeregan : public InstanceMapScript
 {
-    return new instance_gnomeregan(pMap);
-}
+public:
+    instance_gnomeregan() : InstanceMapScript("instance_gnomeregan") { }
+
+    InstanceData* GetInstanceScript(Map* pMap) const override
+    {
+        return new instance_gnomeregan(pMap);
+    }
+
+
+
+
+};
 
 void AddSC_instance_gnomeregan()
 {
-    Script* pNewScript = new Script;
-    pNewScript->Name = "instance_gnomeregan";
-    pNewScript->GetInstanceData = &GetInstanceData_instance_gnomeregan;
-    pNewScript->RegisterSelf();
+    new instance_gnomeregan();
+
 }

@@ -30,36 +30,40 @@ EndContentData */
 /*######
 ## go_molten_core_rune
 ######*/
-
-bool GOUse_go_molten_core_rune(Player* /*pPlayer*/, GameObject* pGo)
+class go_molten_core_rune : public GameObjectScript
 {
-    ScriptedInstance* pInstance = (ScriptedInstance*)pGo->GetInstanceData();
+public:
+    go_molten_core_rune() : GameObjectScript("go_molten_core_rune") { }
 
-    if (!pInstance)
-        return true;
-
-    for (uint8 i = 0; i < MAX_MOLTEN_RUNES; ++i)
+    bool OnGameObjectUse(Player* /*pPlayer*/, GameObject* pGo) override
     {
-        if (pGo->GetEntry() == m_aMoltenCoreRunes[i].m_uiRuneEntry)
-        {
-            // check if boss is already dead - if not return true
-            if (pInstance->GetData(m_aMoltenCoreRunes[i].m_uiType) != DONE)
-                return true;
+        ScriptedInstance* pInstance = (ScriptedInstance*)pGo->GetInstanceData();
 
-            pInstance->SetData(m_aMoltenCoreRunes[i].m_uiType, SPECIAL);
-            return false;
+        if (!pInstance)
+            return true;
+
+        for (uint8 i = 0; i < MAX_MOLTEN_RUNES; ++i)
+        {
+            if (pGo->GetEntry() == m_aMoltenCoreRunes[i].m_uiRuneEntry)
+            {
+                // check if boss is already dead - if not return true
+                if (pInstance->GetData(m_aMoltenCoreRunes[i].m_uiType) != DONE)
+                    return true;
+
+                pInstance->SetData(m_aMoltenCoreRunes[i].m_uiType, SPECIAL);
+                return false;
+            }
         }
+
+        return true;
     }
 
-    return true;
-}
+
+
+};
 
 void AddSC_molten_core()
 {
-    Script* pNewScript;
+    new go_molten_core_rune();
 
-    pNewScript = new Script;
-    pNewScript->Name = "go_molten_core_rune";
-    pNewScript->pGOUse = &GOUse_go_molten_core_rune;
-    pNewScript->RegisterSelf();
 }

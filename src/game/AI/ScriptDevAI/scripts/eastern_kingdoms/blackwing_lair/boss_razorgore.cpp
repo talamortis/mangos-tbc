@@ -53,175 +53,201 @@ enum RazorgoreActions
     RAZORGORE_CLEAVE,
     RAZORGORE_ACTION_MAX,
 };
-
-struct boss_razorgoreAI : public CombatAI
+class boss_razorgore : public CreatureScript
 {
-    boss_razorgoreAI(Creature* creature) : CombatAI(creature, RAZORGORE_ACTION_MAX), m_instance(static_cast<instance_blackwing_lair*>(creature->GetInstanceData()))
+public:
+    boss_razorgore() : CreatureScript("boss_razorgore") { }
+
+
+    struct boss_razorgoreAI : public CombatAI
     {
-        AddCombatAction(RAZORGORE_CONFLAGRATION, 10000, 15000);
-        AddCombatAction(RAZORGORE_FIREBALL_VOLLEY, 15000, 20000);
-        AddCombatAction(RAZORGORE_WAR_STOMP, 30000u);
-        AddCombatAction(RAZORGORE_CLEAVE, 4000, 8000);
-        SetDeathPrevention(true);
-        m_creature->SetWalk(false);
-        if (m_instance)
+        boss_razorgoreAI(Creature* creature) : CombatAI(creature, RAZORGORE_ACTION_MAX), m_instance(static_cast<instance_blackwing_lair*>(creature->GetInstanceData()))
         {
-            m_creature->GetCombatManager().SetLeashingCheck([](Unit* unit, float /*x*/, float /*y*/, float /*z*/)
+            AddCombatAction(RAZORGORE_CONFLAGRATION, 10000, 15000);
+            AddCombatAction(RAZORGORE_FIREBALL_VOLLEY, 15000, 20000);
+            AddCombatAction(RAZORGORE_WAR_STOMP, 30000u);
+            AddCombatAction(RAZORGORE_CLEAVE, 4000, 8000);
+            SetDeathPrevention(true);
+            m_creature->SetWalk(false);
+            if (m_instance)
             {
-                return static_cast<ScriptedInstance*>(unit->GetInstanceData())->GetPlayerInMap(true, false) == nullptr;
-            });
+                m_creature->GetCombatManager().SetLeashingCheck([](Unit* unit, float /*x*/, float /*y*/, float /*z*/)
+                {
+                    return static_cast<ScriptedInstance*>(unit->GetInstanceData())->GetPlayerInMap(true, false) == nullptr;
+                });
+            }
         }
-    }
 
-    instance_blackwing_lair* m_instance;
+        instance_blackwing_lair* m_instance;
 
-    void Reset() override
-    {
-        CombatAI::Reset();
-        SetDeathPrevention(true);
-
-        DoCastSpellIfCan(nullptr, SPELL_DOUBLE_ATTACK, CAST_AURA_NOT_PRESENT | CAST_TRIGGERED);
-    }
-
-    void Aggro(Unit* /*attacker*/) override
-    {
-        m_creature->RemoveAurasDueToSpell(SPELL_POSSESS_VISUAL);
-    }
-
-    void ReceiveAIEvent(AIEventType eventType, Unit* /*sender*/, Unit* /*invoker*/, uint32 /*miscValue*/) override
-    {
-        if (eventType == AI_EVENT_CUSTOM_A)
+        void Reset() override
         {
-            SetDeathPrevention(false);
-            SetMeleeEnabled(true);
+            CombatAI::Reset();
+            SetDeathPrevention(true);
+
+            DoCastSpellIfCan(nullptr, SPELL_DOUBLE_ATTACK, CAST_AURA_NOT_PRESENT | CAST_TRIGGERED);
+        }
+
+        void Aggro(Unit* /*attacker*/) override
+        {
             m_creature->RemoveAurasDueToSpell(SPELL_POSSESS_VISUAL);
-            m_creature->CastSpell(nullptr, SPELL_WARMING_FLAMES, TRIGGERED_OLD_TRIGGERED);
         }
-    }
 
-    void JustPreventedDeath(Unit* /*attacker*/) override
-    {
-        m_instance->SetData(TYPE_RAZORGORE, FAIL);
-    }
+        void ReceiveAIEvent(AIEventType eventType, Unit* /*sender*/, Unit* /*invoker*/, uint32 /*miscValue*/) override
+        {
+            if (eventType == AI_EVENT_CUSTOM_A)
+            {
+                SetDeathPrevention(false);
+                SetMeleeEnabled(true);
+                m_creature->RemoveAurasDueToSpell(SPELL_POSSESS_VISUAL);
+                m_creature->CastSpell(nullptr, SPELL_WARMING_FLAMES, TRIGGERED_OLD_TRIGGERED);
+            }
+        }
 
-    void JustReachedHome() override
-    {
-        if (m_instance)
+        void JustPreventedDeath(Unit* /*attacker*/) override
+        {
             m_instance->SetData(TYPE_RAZORGORE, FAIL);
-    }
-
-    void ExecuteAction(uint32 action) override
-    {
-        switch (action)
-        {
-            case RAZORGORE_CONFLAGRATION:
-            {
-                if (DoCastSpellIfCan(nullptr, SPELL_CONFLAGRATION) == CAST_OK)
-                    ResetCombatAction(action, urand(15000, 25000));
-                break;
-            }
-            case RAZORGORE_FIREBALL_VOLLEY:
-            {
-                if (DoCastSpellIfCan(nullptr, SPELL_FIREBALL_VOLLEY) == CAST_OK)
-                    ResetCombatAction(action, urand(15000, 20000));
-                break;
-            }
-            case RAZORGORE_WAR_STOMP:
-            {
-                if (DoCastSpellIfCan(nullptr, SPELL_WARSTOMP) == CAST_OK)
-                    ResetCombatAction(action, 30000);
-                break;
-            }
-            case RAZORGORE_CLEAVE:
-            {
-                if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_CLEAVE) == CAST_OK)
-                    ResetCombatAction(action, urand(4000, 8000));
-                break;
-            }
         }
-    }
-};
 
-struct npc_blackwing_orbAI : public ScriptedAI
-{
-    npc_blackwing_orbAI(Creature* creature) : ScriptedAI(creature), m_instance(static_cast<instance_blackwing_lair*>(creature->GetInstanceData()))
-    {
-        Reset();
-    }
-
-    instance_blackwing_lair* m_instance;
-
-    uint32 m_uiIntroVisualTimer;
-
-    void Reset() override
-    {
-        m_uiIntroVisualTimer = 4000;
-    }
-
-    void SpellHit(Unit* /*caster*/, const SpellEntry* spellInfo) override
-    {
-        // If hit by Razorgore's fireball: explodes everything in the room
-        if (spellInfo->Id == SPELL_FIREBALL)
+        void JustReachedHome() override
         {
-            if (Creature* pTemp = m_creature->SummonCreature(NPC_ORB_DOMINATION, m_creature->GetPositionX(), m_creature->GetPositionY(), m_creature->GetPositionZ(), 0, TEMPSPAWN_TIMED_DESPAWN, 5 * IN_MILLISECONDS))
-                DoScriptText(EMOTE_ORB_SHUT_OFF, pTemp);
-            m_creature->CastSpell(m_creature, SPELL_EXPLODE_ORB, TRIGGERED_IGNORE_UNATTACKABLE_FLAG);
+            if (m_instance)
+                m_instance->SetData(TYPE_RAZORGORE, FAIL);
         }
-    }
 
-    void UpdateAI(const uint32 uiDiff) override
-    {
-        // Set visual only on OOC timer
-        if (m_uiIntroVisualTimer)
+        void ExecuteAction(uint32 action) override
         {
-            if (m_uiIntroVisualTimer <= uiDiff)
+            switch (action)
             {
-                if (!m_instance)
+                case RAZORGORE_CONFLAGRATION:
                 {
-                    script_error_log("Instance Blackwing Lair: ERROR Failed to load instance data for this instace.");
-                    return;
+                    if (DoCastSpellIfCan(nullptr, SPELL_CONFLAGRATION) == CAST_OK)
+                        ResetCombatAction(action, urand(15000, 25000));
+                    break;
                 }
-
-                // If Razorgore is not respawned yet: wait
-                if (Creature* pRazorgore = m_instance->GetSingleCreatureFromStorage(NPC_RAZORGORE))
+                case RAZORGORE_FIREBALL_VOLLEY:
                 {
-                    if (!(pRazorgore->IsAlive()))
+                    if (DoCastSpellIfCan(nullptr, SPELL_FIREBALL_VOLLEY) == CAST_OK)
+                        ResetCombatAction(action, urand(15000, 20000));
+                    break;
+                }
+                case RAZORGORE_WAR_STOMP:
+                {
+                    if (DoCastSpellIfCan(nullptr, SPELL_WARSTOMP) == CAST_OK)
+                        ResetCombatAction(action, 30000);
+                    break;
+                }
+                case RAZORGORE_CLEAVE:
+                {
+                    if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_CLEAVE) == CAST_OK)
+                        ResetCombatAction(action, urand(4000, 8000));
+                    break;
+                }
+            }
+        }
+    };
+
+
+
+};
+class npc_blackwing_orb : public CreatureScript
+{
+public:
+    npc_blackwing_orb() : CreatureScript("npc_blackwing_orb") { }
+
+
+    struct npc_blackwing_orbAI : public ScriptedAI
+    {
+        npc_blackwing_orbAI(Creature* creature) : ScriptedAI(creature), m_instance(static_cast<instance_blackwing_lair*>(creature->GetInstanceData()))
+        {
+            Reset();
+        }
+
+        instance_blackwing_lair* m_instance;
+
+        uint32 m_uiIntroVisualTimer;
+
+        void Reset() override
+        {
+            m_uiIntroVisualTimer = 4000;
+        }
+
+        void SpellHit(Unit* /*caster*/, const SpellEntry* spellInfo) override
+        {
+            // If hit by Razorgore's fireball: explodes everything in the room
+            if (spellInfo->Id == SPELL_FIREBALL)
+            {
+                if (Creature* pTemp = m_creature->SummonCreature(NPC_ORB_DOMINATION, m_creature->GetPositionX(), m_creature->GetPositionY(), m_creature->GetPositionZ(), 0, TEMPSPAWN_TIMED_DESPAWN, 5 * IN_MILLISECONDS))
+                    DoScriptText(EMOTE_ORB_SHUT_OFF, pTemp);
+                m_creature->CastSpell(m_creature, SPELL_EXPLODE_ORB, TRIGGERED_IGNORE_UNATTACKABLE_FLAG);
+            }
+        }
+
+        void UpdateAI(const uint32 uiDiff) override
+        {
+            // Set visual only on OOC timer
+            if (m_uiIntroVisualTimer)
+            {
+                if (m_uiIntroVisualTimer <= uiDiff)
+                {
+                    if (!m_instance)
                     {
-                        m_uiIntroVisualTimer = 2000;
+                        script_error_log("Instance Blackwing Lair: ERROR Failed to load instance data for this instace.");
                         return;
                     }
-                }
 
-                // If Grethok the Controller is here and spawned, start the visual, else wait for him
-                if (Creature* grethok = GetClosestCreatureWithEntry(m_creature, NPC_GRETHOK_CONTROLLER, 2.0f))
-                {
-                    if (grethok->IsAlive())
+                    // If Razorgore is not respawned yet: wait
+                    if (Creature* pRazorgore = m_instance->GetSingleCreatureFromStorage(NPC_RAZORGORE))
                     {
-                        m_creature->CastSpell(m_creature, SPELL_POSSESS_VISUAL, TRIGGERED_OLD_TRIGGERED);
-                        grethok->CastSpell(grethok, SPELL_CONTROL_ORB, TRIGGERED_OLD_TRIGGERED);
-                        m_uiIntroVisualTimer = 0;
+                        if (!(pRazorgore->IsAlive()))
+                        {
+                            m_uiIntroVisualTimer = 2000;
+                            return;
+                        }
                     }
+
+                    // If Grethok the Controller is here and spawned, start the visual, else wait for him
+                    if (Creature* grethok = GetClosestCreatureWithEntry(m_creature, NPC_GRETHOK_CONTROLLER, 2.0f))
+                    {
+                        if (grethok->IsAlive())
+                        {
+                            m_creature->CastSpell(m_creature, SPELL_POSSESS_VISUAL, TRIGGERED_OLD_TRIGGERED);
+                            grethok->CastSpell(grethok, SPELL_CONTROL_ORB, TRIGGERED_OLD_TRIGGERED);
+                            m_uiIntroVisualTimer = 0;
+                        }
+                    }
+                    else
+                        m_uiIntroVisualTimer = 2000;
                 }
                 else
-                    m_uiIntroVisualTimer = 2000;
+                    m_uiIntroVisualTimer -= uiDiff;
             }
-            else
-                m_uiIntroVisualTimer -= uiDiff;
         }
-    }
+    };
+
+
+
 };
-
-bool ProcessEventIdRazorgorePossess(uint32 /*eventId*/, Object* source, Object* /*target*/, bool /*isStart*/)
+class event_razorgore_possess : public UnknownScript
 {
-    if (!source->IsPlayer())
-        return true;
+public:
+    event_razorgore_possess() : UnknownScript("event_razorgore_possess") { }
 
-    Player* player = static_cast<Player*>(source);
-    if (Creature* trigger = static_cast<ScriptedInstance*>(player->GetMap()->GetInstanceData())->GetSingleCreatureFromStorage(NPC_BLACKWING_ORB_TRIGGER))
-        trigger->CastSpell(nullptr, SPELL_POSSESS_VISUAL, TRIGGERED_OLD_TRIGGERED);
+    bool OnProcessEvent(uint32 /*eventId*/, Object* source, Object* /*target*/, bool /*isStart*/) override
+    {
+        if (!source->IsPlayer())
+            return true;
+
+        Player* player = static_cast<Player*>(source);
+        if (Creature* trigger = static_cast<ScriptedInstance*>(player->GetMap()->GetInstanceData())->GetSingleCreatureFromStorage(NPC_BLACKWING_ORB_TRIGGER))
+            trigger->CastSpell(nullptr, SPELL_POSSESS_VISUAL, TRIGGERED_OLD_TRIGGERED);
     
-    return true;
-}
+        return true;
+    }
+
+
+
+};
 
 struct DestroyEgg : public SpellScript
 {
@@ -297,23 +323,12 @@ struct CalmDragonkin : public SpellScript
 
 void AddSC_boss_razorgore()
 {
-    Script* pNewScript = new Script;
-    pNewScript->Name = "boss_razorgore";
-    pNewScript->GetAI = &GetNewAIInstance<boss_razorgoreAI>;
-    pNewScript->RegisterSelf();
+    new boss_razorgore();
+    new npc_blackwing_orb();
+    new event_razorgore_possess();
 
-    pNewScript = new Script;
-    pNewScript->Name = "npc_blackwing_orb";
-    pNewScript->GetAI = &GetNewAIInstance<npc_blackwing_orbAI>;
-    pNewScript->RegisterSelf();
-
-    pNewScript = new Script;
-    pNewScript->Name = "event_razorgore_possess";
-    pNewScript->pProcessEventId = &ProcessEventIdRazorgorePossess;
-    pNewScript->RegisterSelf();
-
-    RegisterSpellScript<DestroyEgg>("spell_destroy_egg");
-    RegisterSpellScript<ExplosionRazorgore>("spell_explosion_razorgore");
-    RegisterAuraScript<PossessRazorgore>("spell_possess_razorgore");
     RegisterSpellScript<CalmDragonkin>("spell_calm_dragonkin");
+    RegisterAuraScript<PossessRazorgore>("spell_possess_razorgore");
+    RegisterSpellScript<ExplosionRazorgore>("spell_explosion_razorgore");
+    RegisterSpellScript<DestroyEgg>("spell_destroy_egg");
 }

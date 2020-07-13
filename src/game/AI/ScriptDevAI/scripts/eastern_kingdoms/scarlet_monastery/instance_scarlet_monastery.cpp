@@ -96,16 +96,23 @@ uint32 instance_scarlet_monastery::GetData(uint32 uiData) const
 
     return 0;
 }
-
-InstanceData* GetInstanceData_instance_scarlet_monastery(Map* pMap)
+class instance_scarlet_monastery : public InstanceMapScript
 {
-    return new instance_scarlet_monastery(pMap);
-}
+public:
+    instance_scarlet_monastery() : InstanceMapScript("instance_scarlet_monastery") { }
+
+    InstanceData* GetInstanceScript(Map* pMap) const override
+    {
+        return new instance_scarlet_monastery(pMap);
+    }
+
+
+
+
+};
 
 void AddSC_instance_scarlet_monastery()
 {
-    Script* pNewScript = new Script;
-    pNewScript->Name = "instance_scarlet_monastery";
-    pNewScript->GetInstanceData = &GetInstanceData_instance_scarlet_monastery;
-    pNewScript->RegisterSelf();
+    new instance_scarlet_monastery();
+
 }

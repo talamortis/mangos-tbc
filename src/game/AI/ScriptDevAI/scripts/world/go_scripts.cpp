@@ -236,48 +236,80 @@ struct npc_ethereum_prisonerAI : public ScriptedAI, public CombatActions
         DoMeleeAttackIfReady();
     }
 };
-
-UnitAI* GetAInpc_ethereum_prisoner(Creature* creature)
+class npc_ethereum_prisoner : public CreatureScript
 {
-    return new npc_ethereum_prisonerAI(creature);
-}
+public:
+    npc_ethereum_prisoner() : CreatureScript("npc_ethereum_prisoner") { }
 
-bool GOUse_go_ethereum_prison(Player* player, GameObject* go)
-{
-    if (Creature* prisoner = GetClosestCreatureWithEntry(go, NPC_PRISONER, 1.f))
+    UnitAI* GetAInpc_ethereum_prisoner(Creature* creature)
     {
-        npc_ethereum_prisonerAI* ai = static_cast<npc_ethereum_prisonerAI*>(prisoner->AI());
-        ai->StartEvent(player, go, EVENT_PRISON);
+        return new npc_ethereum_prisonerAI(creature);
     }
 
-    return false;
-}
+
+
+};
+class go_ethereum_prison : public GameObjectScript
+{
+public:
+    go_ethereum_prison() : GameObjectScript("go_ethereum_prison") { }
+
+    bool OnGameObjectUse(Player* player, GameObject* go) override
+    {
+        if (Creature* prisoner = GetClosestCreatureWithEntry(go, NPC_PRISONER, 1.f))
+        {
+            npc_ethereum_prisonerAI* ai = static_cast<npc_ethereum_prisonerAI*>(prisoner->AI());
+            ai->StartEvent(player, go, EVENT_PRISON);
+        }
+
+        return false;
+    }
+
+
+
+};
 
 /*######
 ## go_ethereum_stasis
 ######*/
-
-bool GOUse_go_ethereum_stasis(Player* player, GameObject* go)
+class go_ethereum_stasis : public GameObjectScript
 {
-    if (Creature* prisoner = GetClosestCreatureWithEntry(go, NPC_PRISONER_GROUP, 1.f))
+public:
+    go_ethereum_stasis() : GameObjectScript("go_ethereum_stasis") { }
+
+    bool OnGameObjectUse(Player* player, GameObject* go) override
     {
-        npc_ethereum_prisonerAI* ai = static_cast<npc_ethereum_prisonerAI*>(prisoner->AI());
-        ai->StartEvent(player, go, EVENT_PRISON_GROUP);
+        if (Creature* prisoner = GetClosestCreatureWithEntry(go, NPC_PRISONER_GROUP, 1.f))
+        {
+            npc_ethereum_prisonerAI* ai = static_cast<npc_ethereum_prisonerAI*>(prisoner->AI());
+            ai->StartEvent(player, go, EVENT_PRISON_GROUP);
+        }
+
+        return false;
     }
 
-    return false;
-}
 
-bool GOUse_go_stasis_chamber_alpha(Player* player, GameObject* go)
+
+};
+class go_stasis_chamber_alpha : public GameObjectScript
 {
-    if (Creature* prisoner = GetClosestCreatureWithEntry(go, NPC_PRISONER_GROUP, 1.f))
+public:
+    go_stasis_chamber_alpha() : GameObjectScript("go_stasis_chamber_alpha") { }
+
+    bool OnGameObjectUse(Player* player, GameObject* go) override
     {
-        npc_ethereum_prisonerAI* ai = static_cast<npc_ethereum_prisonerAI*>(prisoner->AI());
-        ai->StartEvent(player, go, EVENT_PRISON_ALPHA);
+        if (Creature* prisoner = GetClosestCreatureWithEntry(go, NPC_PRISONER_GROUP, 1.f))
+        {
+            npc_ethereum_prisonerAI* ai = static_cast<npc_ethereum_prisonerAI*>(prisoner->AI());
+            ai->StartEvent(player, go, EVENT_PRISON_ALPHA);
+        }
+
+        return false;
     }
 
-    return false;
-}
+
+
+};
 
 /*######
 ## go_jump_a_tron
@@ -288,14 +320,22 @@ enum
     SPELL_JUMP_A_TRON = 33382,
     NPC_JUMP_A_TRON   = 19041
 };
-
-bool GOUse_go_jump_a_tron(Player* pPlayer, GameObject* pGo)
+class go_jump_a_tron : public GameObjectScript
 {
-    if (Creature* pCreature = GetClosestCreatureWithEntry(pGo, NPC_JUMP_A_TRON, INTERACTION_DISTANCE))
-        pCreature->CastSpell(pPlayer, SPELL_JUMP_A_TRON, TRIGGERED_NONE);
+public:
+    go_jump_a_tron() : GameObjectScript("go_jump_a_tron") { }
 
-    return false;
-}
+    bool OnGameObjectUse(Player* pPlayer, GameObject* pGo) override
+    {
+        if (Creature* pCreature = GetClosestCreatureWithEntry(pGo, NPC_JUMP_A_TRON, INTERACTION_DISTANCE))
+            pCreature->CastSpell(pPlayer, SPELL_JUMP_A_TRON, TRIGGERED_NONE);
+
+        return false;
+    }
+
+
+
+};
 
 /*######
 ## go_andorhal_tower
@@ -314,24 +354,32 @@ enum
     GO_ANDORHAL_TOWER_3                      = 176096,
     GO_ANDORHAL_TOWER_4                      = 176097
 };
-
-bool GOUse_go_andorhal_tower(Player* pPlayer, GameObject* pGo)
+class go_andorhal_tower : public GameObjectScript
 {
-    if (pPlayer->GetQuestStatus(QUEST_ALL_ALONG_THE_WATCHTOWERS_ALLIANCE) == QUEST_STATUS_INCOMPLETE || pPlayer->GetQuestStatus(QUEST_ALL_ALONG_THE_WATCHTOWERS_HORDE) == QUEST_STATUS_INCOMPLETE)
+public:
+    go_andorhal_tower() : GameObjectScript("go_andorhal_tower") { }
+
+    bool OnGameObjectUse(Player* pPlayer, GameObject* pGo) override
     {
-        uint32 uiKillCredit = 0;
-        switch (pGo->GetEntry())
+        if (pPlayer->GetQuestStatus(QUEST_ALL_ALONG_THE_WATCHTOWERS_ALLIANCE) == QUEST_STATUS_INCOMPLETE || pPlayer->GetQuestStatus(QUEST_ALL_ALONG_THE_WATCHTOWERS_HORDE) == QUEST_STATUS_INCOMPLETE)
         {
-            case GO_ANDORHAL_TOWER_1:   uiKillCredit = NPC_ANDORHAL_TOWER_1;   break;
-            case GO_ANDORHAL_TOWER_2:   uiKillCredit = NPC_ANDORHAL_TOWER_2;   break;
-            case GO_ANDORHAL_TOWER_3:   uiKillCredit = NPC_ANDORHAL_TOWER_3;   break;
-            case GO_ANDORHAL_TOWER_4:   uiKillCredit = NPC_ANDORHAL_TOWER_4;   break;
+            uint32 uiKillCredit = 0;
+            switch (pGo->GetEntry())
+            {
+                case GO_ANDORHAL_TOWER_1:   uiKillCredit = NPC_ANDORHAL_TOWER_1;   break;
+                case GO_ANDORHAL_TOWER_2:   uiKillCredit = NPC_ANDORHAL_TOWER_2;   break;
+                case GO_ANDORHAL_TOWER_3:   uiKillCredit = NPC_ANDORHAL_TOWER_3;   break;
+                case GO_ANDORHAL_TOWER_4:   uiKillCredit = NPC_ANDORHAL_TOWER_4;   break;
+            }
+            if (uiKillCredit)
+                pPlayer->KilledMonsterCredit(uiKillCredit);
         }
-        if (uiKillCredit)
-            pPlayer->KilledMonsterCredit(uiKillCredit);
+        return true;
     }
-    return true;
-}
+
+
+
+};
 
 /*####
 ## go_bells
@@ -498,11 +546,19 @@ struct go_ai_bell : public GameObjectAI
         }
     }
 };
-
-GameObjectAI* GetAI_go_bells(GameObject* go)
+class go_bells : public CreatureScript
 {
-    return new go_ai_bell(go);
-}
+public:
+    go_bells() : CreatureScript("go_bells") { }
+
+    GameObjectAI* GetAI(GameObject* go)
+    {
+        return new go_ai_bell(go);
+    }
+
+
+
+};
 
 /*####
 ## go_darkmoon_faire_music
@@ -533,11 +589,19 @@ struct go_ai_dmf_music : public GameObjectAI
             m_uiMusicTimer -= uiDiff;
     }
 };
-
-GameObjectAI* GetAI_go_darkmoon_faire_music(GameObject* go)
+class go_darkmoon_faire_music : public CreatureScript
 {
-    return new go_ai_dmf_music(go);
-}
+public:
+    go_darkmoon_faire_music() : CreatureScript("go_darkmoon_faire_music") { }
+
+    GameObjectAI* GetAI(GameObject* go)
+    {
+        return new go_ai_dmf_music(go);
+    }
+
+
+
+};
 
 /*####
  ## go_brewfest_music
@@ -694,11 +758,19 @@ struct go_brewfest_music : public GameObjectAI
         }
     }
 };
-
-GameObjectAI* GetAIgo_brewfest_music(GameObject* go)
+class go_brewfest_music : public GameObjectScript
 {
-    return new go_brewfest_music(go);
-}
+public:
+    go_brewfest_music() : GameObjectScript("go_brewfest_music") { }
+
+    GameObjectAI* GetAIgo_brewfest_music(GameObject* go)
+    {
+        return new go_brewfest_music(go);
+    }
+
+
+
+};
 
 /*####
  ## go_midsummer_music
@@ -745,11 +817,19 @@ struct go_midsummer_music : public GameObjectAI
             m_musicTimer -= diff;
     }
 };
-
-GameObjectAI* GetAIgo_midsummer_music(GameObject* go)
+class go_midsummer_music : public GameObjectScript
 {
-    return new go_midsummer_music(go);
-}
+public:
+    go_midsummer_music() : GameObjectScript("go_midsummer_music") { }
+
+    GameObjectAI* GetAIgo_midsummer_music(GameObject* go)
+    {
+        return new go_midsummer_music(go);
+    }
+
+
+
+};
 
 /*####
  ## go_pirate_day_music
@@ -788,11 +868,19 @@ struct go_pirate_day_music : public GameObjectAI
             m_musicTimer -= diff;
     }
 };
-
-GameObjectAI* GetAIgo_pirate_day_music(GameObject* go)
+class go_pirate_day_music : public GameObjectScript
 {
-    return new go_pirate_day_music(go);
-}
+public:
+    go_pirate_day_music() : GameObjectScript("go_pirate_day_music") { }
+
+    GameObjectAI* GetAIgo_pirate_day_music(GameObject* go)
+    {
+        return new go_pirate_day_music(go);
+    }
+
+
+
+};
 
 enum
 {
@@ -883,18 +971,34 @@ struct go_elemental_rift : public GameObjectAI
             m_uiElementalTimer -= uiDiff;
     }
 };
-
-GameObjectAI* GetAI_go_elemental_rift(GameObject* go)
+class go_elemental_rift : public CreatureScript
 {
-    return new go_elemental_rift(go);
-}
+public:
+    go_elemental_rift() : CreatureScript("go_elemental_rift") { }
 
-std::function<bool(Unit*)> function = &TrapTargetSearch;
+    GameObjectAI* GetAI(GameObject* go)
+    {
+        return new go_elemental_rift(go);
+    }
 
-enum
+
+
+};
+class go_transpolyporter_bb : public GameObjectScript
 {
-    SPELL_BOMBING_RUN_DUMMY_SUMMON = 40181, // Bombing Run: Summon Bombing Run Target Dummy - missing serverside cast by GO
-    NPC_BOMBING_RUN_TARGET_BUNNY   = 23118,
+public:
+    go_transpolyporter_bb() : GameObjectScript("go_transpolyporter_bb") { }
+
+    std::OnTrapSearch<bool(Unit*)> OnTrapSearch = &TrapTargetSearch; override
+
+    enum
+    {
+        SPELL_BOMBING_RUN_DUMMY_SUMMON = 40181, // Bombing Run: Summon Bombing Run Target Dummy - missing serverside cast by GO
+        NPC_BOMBING_RUN_TARGET_BUNNY   = 23118,
+    };
+
+
+
 };
 
 // This script is a substitution of casting 40181 by this very GO
@@ -916,11 +1020,19 @@ struct go_fel_cannonball_stack_trap : public GameObjectAI
             static_cast<TemporarySpawn*>(bunny)->UnSummon();
     }
 };
-
-GameObjectAI* GetAI_go_fel_cannonball_stack_trap(GameObject* go)
+class go_fel_cannonball_stack_trap : public CreatureScript
 {
-    return new go_fel_cannonball_stack_trap(go);
-}
+public:
+    go_fel_cannonball_stack_trap() : CreatureScript("go_fel_cannonball_stack_trap") { }
+
+    GameObjectAI* GetAI(GameObject* go)
+    {
+        return new go_fel_cannonball_stack_trap(go);
+    }
+
+
+
+};
 
 enum
 {
@@ -957,11 +1069,19 @@ struct go_dragon_head : public GameObjectAI
             caster->CastSpell(nullptr, SPELL_RALLYING_CRY_OF_THE_DRAGONSLAYER, TRIGGERED_OLD_TRIGGERED);
     }
 };
-
-GameObjectAI* GetAI_go_dragon_head(GameObject* go)
+class go_dragon_head : public CreatureScript
 {
-    return new go_dragon_head(go);
-}
+public:
+    go_dragon_head() : CreatureScript("go_dragon_head") { }
+
+    GameObjectAI* GetAI(GameObject* go)
+    {
+        return new go_dragon_head(go);
+    }
+
+
+
+};
 
 enum
 {
@@ -983,91 +1103,37 @@ struct go_unadorned_spike : public GameObjectAI
             thrall->CastSpell(nullptr, SPELL_WARCHIEFS_BLESSING, TRIGGERED_OLD_TRIGGERED);
     }
 };
-
-GameObjectAI* GetAI_go_unadorned_spike(GameObject* go)
+class go_unadorned_spike : public CreatureScript
 {
-    return new go_unadorned_spike(go);
-}
+public:
+    go_unadorned_spike() : CreatureScript("go_unadorned_spike") { }
+
+    GameObjectAI* GetAI(GameObject* go)
+    {
+        return new go_unadorned_spike(go);
+    }
+
+
+
+};
 
 void AddSC_go_scripts()
 {
-    Script* pNewScript = new Script;
-    pNewScript->Name = "go_ethereum_prison";
-    pNewScript->pGOUse = &GOUse_go_ethereum_prison;
-    pNewScript->RegisterSelf();
+    new go_ethereum_prison();
+    new npc_ethereum_prisoner();
+    new go_stasis_chamber_alpha();
+    new go_ethereum_stasis();
+    new go_jump_a_tron();
+    new go_andorhal_tower();
+    new go_bells();
+    new go_darkmoon_faire_music();
+    new go_brewfest_music();
+    new go_midsummer_music();
+    new go_pirate_day_music();
+    new go_transpolyporter_bb();
+    new go_elemental_rift();
+    new go_fel_cannonball_stack_trap();
+    new go_dragon_head();
+    new go_unadorned_spike();
 
-    pNewScript = new Script;
-    pNewScript->Name = "npc_ethereum_prisoner";
-    pNewScript->GetAI = &GetAInpc_ethereum_prisoner;
-    pNewScript->RegisterSelf();
-
-    pNewScript = new Script;
-    pNewScript->Name = "go_stasis_chamber_alpha";
-    pNewScript->pGOUse = &GOUse_go_stasis_chamber_alpha;
-    pNewScript->RegisterSelf();
-
-    pNewScript = new Script;
-    pNewScript->Name = "go_ethereum_stasis";
-    pNewScript->pGOUse = &GOUse_go_ethereum_stasis;
-    pNewScript->RegisterSelf();
-
-    pNewScript = new Script;
-    pNewScript->Name = "go_jump_a_tron";
-    pNewScript->pGOUse =          &GOUse_go_jump_a_tron;
-    pNewScript->RegisterSelf();
-
-    pNewScript = new Script;
-    pNewScript->Name = "go_andorhal_tower";
-    pNewScript->pGOUse =          &GOUse_go_andorhal_tower;
-    pNewScript->RegisterSelf();
-
-    pNewScript = new Script;
-    pNewScript->Name = "go_bells";
-    pNewScript->GetGameObjectAI = &GetAI_go_bells;
-    pNewScript->RegisterSelf();
-
-    pNewScript = new Script;
-    pNewScript->Name = "go_darkmoon_faire_music";
-    pNewScript->GetGameObjectAI = &GetAI_go_darkmoon_faire_music;
-    pNewScript->RegisterSelf();
-
-    pNewScript = new Script;
-    pNewScript->Name = "go_brewfest_music";
-    pNewScript->GetGameObjectAI = &GetAIgo_brewfest_music;
-    pNewScript->RegisterSelf();
-
-    pNewScript = new Script;
-    pNewScript->Name = "go_midsummer_music";
-    pNewScript->GetGameObjectAI = &GetAIgo_midsummer_music;
-    pNewScript->RegisterSelf();
-
-    pNewScript = new Script;
-    pNewScript->Name = "go_pirate_day_music";
-    pNewScript->GetGameObjectAI = &GetAIgo_pirate_day_music;
-    pNewScript->RegisterSelf();
-
-    pNewScript = new Script;
-    pNewScript->Name = "go_transpolyporter_bb";
-    pNewScript->pTrapSearching = &function;
-    pNewScript->RegisterSelf();
-
-    pNewScript = new Script;
-    pNewScript->Name = "go_elemental_rift";
-    pNewScript->GetGameObjectAI = &GetAI_go_elemental_rift;
-    pNewScript->RegisterSelf();
-
-    pNewScript = new Script;
-    pNewScript->Name = "go_fel_cannonball_stack_trap";
-    pNewScript->GetGameObjectAI = &GetAI_go_fel_cannonball_stack_trap;
-    pNewScript->RegisterSelf();
-
-    pNewScript = new Script;
-    pNewScript->Name = "go_dragon_head";
-    pNewScript->GetGameObjectAI = &GetAI_go_dragon_head;
-    pNewScript->RegisterSelf();
-
-    pNewScript = new Script;
-    pNewScript->Name = "go_unadorned_spike";
-    pNewScript->GetGameObjectAI = &GetAI_go_unadorned_spike;
-    pNewScript->RegisterSelf();
 }

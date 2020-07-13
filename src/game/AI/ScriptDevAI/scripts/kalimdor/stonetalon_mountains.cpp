@@ -40,62 +40,76 @@ enum
 
     QUEST_PROTECT_KAYA          = 6523
 };
-
-struct npc_kayaAI : public npc_escortAI
+class npc_kaya : public CreatureScript
 {
-    npc_kayaAI(Creature* pCreature) : npc_escortAI(pCreature) { Reset(); }
+public:
+    npc_kaya() : CreatureScript("npc_kaya") { }
 
-    void Reset() override { }
-
-    void JustSummoned(Creature* pSummoned) override
+    bool OnQuestAccept(Player* pPlayer, Creature* pCreature, Quest const* pQuest) override
     {
-        pSummoned->AI()->AttackStart(m_creature);
-    }
+        // Casting Spell and Starting the Escort quest is buggy, so this is a hack. Use the spell when it is possible.
 
-    void WaypointReached(uint32 uiPointId) override
-    {
-        switch (uiPointId)
+        if (pQuest->GetQuestId() == QUEST_PROTECT_KAYA)
         {
-            // Ambush
-            case 17:
-                // note about event here:
-                // apparently NPC say _after_ the ambush is over, and is most likely a bug at you-know-where.
-                // we simplify this, and make say when the ambush actually start.
-                DoScriptText(SAY_AMBUSH, m_creature);
-                m_creature->SummonCreature(NPC_GRIMTOTEM_RUFFIAN, -50.75f, -500.77f, -46.13f, 0.4f, TEMPSPAWN_CORPSE_TIMED_DESPAWN, 30000);
-                m_creature->SummonCreature(NPC_GRIMTOTEM_BRUTE, -40.05f, -510.89f, -46.05f, 1.7f, TEMPSPAWN_CORPSE_TIMED_DESPAWN, 30000);
-                m_creature->SummonCreature(NPC_GRIMTOTEM_SORCERER, -32.21f, -499.20f, -45.35f, 2.8f, TEMPSPAWN_CORPSE_TIMED_DESPAWN, 30000);
-                break;
-            // Award quest credit
-            case 19:
-                DoScriptText(SAY_END, m_creature);
+            pCreature->SetFactionTemporary(FACTION_ESCORT_H_PASSIVE, TEMPFACTION_RESTORE_RESPAWN | TEMPFACTION_TOGGLE_IMMUNE_TO_NPC);
+            DoScriptText(SAY_START, pCreature);
 
-                if (Player* pPlayer = GetPlayerForEscort())
-                    pPlayer->RewardPlayerAndGroupAtEventExplored(QUEST_PROTECT_KAYA, m_creature);
-                break;
+            if (npc_kayaAI* pEscortAI = dynamic_cast<npc_kayaAI*>(pCreature->AI()))
+                pEscortAI->Start(false, pPlayer, pQuest);
         }
+        return true;
     }
+
+
+
+    UnitAI* GetAI(Creature* pCreature)
+    {
+        return new npc_kayaAI(pCreature);
+    }
+
+
+
+    struct npc_kayaAI : public npc_escortAI
+    {
+        npc_kayaAI(Creature* pCreature) : npc_escortAI(pCreature) { Reset(); }
+
+        void Reset() override { }
+
+        void JustSummoned(Creature* pSummoned) override
+        {
+            pSummoned->AI()->AttackStart(m_creature);
+        }
+
+        void WaypointReached(uint32 uiPointId) override
+        {
+            switch (uiPointId)
+            {
+                // Ambush
+                case 17:
+                    // note about event here:
+                    // apparently NPC say _after_ the ambush is over, and is most likely a bug at you-know-where.
+                    // we simplify this, and make say when the ambush actually start.
+                    DoScriptText(SAY_AMBUSH, m_creature);
+                    m_creature->SummonCreature(NPC_GRIMTOTEM_RUFFIAN, -50.75f, -500.77f, -46.13f, 0.4f, TEMPSPAWN_CORPSE_TIMED_DESPAWN, 30000);
+                    m_creature->SummonCreature(NPC_GRIMTOTEM_BRUTE, -40.05f, -510.89f, -46.05f, 1.7f, TEMPSPAWN_CORPSE_TIMED_DESPAWN, 30000);
+                    m_creature->SummonCreature(NPC_GRIMTOTEM_SORCERER, -32.21f, -499.20f, -45.35f, 2.8f, TEMPSPAWN_CORPSE_TIMED_DESPAWN, 30000);
+                    break;
+                // Award quest credit
+                case 19:
+                    DoScriptText(SAY_END, m_creature);
+
+                    if (Player* pPlayer = GetPlayerForEscort())
+                        pPlayer->RewardPlayerAndGroupAtEventExplored(QUEST_PROTECT_KAYA, m_creature);
+                    break;
+            }
+        }
+    };
+
+
+
 };
 
-UnitAI* GetAI_npc_kaya(Creature* pCreature)
-{
-    return new npc_kayaAI(pCreature);
-}
 
-bool QuestAccept_npc_kaya(Player* pPlayer, Creature* pCreature, Quest const* pQuest)
-{
-    // Casting Spell and Starting the Escort quest is buggy, so this is a hack. Use the spell when it is possible.
-
-    if (pQuest->GetQuestId() == QUEST_PROTECT_KAYA)
-    {
-        pCreature->SetFactionTemporary(FACTION_ESCORT_H_PASSIVE, TEMPFACTION_RESTORE_RESPAWN | TEMPFACTION_TOGGLE_IMMUNE_TO_NPC);
-        DoScriptText(SAY_START, pCreature);
-
-        if (npc_kayaAI* pEscortAI = dynamic_cast<npc_kayaAI*>(pCreature->AI()))
-            pEscortAI->Start(false, pPlayer, pQuest);
-    }
-    return true;
-}
 
 /*######
 ## AddSC
@@ -103,9 +117,6 @@ bool QuestAccept_npc_kaya(Player* pPlayer, Creature* pCreature, Quest const* pQu
 
 void AddSC_stonetalon_mountains()
 {
-    Script* pNewScript = new Script;
-    pNewScript->Name = "npc_kaya";
-    pNewScript->GetAI = &GetAI_npc_kaya;
-    pNewScript->pQuestAcceptNPC = &QuestAccept_npc_kaya;
-    pNewScript->RegisterSelf();
+    new npc_kaya();
+
 }

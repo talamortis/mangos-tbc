@@ -255,42 +255,53 @@ void instance_sethekk_halls::Update(uint32 diff)
         else m_anzuTimer -= diff;
     }
 }
-
-bool ProcessEventId_event_spell_summon_raven_god(uint32 /*uiEventId*/, Object* source, Object* /*pTarget*/, bool bIsStart)
+class event_spell_summon_raven_god : public UnknownScript
 {
-    if (bIsStart && source->GetTypeId() == TYPEID_PLAYER)
+public:
+    event_spell_summon_raven_god() : UnknownScript("event_spell_summon_raven_god") { }
+
+    bool OnProcessEvent(uint32 /*uiEventId*/, Object* source, Object* /*pTarget*/, bool bIsStart) override
     {
-        Player* player = static_cast<Player*>(source);
-        if (instance_sethekk_halls* instance = (instance_sethekk_halls*)(player->GetInstanceData()))
+        if (bIsStart && source->GetTypeId() == TYPEID_PLAYER)
         {
-            // This should be checked by despawning the Raven Claw Go; However it's better to double check the condition
-            if (instance->GetData(TYPE_ANZU) == DONE || instance->GetData(TYPE_ANZU) == IN_PROGRESS)
-                return true;
+            Player* player = static_cast<Player*>(source);
+            if (instance_sethekk_halls* instance = (instance_sethekk_halls*)(player->GetInstanceData()))
+            {
+                // This should be checked by despawning the Raven Claw Go; However it's better to double check the condition
+                if (instance->GetData(TYPE_ANZU) == DONE || instance->GetData(TYPE_ANZU) == IN_PROGRESS)
+                    return true;
 
-            // Don't summon him twice
-            if (instance->GetSingleCreatureFromStorage(NPC_ANZU, true))
-                return true;
+                // Don't summon him twice
+                if (instance->GetSingleCreatureFromStorage(NPC_ANZU, true))
+                    return true;
 
-            instance->StartAnzuIntro(player);
+                instance->StartAnzuIntro(player);
+            }
         }
+        return false;
     }
-    return false;
-}
 
-InstanceData* GetInstanceData_instance_sethekk_halls(Map* pMap)
+
+
+};
+class instance_sethekk_halls : public InstanceMapScript
 {
-    return new instance_sethekk_halls(pMap);
-}
+public:
+    instance_sethekk_halls() : InstanceMapScript("instance_sethekk_halls") { }
+
+    InstanceData* GetInstanceScript(Map* pMap) const override
+    {
+        return new instance_sethekk_halls(pMap);
+    }
+
+
+
+
+};
 
 void AddSC_instance_sethekk_halls()
 {
-    Script* pNewScript = new Script;
-    pNewScript->Name = "instance_sethekk_halls";
-    pNewScript->GetInstanceData = &GetInstanceData_instance_sethekk_halls;
-    pNewScript->RegisterSelf();
+    new instance_sethekk_halls();
+    new event_spell_summon_raven_god();
 
-    pNewScript = new Script;
-    pNewScript->Name = "event_spell_summon_raven_god";
-    pNewScript->pProcessEventId = &ProcessEventId_event_spell_summon_raven_god;
-    pNewScript->RegisterSelf();
 }

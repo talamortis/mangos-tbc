@@ -295,34 +295,45 @@ void instance_uldaman::Update(uint32 uiDiff)
     else
         m_uiKeeperCooldown -= uiDiff;
 }
-
-InstanceData* GetInstanceData_instance_uldaman(Map* pMap)
+class instance_uldaman : public InstanceMapScript
 {
-    return new instance_uldaman(pMap);
-}
+public:
+    instance_uldaman() : InstanceMapScript("instance_uldaman") { }
 
-bool ProcessEventId_event_spell_altar_boss_aggro(uint32 uiEventId, Object* pSource, Object* /*pTarget*/, bool bIsStart)
-{
-    if (bIsStart && pSource->GetTypeId() == TYPEID_PLAYER)
+    InstanceData* GetInstanceScript(Map* pMap) const override
     {
-        if (instance_uldaman* pInstance = (instance_uldaman*)((Player*)pSource)->GetInstanceData())
-        {
-            pInstance->StartEvent(uiEventId, (Player*)pSource);
-            return true;
-        }
+        return new instance_uldaman(pMap);
     }
-    return false;
-}
+
+
+
+
+};
+class event_spell_altar_boss_aggro : public UnknownScript
+{
+public:
+    event_spell_altar_boss_aggro() : UnknownScript("event_spell_altar_boss_aggro") { }
+
+    bool OnProcessEvent(uint32 uiEventId, Object* pSource, Object* /*pTarget*/, bool bIsStart) override
+    {
+        if (bIsStart && pSource->GetTypeId() == TYPEID_PLAYER)
+        {
+            if (instance_uldaman* pInstance = (instance_uldaman*)((Player*)pSource)->GetInstanceData())
+            {
+                pInstance->StartEvent(uiEventId, (Player*)pSource);
+                return true;
+            }
+        }
+        return false;
+    }
+
+
+
+};
 
 void AddSC_instance_uldaman()
 {
-    Script* pNewScript = new Script;
-    pNewScript->Name = "instance_uldaman";
-    pNewScript->GetInstanceData = &GetInstanceData_instance_uldaman;
-    pNewScript->RegisterSelf();
+    new instance_uldaman();
+    new event_spell_altar_boss_aggro();
 
-    pNewScript = new Script;
-    pNewScript->Name = "event_spell_altar_boss_aggro";
-    pNewScript->pProcessEventId = &ProcessEventId_event_spell_altar_boss_aggro;
-    pNewScript->RegisterSelf();
 }

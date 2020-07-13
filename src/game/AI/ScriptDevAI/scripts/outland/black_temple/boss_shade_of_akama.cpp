@@ -481,386 +481,424 @@ struct npc_akamaAI : public ScriptedAI, public CombatActions, private DialogueHe
         }
     }
 };
-
-bool GossipHello_npc_akama(Player* pPlayer, Creature* pCreature)
+class npc_akama_shade : public CreatureScript
 {
-    if (ScriptedInstance* pInstance = (ScriptedInstance*)pCreature->GetInstanceData())
+public:
+    npc_akama_shade() : CreatureScript("npc_akama_shade") { }
+
+    bool OnGossipSelect(Player* pPlayer, Creature* pCreature, uint32 /*uiSender*/, uint32 uiAction) override
     {
-        if (pInstance->GetData(TYPE_SHADE) != DONE)
-            pPlayer->ADD_GOSSIP_ITEM_ID(GOSSIP_ICON_CHAT, GOSSIP_ITEM_START_ENCOUNTER, GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF + 1);
+        if (uiAction == GOSSIP_ACTION_INFO_DEF + 1)             // Fight time
+        {
+            pPlayer->CLOSE_GOSSIP_MENU();
+
+            if (npc_akamaAI* pAkamaAI = dynamic_cast<npc_akamaAI*>(pCreature->AI()))
+                pAkamaAI->DoStartEvent();
+        }
+
+        return true;
     }
 
-    pPlayer->SEND_GOSSIP_MENU(TEXT_ID_AKAMA, pCreature->GetObjectGuid());
-    return true;
-}
 
-bool GossipSelect_npc_akama(Player* pPlayer, Creature* pCreature, uint32 /*uiSender*/, uint32 uiAction)
-{
-    if (uiAction == GOSSIP_ACTION_INFO_DEF + 1)             // Fight time
+
+    bool OnGossipHello(Player* pPlayer, Creature* pCreature) override
     {
-        pPlayer->CLOSE_GOSSIP_MENU();
+        if (ScriptedInstance* pInstance = (ScriptedInstance*)pCreature->GetInstanceData())
+        {
+            if (pInstance->GetData(TYPE_SHADE) != DONE)
+                pPlayer->ADD_GOSSIP_ITEM_ID(GOSSIP_ICON_CHAT, GOSSIP_ITEM_START_ENCOUNTER, GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF + 1);
+        }
 
-        if (npc_akamaAI* pAkamaAI = dynamic_cast<npc_akamaAI*>(pCreature->AI()))
-            pAkamaAI->DoStartEvent();
+        pPlayer->SEND_GOSSIP_MENU(TEXT_ID_AKAMA, pCreature->GetObjectGuid());
+        return true;
     }
 
-    return true;
-}
+
+
+    UnitAI* GetAI(Creature* creature)
+    {
+        return new npc_akamaAI(creature);
+    }
+
+
+
+};
+
 
 /*######
 ## boss_shade_of_akama
 ######*/
-
-struct boss_shade_of_akamaAI : public ScriptedAI
+class boss_shade_of_akama : public CreatureScript
 {
-    boss_shade_of_akamaAI(Creature* creature) : ScriptedAI(creature), m_instance(static_cast<instance_black_temple*>(creature->GetInstanceData()))
+public:
+    boss_shade_of_akama() : CreatureScript("boss_shade_of_akama") { }
+
+    UnitAI* GetAI(Creature* creature)
     {
-        Reset();
+        return new boss_shade_of_akamaAI(creature);
     }
 
-    instance_black_temple* m_instance;
 
-    void Reset() override
-    {
-        SetCombatMovement(false);
-        m_creature->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE);
-        m_creature->HandleEmote(EMOTE_STATE_STUN);
-    }
 
-    void Aggro(Unit* /*enemy*/) override
+    struct boss_shade_of_akamaAI : public ScriptedAI
     {
-        m_creature->HandleEmote(0);
-    }
-
-    void JustDied(Unit* /*pKiller*/) override
-    {
-        if (m_instance->GetData(TYPE_SHADE) != FAIL) // done in Akama code
+        boss_shade_of_akamaAI(Creature* creature) : ScriptedAI(creature), m_instance(static_cast<instance_black_temple*>(creature->GetInstanceData()))
         {
-            DoCastSpellIfCan(nullptr, SPELL_SUMMON_SHADE_TRIGGER, CAST_TRIGGERED);
-            m_instance->SetData(TYPE_SHADE, DONE);
+            Reset();
+        }
 
-            // Inform Akama that the Shade is dead
+        instance_black_temple* m_instance;
+
+        void Reset() override
+        {
+            SetCombatMovement(false);
+            m_creature->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE);
+            m_creature->HandleEmote(EMOTE_STATE_STUN);
+        }
+
+        void Aggro(Unit* /*enemy*/) override
+        {
+            m_creature->HandleEmote(0);
+        }
+
+        void JustDied(Unit* /*pKiller*/) override
+        {
+            if (m_instance->GetData(TYPE_SHADE) != FAIL) // done in Akama code
+            {
+                DoCastSpellIfCan(nullptr, SPELL_SUMMON_SHADE_TRIGGER, CAST_TRIGGERED);
+                m_instance->SetData(TYPE_SHADE, DONE);
+
+                // Inform Akama that the Shade is dead
+                if (Creature* akama = m_instance->GetSingleCreatureFromStorage(NPC_AKAMA_SHADE))
+                    m_creature->AI()->SendAIEvent(AI_EVENT_CUSTOM_A, m_creature, akama);
+            }
+        }
+
+        void CorpseRemoved(uint32& respawnDelay) override
+        {
+            // Respawn after 5 min
+            if (m_instance->GetData(TYPE_SHADE) == FAIL)
+                respawnDelay = 5 * MINUTE;
+        }
+
+        void JustRespawned() override
+        {
+            ScriptedAI::JustRespawned();
+            m_creature->SetWalk(false, true);
+            if (m_instance)
+            {
+                m_instance->RespawnChannelers();
+            }
+        }
+
+        void MovementInform(uint32 moveType, uint32 pointId) override
+        {
+            if (moveType != POINT_MOTION_TYPE || !pointId || !m_instance)
+                return;
+
+            // Set in combat with Akama
             if (Creature* akama = m_instance->GetSingleCreatureFromStorage(NPC_AKAMA_SHADE))
-                m_creature->AI()->SendAIEvent(AI_EVENT_CUSTOM_A, m_creature, akama);
+            {
+                m_creature->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE);
+
+                // Shade should move to Akama, not the other way around
+                m_creature->AI()->SendAIEvent(AI_EVENT_CUSTOM_B, m_creature, akama);
+            }
         }
-    }
 
-    void CorpseRemoved(uint32& respawnDelay) override
-    {
-        // Respawn after 5 min
-        if (m_instance->GetData(TYPE_SHADE) == FAIL)
-            respawnDelay = 5 * MINUTE;
-    }
-
-    void JustRespawned() override
-    {
-        ScriptedAI::JustRespawned();
-        m_creature->SetWalk(false, true);
-        if (m_instance)
+        void SpellHit(Unit* /*caster*/, const SpellEntry* spell) override
         {
-            m_instance->RespawnChannelers();
+            if (spell->Id == SPELL_AKAMA_SOUL_CHANNEL)
+                m_creature->GetMotionMaster()->MovePoint(1, akamaWaypoints[1].x, akamaWaypoints[1].y, akamaWaypoints[1].z);
         }
-    }
 
-    void MovementInform(uint32 moveType, uint32 pointId) override
-    {
-        if (moveType != POINT_MOTION_TYPE || !pointId || !m_instance)
-            return;
-
-        // Set in combat with Akama
-        if (Creature* akama = m_instance->GetSingleCreatureFromStorage(NPC_AKAMA_SHADE))
+        void EnterEvadeMode() override
         {
-            m_creature->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE);
-
-            // Shade should move to Akama, not the other way around
-            m_creature->AI()->SendAIEvent(AI_EVENT_CUSTOM_B, m_creature, akama);
+            ScriptedAI::EnterEvadeMode();
         }
-    }
 
-    void SpellHit(Unit* /*caster*/, const SpellEntry* spell) override
-    {
-        if (spell->Id == SPELL_AKAMA_SOUL_CHANNEL)
-            m_creature->GetMotionMaster()->MovePoint(1, akamaWaypoints[1].x, akamaWaypoints[1].y, akamaWaypoints[1].z);
-    }
+        void UpdateAI(const uint32 /*diff*/) override
+        {
+            if (!m_creature->SelectHostileTarget() || !m_creature->GetVictim())
+                return;
 
-    void EnterEvadeMode() override
-    {
-        ScriptedAI::EnterEvadeMode();
-    }
+            DoMeleeAttackIfReady();
+        }
+    };
 
-    void UpdateAI(const uint32 /*diff*/) override
-    {
-        if (!m_creature->SelectHostileTarget() || !m_creature->GetVictim())
-            return;
 
-        DoMeleeAttackIfReady();
-    }
+
 };
 
 /*######
 ## mob_ashtongue_channeler
 ######*/
-
-struct mob_ashtongue_channelerAI : public ScriptedAI
+class mob_ashtongue_channeler : public CreatureScript
 {
-    mob_ashtongue_channelerAI(Creature* creature) : ScriptedAI(creature)
+public:
+    mob_ashtongue_channeler() : CreatureScript("mob_ashtongue_channeler") { }
+
+    UnitAI* GetAI(Creature* creature)
     {
-        m_instance = static_cast<ScriptedInstance*>(creature->GetInstanceData());
-        SetReactState(REACT_PASSIVE);
-        Reset();
+        return new mob_ashtongue_channelerAI(creature);
     }
 
-    ScriptedInstance* m_instance;
 
-    uint32 m_uiBanishTimer;
 
-    void Reset() override
+    struct mob_ashtongue_channelerAI : public ScriptedAI
     {
-        m_uiBanishTimer = 5000;
-
-        m_creature->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE);
-    }
-
-    void JustDied(Unit* /*pKiller*/) override
-    {
-        if (!m_instance)
-            return;
-
-        // Inform Akama that one channeler is dead
-        if (Creature* akama = m_instance->GetSingleCreatureFromStorage(NPC_AKAMA_SHADE))
-            m_creature->AI()->SendAIEvent(AI_EVENT_CUSTOM_A, m_creature, akama);
-    }
-
-    void UpdateAI(const uint32 uiDiff) override
-    {
-        if (m_uiBanishTimer)
+        mob_ashtongue_channelerAI(Creature* creature) : ScriptedAI(creature)
         {
-            if (m_uiBanishTimer <= uiDiff)
-            {
-                if (DoCastSpellIfCan(m_creature, SPELL_SHADE_SOUL_CHANNEL))
-                    m_uiBanishTimer = 0;
-            }
-            else
-                m_uiBanishTimer -= uiDiff;
+            m_instance = static_cast<ScriptedInstance*>(creature->GetInstanceData());
+            SetReactState(REACT_PASSIVE);
+            Reset();
         }
-    }
+
+        ScriptedInstance* m_instance;
+
+        uint32 m_uiBanishTimer;
+
+        void Reset() override
+        {
+            m_uiBanishTimer = 5000;
+
+            m_creature->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE);
+        }
+
+        void JustDied(Unit* /*pKiller*/) override
+        {
+            if (!m_instance)
+                return;
+
+            // Inform Akama that one channeler is dead
+            if (Creature* akama = m_instance->GetSingleCreatureFromStorage(NPC_AKAMA_SHADE))
+                m_creature->AI()->SendAIEvent(AI_EVENT_CUSTOM_A, m_creature, akama);
+        }
+
+        void UpdateAI(const uint32 uiDiff) override
+        {
+            if (m_uiBanishTimer)
+            {
+                if (m_uiBanishTimer <= uiDiff)
+                {
+                    if (DoCastSpellIfCan(m_creature, SPELL_SHADE_SOUL_CHANNEL))
+                        m_uiBanishTimer = 0;
+                }
+                else
+                    m_uiBanishTimer -= uiDiff;
+            }
+        }
+    };
+
+
+
 };
 
 /*######
 ## mob_ashtongue_sorcerer
 ######*/
-
-struct mob_ashtongue_sorcererAI : public ScriptedAI
+class mob_ashtongue_sorcerer : public CreatureScript
 {
-    mob_ashtongue_sorcererAI(Creature* creature) : ScriptedAI(creature)
+public:
+    mob_ashtongue_sorcerer() : CreatureScript("mob_ashtongue_sorcerer") { }
+
+    UnitAI* GetAI(Creature* creature)
     {
-        m_instance = static_cast<ScriptedInstance*>(creature->GetInstanceData());
-        Reset();
+        return new mob_ashtongue_sorcererAI(creature);
     }
 
-    ScriptedInstance* m_instance;
 
-    void Reset() override {}
 
-    void JustDied(Unit* /*killer*/) override
+    struct mob_ashtongue_sorcererAI : public ScriptedAI
     {
-        if (!m_instance)
-            return;
-
-        // Inform Akama that one sorcerer is dead
-        if (Creature* akama = m_instance->GetSingleCreatureFromStorage(NPC_AKAMA_SHADE))
-            m_creature->AI()->SendAIEvent(AI_EVENT_CUSTOM_A, m_creature, akama);
-    }
-
-    void MovementInform(uint32 motionType, uint32 data) override
-    {
-        if (motionType != POINT_MOTION_TYPE || !data)
-            return;
-
-        // Channel on the Shade when reached the calculated point
-        if (DoCastSpellIfCan(m_creature, SPELL_SHADE_SOUL_CHANNEL) == CAST_OK)
+        mob_ashtongue_sorcererAI(Creature* creature) : ScriptedAI(creature)
         {
-            m_creature->GetMotionMaster()->Clear();
-            m_creature->GetMotionMaster()->MoveIdle();
+            m_instance = static_cast<ScriptedInstance*>(creature->GetInstanceData());
+            Reset();
         }
-    }
 
-    void UpdateAI(const uint32 /*uiDiff*/) override {}
-};
+        ScriptedInstance* m_instance;
 
-struct npc_creature_generatorAI : public ScriptedAI, public TimerManager
-{
-    npc_creature_generatorAI(Creature* creature) : ScriptedAI(creature), m_spawn(false), m_left(creature->GetPositionY() > 400.f)
-    {
-        m_instance = static_cast<instance_black_temple*>(creature->GetInstanceData());
-        AddCustomAction(0, true, [&] { m_spawn = true; });
-    }
+        void Reset() override {}
 
-    bool m_spawn;
-    bool m_left; // left spawns defenders, right spawns sorcerers
-    GuidVector m_summoned;
-    instance_black_temple* m_instance;
-
-    void Reset() override
-    {
-
-    }
-
-    void ReceiveAIEvent(AIEventType eventType, Unit* /*sender*/, Unit* /*invoker*/, uint32 /*miscValue*/) override
-    {
-        if (eventType == AI_EVENT_CUSTOM_A)
-            ResetTimer(0, 3000); // first summon with 3 sec delay
-        else if (eventType == AI_EVENT_CUSTOM_B)
+        void JustDied(Unit* /*killer*/) override
         {
-            m_spawn = false;
-            DespawnGuids(m_summoned);
-        }
-        else if (eventType == AI_EVENT_CUSTOM_C)
-        {
-            m_spawn = false;
-            // despawn all sorcerers at this point
-            for (ObjectGuid guid : m_summoned)
-                if (guid.GetEntry() == NPC_ASH_SORCERER)
-                    if (Creature* pSorcerer = m_creature->GetMap()->GetCreature(guid))
-                        pSorcerer->ForcedDespawn();
-        }
-    }
-
-    void TrySummoning() // creature never enters combat, so no point in adding combat logic
-    {
-        if (m_unit->IsNonMeleeSpellCasted(false))
-            return;
-
-        if (!m_left)
-            if (m_creature->IsSpellReady(SPELL_SUMMON_SORCERER)) // small optimization
-                if (DoCastSpellIfCan(nullptr, SPELL_SUMMON_SORCERER) == CAST_OK)
-                    return;
-
-        if (m_creature->IsSpellReady(SPELL_ASHTONGUE_WAVE_B))
-            if (DoCastSpellIfCan(nullptr, SPELL_ASHTONGUE_WAVE_B) == CAST_OK)
+            if (!m_instance)
                 return;
 
-        if (m_left)
-            if (m_creature->IsSpellReady(SPELL_SUMMON_DEFENDER))
-                if (DoCastSpellIfCan(nullptr, SPELL_SUMMON_DEFENDER) == CAST_OK)
+            // Inform Akama that one sorcerer is dead
+            if (Creature* akama = m_instance->GetSingleCreatureFromStorage(NPC_AKAMA_SHADE))
+                m_creature->AI()->SendAIEvent(AI_EVENT_CUSTOM_A, m_creature, akama);
+        }
+
+        void MovementInform(uint32 motionType, uint32 data) override
+        {
+            if (motionType != POINT_MOTION_TYPE || !data)
+                return;
+
+            // Channel on the Shade when reached the calculated point
+            if (DoCastSpellIfCan(m_creature, SPELL_SHADE_SOUL_CHANNEL) == CAST_OK)
+            {
+                m_creature->GetMotionMaster()->Clear();
+                m_creature->GetMotionMaster()->MoveIdle();
+            }
+        }
+
+        void UpdateAI(const uint32 /*uiDiff*/) override {}
+    };
+
+
+
+};
+class npc_creature_generator : public CreatureScript
+{
+public:
+    npc_creature_generator() : CreatureScript("npc_creature_generator") { }
+
+    UnitAI* GetAI(Creature* creature)
+    {
+        return new npc_creature_generatorAI(creature);
+    }
+
+
+
+    struct npc_creature_generatorAI : public ScriptedAI, public TimerManager
+    {
+        npc_creature_generatorAI(Creature* creature) : ScriptedAI(creature), m_spawn(false), m_left(creature->GetPositionY() > 400.f)
+        {
+            m_instance = static_cast<instance_black_temple*>(creature->GetInstanceData());
+            AddCustomAction(0, true, [&] { m_spawn = true; });
+        }
+
+        bool m_spawn;
+        bool m_left; // left spawns defenders, right spawns sorcerers
+        GuidVector m_summoned;
+        instance_black_temple* m_instance;
+
+        void Reset() override
+        {
+
+        }
+
+        void ReceiveAIEvent(AIEventType eventType, Unit* /*sender*/, Unit* /*invoker*/, uint32 /*miscValue*/) override
+        {
+            if (eventType == AI_EVENT_CUSTOM_A)
+                ResetTimer(0, 3000); // first summon with 3 sec delay
+            else if (eventType == AI_EVENT_CUSTOM_B)
+            {
+                m_spawn = false;
+                DespawnGuids(m_summoned);
+            }
+            else if (eventType == AI_EVENT_CUSTOM_C)
+            {
+                m_spawn = false;
+                // despawn all sorcerers at this point
+                for (ObjectGuid guid : m_summoned)
+                    if (guid.GetEntry() == NPC_ASH_SORCERER)
+                        if (Creature* pSorcerer = m_creature->GetMap()->GetCreature(guid))
+                            pSorcerer->ForcedDespawn();
+            }
+        }
+
+        void TrySummoning() // creature never enters combat, so no point in adding combat logic
+        {
+            if (m_unit->IsNonMeleeSpellCasted(false))
+                return;
+
+            if (!m_left)
+                if (m_creature->IsSpellReady(SPELL_SUMMON_SORCERER)) // small optimization
+                    if (DoCastSpellIfCan(nullptr, SPELL_SUMMON_SORCERER) == CAST_OK)
+                        return;
+
+            if (m_creature->IsSpellReady(SPELL_ASHTONGUE_WAVE_B))
+                if (DoCastSpellIfCan(nullptr, SPELL_ASHTONGUE_WAVE_B) == CAST_OK)
                     return;
-    }
 
-    void JustSummoned(Creature* summoned) override
-    {
-        m_summoned.push_back(summoned->GetObjectGuid());
-        switch (summoned->GetEntry())
-        {
-            case NPC_ASH_SORCERER:
-            {
-                summoned->SetWalk(false);
-                summoned->AI()->SetReactState(REACT_PASSIVE);
-                if (Creature* shade = m_instance->GetSingleCreatureFromStorage(NPC_SHADE_OF_AKAMA))
-                {
-                    float x, y, z;
-                    shade->GetNearPoint(shade, x, y, z, 0, 20.0f, shade->GetAngle(summoned));
-                    summoned->GetMotionMaster()->MovePoint(POINT_DESTINATION, x, y, z);
-                }
-                break;
-            }
-            case NPC_ASH_DEFENDER:
-            {
-                summoned->SetWalk(false);
-                summoned->AI()->SetReactState(REACT_PASSIVE);
-                if (Creature* akama = m_instance->GetSingleCreatureFromStorage(NPC_AKAMA_SHADE))
-                {
-                    float x, y, z;
-                    akama->GetNearPoint(summoned, x, y, z, summoned->GetObjectBoundingRadius(), akama->GetCombinedCombatReach(summoned, true), akama->GetAngle(summoned));
-                    summoned->GetMotionMaster()->MovePoint(POINT_DESTINATION, x, y, z);
-                }
-                break;
-            }
-            default:
-                summoned->SetInCombatWithZone();
-                if (Creature* akama = m_instance->GetSingleCreatureFromStorage(NPC_AKAMA_SHADE))
-                    summoned->AI()->AttackStart(akama);
-                break;
+            if (m_left)
+                if (m_creature->IsSpellReady(SPELL_SUMMON_DEFENDER))
+                    if (DoCastSpellIfCan(nullptr, SPELL_SUMMON_DEFENDER) == CAST_OK)
+                        return;
         }
-    }
 
-    void SummonedMovementInform(Creature* summoned, uint32 motionType, uint32 data) override
-    {
-        if (motionType != POINT_MOTION_TYPE || data != POINT_DESTINATION)
-            return;
-
-        switch (summoned->GetEntry())
+        void JustSummoned(Creature* summoned) override
         {
-            case NPC_ASH_DEFENDER:
+            m_summoned.push_back(summoned->GetObjectGuid());
+            switch (summoned->GetEntry())
             {
-                summoned->AI()->SetReactState(REACT_AGGRESSIVE);
-                summoned->SetInCombatWithZone();
-                if (Creature* akama = m_instance->GetSingleCreatureFromStorage(NPC_AKAMA_SHADE))
-                    summoned->AI()->AttackStart(akama);
-                break;
+                case NPC_ASH_SORCERER:
+                {
+                    summoned->SetWalk(false);
+                    summoned->AI()->SetReactState(REACT_PASSIVE);
+                    if (Creature* shade = m_instance->GetSingleCreatureFromStorage(NPC_SHADE_OF_AKAMA))
+                    {
+                        float x, y, z;
+                        shade->GetNearPoint(shade, x, y, z, 0, 20.0f, shade->GetAngle(summoned));
+                        summoned->GetMotionMaster()->MovePoint(POINT_DESTINATION, x, y, z);
+                    }
+                    break;
+                }
+                case NPC_ASH_DEFENDER:
+                {
+                    summoned->SetWalk(false);
+                    summoned->AI()->SetReactState(REACT_PASSIVE);
+                    if (Creature* akama = m_instance->GetSingleCreatureFromStorage(NPC_AKAMA_SHADE))
+                    {
+                        float x, y, z;
+                        akama->GetNearPoint(summoned, x, y, z, summoned->GetObjectBoundingRadius(), akama->GetCombinedCombatReach(summoned, true), akama->GetAngle(summoned));
+                        summoned->GetMotionMaster()->MovePoint(POINT_DESTINATION, x, y, z);
+                    }
+                    break;
+                }
+                default:
+                    summoned->SetInCombatWithZone();
+                    if (Creature* akama = m_instance->GetSingleCreatureFromStorage(NPC_AKAMA_SHADE))
+                        summoned->AI()->AttackStart(akama);
+                    break;
             }
         }
-    }
 
-    void UpdateAI(const uint32 diff) override
-    {
-        UpdateTimers(diff);
+        void SummonedMovementInform(Creature* summoned, uint32 motionType, uint32 data) override
+        {
+            if (motionType != POINT_MOTION_TYPE || data != POINT_DESTINATION)
+                return;
 
-        if (m_spawn)
-            TrySummoning();
-    }
+            switch (summoned->GetEntry())
+            {
+                case NPC_ASH_DEFENDER:
+                {
+                    summoned->AI()->SetReactState(REACT_AGGRESSIVE);
+                    summoned->SetInCombatWithZone();
+                    if (Creature* akama = m_instance->GetSingleCreatureFromStorage(NPC_AKAMA_SHADE))
+                        summoned->AI()->AttackStart(akama);
+                    break;
+                }
+            }
+        }
+
+        void UpdateAI(const uint32 diff) override
+        {
+            UpdateTimers(diff);
+
+            if (m_spawn)
+                TrySummoning();
+        }
+    };
+
+
+
 };
 
-UnitAI* GetAI_npc_akama_shade(Creature* creature)
-{
-    return new npc_akamaAI(creature);
-}
 
-UnitAI* GetAI_boss_shade_of_akama(Creature* creature)
-{
-    return new boss_shade_of_akamaAI(creature);
-}
 
-UnitAI* GetAI_mob_ashtongue_channeler(Creature* creature)
-{
-    return new mob_ashtongue_channelerAI(creature);
-}
 
-UnitAI* GetAI_mob_ashtongue_sorcerer(Creature* creature)
-{
-    return new mob_ashtongue_sorcererAI(creature);
-}
 
-UnitAI* GetAI_npc_creature_generator(Creature* creature)
-{
-    return new npc_creature_generatorAI(creature);
-}
 
 void AddSC_boss_shade_of_akama()
 {
-    Script* pNewScript = new Script;
-    pNewScript->Name = "npc_akama_shade";
-    pNewScript->GetAI = &GetAI_npc_akama_shade;
-    pNewScript->pGossipHello = &GossipHello_npc_akama;
-    pNewScript->pGossipSelect = &GossipSelect_npc_akama;
-    pNewScript->RegisterSelf();
+    new npc_akama_shade();
+    new boss_shade_of_akama();
+    new mob_ashtongue_channeler();
+    new mob_ashtongue_sorcerer();
+    new npc_creature_generator();
 
-    pNewScript = new Script;
-    pNewScript->Name = "boss_shade_of_akama";
-    pNewScript->GetAI = &GetAI_boss_shade_of_akama;
-    pNewScript->RegisterSelf();
-
-    pNewScript = new Script;
-    pNewScript->Name = "mob_ashtongue_channeler";
-    pNewScript->GetAI = &GetAI_mob_ashtongue_channeler;
-    pNewScript->RegisterSelf();
-
-    pNewScript = new Script;
-    pNewScript->Name = "mob_ashtongue_sorcerer";
-    pNewScript->GetAI = &GetAI_mob_ashtongue_sorcerer;
-    pNewScript->RegisterSelf();
-
-    pNewScript = new Script;
-    pNewScript->Name = "npc_creature_generator";
-    pNewScript->GetAI = &GetAI_npc_creature_generator;
-    pNewScript->RegisterSelf();
 }

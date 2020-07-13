@@ -44,171 +44,180 @@ enum
 
     FACTION_HOSTILE             = 14,
 };
-
-struct boss_zumrahAI : public ScriptedAI
+class boss_zumrah : public CreatureScript
 {
-    boss_zumrahAI(Creature* pCreature) : ScriptedAI(pCreature)
+public:
+    boss_zumrah() : CreatureScript("boss_zumrah") { }
+
+    UnitAI* GetAI(Creature* pCreature)
     {
-        m_pInstance = (instance_zulfarrak*) pCreature->GetInstanceData();
-        m_bHasTurnedHostile = false;
-        Reset();
+        return new boss_zumrahAI(pCreature);
     }
 
-    instance_zulfarrak* m_pInstance;
 
-    uint32 m_uiShadowBoltTimer;
-    uint32 m_uiShadowBoltVolleyTimer;
-    uint32 m_uiWardOfZumrahTimer;
-    uint32 m_uHealingWaveTimer;
-    uint32 m_uiSpawnZombieTimer;
 
-    bool m_bHasTurnedHostile;
-
-    void Reset() override
+    struct boss_zumrahAI : public ScriptedAI
     {
-        m_uiShadowBoltTimer         = 1000;
-        m_uiShadowBoltVolleyTimer   = urand(6000, 30000);
-        m_uiWardOfZumrahTimer       = urand(7000, 20000);
-        m_uHealingWaveTimer         = urand(10000, 15000);
-        m_uiSpawnZombieTimer        = 1000;
-
-        m_attackDistance = 10.0f;
-    }
-
-    void Aggro(Unit* /*pWho*/) override
-    {
-        DoScriptText(SAY_AGGRO, m_creature);
-    }
-
-    void KilledUnit(Unit* /*pVictim*/) override
-    {
-        DoScriptText(SAY_KILL, m_creature);
-    }
-
-    void MoveInLineOfSight(Unit* pWho) override
-    {
-        if (!m_bHasTurnedHostile && pWho->GetTypeId() == TYPEID_PLAYER && m_creature->IsWithinDistInMap(pWho, 9.0f) && m_creature->IsWithinLOSInMap(pWho))
+        boss_zumrahAI(Creature* pCreature) : ScriptedAI(pCreature)
         {
-            m_creature->SetFactionTemporary(FACTION_HOSTILE, TEMPFACTION_TOGGLE_IMMUNE_TO_PLAYER);
-            DoScriptText(SAY_INTRO, m_creature);
-            m_bHasTurnedHostile = true;
-            AttackStart(pWho);
+            m_pInstance = (instance_zulfarrak*) pCreature->GetInstanceData();
+            m_bHasTurnedHostile = false;
+            Reset();
         }
 
-        ScriptedAI::MoveInLineOfSight(pWho);
-    }
+        instance_zulfarrak* m_pInstance;
 
-    void JustSummoned(Creature* pSummoned) override
-    {
-        if (pSummoned->GetEntry() == NPC_ZULFARRAK_ZOMBIE || pSummoned->GetEntry() == NPC_ZULFARRAK_DEAD_HERO)
-            pSummoned->AI()->AttackStart(m_creature->GetVictim());
-    }
+        uint32 m_uiShadowBoltTimer;
+        uint32 m_uiShadowBoltVolleyTimer;
+        uint32 m_uiWardOfZumrahTimer;
+        uint32 m_uHealingWaveTimer;
+        uint32 m_uiSpawnZombieTimer;
 
-    GameObject* SelectNearbyShallowGrave()
-    {
-        if (!m_pInstance)
-            return nullptr;
+        bool m_bHasTurnedHostile;
 
-        // Get the list of usable graves (not used already by players)
-        GuidList lTempList;
-        GameObjectList lGravesInRange;
-
-        m_pInstance->GetShallowGravesGuidList(lTempList);
-        for (GuidList::const_iterator itr = lTempList.begin(); itr != lTempList.end(); ++itr)
+        void Reset() override
         {
-            GameObject* pGo = m_creature->GetMap()->GetGameObject(*itr);
-            // Go spawned and no looting in process
-            if (pGo && pGo->IsSpawned() && pGo->GetLootState() == GO_READY)
-                lGravesInRange.push_back(pGo);
+            m_uiShadowBoltTimer         = 1000;
+            m_uiShadowBoltVolleyTimer   = urand(6000, 30000);
+            m_uiWardOfZumrahTimer       = urand(7000, 20000);
+            m_uHealingWaveTimer         = urand(10000, 15000);
+            m_uiSpawnZombieTimer        = 1000;
+
+            m_attackDistance = 10.0f;
         }
 
-        if (lGravesInRange.empty())
-            return nullptr;
-
-        // Sort the graves
-        lGravesInRange.sort(ObjectDistanceOrder(m_creature));
-
-        return *lGravesInRange.begin();
-    }
-
-    void UpdateAI(const uint32 uiDiff) override
-    {
-        if (!m_creature->SelectHostileTarget() || !m_creature->GetVictim())
-            return;
-
-        if (m_uiSpawnZombieTimer)
+        void Aggro(Unit* /*pWho*/) override
         {
-            if (m_uiSpawnZombieTimer <= uiDiff)
+            DoScriptText(SAY_AGGRO, m_creature);
+        }
+
+        void KilledUnit(Unit* /*pVictim*/) override
+        {
+            DoScriptText(SAY_KILL, m_creature);
+        }
+
+        void MoveInLineOfSight(Unit* pWho) override
+        {
+            if (!m_bHasTurnedHostile && pWho->GetTypeId() == TYPEID_PLAYER && m_creature->IsWithinDistInMap(pWho, 9.0f) && m_creature->IsWithinLOSInMap(pWho))
             {
-                // Use a nearby grave to spawn zombies
-                if (GameObject* pGrave = SelectNearbyShallowGrave())
+                m_creature->SetFactionTemporary(FACTION_HOSTILE, TEMPFACTION_TOGGLE_IMMUNE_TO_PLAYER);
+                DoScriptText(SAY_INTRO, m_creature);
+                m_bHasTurnedHostile = true;
+                AttackStart(pWho);
+            }
+
+            ScriptedAI::MoveInLineOfSight(pWho);
+        }
+
+        void JustSummoned(Creature* pSummoned) override
+        {
+            if (pSummoned->GetEntry() == NPC_ZULFARRAK_ZOMBIE || pSummoned->GetEntry() == NPC_ZULFARRAK_DEAD_HERO)
+                pSummoned->AI()->AttackStart(m_creature->GetVictim());
+        }
+
+        GameObject* SelectNearbyShallowGrave()
+        {
+            if (!m_pInstance)
+                return nullptr;
+
+            // Get the list of usable graves (not used already by players)
+            GuidList lTempList;
+            GameObjectList lGravesInRange;
+
+            m_pInstance->GetShallowGravesGuidList(lTempList);
+            for (GuidList::const_iterator itr = lTempList.begin(); itr != lTempList.end(); ++itr)
+            {
+                GameObject* pGo = m_creature->GetMap()->GetGameObject(*itr);
+                // Go spawned and no looting in process
+                if (pGo && pGo->IsSpawned() && pGo->GetLootState() == GO_READY)
+                    lGravesInRange.push_back(pGo);
+            }
+
+            if (lGravesInRange.empty())
+                return nullptr;
+
+            // Sort the graves
+            lGravesInRange.sort(ObjectDistanceOrder(m_creature));
+
+            return *lGravesInRange.begin();
+        }
+
+        void UpdateAI(const uint32 uiDiff) override
+        {
+            if (!m_creature->SelectHostileTarget() || !m_creature->GetVictim())
+                return;
+
+            if (m_uiSpawnZombieTimer)
+            {
+                if (m_uiSpawnZombieTimer <= uiDiff)
                 {
-                    m_creature->CastSpell(pGrave->GetPositionX(), pGrave->GetPositionY(), pGrave->GetPositionZ(), SPELL_SUMMON_ZOMBIES, TRIGGERED_OLD_TRIGGERED, nullptr, nullptr, pGrave->GetObjectGuid());
-                    pGrave->SetLootState(GO_JUST_DEACTIVATED);
+                    // Use a nearby grave to spawn zombies
+                    if (GameObject* pGrave = SelectNearbyShallowGrave())
+                    {
+                        m_creature->CastSpell(pGrave->GetPositionX(), pGrave->GetPositionY(), pGrave->GetPositionZ(), SPELL_SUMMON_ZOMBIES, TRIGGERED_OLD_TRIGGERED, nullptr, nullptr, pGrave->GetObjectGuid());
+                        pGrave->SetLootState(GO_JUST_DEACTIVATED);
 
-                    if (roll_chance_i(30))
-                        DoScriptText(SAY_SUMMON, m_creature);
+                        if (roll_chance_i(30))
+                            DoScriptText(SAY_SUMMON, m_creature);
 
-                    m_uiSpawnZombieTimer = 20000;
+                        m_uiSpawnZombieTimer = 20000;
+                    }
+                    else                                        // No Grave usable any more
+                        m_uiSpawnZombieTimer = 0;
                 }
-                else                                        // No Grave usable any more
-                    m_uiSpawnZombieTimer = 0;
+                else
+                    m_uiSpawnZombieTimer -= uiDiff;
+            }
+
+            if (m_uiShadowBoltTimer < uiDiff)
+            {
+                if (Unit* pTarget = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0))
+                {
+                    if (DoCastSpellIfCan(pTarget, SPELL_SHADOW_BOLT) == CAST_OK)
+                        m_uiShadowBoltTimer = urand(3500, 5000);
+                }
             }
             else
-                m_uiSpawnZombieTimer -= uiDiff;
-        }
+                m_uiShadowBoltTimer -= uiDiff;
 
-        if (m_uiShadowBoltTimer < uiDiff)
-        {
-            if (Unit* pTarget = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0))
+            if (m_uiShadowBoltVolleyTimer < uiDiff)
             {
-                if (DoCastSpellIfCan(pTarget, SPELL_SHADOW_BOLT) == CAST_OK)
-                    m_uiShadowBoltTimer = urand(3500, 5000);
+                if (DoCastSpellIfCan(m_creature, SPELL_SHADOW_BOLT_VOLLEY) == CAST_OK)
+                    m_uiShadowBoltVolleyTimer = urand(10000, 18000);
             }
-        }
-        else
-            m_uiShadowBoltTimer -= uiDiff;
+            else
+                m_uiShadowBoltVolleyTimer -= uiDiff;
 
-        if (m_uiShadowBoltVolleyTimer < uiDiff)
-        {
-            if (DoCastSpellIfCan(m_creature, SPELL_SHADOW_BOLT_VOLLEY) == CAST_OK)
-                m_uiShadowBoltVolleyTimer = urand(10000, 18000);
-        }
-        else
-            m_uiShadowBoltVolleyTimer -= uiDiff;
-
-        if (m_uiWardOfZumrahTimer < uiDiff)
-        {
-            if (DoCastSpellIfCan(m_creature, SPELL_WARD_OF_ZUMRAH) == CAST_OK)
-                m_uiWardOfZumrahTimer = urand(15000, 32000);
-        }
-        else
-            m_uiWardOfZumrahTimer -= uiDiff;
-
-        if (m_uHealingWaveTimer < uiDiff)
-        {
-            if (Unit* pTarget = DoSelectLowestHpFriendly(40.0f))
+            if (m_uiWardOfZumrahTimer < uiDiff)
             {
-                if (DoCastSpellIfCan(pTarget, SPELL_HEALING_WAVE) == CAST_OK)
-                    m_uHealingWaveTimer = urand(15000, 23000);
+                if (DoCastSpellIfCan(m_creature, SPELL_WARD_OF_ZUMRAH) == CAST_OK)
+                    m_uiWardOfZumrahTimer = urand(15000, 32000);
             }
-        }
-        else
-            m_uHealingWaveTimer -= uiDiff;
+            else
+                m_uiWardOfZumrahTimer -= uiDiff;
 
-        DoMeleeAttackIfReady();
-    }
+            if (m_uHealingWaveTimer < uiDiff)
+            {
+                if (Unit* pTarget = DoSelectLowestHpFriendly(40.0f))
+                {
+                    if (DoCastSpellIfCan(pTarget, SPELL_HEALING_WAVE) == CAST_OK)
+                        m_uHealingWaveTimer = urand(15000, 23000);
+                }
+            }
+            else
+                m_uHealingWaveTimer -= uiDiff;
+
+            DoMeleeAttackIfReady();
+        }
+    };
+
+
+
 };
 
-UnitAI* GetAI_boss_zumrah(Creature* pCreature)
-{
-    return new boss_zumrahAI(pCreature);
-}
 
 void AddSC_boss_zumrah()
 {
-    Script* pNewScript = new Script;
-    pNewScript->Name = "boss_zumrah";
-    pNewScript->GetAI = &GetAI_boss_zumrah;
-    pNewScript->RegisterSelf();
+    new boss_zumrah();
+
 }

@@ -251,18 +251,24 @@ struct MentalInterferenceSpellScript : public SpellScript
         return SPELL_CAST_OK;
     }
 };
-
-InstanceData* GetInstanceData_instance_magtheridons_lair(Map* pMap)
+class instance_magtheridons_lair : public InstanceMapScript
 {
-    return new instance_magtheridons_lair(pMap);
-}
+public:
+    instance_magtheridons_lair() : InstanceMapScript("instance_magtheridons_lair") { }
+
+    InstanceData* GetInstanceScript(Map* pMap) const override
+    {
+        return new instance_magtheridons_lair(pMap);
+    }
+
+
+
+
+};
 
 void AddSC_instance_magtheridons_lair()
 {
-    Script* pNewScript = new Script;
-    pNewScript->Name = "instance_magtheridons_lair";
-    pNewScript->GetInstanceData = &GetInstanceData_instance_magtheridons_lair;
-    pNewScript->RegisterSelf();
+    new instance_magtheridons_lair();
 
     RegisterSpellScript<MentalInterferenceSpellScript>("spell_mental_interference");
 }

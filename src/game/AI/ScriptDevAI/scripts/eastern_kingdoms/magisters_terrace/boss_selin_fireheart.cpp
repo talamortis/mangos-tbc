@@ -60,233 +60,249 @@ enum SelinActions
     SELIN_ACTION_DRAIN_CRYSTAL,
     SELIN_ACTION_MAX,
 };
-
-struct boss_selin_fireheartAI : public CombatAI
+class boss_selin_fireheart : public CreatureScript
 {
-    boss_selin_fireheartAI(Creature* creature) : CombatAI(creature, SELIN_ACTION_MAX), m_instance(static_cast<instance_magisters_terrace*>(creature->GetInstanceData())),
-            m_isRegularMode(creature->GetMap()->IsRegularDifficulty())
+public:
+    boss_selin_fireheart() : CreatureScript("boss_selin_fireheart") { }
+
+    UnitAI* GetAI(Creature* creature)
     {
-        AddCombatAction(SELIN_ACTION_FEL_EXPLOSION, 2100u);
-        AddCombatAction(SELIN_ACTION_DRAIN_LIFE, 30000, 45000);
-        if (!m_isRegularMode)
-            AddCombatAction(SELIN_ACTION_DRAIN_MANA, 10000u);
-        else
-            AddCombatAction(SELIN_ACTION_DRAIN_MANA, true);
-        AddCombatAction(SELIN_ACTION_DRAIN_CRYSTAL, 15000, 25000);
-        m_creature->SetWalk(false);
-        Reset();
-    }
+        return new boss_selin_fireheartAI(creature);
+    };
 
-    instance_magisters_terrace* m_instance;
-    bool m_isRegularMode;
-    bool m_empowered;
 
-    ObjectGuid m_crystalGuid;
 
-    void Reset() override
+    struct boss_selin_fireheartAI : public CombatAI
     {
-        CombatAI::Reset();
-
-        SetCombatScriptStatus(false);
-        m_empowered = false;
-
-        DoCastSpellIfCan(nullptr, SPELL_DUAL_WEILD, CAST_TRIGGERED | CAST_AURA_NOT_PRESENT);
-
-        m_creature->HandleEmote(EMOTE_STATE_STUN);
-    }
-
-    uint32 GetSubsequentActionTimer(uint32 id)
-    {
-        switch (id)
+        boss_selin_fireheartAI(Creature* creature) : CombatAI(creature, SELIN_ACTION_MAX), m_instance(static_cast<instance_magisters_terrace*>(creature->GetInstanceData())),
+                m_isRegularMode(creature->GetMap()->IsRegularDifficulty())
         {
-            case SELIN_ACTION_FEL_EXPLOSION: return 2000;
-            case SELIN_ACTION_DRAIN_LIFE: return urand(12000, 22000);
-            case SELIN_ACTION_DRAIN_MANA: return urand(17500, 25000);
-            case SELIN_ACTION_DRAIN_CRYSTAL: return m_isRegularMode ? urand(40000, 55000) : urand(30000, 40000);
-            default: return 0; // never occurs but for compiler
+            AddCombatAction(SELIN_ACTION_FEL_EXPLOSION, 2100u);
+            AddCombatAction(SELIN_ACTION_DRAIN_LIFE, 30000, 45000);
+            if (!m_isRegularMode)
+                AddCombatAction(SELIN_ACTION_DRAIN_MANA, 10000u);
+            else
+                AddCombatAction(SELIN_ACTION_DRAIN_MANA, true);
+            AddCombatAction(SELIN_ACTION_DRAIN_CRYSTAL, 15000, 25000);
+            m_creature->SetWalk(false);
+            Reset();
         }
-    }
 
-    // Get the nearest alive crystal for draining
-    bool DoSelectNearestCrystal()
-    {
-        // Wait to finish casting
-        if (m_creature->IsNonMeleeSpellCasted(false))
+        instance_magisters_terrace* m_instance;
+        bool m_isRegularMode;
+        bool m_empowered;
+
+        ObjectGuid m_crystalGuid;
+
+        void Reset() override
+        {
+            CombatAI::Reset();
+
+            SetCombatScriptStatus(false);
+            m_empowered = false;
+
+            DoCastSpellIfCan(nullptr, SPELL_DUAL_WEILD, CAST_TRIGGERED | CAST_AURA_NOT_PRESENT);
+
+            m_creature->HandleEmote(EMOTE_STATE_STUN);
+        }
+
+        uint32 GetSubsequentActionTimer(uint32 id)
+        {
+            switch (id)
+            {
+                case SELIN_ACTION_FEL_EXPLOSION: return 2000;
+                case SELIN_ACTION_DRAIN_LIFE: return urand(12000, 22000);
+                case SELIN_ACTION_DRAIN_MANA: return urand(17500, 25000);
+                case SELIN_ACTION_DRAIN_CRYSTAL: return m_isRegularMode ? urand(40000, 55000) : urand(30000, 40000);
+                default: return 0; // never occurs but for compiler
+            }
+        }
+
+        // Get the nearest alive crystal for draining
+        bool DoSelectNearestCrystal()
+        {
+            // Wait to finish casting
+            if (m_creature->IsNonMeleeSpellCasted(false))
+                return false;
+
+            if (Creature* crystal = GetClosestCreatureWithEntry(m_creature, NPC_FEL_CRYSTAL, 60.0f))
+            {
+                m_crystalGuid = crystal->GetObjectGuid();
+                DoScriptText(urand(0, 1) ? SAY_DRAIN_1 : SAY_DRAIN_2, m_creature);
+
+                float x, y, z;
+                m_creature->GetContactPoint(crystal, x, y, z, INTERACTION_DISTANCE);
+                m_creature->GetMotionMaster()->MovePoint(POINT_CRYSTAL, x, y, z);
+                SetCombatScriptStatus(true);
+                SetMeleeEnabled(false);
+                m_creature->SetTarget(nullptr);
+                SetCombatMovement(false, true);
+
+                return true;
+            }
+
             return false;
-
-        if (Creature* crystal = GetClosestCreatureWithEntry(m_creature, NPC_FEL_CRYSTAL, 60.0f))
-        {
-            m_crystalGuid = crystal->GetObjectGuid();
-            DoScriptText(urand(0, 1) ? SAY_DRAIN_1 : SAY_DRAIN_2, m_creature);
-
-            float x, y, z;
-            m_creature->GetContactPoint(crystal, x, y, z, INTERACTION_DISTANCE);
-            m_creature->GetMotionMaster()->MovePoint(POINT_CRYSTAL, x, y, z);
-            SetCombatScriptStatus(true);
-            SetMeleeEnabled(false);
-            m_creature->SetTarget(nullptr);
-            SetCombatMovement(false, true);
-
-            return true;
         }
 
-        return false;
-    }
-
-    void DoEndCrystalDraining()
-    {
-        SetCombatScriptStatus(false);
-        SetMeleeEnabled(true);
-        SetCombatMovement(true, true);
-    }
-
-    void Aggro(Unit* /*who*/) override
-    {
-        DoScriptText(SAY_AGGRO, m_creature);
-        m_creature->HandleEmote(0);
-
-        if (m_instance)
-            m_instance->SetData(TYPE_SELIN, IN_PROGRESS);
-    }
-
-    void JustRespawned() override
-    {
-        if (m_instance)
-            m_instance->StartCrystalVisual();
-    }
-
-    void JustReachedHome() override
-    {
-        m_creature->SetPower(POWER_MANA, 0);
-
-        if (m_instance)
-            m_instance->SetData(TYPE_SELIN, FAIL);
-    }
-
-    void KilledUnit(Unit* /*victim*/) override
-    {
-        DoScriptText(m_empowered ? SAY_KILL_EMPOWERED : SAY_KILL_NORMAL, m_creature);
-    }
-
-    void MovementInform(uint32 moveType, uint32 pointId) override
-    {
-        if (moveType != POINT_MOTION_TYPE || pointId != POINT_CRYSTAL)
-            return;
-
-        bool castSuccessful = false;
-        if (DoCastSpellIfCan(nullptr, SPELL_FEL_CRYSTAL_DUMMY) == CAST_OK)
+        void DoEndCrystalDraining()
         {
-            DoScriptText(EMOTE_CRYSTAL, m_creature);
-            return;
+            SetCombatScriptStatus(false);
+            SetMeleeEnabled(true);
+            SetCombatMovement(true, true);
         }
 
-        // Make an error message in case something weird happened here
-        script_error_log("Selin Fireheart unable to drain crystal as the crystal is either dead or deleted..");
-        DoEndCrystalDraining(); // Just in case
-    }
-
-    void JustDied(Unit* /*killer*/) override
-    {
-        if (m_instance)
-            m_instance->SetData(TYPE_SELIN, DONE);
-    }
-
-    void ReceiveAIEvent(AIEventType eventType, Unit* /*sender*/, Unit* invoker, uint32 miscValue) override
-    {
-        switch (eventType)
+        void Aggro(Unit* /*who*/) override
         {
-            case AI_EVENT_CUSTOM_A: 
-                if (bool(miscValue)) // Channeling Completed
+            DoScriptText(SAY_AGGRO, m_creature);
+            m_creature->HandleEmote(0);
+
+            if (m_instance)
+                m_instance->SetData(TYPE_SELIN, IN_PROGRESS);
+        }
+
+        void JustRespawned() override
+        {
+            if (m_instance)
+                m_instance->StartCrystalVisual();
+        }
+
+        void JustReachedHome() override
+        {
+            m_creature->SetPower(POWER_MANA, 0);
+
+            if (m_instance)
+                m_instance->SetData(TYPE_SELIN, FAIL);
+        }
+
+        void KilledUnit(Unit* /*victim*/) override
+        {
+            DoScriptText(m_empowered ? SAY_KILL_EMPOWERED : SAY_KILL_NORMAL, m_creature);
+        }
+
+        void MovementInform(uint32 moveType, uint32 pointId) override
+        {
+            if (moveType != POINT_MOTION_TYPE || pointId != POINT_CRYSTAL)
+                return;
+
+            bool castSuccessful = false;
+            if (DoCastSpellIfCan(nullptr, SPELL_FEL_CRYSTAL_DUMMY) == CAST_OK)
+            {
+                DoScriptText(EMOTE_CRYSTAL, m_creature);
+                return;
+            }
+
+            // Make an error message in case something weird happened here
+            script_error_log("Selin Fireheart unable to drain crystal as the crystal is either dead or deleted..");
+            DoEndCrystalDraining(); // Just in case
+        }
+
+        void JustDied(Unit* /*killer*/) override
+        {
+            if (m_instance)
+                m_instance->SetData(TYPE_SELIN, DONE);
+        }
+
+        void ReceiveAIEvent(AIEventType eventType, Unit* /*sender*/, Unit* invoker, uint32 miscValue) override
+        {
+            switch (eventType)
+            {
+                case AI_EVENT_CUSTOM_A: 
+                    if (bool(miscValue)) // Channeling Completed
+                    {
+                        DoScriptText(SAY_EMPOWERED, m_creature);
+                        m_empowered = true;
+                        if (invoker->IsAlive()) // Kill crystal
+                            invoker->CastSpell(nullptr, SPELL_INSTAKILL_SELF, TRIGGERED_OLD_TRIGGERED);
+                    }
+
+                    DoEndCrystalDraining();
+                break;
+            }
+        }
+
+        void ExecuteAction(uint32 action) override
+        {
+            switch (action)
+            {
+                case SELIN_ACTION_FEL_EXPLOSION:
                 {
-                    DoScriptText(SAY_EMPOWERED, m_creature);
-                    m_empowered = true;
-                    if (invoker->IsAlive()) // Kill crystal
-                        invoker->CastSpell(nullptr, SPELL_INSTAKILL_SELF, TRIGGERED_OLD_TRIGGERED);
-                }
-
-                DoEndCrystalDraining();
-            break;
-        }
-    }
-
-    void ExecuteAction(uint32 action) override
-    {
-        switch (action)
-        {
-            case SELIN_ACTION_FEL_EXPLOSION:
-            {
-                DoCastSpellIfCan(nullptr, SPELL_FEL_EXPLOSION);
-                ResetCombatAction(action, GetSubsequentActionTimer(action));
-                return;
-            }
-            case SELIN_ACTION_DRAIN_LIFE:
-            {
-                if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, SPELL_DRAIN_LIFE, SELECT_FLAG_IN_LOS | SELECT_FLAG_PLAYER))
-                    DoCastSpellIfCan(target, m_isRegularMode ? SPELL_DRAIN_LIFE : SPELL_DRAIN_LIFE_H);
-
-                ResetCombatAction(action, GetSubsequentActionTimer(action));
-                return;
-            }
-            case SELIN_ACTION_DRAIN_MANA:
-            {
-                if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, SPELL_DRAIN_MANA, SELECT_FLAG_IN_LOS | SELECT_FLAG_PLAYER | SELECT_FLAG_POWER_MANA))
-                    DoCastSpellIfCan(target, SPELL_DRAIN_MANA);
-
-                ResetCombatAction(action, GetSubsequentActionTimer(action));
-                return;
-            }
-            case SELIN_ACTION_DRAIN_CRYSTAL:
-            {
-                if (DoSelectNearestCrystal())
+                    DoCastSpellIfCan(nullptr, SPELL_FEL_EXPLOSION);
                     ResetCombatAction(action, GetSubsequentActionTimer(action));
-                return;
+                    return;
+                }
+                case SELIN_ACTION_DRAIN_LIFE:
+                {
+                    if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, SPELL_DRAIN_LIFE, SELECT_FLAG_IN_LOS | SELECT_FLAG_PLAYER))
+                        DoCastSpellIfCan(target, m_isRegularMode ? SPELL_DRAIN_LIFE : SPELL_DRAIN_LIFE_H);
+
+                    ResetCombatAction(action, GetSubsequentActionTimer(action));
+                    return;
+                }
+                case SELIN_ACTION_DRAIN_MANA:
+                {
+                    if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, SPELL_DRAIN_MANA, SELECT_FLAG_IN_LOS | SELECT_FLAG_PLAYER | SELECT_FLAG_POWER_MANA))
+                        DoCastSpellIfCan(target, SPELL_DRAIN_MANA);
+
+                    ResetCombatAction(action, GetSubsequentActionTimer(action));
+                    return;
+                }
+                case SELIN_ACTION_DRAIN_CRYSTAL:
+                {
+                    if (DoSelectNearestCrystal())
+                        ResetCombatAction(action, GetSubsequentActionTimer(action));
+                    return;
+                }
             }
         }
-    }
+    };
+
+
+
 };
 
-UnitAI* GetAI_boss_selin_fireheart(Creature* creature)
+class mob_fel_crystal : public CreatureScript
 {
-    return new boss_selin_fireheartAI(creature);
+public:
+    mob_fel_crystal() : CreatureScript("mob_fel_crystal") { }
+
+    UnitAI* GetAI(Creature* creature)
+    {
+        return new mob_fel_crystalAI(creature);
+    };
+
+
+
+    struct mob_fel_crystalAI : public ScriptedAI
+    {
+        mob_fel_crystalAI(Creature* creature) : ScriptedAI(creature) { Reset(); }
+
+        void Reset() override 
+        {
+            SetReactState(REACT_PASSIVE);
+            SetCombatMovement(false);
+            SetMeleeEnabled(false);
+        }
+
+        void JustRespawned() override
+        {
+            m_creature->CastSpell(nullptr, SPELL_FEL_CRYSTAL_VISUAL, TRIGGERED_NONE);
+        }
+
+        void SpellHit(Unit* /*caster*/, const SpellEntry* spellInfo) override
+        {
+            if (spellInfo->Id == SPELL_FEL_CRYSTAL_DUMMY)
+                m_creature->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE);
+        }
+    };
+
+
+
 };
 
-struct mob_fel_crystalAI : public ScriptedAI
-{
-    mob_fel_crystalAI(Creature* creature) : ScriptedAI(creature) { Reset(); }
-
-    void Reset() override 
-    {
-        SetReactState(REACT_PASSIVE);
-        SetCombatMovement(false);
-        SetMeleeEnabled(false);
-    }
-
-    void JustRespawned() override
-    {
-        m_creature->CastSpell(nullptr, SPELL_FEL_CRYSTAL_VISUAL, TRIGGERED_NONE);
-    }
-
-    void SpellHit(Unit* /*caster*/, const SpellEntry* spellInfo) override
-    {
-        if (spellInfo->Id == SPELL_FEL_CRYSTAL_DUMMY)
-            m_creature->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE);
-    }
-};
-
-UnitAI* GetAI_mob_fel_crystal(Creature* creature)
-{
-    return new mob_fel_crystalAI(creature);
-};
 
 void AddSC_boss_selin_fireheart()
 {
-    Script* pNewScript = new Script;
-    pNewScript->Name = "boss_selin_fireheart";
-    pNewScript->GetAI = &GetAI_boss_selin_fireheart;
-    pNewScript->RegisterSelf();
+    new boss_selin_fireheart();
+    new mob_fel_crystal();
 
-    pNewScript = new Script;
-    pNewScript->Name = "mob_fel_crystal";
-    pNewScript->GetAI = &GetAI_mob_fel_crystal;
-    pNewScript->RegisterSelf();
 }

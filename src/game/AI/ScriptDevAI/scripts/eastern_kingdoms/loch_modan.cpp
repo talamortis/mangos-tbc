@@ -32,54 +32,65 @@ EndContentData */
 /*######
 ## npc_mountaineer_pebblebitty
 ######*/
-
-bool GossipHello_npc_mountaineer_pebblebitty(Player* pPlayer, Creature* pCreature)
+class npc_mountaineer_pebblebitty : public CreatureScript
 {
-    if (pCreature->isQuestGiver())
-        pPlayer->PrepareQuestMenu(pCreature->GetObjectGuid());
+public:
+    npc_mountaineer_pebblebitty() : CreatureScript("npc_mountaineer_pebblebitty") { }
 
-    if (!pPlayer->GetQuestRewardStatus(3181) == 1)
-        pPlayer->ADD_GOSSIP_ITEM(GOSSIP_ICON_CHAT, "Open the gate please, i need to get to Searing Gorge", GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF + 1);
-
-    pPlayer->SEND_GOSSIP_MENU(pPlayer->GetGossipTextId(pCreature), pCreature->GetObjectGuid());
-
-    return true;
-}
-
-bool GossipSelect_npc_mountaineer_pebblebitty(Player* pPlayer, Creature* pCreature, uint32 /*uiSender*/, uint32 uiAction)
-{
-    switch (uiAction)
+    bool OnGossipSelect(Player* pPlayer, Creature* pCreature, uint32 /*uiSender*/, uint32 uiAction) override
     {
-        case GOSSIP_ACTION_INFO_DEF+1:
-            pPlayer->ADD_GOSSIP_ITEM(GOSSIP_ICON_CHAT, "But i need to get there, now open the gate!", GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF + 2);
-            pPlayer->SEND_GOSSIP_MENU(1833, pCreature->GetObjectGuid());
-            break;
-        case GOSSIP_ACTION_INFO_DEF+2:
-            pPlayer->ADD_GOSSIP_ITEM(GOSSIP_ICON_CHAT, "Ok, so what is this other way?", GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF + 3);
-            pPlayer->SEND_GOSSIP_MENU(1834, pCreature->GetObjectGuid());
-            break;
-        case GOSSIP_ACTION_INFO_DEF+3:
-            pPlayer->ADD_GOSSIP_ITEM(GOSSIP_ICON_CHAT, "Doesn't matter, i'm invulnerable.", GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF + 4);
-            pPlayer->SEND_GOSSIP_MENU(1835, pCreature->GetObjectGuid());
-            break;
-        case GOSSIP_ACTION_INFO_DEF+4:
-            pPlayer->ADD_GOSSIP_ITEM(GOSSIP_ICON_CHAT, "Yes...", GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF + 5);
-            pPlayer->SEND_GOSSIP_MENU(1836, pCreature->GetObjectGuid());
-            break;
-        case GOSSIP_ACTION_INFO_DEF+5:
-            pPlayer->ADD_GOSSIP_ITEM(GOSSIP_ICON_CHAT, "Ok, i'll try to remember that.", GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF + 6);
-            pPlayer->SEND_GOSSIP_MENU(1837, pCreature->GetObjectGuid());
-            break;
-        case GOSSIP_ACTION_INFO_DEF+6:
-            pPlayer->ADD_GOSSIP_ITEM(GOSSIP_ICON_CHAT, "A key? Ok!", GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF + 7);
-            pPlayer->SEND_GOSSIP_MENU(1838, pCreature->GetObjectGuid());
-            break;
-        case GOSSIP_ACTION_INFO_DEF+7:
-            pPlayer->CLOSE_GOSSIP_MENU();
-            break;
+        switch (uiAction)
+        {
+            case GOSSIP_ACTION_INFO_DEF+1:
+                pPlayer->ADD_GOSSIP_ITEM(GOSSIP_ICON_CHAT, "But i need to get there, now open the gate!", GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF + 2);
+                pPlayer->SEND_GOSSIP_MENU(1833, pCreature->GetObjectGuid());
+                break;
+            case GOSSIP_ACTION_INFO_DEF+2:
+                pPlayer->ADD_GOSSIP_ITEM(GOSSIP_ICON_CHAT, "Ok, so what is this other way?", GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF + 3);
+                pPlayer->SEND_GOSSIP_MENU(1834, pCreature->GetObjectGuid());
+                break;
+            case GOSSIP_ACTION_INFO_DEF+3:
+                pPlayer->ADD_GOSSIP_ITEM(GOSSIP_ICON_CHAT, "Doesn't matter, i'm invulnerable.", GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF + 4);
+                pPlayer->SEND_GOSSIP_MENU(1835, pCreature->GetObjectGuid());
+                break;
+            case GOSSIP_ACTION_INFO_DEF+4:
+                pPlayer->ADD_GOSSIP_ITEM(GOSSIP_ICON_CHAT, "Yes...", GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF + 5);
+                pPlayer->SEND_GOSSIP_MENU(1836, pCreature->GetObjectGuid());
+                break;
+            case GOSSIP_ACTION_INFO_DEF+5:
+                pPlayer->ADD_GOSSIP_ITEM(GOSSIP_ICON_CHAT, "Ok, i'll try to remember that.", GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF + 6);
+                pPlayer->SEND_GOSSIP_MENU(1837, pCreature->GetObjectGuid());
+                break;
+            case GOSSIP_ACTION_INFO_DEF+6:
+                pPlayer->ADD_GOSSIP_ITEM(GOSSIP_ICON_CHAT, "A key? Ok!", GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF + 7);
+                pPlayer->SEND_GOSSIP_MENU(1838, pCreature->GetObjectGuid());
+                break;
+            case GOSSIP_ACTION_INFO_DEF+7:
+                pPlayer->CLOSE_GOSSIP_MENU();
+                break;
+        }
+        return true;
     }
-    return true;
-}
+
+
+
+    bool OnGossipHello(Player* pPlayer, Creature* pCreature) override
+    {
+        if (pCreature->isQuestGiver())
+            pPlayer->PrepareQuestMenu(pCreature->GetObjectGuid());
+
+        if (!pPlayer->GetQuestRewardStatus(3181) == 1)
+            pPlayer->ADD_GOSSIP_ITEM(GOSSIP_ICON_CHAT, "Open the gate please, i need to get to Searing Gorge", GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF + 1);
+
+        pPlayer->SEND_GOSSIP_MENU(pPlayer->GetGossipTextId(pCreature), pCreature->GetObjectGuid());
+
+        return true;
+    }
+
+
+
+};
+
 
 /*######
 ## npc_miran
@@ -107,87 +118,93 @@ static const Location m_afAmbushSpawn[] =
     { -5691.93f, -3745.91f, 319.159f, 2.21f},
     { -5706.98f, -3745.39f, 318.728f, 1.04f}
 };
-
-struct npc_miranAI: public npc_escortAI
+class npc_miran : public CreatureScript
 {
-    npc_miranAI(Creature* pCreature): npc_escortAI(pCreature)
-    {
-        Reset();
-    }
+public:
+    npc_miran() : CreatureScript("npc_miran") { }
 
-    uint8 m_uiDwarves;
-
-    void Reset() override
+    bool OnQuestAccept(Player* pPlayer, Creature* pCreature, const Quest* pQuest) override
     {
-        if (!HasEscortState(STATE_ESCORT_ESCORTING))
-            m_uiDwarves = 0;
-    }
-
-    void WaypointReached(uint32 uiPointId) override
-    {
-        switch (uiPointId)
+        if (pQuest->GetQuestId() == QUEST_PROTECTING_THE_SHIPMENT)
         {
-            case 19:
-                DoScriptText(SAY_MIRAN_1, m_creature);
-                m_creature->SummonCreature(NPC_DARK_IRON_DWARF, m_afAmbushSpawn[0].m_fX, m_afAmbushSpawn[0].m_fY, m_afAmbushSpawn[0].m_fZ, m_afAmbushSpawn[0].m_fO, TEMPSPAWN_CORPSE_TIMED_DESPAWN, 25000);
-                m_creature->SummonCreature(NPC_DARK_IRON_DWARF, m_afAmbushSpawn[1].m_fX, m_afAmbushSpawn[1].m_fY, m_afAmbushSpawn[1].m_fZ, m_afAmbushSpawn[1].m_fO, TEMPSPAWN_CORPSE_TIMED_DESPAWN, 25000);
-                break;
-            case 23:
-                DoScriptText(SAY_MIRAN_3, m_creature);
-                if (Player* pPlayer = GetPlayerForEscort())
-                    pPlayer->RewardPlayerAndGroupAtEventExplored(QUEST_PROTECTING_THE_SHIPMENT, m_creature);
-                break;
+            if (npc_miranAI* pEscortAI = dynamic_cast<npc_miranAI*>(pCreature->AI()))
+                pEscortAI->Start(false, pPlayer, pQuest);
         }
+        return true;
     }
 
-    void SummonedCreatureJustDied(Creature* pSummoned) override
+
+
+    UnitAI* GetAI(Creature* pCreature)
     {
-        if (pSummoned->GetEntry() == NPC_DARK_IRON_DWARF)
-        {
-            --m_uiDwarves;
-            if (!m_uiDwarves)
-                DoScriptText(SAY_MIRAN_2, m_creature);
-        }
+        return new npc_miranAI(pCreature);
     }
 
-    void JustSummoned(Creature* pSummoned) override
+
+
+    struct npc_miranAI: public npc_escortAI
     {
-        if (pSummoned->GetEntry() == NPC_DARK_IRON_DWARF)
+        npc_miranAI(Creature* pCreature): npc_escortAI(pCreature)
         {
-            if (!m_uiDwarves)
-                DoScriptText(SAY_DARK_IRON_DWARF, pSummoned);
-            ++m_uiDwarves;
-            pSummoned->AI()->AttackStart(m_creature);
+            Reset();
         }
-    }
+
+        uint8 m_uiDwarves;
+
+        void Reset() override
+        {
+            if (!HasEscortState(STATE_ESCORT_ESCORTING))
+                m_uiDwarves = 0;
+        }
+
+        void WaypointReached(uint32 uiPointId) override
+        {
+            switch (uiPointId)
+            {
+                case 19:
+                    DoScriptText(SAY_MIRAN_1, m_creature);
+                    m_creature->SummonCreature(NPC_DARK_IRON_DWARF, m_afAmbushSpawn[0].m_fX, m_afAmbushSpawn[0].m_fY, m_afAmbushSpawn[0].m_fZ, m_afAmbushSpawn[0].m_fO, TEMPSPAWN_CORPSE_TIMED_DESPAWN, 25000);
+                    m_creature->SummonCreature(NPC_DARK_IRON_DWARF, m_afAmbushSpawn[1].m_fX, m_afAmbushSpawn[1].m_fY, m_afAmbushSpawn[1].m_fZ, m_afAmbushSpawn[1].m_fO, TEMPSPAWN_CORPSE_TIMED_DESPAWN, 25000);
+                    break;
+                case 23:
+                    DoScriptText(SAY_MIRAN_3, m_creature);
+                    if (Player* pPlayer = GetPlayerForEscort())
+                        pPlayer->RewardPlayerAndGroupAtEventExplored(QUEST_PROTECTING_THE_SHIPMENT, m_creature);
+                    break;
+            }
+        }
+
+        void SummonedCreatureJustDied(Creature* pSummoned) override
+        {
+            if (pSummoned->GetEntry() == NPC_DARK_IRON_DWARF)
+            {
+                --m_uiDwarves;
+                if (!m_uiDwarves)
+                    DoScriptText(SAY_MIRAN_2, m_creature);
+            }
+        }
+
+        void JustSummoned(Creature* pSummoned) override
+        {
+            if (pSummoned->GetEntry() == NPC_DARK_IRON_DWARF)
+            {
+                if (!m_uiDwarves)
+                    DoScriptText(SAY_DARK_IRON_DWARF, pSummoned);
+                ++m_uiDwarves;
+                pSummoned->AI()->AttackStart(m_creature);
+            }
+        }
+    };
+
+
+
 };
 
-bool QuestAccept_npc_miran(Player* pPlayer, Creature* pCreature, const Quest* pQuest)
-{
-    if (pQuest->GetQuestId() == QUEST_PROTECTING_THE_SHIPMENT)
-    {
-        if (npc_miranAI* pEscortAI = dynamic_cast<npc_miranAI*>(pCreature->AI()))
-            pEscortAI->Start(false, pPlayer, pQuest);
-    }
-    return true;
-}
 
-UnitAI* GetAI_npc_miran(Creature* pCreature)
-{
-    return new npc_miranAI(pCreature);
-}
 
 void AddSC_loch_modan()
 {
-    Script* pNewScript = new Script;
-    pNewScript->Name = "npc_mountaineer_pebblebitty";
-    pNewScript->pGossipHello =  &GossipHello_npc_mountaineer_pebblebitty;
-    pNewScript->pGossipSelect = &GossipSelect_npc_mountaineer_pebblebitty;
-    pNewScript->RegisterSelf();
+    new npc_mountaineer_pebblebitty();
+    new npc_miran();
 
-    pNewScript = new Script;
-    pNewScript->Name = "npc_miran";
-    pNewScript->GetAI = &GetAI_npc_miran;
-    pNewScript->pQuestAcceptNPC = &QuestAccept_npc_miran;
-    pNewScript->RegisterSelf();
 }

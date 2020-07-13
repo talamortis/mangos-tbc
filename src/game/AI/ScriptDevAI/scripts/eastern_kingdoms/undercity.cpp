@@ -69,124 +69,135 @@ enum SylvanasActions
     SYLV_KNEEL,
     SYLV_STAND,
 };
-
-struct npc_lady_sylvanas_windrunnerAI : public ScriptedAI, public TimerManager
+class npc_lady_sylvanas_windrunner : public CreatureScript
 {
-    npc_lady_sylvanas_windrunnerAI(Creature* pCreature) : ScriptedAI(pCreature) 
+public:
+    npc_lady_sylvanas_windrunner() : CreatureScript("npc_lady_sylvanas_windrunner") { }
+
+    bool OnQuestReward(Player* pPlayer, Creature* pCreature, Quest const* pQuest) override
     {
-        AddCustomAction(SYLV_AMBASSADOR_WHISPER, true, [&]
-        { 
-            if (Creature* ambassador = GetClosestCreatureWithEntry(m_creature, NPC_AMBASSADOR, 50.f))
-                if (Player* player = m_creature->GetMap()->GetPlayer(m_guidCurrentPlayer))
-                    DoScriptText(SAY_AMBASSADOR, ambassador, player);
-        });
-        AddCustomAction(SYLV_SUMMON_HIGHBORNE, true, [&]
+        if (pQuest->GetQuestId() == QUEST_ID_JOURNEY_UNDERCITY)
         {
-            for (auto& i : aHighborneLoc)
+            if (npc_lady_sylvanas_windrunnerAI* pSylvanAI = dynamic_cast<npc_lady_sylvanas_windrunnerAI*>(pCreature->AI()))
+                pSylvanAI->DoStartLamentEvent(pPlayer->GetObjectGuid());
+        }
+
+        return true;
+    }
+
+
+
+    UnitAI* GetAI(Creature* pCreature)
+    {
+        return new npc_lady_sylvanas_windrunnerAI(pCreature);
+    }
+
+
+
+    struct npc_lady_sylvanas_windrunnerAI : public ScriptedAI, public TimerManager
+    {
+        npc_lady_sylvanas_windrunnerAI(Creature* pCreature) : ScriptedAI(pCreature) 
+        {
+            AddCustomAction(SYLV_AMBASSADOR_WHISPER, true, [&]
+            { 
+                if (Creature* ambassador = GetClosestCreatureWithEntry(m_creature, NPC_AMBASSADOR, 50.f))
+                    if (Player* player = m_creature->GetMap()->GetPlayer(m_guidCurrentPlayer))
+                        DoScriptText(SAY_AMBASSADOR, ambassador, player);
+            });
+            AddCustomAction(SYLV_SUMMON_HIGHBORNE, true, [&]
             {
-                if (Creature* summon = m_creature->SummonCreature(NPC_HIGHBORNE_LAMENTER, i[0], i[1], i[2], i[3], TEMPSPAWN_TIMED_DESPAWN, 155000, false, false))
+                for (auto& i : aHighborneLoc)
                 {
-                    float fX, fY, fZ;
-                    summon->GetContactPoint(m_creature, fX, fY, fZ, 0.01f);
-                    summon->GetMotionMaster()->MovePoint(0, fX, fY, fZ + 5.0f);
+                    if (Creature* summon = m_creature->SummonCreature(NPC_HIGHBORNE_LAMENTER, i[0], i[1], i[2], i[3], TEMPSPAWN_TIMED_DESPAWN, 155000, false, false))
+                    {
+                        float fX, fY, fZ;
+                        summon->GetContactPoint(m_creature, fX, fY, fZ, 0.01f);
+                        summon->GetMotionMaster()->MovePoint(0, fX, fY, fZ + 5.0f);
+                    }
                 }
-            }
 
-            ResetTimer(SYLV_HIGHBORNE_BUNNY, 2000);
-        });
-        AddCustomAction(SYLV_HIGHBORNE_BUNNY, true, [&]
-        {
-            float fX, fY, fZ;
-            m_creature->GetRandomPoint(m_creature->GetPositionX(), m_creature->GetPositionY(), m_creature->GetPositionZ(), 20.0f, fX, fY, fZ);
-            m_creature->SummonCreature(NPC_HIGHBORNE_BUNNY, fX, fY, fZ + 15.0f, 0, TEMPSPAWN_TIMED_DESPAWN, 3000);
-
-            if (m_bLamentInProgress)
                 ResetTimer(SYLV_HIGHBORNE_BUNNY, 2000);
-        });
-        AddCustomAction(SYLV_LAMENT_END, true, [&]
-        {
-            ResetTimer(SYLV_KNEEL, 3000);
-            DoScriptText(SAY_LAMENT_END, m_creature);
-        });
-        AddCustomAction(SYLV_KNEEL, true, [&]
-        {
-            ResetTimer(SYLV_STAND, 4000);
-            m_creature->SetStandState(UNIT_STAND_STATE_KNEEL);
-            DoScriptText(EMOTE_LAMENT_END, m_creature);
-        });
-        AddCustomAction(SYLV_STAND, true, [&]
+            });
+            AddCustomAction(SYLV_HIGHBORNE_BUNNY, true, [&]
+            {
+                float fX, fY, fZ;
+                m_creature->GetRandomPoint(m_creature->GetPositionX(), m_creature->GetPositionY(), m_creature->GetPositionZ(), 20.0f, fX, fY, fZ);
+                m_creature->SummonCreature(NPC_HIGHBORNE_BUNNY, fX, fY, fZ + 15.0f, 0, TEMPSPAWN_TIMED_DESPAWN, 3000);
+
+                if (m_bLamentInProgress)
+                    ResetTimer(SYLV_HIGHBORNE_BUNNY, 2000);
+            });
+            AddCustomAction(SYLV_LAMENT_END, true, [&]
+            {
+                ResetTimer(SYLV_KNEEL, 3000);
+                DoScriptText(SAY_LAMENT_END, m_creature);
+            });
+            AddCustomAction(SYLV_KNEEL, true, [&]
+            {
+                ResetTimer(SYLV_STAND, 4000);
+                m_creature->SetStandState(UNIT_STAND_STATE_KNEEL);
+                DoScriptText(EMOTE_LAMENT_END, m_creature);
+            });
+            AddCustomAction(SYLV_STAND, true, [&]
+            {
+                m_bLamentInProgress = false;
+                m_creature->SetStandState(UNIT_STAND_STATE_STAND);
+            });
+            Reset(); 
+        }
+
+        bool m_bLamentInProgress;
+
+        ObjectGuid m_guidCurrentPlayer;
+
+        void Reset() override
         {
             m_bLamentInProgress = false;
-            m_creature->SetStandState(UNIT_STAND_STATE_STAND);
-        });
-        Reset(); 
-    }
-
-    bool m_bLamentInProgress;
-
-    ObjectGuid m_guidCurrentPlayer;
-
-    void Reset() override
-    {
-        m_bLamentInProgress = false;
-    }
-
-    void JustSummoned(Creature* pSummoned) override
-    {
-        if (pSummoned->GetEntry() == NPC_HIGHBORNE_BUNNY)
-            pSummoned->CastSpell(pSummoned, SPELL_RIBBON_OF_SOULS, TRIGGERED_NONE);
-        else if (pSummoned->GetEntry() == NPC_HIGHBORNE_LAMENTER)
-        {
-            pSummoned->CastSpell(pSummoned, SPELL_HIGHBORNE_AURA, TRIGGERED_NONE);
         }
-    }
 
-    void DoStartLamentEvent(ObjectGuid playerGuid)
-    {
-        if (!m_bLamentInProgress)
+        void JustSummoned(Creature* pSummoned) override
         {
-            m_bLamentInProgress = true;
-            DoScriptText(EMOTE_LAMENT_START, m_creature);
-            DoCastSpellIfCan(m_creature, SPELL_SYLVANAS_CAST);
-            ResetTimer(SYLV_AMBASSADOR_WHISPER, 3000);
-            ResetTimer(SYLV_SUMMON_HIGHBORNE, 10000);
-            ResetTimer(SYLV_LAMENT_END, 172500);
-            m_guidCurrentPlayer = playerGuid;
+            if (pSummoned->GetEntry() == NPC_HIGHBORNE_BUNNY)
+                pSummoned->CastSpell(pSummoned, SPELL_RIBBON_OF_SOULS, TRIGGERED_NONE);
+            else if (pSummoned->GetEntry() == NPC_HIGHBORNE_LAMENTER)
+            {
+                pSummoned->CastSpell(pSummoned, SPELL_HIGHBORNE_AURA, TRIGGERED_NONE);
+            }
         }
-    }
 
-    void UpdateAI(const uint32 uiDiff) override
-    {
-        UpdateTimers(uiDiff);
+        void DoStartLamentEvent(ObjectGuid playerGuid)
+        {
+            if (!m_bLamentInProgress)
+            {
+                m_bLamentInProgress = true;
+                DoScriptText(EMOTE_LAMENT_START, m_creature);
+                DoCastSpellIfCan(m_creature, SPELL_SYLVANAS_CAST);
+                ResetTimer(SYLV_AMBASSADOR_WHISPER, 3000);
+                ResetTimer(SYLV_SUMMON_HIGHBORNE, 10000);
+                ResetTimer(SYLV_LAMENT_END, 172500);
+                m_guidCurrentPlayer = playerGuid;
+            }
+        }
 
-        if (!m_creature->SelectHostileTarget() || !m_creature->GetVictim())
-            return;
+        void UpdateAI(const uint32 uiDiff) override
+        {
+            UpdateTimers(uiDiff);
 
-        DoMeleeAttackIfReady();
-    }
+            if (!m_creature->SelectHostileTarget() || !m_creature->GetVictim())
+                return;
+
+            DoMeleeAttackIfReady();
+        }
+    };
+
+
+
 };
 
-UnitAI* GetAI_npc_lady_sylvanas_windrunner(Creature* pCreature)
-{
-    return new npc_lady_sylvanas_windrunnerAI(pCreature);
-}
 
-bool QuestRewarded_npc_lady_sylvanas_windrunner(Player* pPlayer, Creature* pCreature, Quest const* pQuest)
-{
-    if (pQuest->GetQuestId() == QUEST_ID_JOURNEY_UNDERCITY)
-    {
-        if (npc_lady_sylvanas_windrunnerAI* pSylvanAI = dynamic_cast<npc_lady_sylvanas_windrunnerAI*>(pCreature->AI()))
-            pSylvanAI->DoStartLamentEvent(pPlayer->GetObjectGuid());
-    }
-
-    return true;
-}
 
 void AddSC_undercity()
 {
-    Script* pNewScript = new Script;
-    pNewScript->Name = "npc_lady_sylvanas_windrunner";
-    pNewScript->GetAI = &GetAI_npc_lady_sylvanas_windrunner;
-    pNewScript->pQuestRewardedNPC = &QuestRewarded_npc_lady_sylvanas_windrunner;
-    pNewScript->RegisterSelf();
+    new npc_lady_sylvanas_windrunner();
+
 }

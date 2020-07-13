@@ -41,84 +41,93 @@ enum EbonrocActions
     EBONROC_THRASH,
     EBONROC_ACTION_MAX,
 };
-
-struct boss_ebonrocAI : public CombatAI
+class boss_ebonroc : public CreatureScript
 {
-    boss_ebonrocAI(Creature* creature) : CombatAI(creature, EBONROC_ACTION_MAX), m_instance(static_cast<ScriptedInstance*>(creature->GetInstanceData()))
+public:
+    boss_ebonroc() : CreatureScript("boss_ebonroc") { }
+
+    UnitAI* GetAI(Creature* creature)
     {
-        AddCombatAction(EBONROC_SHADOW_OF_EBONROC, 45000u);
-        AddCombatAction(EBONROC_SHADOW_FLAME, uint32(18 * IN_MILLISECONDS));
-        AddCombatAction(EBONROC_WING_BUFFET, uint32(30 * IN_MILLISECONDS));
-        AddCombatAction(EBONROC_THRASH, uint32(6 * IN_MILLISECONDS));
+        return new boss_ebonrocAI(creature);
     }
 
-    ScriptedInstance* m_instance;
 
-    void Aggro(Unit* /*who*/) override
-    {
-        if (m_instance)
-            m_instance->SetData(TYPE_EBONROC, IN_PROGRESS);
-    }
 
-    void JustDied(Unit* /*killer*/) override
+    struct boss_ebonrocAI : public CombatAI
     {
-        if (m_instance)
-            m_instance->SetData(TYPE_EBONROC, DONE);
-    }
-
-    void JustReachedHome() override
-    {
-        if (m_instance)
-            m_instance->SetData(TYPE_EBONROC, FAIL);
-    }
-
-    void SpellHitTarget(Unit* target, const SpellEntry* spellInfo, SpellMissInfo /*missInfo*/) override
-    {
-        if (spellInfo->Id == SPELL_WING_BUFFET) // reduces threat of everyone hit
-            m_creature->getThreatManager().modifyThreatPercent(target, -50);
-    }
-
-    void ExecuteAction(uint32 action) override
-    {
-        switch (action)
+        boss_ebonrocAI(Creature* creature) : CombatAI(creature, EBONROC_ACTION_MAX), m_instance(static_cast<ScriptedInstance*>(creature->GetInstanceData()))
         {
-            case EBONROC_SHADOW_OF_EBONROC:
+            AddCombatAction(EBONROC_SHADOW_OF_EBONROC, 45000u);
+            AddCombatAction(EBONROC_SHADOW_FLAME, uint32(18 * IN_MILLISECONDS));
+            AddCombatAction(EBONROC_WING_BUFFET, uint32(30 * IN_MILLISECONDS));
+            AddCombatAction(EBONROC_THRASH, uint32(6 * IN_MILLISECONDS));
+        }
+
+        ScriptedInstance* m_instance;
+
+        void Aggro(Unit* /*who*/) override
+        {
+            if (m_instance)
+                m_instance->SetData(TYPE_EBONROC, IN_PROGRESS);
+        }
+
+        void JustDied(Unit* /*killer*/) override
+        {
+            if (m_instance)
+                m_instance->SetData(TYPE_EBONROC, DONE);
+        }
+
+        void JustReachedHome() override
+        {
+            if (m_instance)
+                m_instance->SetData(TYPE_EBONROC, FAIL);
+        }
+
+        void SpellHitTarget(Unit* target, const SpellEntry* spellInfo, SpellMissInfo /*missInfo*/) override
+        {
+            if (spellInfo->Id == SPELL_WING_BUFFET) // reduces threat of everyone hit
+                m_creature->getThreatManager().modifyThreatPercent(target, -50);
+        }
+
+        void ExecuteAction(uint32 action) override
+        {
+            switch (action)
             {
-                if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_SHADOW_OF_EBONROC) == CAST_OK)
-                    ResetCombatAction(action, urand(25 * IN_MILLISECONDS, 35 * IN_MILLISECONDS));
-                break;
-            }
-            case EBONROC_SHADOW_FLAME:
-            {
-                if (DoCastSpellIfCan(nullptr, SPELL_SHADOW_FLAME) == CAST_OK)
-                    ResetCombatAction(action, urand(15 * IN_MILLISECONDS, 18 * IN_MILLISECONDS));
-                break;
-            }
-            case EBONROC_WING_BUFFET:
-            {
-                if (DoCastSpellIfCan(nullptr, SPELL_WING_BUFFET) == CAST_OK)
-                    ResetCombatAction(action, urand(30 * IN_MILLISECONDS, 35 * IN_MILLISECONDS));
-                break;
-            }
-            case EBONROC_THRASH:
-            {
-                if (DoCastSpellIfCan(nullptr, SPELL_THRASH) == CAST_OK)
-                    ResetCombatAction(action, urand(2 * IN_MILLISECONDS, 6 * IN_MILLISECONDS));
-                break;
+                case EBONROC_SHADOW_OF_EBONROC:
+                {
+                    if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_SHADOW_OF_EBONROC) == CAST_OK)
+                        ResetCombatAction(action, urand(25 * IN_MILLISECONDS, 35 * IN_MILLISECONDS));
+                    break;
+                }
+                case EBONROC_SHADOW_FLAME:
+                {
+                    if (DoCastSpellIfCan(nullptr, SPELL_SHADOW_FLAME) == CAST_OK)
+                        ResetCombatAction(action, urand(15 * IN_MILLISECONDS, 18 * IN_MILLISECONDS));
+                    break;
+                }
+                case EBONROC_WING_BUFFET:
+                {
+                    if (DoCastSpellIfCan(nullptr, SPELL_WING_BUFFET) == CAST_OK)
+                        ResetCombatAction(action, urand(30 * IN_MILLISECONDS, 35 * IN_MILLISECONDS));
+                    break;
+                }
+                case EBONROC_THRASH:
+                {
+                    if (DoCastSpellIfCan(nullptr, SPELL_THRASH) == CAST_OK)
+                        ResetCombatAction(action, urand(2 * IN_MILLISECONDS, 6 * IN_MILLISECONDS));
+                    break;
+                }
             }
         }
-    }
+    };
+
+
+
 };
 
-UnitAI* GetAI_boss_ebonroc(Creature* creature)
-{
-    return new boss_ebonrocAI(creature);
-}
 
 void AddSC_boss_ebonroc()
 {
-    Script* pNewScript = new Script;
-    pNewScript->Name = "boss_ebonroc";
-    pNewScript->GetAI = &GetAI_boss_ebonroc;
-    pNewScript->RegisterSelf();
+    new boss_ebonroc();
+
 }

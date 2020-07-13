@@ -126,25 +126,33 @@ struct npc_corporal_keeshan_escortAI : public npc_escortAI
         DoMeleeAttackIfReady();
     }
 };
-
-UnitAI* GetAI_npc_corporal_keeshan(Creature* pCreature)
+class npc_corporal_keeshan : public CreatureScript
 {
-    return new npc_corporal_keeshan_escortAI(pCreature);
-}
+public:
+    npc_corporal_keeshan() : CreatureScript("npc_corporal_keeshan") { }
 
-bool QuestAccept_npc_corporal_keeshan(Player* pPlayer, Creature* pCreature, const Quest* pQuest)
-{
-    if (pQuest->GetQuestId() == QUEST_MISSING_IN_ACTION)
-        pCreature->AI()->SendAIEvent(AI_EVENT_START_ESCORT, pPlayer, pCreature, pQuest->GetQuestId());
+    bool OnQuestAccept(Player* pPlayer, Creature* pCreature, const Quest* pQuest) override
+    {
+        if (pQuest->GetQuestId() == QUEST_MISSING_IN_ACTION)
+            pCreature->AI()->SendAIEvent(AI_EVENT_START_ESCORT, pPlayer, pCreature, pQuest->GetQuestId());
 
-    return true;
-}
+        return true;
+    }
+
+
+
+    UnitAI* GetAI(Creature* pCreature)
+    {
+        return new npc_corporal_keeshan_escortAI(pCreature);
+    }
+
+
+
+};
+
 
 void AddSC_redridge_mountains()
 {
-    Script* pNewScript = new Script;
-    pNewScript->Name = "npc_corporal_keeshan";
-    pNewScript->GetAI = &GetAI_npc_corporal_keeshan;
-    pNewScript->pQuestAcceptNPC = &QuestAccept_npc_corporal_keeshan;
-    pNewScript->RegisterSelf();
+    new npc_corporal_keeshan();
+
 }

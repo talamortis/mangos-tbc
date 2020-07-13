@@ -812,16 +812,23 @@ void instance_blackrock_depths::Update(uint32 uiDiff)
             m_uiPatrolTimer -= uiDiff;
     }
 }
-
-InstanceData* GetInstanceData_instance_blackrock_depths(Map* pMap)
+class instance_blackrock_depths : public InstanceMapScript
 {
-    return new instance_blackrock_depths(pMap);
-}
+public:
+    instance_blackrock_depths() : InstanceMapScript("instance_blackrock_depths") { }
+
+    InstanceData* GetInstanceScript(Map* pMap) const override
+    {
+        return new instance_blackrock_depths(pMap);
+    }
+
+
+
+
+};
 
 void AddSC_instance_blackrock_depths()
 {
-    Script* pNewScript = new Script;
-    pNewScript->Name = "instance_blackrock_depths";
-    pNewScript->GetInstanceData = &GetInstanceData_instance_blackrock_depths;
-    pNewScript->RegisterSelf();
+    new instance_blackrock_depths();
+
 }

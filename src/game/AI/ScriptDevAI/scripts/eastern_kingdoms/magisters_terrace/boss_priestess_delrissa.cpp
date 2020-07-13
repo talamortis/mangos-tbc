@@ -74,213 +74,224 @@ enum DelrissaActions
     DELRISSA_MEDALLION,
     DELRISSA_ACTION_MAX,
 };
-
-struct boss_priestess_delrissaAI : public CombatAI
+class boss_priestess_delrissa : public CreatureScript
 {
-    boss_priestess_delrissaAI(Creature* creature) : CombatAI(creature, DELRISSA_ACTION_MAX), m_instance(static_cast<ScriptedInstance*>(creature->GetInstanceData())), m_isRegularMode(creature->GetMap()->IsRegularDifficulty())
+public:
+    boss_priestess_delrissa() : CreatureScript("boss_priestess_delrissa") { }
+
+    UnitAI* GetAI(Creature* creature)
     {
-        AddCombatAction(DELRISSA_HEAL, 15000u);
-        AddCombatAction(DELRISSA_RENEW, 10000u);
-        AddCombatAction(DELRISSA_SHIELD, 2000u);
-        AddCombatAction(DELRISSA_SHADOW_WORD_PAIN, 5000u);
-        AddCombatAction(DELRISSA_DISPEL, 7500u);
-        AddCombatAction(DELRISSA_SCREAM, 9000u);
-        if (!m_isRegularMode)
-            AddCombatAction(DELRISSA_MEDALLION, 1000, 2000);
-        else
-            AddCombatAction(DELRISSA_MEDALLION, true);
-        SetDeathPrevention(true);
-        Reset();
+        return new boss_priestess_delrissaAI(creature);
     }
 
-    ScriptedInstance* m_instance;
-    bool m_isRegularMode;
 
-    std::vector<uint32> m_vuiLackeyEnties;
 
-    uint8 m_playersKilled;
-    uint32 m_summonsKilled;
-
-    void Reset() override
+    struct boss_priestess_delrissaAI : public CombatAI
     {
-        CombatAI::Reset();
-        m_playersKilled = 0;
-        m_summonsKilled = 0;
-
-        DoInitializeCompanions();
-    }
-
-    void JustReachedHome() override
-    {
-        if (m_instance)
-            m_instance->SetData(TYPE_DELRISSA, FAIL);
-    }
-
-    void Aggro(Unit* who) override
-    {
-        if (who->GetTypeId() != TYPEID_PLAYER)
-            return;
-
-        DoScriptText(SAY_AGGRO, m_creature);
-
-        if (m_instance)
-            m_instance->SetData(TYPE_DELRISSA, IN_PROGRESS);
-    }
-
-    void JustPreventedDeath(Unit* /*attacker*/) override
-    {
-        DoFakeDeath(SPELL_PERMANENT_FEIGN_DEATH);
-        if (m_summonsKilled >= 4)
-            m_creature->CastSpell(nullptr, SPELL_SUICIDE, TRIGGERED_OLD_TRIGGERED);
-    }
-
-    // Summon four random adds to help during the fight
-    void DoInitializeCompanions()
-    {
-        // can be called if creature are dead, so avoid
-        if (!m_creature->IsAlive())
-            return;
-
-        // it's empty, so first time
-        if (m_vuiLackeyEnties.empty())
+        boss_priestess_delrissaAI(Creature* creature) : CombatAI(creature, DELRISSA_ACTION_MAX), m_instance(static_cast<ScriptedInstance*>(creature->GetInstanceData())), m_isRegularMode(creature->GetMap()->IsRegularDifficulty())
         {
-            // pre-allocate size for speed
-            m_vuiLackeyEnties.resize(MAX_COMPANIONS);
-
-            // fill vector array with entries from creature array
-            for (uint8 i = 0; i < MAX_COMPANIONS; ++i)
-                m_vuiLackeyEnties[i] = aDelrissaLackeys[i];
-
-            std::random_shuffle(m_vuiLackeyEnties.begin(), m_vuiLackeyEnties.end());
-
-            // Summon the 4 entries
-            for (uint8 i = 0; i < MAX_DELRISSA_ADDS; ++i)
-                m_creature->SummonCreature(m_vuiLackeyEnties[i], aLackeyLocations[i][0], aLackeyLocations[i][1], aLackeyLocations[i][2], aLackeyLocations[i][3], TEMPSPAWN_CORPSE_DESPAWN, 0);
+            AddCombatAction(DELRISSA_HEAL, 15000u);
+            AddCombatAction(DELRISSA_RENEW, 10000u);
+            AddCombatAction(DELRISSA_SHIELD, 2000u);
+            AddCombatAction(DELRISSA_SHADOW_WORD_PAIN, 5000u);
+            AddCombatAction(DELRISSA_DISPEL, 7500u);
+            AddCombatAction(DELRISSA_SCREAM, 9000u);
+            if (!m_isRegularMode)
+                AddCombatAction(DELRISSA_MEDALLION, 1000, 2000);
+            else
+                AddCombatAction(DELRISSA_MEDALLION, true);
+            SetDeathPrevention(true);
+            Reset();
         }
-        // Resummon the killed adds
-        else
+
+        ScriptedInstance* m_instance;
+        bool m_isRegularMode;
+
+        std::vector<uint32> m_vuiLackeyEnties;
+
+        uint8 m_playersKilled;
+        uint32 m_summonsKilled;
+
+        void Reset() override
         {
+            CombatAI::Reset();
+            m_playersKilled = 0;
+            m_summonsKilled = 0;
+
+            DoInitializeCompanions();
+        }
+
+        void JustReachedHome() override
+        {
+            if (m_instance)
+                m_instance->SetData(TYPE_DELRISSA, FAIL);
+        }
+
+        void Aggro(Unit* who) override
+        {
+            if (who->GetTypeId() != TYPEID_PLAYER)
+                return;
+
+            DoScriptText(SAY_AGGRO, m_creature);
+
+            if (m_instance)
+                m_instance->SetData(TYPE_DELRISSA, IN_PROGRESS);
+        }
+
+        void JustPreventedDeath(Unit* /*attacker*/) override
+        {
+            DoFakeDeath(SPELL_PERMANENT_FEIGN_DEATH);
+            if (m_summonsKilled >= 4)
+                m_creature->CastSpell(nullptr, SPELL_SUICIDE, TRIGGERED_OLD_TRIGGERED);
+        }
+
+        // Summon four random adds to help during the fight
+        void DoInitializeCompanions()
+        {
+            // can be called if creature are dead, so avoid
+            if (!m_creature->IsAlive())
+                return;
+
+            // it's empty, so first time
+            if (m_vuiLackeyEnties.empty())
+            {
+                // pre-allocate size for speed
+                m_vuiLackeyEnties.resize(MAX_COMPANIONS);
+
+                // fill vector array with entries from creature array
+                for (uint8 i = 0; i < MAX_COMPANIONS; ++i)
+                    m_vuiLackeyEnties[i] = aDelrissaLackeys[i];
+
+                std::random_shuffle(m_vuiLackeyEnties.begin(), m_vuiLackeyEnties.end());
+
+                // Summon the 4 entries
+                for (uint8 i = 0; i < MAX_DELRISSA_ADDS; ++i)
+                    m_creature->SummonCreature(m_vuiLackeyEnties[i], aLackeyLocations[i][0], aLackeyLocations[i][1], aLackeyLocations[i][2], aLackeyLocations[i][3], TEMPSPAWN_CORPSE_DESPAWN, 0);
+            }
+            // Resummon the killed adds
+            else
+            {
+                if (!m_instance)
+                    return;
+
+                for (uint8 i = 0; i < MAX_DELRISSA_ADDS; ++i)
+                {
+                    // If we already have the creature on the map, then don't summon it
+                    if (m_instance->GetSingleCreatureFromStorage(m_vuiLackeyEnties[i], true))
+                        continue;
+
+                    m_creature->SummonCreature(m_vuiLackeyEnties[i], aLackeyLocations[i][0], aLackeyLocations[i][1], aLackeyLocations[i][2], aLackeyLocations[i][3], TEMPSPAWN_CORPSE_DESPAWN, 0);
+                }
+            }
+        }
+
+        void KilledUnit(Unit* victim) override
+        {
+            if (victim->GetTypeId() != TYPEID_PLAYER)
+                return;
+
+            DoScriptText(aPlayerDeath[m_playersKilled], m_creature);
+            ++m_playersKilled;
+
+            // reset counter
+            if (m_playersKilled == 5)
+                m_playersKilled = 0;
+        }
+
+        void SummonedCreatureJustDied(Creature* /*summoned*/) override
+        {
+            ++m_summonsKilled;
+            if (m_summonsKilled >= 4)
+                m_creature->CastSpell(nullptr, SPELL_SUICIDE, TRIGGERED_OLD_TRIGGERED);
+        }
+
+        void JustDied(Unit* /*killer*/) override
+        {
+            DoScriptText(SAY_DEATH, m_creature);
+
             if (!m_instance)
                 return;
 
-            for (uint8 i = 0; i < MAX_DELRISSA_ADDS; ++i)
-            {
-                // If we already have the creature on the map, then don't summon it
-                if (m_instance->GetSingleCreatureFromStorage(m_vuiLackeyEnties[i], true))
-                    continue;
+            // Remove lootable flag if the lackeys are not killed
+            if (m_instance->GetData(TYPE_DELRISSA) == SPECIAL)
+                m_instance->SetData(TYPE_DELRISSA, DONE);
+            else
+                m_creature->RemoveFlag(UNIT_DYNAMIC_FLAGS, UNIT_DYNFLAG_LOOTABLE);
+        }
 
-                m_creature->SummonCreature(m_vuiLackeyEnties[i], aLackeyLocations[i][0], aLackeyLocations[i][1], aLackeyLocations[i][2], aLackeyLocations[i][3], TEMPSPAWN_CORPSE_DESPAWN, 0);
+        virtual void ExecuteActions() override
+        {
+            if (!m_creature->IsAlive() || m_creature->GetCombatManager().IsEvadingHome() || (m_unit->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_SILENCED) && m_unit->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PACIFIED)) ||
+                m_unit->hasUnitState(UNIT_STAT_PROPELLED | UNIT_STAT_RETREATING) || m_unit->IsNonMeleeSpellCasted(false))
+                return; // custom condition due to her medallion - TODO: resolve globally
+
+            for (uint32 i = 0; i < GetCombatActionCount(); ++i)
+            {
+                // can be changed on any action - prevent all additional ones
+                if (GetCombatScriptStatus())
+                    return;
+
+                if (GetActionReadyStatus(i))
+                    ExecuteAction(i);
             }
         }
-    }
 
-    void KilledUnit(Unit* victim) override
-    {
-        if (victim->GetTypeId() != TYPEID_PLAYER)
-            return;
-
-        DoScriptText(aPlayerDeath[m_playersKilled], m_creature);
-        ++m_playersKilled;
-
-        // reset counter
-        if (m_playersKilled == 5)
-            m_playersKilled = 0;
-    }
-
-    void SummonedCreatureJustDied(Creature* /*summoned*/) override
-    {
-        ++m_summonsKilled;
-        if (m_summonsKilled >= 4)
-            m_creature->CastSpell(nullptr, SPELL_SUICIDE, TRIGGERED_OLD_TRIGGERED);
-    }
-
-    void JustDied(Unit* /*killer*/) override
-    {
-        DoScriptText(SAY_DEATH, m_creature);
-
-        if (!m_instance)
-            return;
-
-        // Remove lootable flag if the lackeys are not killed
-        if (m_instance->GetData(TYPE_DELRISSA) == SPECIAL)
-            m_instance->SetData(TYPE_DELRISSA, DONE);
-        else
-            m_creature->RemoveFlag(UNIT_DYNAMIC_FLAGS, UNIT_DYNFLAG_LOOTABLE);
-    }
-
-    virtual void ExecuteActions() override
-    {
-        if (!m_creature->IsAlive() || m_creature->GetCombatManager().IsEvadingHome() || (m_unit->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_SILENCED) && m_unit->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PACIFIED)) ||
-            m_unit->hasUnitState(UNIT_STAT_PROPELLED | UNIT_STAT_RETREATING) || m_unit->IsNonMeleeSpellCasted(false))
-            return; // custom condition due to her medallion - TODO: resolve globally
-
-        for (uint32 i = 0; i < GetCombatActionCount(); ++i)
+        void ExecuteAction(uint32 action) override
         {
-            // can be changed on any action - prevent all additional ones
-            if (GetCombatScriptStatus())
-                return;
+            switch (action)
+            {
+                case DELRISSA_HEAL:
+                    if (Unit* target = DoSelectLowestHpFriendly(50.0f))
+                        if (DoCastSpellIfCan(target, SPELL_FLASH_HEAL) == CAST_OK)
+                            ResetCombatAction(action, urand(15000, 20000));
+                    break;
+                case DELRISSA_RENEW:
+                    if (Unit* target = DoSelectLowestHpFriendly(50.0f))
+                        if (DoCastSpellIfCan(target, m_isRegularMode ? SPELL_RENEW : SPELL_RENEW_H) == CAST_OK)
+                            ResetCombatAction(action, urand(5000, 10000));
+                    break;
+                case DELRISSA_SHIELD:
+                    if (Unit* target = DoSelectLowestHpFriendly(50.0f))
+                        if (DoCastSpellIfCan(target, m_isRegularMode ? SPELL_SHIELD : SPELL_SHIELD_H) == CAST_OK)
+                            ResetCombatAction(action, urand(30000, 35000));
+                    break;
+                case DELRISSA_DISPEL:
+                {
+                    Unit* target = nullptr;
+                    std::list<Creature*> lTempList = DoFindFriendlyCC(50.0f);
 
-            if (GetActionReadyStatus(i))
-                ExecuteAction(i);
-        }
-    }
+                    if (!lTempList.empty())
+                        target = *(lTempList.begin());
+                    else
+                        target = DoSelectLowestHpFriendly(50.0f);
 
-    void ExecuteAction(uint32 action) override
-    {
-        switch (action)
-        {
-            case DELRISSA_HEAL:
-                if (Unit* target = DoSelectLowestHpFriendly(50.0f))
-                    if (DoCastSpellIfCan(target, SPELL_FLASH_HEAL) == CAST_OK)
+                    if (target)
+                        if (DoCastSpellIfCan(target, SPELL_DISPEL_MAGIC) == CAST_OK)
+                            ResetCombatAction(action, urand(12000, 15000));
+                    break;
+                }
+                case DELRISSA_MEDALLION:
+                    if (m_creature->isFrozen() || m_creature->IsCrowdControlled())
+                        if (DoCastSpellIfCan(nullptr, SPELL_MEDALLION) == CAST_OK)
+                            DisableCombatAction(action);
+                    break;
+                case DELRISSA_SHADOW_WORD_PAIN:
+                    if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, nullptr, SELECT_FLAG_PLAYER))
+                        if (DoCastSpellIfCan(target, m_isRegularMode ? SPELL_SHADOW_WORD_PAIN : SPELL_SHADOW_WORD_PAIN_H) == CAST_OK)
+                            ResetCombatAction(action, 10000);
+                    break;
+                case DELRISSA_SCREAM:
+                    if (DoCastSpellIfCan(nullptr, SPELL_SCREAM) == CAST_OK)
                         ResetCombatAction(action, urand(15000, 20000));
-                break;
-            case DELRISSA_RENEW:
-                if (Unit* target = DoSelectLowestHpFriendly(50.0f))
-                    if (DoCastSpellIfCan(target, m_isRegularMode ? SPELL_RENEW : SPELL_RENEW_H) == CAST_OK)
-                        ResetCombatAction(action, urand(5000, 10000));
-                break;
-            case DELRISSA_SHIELD:
-                if (Unit* target = DoSelectLowestHpFriendly(50.0f))
-                    if (DoCastSpellIfCan(target, m_isRegularMode ? SPELL_SHIELD : SPELL_SHIELD_H) == CAST_OK)
-                        ResetCombatAction(action, urand(30000, 35000));
-                break;
-            case DELRISSA_DISPEL:
-            {
-                Unit* target = nullptr;
-                std::list<Creature*> lTempList = DoFindFriendlyCC(50.0f);
-
-                if (!lTempList.empty())
-                    target = *(lTempList.begin());
-                else
-                    target = DoSelectLowestHpFriendly(50.0f);
-
-                if (target)
-                    if (DoCastSpellIfCan(target, SPELL_DISPEL_MAGIC) == CAST_OK)
-                        ResetCombatAction(action, urand(12000, 15000));
-                break;
+                    break;
             }
-            case DELRISSA_MEDALLION:
-                if (m_creature->isFrozen() || m_creature->IsCrowdControlled())
-                    if (DoCastSpellIfCan(nullptr, SPELL_MEDALLION) == CAST_OK)
-                        DisableCombatAction(action);
-                break;
-            case DELRISSA_SHADOW_WORD_PAIN:
-                if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, nullptr, SELECT_FLAG_PLAYER))
-                    if (DoCastSpellIfCan(target, m_isRegularMode ? SPELL_SHADOW_WORD_PAIN : SPELL_SHADOW_WORD_PAIN_H) == CAST_OK)
-                        ResetCombatAction(action, 10000);
-                break;
-            case DELRISSA_SCREAM:
-                if (DoCastSpellIfCan(nullptr, SPELL_SCREAM) == CAST_OK)
-                    ResetCombatAction(action, urand(15000, 20000));
-                break;
         }
-    }
+    };
+
+
+
 };
 
-UnitAI* GetAI_boss_priestess_delrissa(Creature* creature)
-{
-    return new boss_priestess_delrissaAI(creature);
-}
 
 /*######
 ## priestess_companion_common
@@ -402,67 +413,78 @@ enum KaganiActions
     KAGANI_ACTION_MAX,
     KAGANI_VANISH_END,
 };
-
-struct npc_kagani_nightstrikeAI : public priestess_companion_commonAI
+class npc_kagani_nightstrike : public CreatureScript
 {
-    npc_kagani_nightstrikeAI(Creature* creature) : priestess_companion_commonAI(creature, KAGANI_ACTION_MAX)
+public:
+    npc_kagani_nightstrike() : CreatureScript("npc_kagani_nightstrike") { }
+
+    UnitAI* GetAI(Creature* creature)
     {
-        AddCombatAction(KAGANI_GOUGE, 5500u);
-        AddCombatAction(KAGANI_KICK, 7000u);
-        AddCombatAction(KAGANI_VANISH, 2000u);
-        AddCombatAction(KAGANI_EVISCERATE, 6000u);
-        AddCustomAction(KAGANI_VANISH_END, true, [&]()
-        {
-            DoCastSpellIfCan(m_creature->GetVictim(), SPELL_BACKSTAB, CAST_TRIGGERED);
-            DoCastSpellIfCan(m_creature->GetVictim(), SPELL_KIDNEY_SHOT, CAST_TRIGGERED);
-        });
-        Reset();
+        return new npc_kagani_nightstrikeAI(creature);
     }
 
-    void EnterEvadeMode() override
-    {
-        ScriptedAI::EnterEvadeMode();
-    }
 
-    void ExecuteAction(uint32 action) override
+
+    struct npc_kagani_nightstrikeAI : public priestess_companion_commonAI
     {
-        switch (action)
+        npc_kagani_nightstrikeAI(Creature* creature) : priestess_companion_commonAI(creature, KAGANI_ACTION_MAX)
         {
-            case KAGANI_GOUGE:
-                if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_GOUGE) == CAST_OK)
-                    ResetCombatAction(action, 5500);
-                break;
-            case KAGANI_KICK:
-                if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_KICK) == CAST_OK)
-                    ResetCombatAction(action, 7000);
-                break;
-            case KAGANI_VANISH:
-                if (DoCastSpellIfCan(nullptr, SPELL_VANISH) == CAST_OK)
-                {
-                    // Prefer targets with mana
-                    if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, uint32(0), SELECT_FLAG_POWER_MANA | SELECT_FLAG_PLAYER))
-                    {
-                        DoResetThreat();
-                        AttackStart(target);
-                    }
-
-                    ResetCombatAction(action, 30000);
-                    ResetTimer(KAGANI_VANISH_END, 10000);
-                }
-                break;
-            case KAGANI_EVISCERATE:
-                if (DoCastSpellIfCan(m_creature->GetVictim(), m_isRegularMode ? SPELL_EVISCERATE : SPELL_EVISCERATE_H) == CAST_OK)
-                    ResetCombatAction(action, 4000);
-                break;
+            AddCombatAction(KAGANI_GOUGE, 5500u);
+            AddCombatAction(KAGANI_KICK, 7000u);
+            AddCombatAction(KAGANI_VANISH, 2000u);
+            AddCombatAction(KAGANI_EVISCERATE, 6000u);
+            AddCustomAction(KAGANI_VANISH_END, true, [&]()
+            {
+                DoCastSpellIfCan(m_creature->GetVictim(), SPELL_BACKSTAB, CAST_TRIGGERED);
+                DoCastSpellIfCan(m_creature->GetVictim(), SPELL_KIDNEY_SHOT, CAST_TRIGGERED);
+            });
+            Reset();
         }
-        priestess_companion_commonAI::ExecuteAction(action);
-    }
+
+        void EnterEvadeMode() override
+        {
+            ScriptedAI::EnterEvadeMode();
+        }
+
+        void ExecuteAction(uint32 action) override
+        {
+            switch (action)
+            {
+                case KAGANI_GOUGE:
+                    if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_GOUGE) == CAST_OK)
+                        ResetCombatAction(action, 5500);
+                    break;
+                case KAGANI_KICK:
+                    if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_KICK) == CAST_OK)
+                        ResetCombatAction(action, 7000);
+                    break;
+                case KAGANI_VANISH:
+                    if (DoCastSpellIfCan(nullptr, SPELL_VANISH) == CAST_OK)
+                    {
+                        // Prefer targets with mana
+                        if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, uint32(0), SELECT_FLAG_POWER_MANA | SELECT_FLAG_PLAYER))
+                        {
+                            DoResetThreat();
+                            AttackStart(target);
+                        }
+
+                        ResetCombatAction(action, 30000);
+                        ResetTimer(KAGANI_VANISH_END, 10000);
+                    }
+                    break;
+                case KAGANI_EVISCERATE:
+                    if (DoCastSpellIfCan(m_creature->GetVictim(), m_isRegularMode ? SPELL_EVISCERATE : SPELL_EVISCERATE_H) == CAST_OK)
+                        ResetCombatAction(action, 4000);
+                    break;
+            }
+            priestess_companion_commonAI::ExecuteAction(action);
+        }
+    };
+
+
+
 };
 
-UnitAI* GetAI_npc_kagani_nightstrike(Creature* creature)
-{
-    return new npc_kagani_nightstrikeAI(creature);
-}
 
 enum
 {
@@ -494,74 +516,85 @@ enum EllrisActions
     ELLRIS_DEATH_COIL,
     ELLRIS_ACTION_MAX,
 };
-
-struct npc_ellris_duskhallowAI : public priestess_companion_commonAI
+class npc_ellris_duskhallow : public CreatureScript
 {
-    npc_ellris_duskhallowAI(Creature* creature) : priestess_companion_commonAI(creature, ELLRIS_ACTION_MAX)
+public:
+    npc_ellris_duskhallow() : CreatureScript("npc_ellris_duskhallow") { }
+
+    UnitAI* GetAI(Creature* creature)
     {
-        AddCombatAction(ELLRIS_IMMOLATE, 6000u);
-        AddCombatAction(ELLRIS_SHADOWBOLT, 3000u);
-        AddCombatAction(ELLRIS_SEED_OF_CORRUPTION, 2000u);
-        AddCombatAction(ELLRIS_CURSE_OF_AGONY, 1000u);
-        AddCombatAction(ELLRIS_FEAR, 10000u);
-        AddCombatAction(ELLRIS_DEATH_COIL, 8000u);
-        Reset();
+        return new npc_ellris_duskhallowAI(creature);
     }
 
-    void Reset() override
+
+
+    struct npc_ellris_duskhallowAI : public priestess_companion_commonAI
     {
-        priestess_companion_commonAI::Reset();
-
-        // Check if we already have an imp summoned
-        if (!GetClosestCreatureWithEntry(m_creature, NPC_FIZZLE, 50.0f))
-            DoCastSpellIfCan(nullptr, SPELL_SUMMON_IMP);
-
-        m_attackDistance = 20.0f;
-    }
-
-    void ExecuteAction(uint32 action) override
-    {
-        switch (action)
+        npc_ellris_duskhallowAI(Creature* creature) : priestess_companion_commonAI(creature, ELLRIS_ACTION_MAX)
         {
-            case ELLRIS_IMMOLATE:
-                if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, nullptr, SELECT_FLAG_PLAYER))
-                    if (DoCastSpellIfCan(target, m_isRegularMode ? SPELL_IMMOLATE : SPELL_IMMOLATE_H) == CAST_OK)
-                        ResetCombatAction(action, 6000);
-                break;
-            case ELLRIS_SHADOWBOLT:
-                if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, nullptr, SELECT_FLAG_PLAYER))
-                    if (DoCastSpellIfCan(target, m_isRegularMode ? SPELL_SHADOW_BOLT : SPELL_SHADOW_BOLT_H) == CAST_OK)
-                        ResetCombatAction(action, 5000);
-                break;
-            case ELLRIS_SEED_OF_CORRUPTION:
-                if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, nullptr, SELECT_FLAG_PLAYER))
-                    if (DoCastSpellIfCan(target, SPELL_SEED_OF_CORRUPTION) == CAST_OK)
-                        ResetCombatAction(action, 10000);
-                break;
-            case ELLRIS_CURSE_OF_AGONY:
-                if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, nullptr, SELECT_FLAG_PLAYER))
-                    if (DoCastSpellIfCan(target, m_isRegularMode ? SPELL_CURSE_OF_AGONY : SPELL_CURSE_OF_AGONY_H) == CAST_OK)
-                        ResetCombatAction(action, 13000);
-                break;
-            case ELLRIS_FEAR:
-                if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, nullptr, SELECT_FLAG_PLAYER))
-                    if (DoCastSpellIfCan(target, SPELL_FEAR) == CAST_OK)
-                        ResetCombatAction(action, 10000);
-                break;
-            case ELLRIS_DEATH_COIL:
-                if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, nullptr, SELECT_FLAG_PLAYER))
-                    if (DoCastSpellIfCan(target, SPELL_DEATH_COIL) == CAST_OK)
-                        ResetCombatAction(action, urand(8000, 13000));
-                break;
+            AddCombatAction(ELLRIS_IMMOLATE, 6000u);
+            AddCombatAction(ELLRIS_SHADOWBOLT, 3000u);
+            AddCombatAction(ELLRIS_SEED_OF_CORRUPTION, 2000u);
+            AddCombatAction(ELLRIS_CURSE_OF_AGONY, 1000u);
+            AddCombatAction(ELLRIS_FEAR, 10000u);
+            AddCombatAction(ELLRIS_DEATH_COIL, 8000u);
+            Reset();
         }
-        priestess_companion_commonAI::ExecuteAction(action);
-    }
+
+        void Reset() override
+        {
+            priestess_companion_commonAI::Reset();
+
+            // Check if we already have an imp summoned
+            if (!GetClosestCreatureWithEntry(m_creature, NPC_FIZZLE, 50.0f))
+                DoCastSpellIfCan(nullptr, SPELL_SUMMON_IMP);
+
+            m_attackDistance = 20.0f;
+        }
+
+        void ExecuteAction(uint32 action) override
+        {
+            switch (action)
+            {
+                case ELLRIS_IMMOLATE:
+                    if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, nullptr, SELECT_FLAG_PLAYER))
+                        if (DoCastSpellIfCan(target, m_isRegularMode ? SPELL_IMMOLATE : SPELL_IMMOLATE_H) == CAST_OK)
+                            ResetCombatAction(action, 6000);
+                    break;
+                case ELLRIS_SHADOWBOLT:
+                    if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, nullptr, SELECT_FLAG_PLAYER))
+                        if (DoCastSpellIfCan(target, m_isRegularMode ? SPELL_SHADOW_BOLT : SPELL_SHADOW_BOLT_H) == CAST_OK)
+                            ResetCombatAction(action, 5000);
+                    break;
+                case ELLRIS_SEED_OF_CORRUPTION:
+                    if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, nullptr, SELECT_FLAG_PLAYER))
+                        if (DoCastSpellIfCan(target, SPELL_SEED_OF_CORRUPTION) == CAST_OK)
+                            ResetCombatAction(action, 10000);
+                    break;
+                case ELLRIS_CURSE_OF_AGONY:
+                    if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, nullptr, SELECT_FLAG_PLAYER))
+                        if (DoCastSpellIfCan(target, m_isRegularMode ? SPELL_CURSE_OF_AGONY : SPELL_CURSE_OF_AGONY_H) == CAST_OK)
+                            ResetCombatAction(action, 13000);
+                    break;
+                case ELLRIS_FEAR:
+                    if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, nullptr, SELECT_FLAG_PLAYER))
+                        if (DoCastSpellIfCan(target, SPELL_FEAR) == CAST_OK)
+                            ResetCombatAction(action, 10000);
+                    break;
+                case ELLRIS_DEATH_COIL:
+                    if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, nullptr, SELECT_FLAG_PLAYER))
+                        if (DoCastSpellIfCan(target, SPELL_DEATH_COIL) == CAST_OK)
+                            ResetCombatAction(action, urand(8000, 13000));
+                    break;
+            }
+            priestess_companion_commonAI::ExecuteAction(action);
+        }
+    };
+
+
+
 };
 
-UnitAI* GetAI_npc_ellris_duskhallow(Creature* creature)
-{
-    return new npc_ellris_duskhallowAI(creature);
-}
 
 enum
 {
@@ -581,42 +614,53 @@ enum EramasActions
     ERAMAS_KICK,
     ERAMAS_ACTION_MAX,
 };
-
-struct npc_eramas_brightblazeAI : public priestess_companion_commonAI
+class npc_eramas_brightblaze : public CreatureScript
 {
-    npc_eramas_brightblazeAI(Creature* creature) : priestess_companion_commonAI(creature, ERAMAS_ACTION_MAX)
+public:
+    npc_eramas_brightblaze() : CreatureScript("npc_eramas_brightblaze") { }
+
+    UnitAI* GetAI(Creature* creature)
     {
-        AddCombatAction(ERAMAS_KNOCKDOWN, 6000u);
-        AddCombatAction(ERAMAS_KICK, 4500u);
+        return new npc_eramas_brightblazeAI(creature);
     }
 
-    void Reset() override
-    {
-        priestess_companion_commonAI::Reset();
-        DoCastSpellIfCan(nullptr, SPELL_DUAL_WEILD, CAST_TRIGGERED | CAST_AURA_NOT_PRESENT);
-    }
 
-    void ExecuteAction(uint32 action) override
+
+    struct npc_eramas_brightblazeAI : public priestess_companion_commonAI
     {
-        switch (action)
+        npc_eramas_brightblazeAI(Creature* creature) : priestess_companion_commonAI(creature, ERAMAS_ACTION_MAX)
         {
-            case ERAMAS_KNOCKDOWN:
-                if (DoCastSpellIfCan(m_creature->GetVictim(), m_isRegularMode ? SPELL_KNOCKDOWN : SPELL_KNOCKDOWN_H) == CAST_OK)
-                    ResetCombatAction(action, 6000u);
-                break;
-            case ERAMAS_KICK:
-                if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_SNAP_KICK) == CAST_OK)
-                    ResetCombatAction(action, 4500u);
-                break;
+            AddCombatAction(ERAMAS_KNOCKDOWN, 6000u);
+            AddCombatAction(ERAMAS_KICK, 4500u);
         }
-        priestess_companion_commonAI::ExecuteAction(action);
-    }
+
+        void Reset() override
+        {
+            priestess_companion_commonAI::Reset();
+            DoCastSpellIfCan(nullptr, SPELL_DUAL_WEILD, CAST_TRIGGERED | CAST_AURA_NOT_PRESENT);
+        }
+
+        void ExecuteAction(uint32 action) override
+        {
+            switch (action)
+            {
+                case ERAMAS_KNOCKDOWN:
+                    if (DoCastSpellIfCan(m_creature->GetVictim(), m_isRegularMode ? SPELL_KNOCKDOWN : SPELL_KNOCKDOWN_H) == CAST_OK)
+                        ResetCombatAction(action, 6000u);
+                    break;
+                case ERAMAS_KICK:
+                    if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_SNAP_KICK) == CAST_OK)
+                        ResetCombatAction(action, 4500u);
+                    break;
+            }
+            priestess_companion_commonAI::ExecuteAction(action);
+        }
+    };
+
+
+
 };
 
-UnitAI* GetAI_npc_eramas_brightblaze(Creature* creature)
-{
-    return new npc_eramas_brightblazeAI(creature);
-}
 
 enum
 {
@@ -648,80 +692,91 @@ enum YazzaiActions
     YAZZAI_BLINK,
     YAZZAI_ACTION_MAX,
 };
-
-struct npc_yazzaiAI : public priestess_companion_commonAI
+class npc_yazzai : public CreatureScript
 {
-    npc_yazzaiAI(Creature* creature) : priestess_companion_commonAI(creature, YAZZAI_ACTION_MAX)
+public:
+    npc_yazzai() : CreatureScript("npc_yazzai") { }
+
+    UnitAI* GetAI(Creature* creature)
     {
-        AddCombatAction(YAZZAI_POLYMORPH, 1000u);
-        AddTimerlessCombatAction(YAZZAI_ICE_BLOCK, true);
-        AddCombatAction(YAZZAI_BLIZZARD, 8000u);
-        AddCombatAction(YAZZAI_ICE_LANCE, 12000u);
-        AddCombatAction(YAZZAI_CONE_OF_COLD, 10000u);
-        AddCombatAction(YAZZAI_FROSTBOLT, 3000u);
-        AddCombatAction(YAZZAI_BLINK, 8000u);
-        Reset();
+        return new npc_yazzaiAI(creature);
     }
 
-    void Reset() override
-    {
-        priestess_companion_commonAI::Reset();
 
-        m_attackDistance = 20.0f;
-    }
 
-    void ExecuteAction(uint32 action) override
+    struct npc_yazzaiAI : public priestess_companion_commonAI
     {
-        switch (action)
+        npc_yazzaiAI(Creature* creature) : priestess_companion_commonAI(creature, YAZZAI_ACTION_MAX)
         {
-            case YAZZAI_POLYMORPH:
-                if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, nullptr, SELECT_FLAG_PLAYER))
-                    if (DoCastSpellIfCan(target, SPELL_POLYMORPH) == CAST_OK)
-                        ResetCombatAction(action, 20000);
-                break;
-            case YAZZAI_ICE_BLOCK:
-                if (m_creature->GetHealthPercent() < 35.0f)
-                    if (DoCastSpellIfCan(nullptr, SPELL_ICE_BLOCK) == CAST_OK)
-                        SetActionReadyStatus(action, false);
-                break;
-            case YAZZAI_BLIZZARD:
-                if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, nullptr, SELECT_FLAG_PLAYER))
-                    if (DoCastSpellIfCan(target, m_isRegularMode ? SPELL_BLIZZARD : SPELL_BLIZZARD_H) == CAST_OK)
-                        ResetCombatAction(action, urand(8000, 15000));
-                break;
-            case YAZZAI_ICE_LANCE:
-                if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, nullptr, SELECT_FLAG_PLAYER))
-                    if (DoCastSpellIfCan(target, m_isRegularMode ? SPELL_ICE_LANCE : SPELL_ICE_LANCE_H) == CAST_OK)
-                        ResetCombatAction(action, 12000);
-                break;
-            case YAZZAI_CONE_OF_COLD:
-                if (DoCastSpellIfCan(m_creature, m_isRegularMode ? SPELL_CONE_OF_COLD : SPELL_CONE_OF_COLD_H) == CAST_OK)
-                    ResetCombatAction(action, 10000);
-                break;
-            case YAZZAI_FROSTBOLT:
-                if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, nullptr, SELECT_FLAG_PLAYER))
-                    if (DoCastSpellIfCan(target, m_isRegularMode ? SPELL_FROSTBOLT : SPELL_FROSTBOLT_H) == CAST_OK)
-                        ResetCombatAction(action, 8000);
-                break;
-            case YAZZAI_BLINK:
-                // if anybody is in melee range than escape by blink
-                if (m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, uint32(0), SELECT_FLAG_IN_MELEE_RANGE))
-                {
-                    if (DoCastSpellIfCan(nullptr, SPELL_BLINK) == CAST_OK)
-                        ResetCombatAction(action, 8000);
-                }
-                else
-                    ResetCombatAction(action, 2000);
-                break;
+            AddCombatAction(YAZZAI_POLYMORPH, 1000u);
+            AddTimerlessCombatAction(YAZZAI_ICE_BLOCK, true);
+            AddCombatAction(YAZZAI_BLIZZARD, 8000u);
+            AddCombatAction(YAZZAI_ICE_LANCE, 12000u);
+            AddCombatAction(YAZZAI_CONE_OF_COLD, 10000u);
+            AddCombatAction(YAZZAI_FROSTBOLT, 3000u);
+            AddCombatAction(YAZZAI_BLINK, 8000u);
+            Reset();
         }
-        priestess_companion_commonAI::ExecuteAction(action);
-    }
+
+        void Reset() override
+        {
+            priestess_companion_commonAI::Reset();
+
+            m_attackDistance = 20.0f;
+        }
+
+        void ExecuteAction(uint32 action) override
+        {
+            switch (action)
+            {
+                case YAZZAI_POLYMORPH:
+                    if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, nullptr, SELECT_FLAG_PLAYER))
+                        if (DoCastSpellIfCan(target, SPELL_POLYMORPH) == CAST_OK)
+                            ResetCombatAction(action, 20000);
+                    break;
+                case YAZZAI_ICE_BLOCK:
+                    if (m_creature->GetHealthPercent() < 35.0f)
+                        if (DoCastSpellIfCan(nullptr, SPELL_ICE_BLOCK) == CAST_OK)
+                            SetActionReadyStatus(action, false);
+                    break;
+                case YAZZAI_BLIZZARD:
+                    if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, nullptr, SELECT_FLAG_PLAYER))
+                        if (DoCastSpellIfCan(target, m_isRegularMode ? SPELL_BLIZZARD : SPELL_BLIZZARD_H) == CAST_OK)
+                            ResetCombatAction(action, urand(8000, 15000));
+                    break;
+                case YAZZAI_ICE_LANCE:
+                    if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, nullptr, SELECT_FLAG_PLAYER))
+                        if (DoCastSpellIfCan(target, m_isRegularMode ? SPELL_ICE_LANCE : SPELL_ICE_LANCE_H) == CAST_OK)
+                            ResetCombatAction(action, 12000);
+                    break;
+                case YAZZAI_CONE_OF_COLD:
+                    if (DoCastSpellIfCan(m_creature, m_isRegularMode ? SPELL_CONE_OF_COLD : SPELL_CONE_OF_COLD_H) == CAST_OK)
+                        ResetCombatAction(action, 10000);
+                    break;
+                case YAZZAI_FROSTBOLT:
+                    if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, nullptr, SELECT_FLAG_PLAYER))
+                        if (DoCastSpellIfCan(target, m_isRegularMode ? SPELL_FROSTBOLT : SPELL_FROSTBOLT_H) == CAST_OK)
+                            ResetCombatAction(action, 8000);
+                    break;
+                case YAZZAI_BLINK:
+                    // if anybody is in melee range than escape by blink
+                    if (m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, uint32(0), SELECT_FLAG_IN_MELEE_RANGE))
+                    {
+                        if (DoCastSpellIfCan(nullptr, SPELL_BLINK) == CAST_OK)
+                            ResetCombatAction(action, 8000);
+                    }
+                    else
+                        ResetCombatAction(action, 2000);
+                    break;
+            }
+            priestess_companion_commonAI::ExecuteAction(action);
+        }
+    };
+
+
+
 };
 
-UnitAI* GetAI_npc_yazzai(Creature* creature)
-{
-    return new npc_yazzaiAI(creature);
-}
 
 enum
 {
@@ -749,69 +804,80 @@ enum
     SALARIS_MORTAL_STRIKE,
     SALARIS_ACTION_MAX,
 };
-
-struct npc_warlord_salarisAI : public priestess_companion_commonAI
+class npc_warlord_salaris : public CreatureScript
 {
-    npc_warlord_salarisAI(Creature* creature) : priestess_companion_commonAI(creature, SALARIS_ACTION_MAX)
+public:
+    npc_warlord_salaris() : CreatureScript("npc_warlord_salaris") { }
+
+    UnitAI* GetAI(Creature* creature)
     {
-        AddCombatAction(SALARIS_INTERCEPT_STUN, 500u);
-        AddCombatAction(SALARIS_DISARM, 6000u);
-        AddCombatAction(SALARIS_PIERCING_HOWL, 10000u);
-        AddCombatAction(SALARIS_FRIGHTENING_SHOUT, 18000u);
-        AddCombatAction(SALARIS_HAMSTRING, 4500u);
-        AddCombatAction(SALARIS_MORTAL_STRIKE, 8000u);
-        Reset();
+        return new npc_warlord_salarisAI(creature);
     }
 
-    void Aggro(Unit* /*who*/) override
-    {
-        DoCastSpellIfCan(m_creature, SPELL_BATTLE_SHOUT);
-    }
 
-    void ExecuteAction(uint32 action) override
+
+    struct npc_warlord_salarisAI : public priestess_companion_commonAI
     {
-        switch (action)
+        npc_warlord_salarisAI(Creature* creature) : priestess_companion_commonAI(creature, SALARIS_ACTION_MAX)
         {
-            case SALARIS_INTERCEPT_STUN:
-                // if nobody is in melee range than try to use Intercept
-                if (!m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, uint32(0), SELECT_FLAG_IN_MELEE_RANGE))
-                {
-                    if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, SPELL_INTERCEPT_STUN, SELECT_FLAG_PLAYER | SELECT_FLAG_NOT_IN_MELEE_RANGE | SELECT_FLAG_IN_LOS))
-                        if (DoCastSpellIfCan(target, SPELL_INTERCEPT_STUN) == CAST_OK)
-                            ResetCombatAction(action, 10000);
-                }
-                else
-                    ResetCombatAction(action, 2000);
-                break;
-            case SALARIS_DISARM:
-                if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_DISARM) == CAST_OK)
-                    ResetCombatAction(action, 6000);
-                break;
-            case SALARIS_PIERCING_HOWL:
-                if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_PIERCING_HOWL) == CAST_OK)
-                    ResetCombatAction(action, 10000);
-                break;
-            case SALARIS_FRIGHTENING_SHOUT:
-                if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_FRIGHTENING_SHOUT) == CAST_OK)
-                    ResetCombatAction(action, 18000);
-                break;
-            case SALARIS_HAMSTRING:
-                if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_HAMSTRING) == CAST_OK)
-                    ResetCombatAction(action, 4500);
-                break;
-            case SALARIS_MORTAL_STRIKE:
-                if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_MORTAL_STRIKE) == CAST_OK)
-                    ResetCombatAction(action, 4500);
-                break;
+            AddCombatAction(SALARIS_INTERCEPT_STUN, 500u);
+            AddCombatAction(SALARIS_DISARM, 6000u);
+            AddCombatAction(SALARIS_PIERCING_HOWL, 10000u);
+            AddCombatAction(SALARIS_FRIGHTENING_SHOUT, 18000u);
+            AddCombatAction(SALARIS_HAMSTRING, 4500u);
+            AddCombatAction(SALARIS_MORTAL_STRIKE, 8000u);
+            Reset();
         }
-        priestess_companion_commonAI::ExecuteAction(action);
-    }
+
+        void Aggro(Unit* /*who*/) override
+        {
+            DoCastSpellIfCan(m_creature, SPELL_BATTLE_SHOUT);
+        }
+
+        void ExecuteAction(uint32 action) override
+        {
+            switch (action)
+            {
+                case SALARIS_INTERCEPT_STUN:
+                    // if nobody is in melee range than try to use Intercept
+                    if (!m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, uint32(0), SELECT_FLAG_IN_MELEE_RANGE))
+                    {
+                        if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, SPELL_INTERCEPT_STUN, SELECT_FLAG_PLAYER | SELECT_FLAG_NOT_IN_MELEE_RANGE | SELECT_FLAG_IN_LOS))
+                            if (DoCastSpellIfCan(target, SPELL_INTERCEPT_STUN) == CAST_OK)
+                                ResetCombatAction(action, 10000);
+                    }
+                    else
+                        ResetCombatAction(action, 2000);
+                    break;
+                case SALARIS_DISARM:
+                    if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_DISARM) == CAST_OK)
+                        ResetCombatAction(action, 6000);
+                    break;
+                case SALARIS_PIERCING_HOWL:
+                    if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_PIERCING_HOWL) == CAST_OK)
+                        ResetCombatAction(action, 10000);
+                    break;
+                case SALARIS_FRIGHTENING_SHOUT:
+                    if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_FRIGHTENING_SHOUT) == CAST_OK)
+                        ResetCombatAction(action, 18000);
+                    break;
+                case SALARIS_HAMSTRING:
+                    if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_HAMSTRING) == CAST_OK)
+                        ResetCombatAction(action, 4500);
+                    break;
+                case SALARIS_MORTAL_STRIKE:
+                    if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_MORTAL_STRIKE) == CAST_OK)
+                        ResetCombatAction(action, 4500);
+                    break;
+            }
+            priestess_companion_commonAI::ExecuteAction(action);
+        }
+    };
+
+
+
 };
 
-UnitAI* GetAI_npc_warlord_salaris(Creature* creature)
-{
-    return new npc_warlord_salarisAI(creature);
-}
 
 enum
 {
@@ -841,70 +907,81 @@ enum GaraxxasActions
     GARAXXAS_FREEZING_TRAP,
     GARAXXAS_ACTION_MAX,
 };
-
-struct npc_garaxxasAI : public priestess_companion_commonAI
+class npc_garaxxas : public CreatureScript
 {
-    npc_garaxxasAI(Creature* creature) : priestess_companion_commonAI(creature, GARAXXAS_ACTION_MAX)
+public:
+    npc_garaxxas() : CreatureScript("npc_garaxxas") { }
+
+    UnitAI* GetAI(Creature* creature)
     {
-        AddCombatAction(GARAXXAS_AIMED_SHOT, 6000u);
-        AddCombatAction(GARAXXAS_SHOOT, 2500u);
-        AddCombatAction(GARAXXAS_CONCUSSIVE_SHOT, 8000u);
-        AddCombatAction(GARAXXAS_MULTI_SHOT, 10000u);
-        AddCombatAction(GARAXXAS_WING_CLIP, 4000u);
-        AddCombatAction(GARAXXAS_FREEZING_TRAP, 15000u);
-        Reset();
+        return new npc_garaxxasAI(creature);
     }
 
-    void Reset() override
-    {
-        priestess_companion_commonAI::Reset();
 
-        // Check if the pet was killed
-        if (!GetClosestCreatureWithEntry(m_creature, NPC_SLIVER, 50.0f))
-            m_creature->SummonCreature(NPC_SLIVER, 0, 0, 0, 0, TEMPSPAWN_CORPSE_DESPAWN, 0);
-    }
 
-    void ExecuteAction(uint32 action) override // TODO: Check ranged mode
+    struct npc_garaxxasAI : public priestess_companion_commonAI
     {
-        switch (action)
+        npc_garaxxasAI(Creature* creature) : priestess_companion_commonAI(creature, GARAXXAS_ACTION_MAX)
         {
-            case GARAXXAS_AIMED_SHOT:
-                if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, nullptr, SELECT_FLAG_PLAYER))
-                    if (DoCastSpellIfCan(target, SPELL_AIMED_SHOT) == CAST_OK)
-                        ResetCombatAction(action, 6000);
-                break;
-            case GARAXXAS_SHOOT:
-                if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0))
-                    if (DoCastSpellIfCan(target, m_isRegularMode ? SPELL_SHOOT : SPELL_SHOOT_H) == CAST_OK)
-                        ResetCombatAction(action, 2500);
-                break;
-            case GARAXXAS_CONCUSSIVE_SHOT:
-                if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, nullptr, SELECT_FLAG_PLAYER))
-                    if (DoCastSpellIfCan(target, SPELL_CONCUSSIVE_SHOT) == CAST_OK)
-                        ResetCombatAction(action, 8000);
-                break;
-            case GARAXXAS_MULTI_SHOT:
-                if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, nullptr, SELECT_FLAG_PLAYER))
-                    if (DoCastSpellIfCan(target, m_isRegularMode ? SPELL_MULTI_SHOT : SPELL_MULTI_SHOT_H) == CAST_OK)
-                        ResetCombatAction(action, 10000);
-                break;
-            case GARAXXAS_WING_CLIP: // melee
-                if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_WING_CLIP) == CAST_OK)
-                    ResetCombatAction(action, 4000);
-                break;
-            case GARAXXAS_FREEZING_TRAP: // melee
-                if (DoCastSpellIfCan(nullptr, SPELL_FREEZING_TRAP) == CAST_OK)
-                    ResetCombatAction(action, urand(15000, 30000));
-                break;
+            AddCombatAction(GARAXXAS_AIMED_SHOT, 6000u);
+            AddCombatAction(GARAXXAS_SHOOT, 2500u);
+            AddCombatAction(GARAXXAS_CONCUSSIVE_SHOT, 8000u);
+            AddCombatAction(GARAXXAS_MULTI_SHOT, 10000u);
+            AddCombatAction(GARAXXAS_WING_CLIP, 4000u);
+            AddCombatAction(GARAXXAS_FREEZING_TRAP, 15000u);
+            Reset();
         }
-        priestess_companion_commonAI::ExecuteAction(action);
-    }
+
+        void Reset() override
+        {
+            priestess_companion_commonAI::Reset();
+
+            // Check if the pet was killed
+            if (!GetClosestCreatureWithEntry(m_creature, NPC_SLIVER, 50.0f))
+                m_creature->SummonCreature(NPC_SLIVER, 0, 0, 0, 0, TEMPSPAWN_CORPSE_DESPAWN, 0);
+        }
+
+        void ExecuteAction(uint32 action) override // TODO: Check ranged mode
+        {
+            switch (action)
+            {
+                case GARAXXAS_AIMED_SHOT:
+                    if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, nullptr, SELECT_FLAG_PLAYER))
+                        if (DoCastSpellIfCan(target, SPELL_AIMED_SHOT) == CAST_OK)
+                            ResetCombatAction(action, 6000);
+                    break;
+                case GARAXXAS_SHOOT:
+                    if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0))
+                        if (DoCastSpellIfCan(target, m_isRegularMode ? SPELL_SHOOT : SPELL_SHOOT_H) == CAST_OK)
+                            ResetCombatAction(action, 2500);
+                    break;
+                case GARAXXAS_CONCUSSIVE_SHOT:
+                    if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, nullptr, SELECT_FLAG_PLAYER))
+                        if (DoCastSpellIfCan(target, SPELL_CONCUSSIVE_SHOT) == CAST_OK)
+                            ResetCombatAction(action, 8000);
+                    break;
+                case GARAXXAS_MULTI_SHOT:
+                    if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, nullptr, SELECT_FLAG_PLAYER))
+                        if (DoCastSpellIfCan(target, m_isRegularMode ? SPELL_MULTI_SHOT : SPELL_MULTI_SHOT_H) == CAST_OK)
+                            ResetCombatAction(action, 10000);
+                    break;
+                case GARAXXAS_WING_CLIP: // melee
+                    if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_WING_CLIP) == CAST_OK)
+                        ResetCombatAction(action, 4000);
+                    break;
+                case GARAXXAS_FREEZING_TRAP: // melee
+                    if (DoCastSpellIfCan(nullptr, SPELL_FREEZING_TRAP) == CAST_OK)
+                        ResetCombatAction(action, urand(15000, 30000));
+                    break;
+            }
+            priestess_companion_commonAI::ExecuteAction(action);
+        }
+    };
+
+
+
 };
 
-UnitAI* GetAI_npc_garaxxas(Creature* creature)
-{
-    return new npc_garaxxasAI(creature);
-}
 
 enum
 {
@@ -932,60 +1009,71 @@ enum ApokoActions
     APOKO_FROST_SHOCK,
     APOKO_ACTION_MAX,
 };
-
-struct npc_apokoAI : public priestess_companion_commonAI
+class npc_apoko : public CreatureScript
 {
-    npc_apokoAI(Creature* creature) : priestess_companion_commonAI(creature, APOKO_ACTION_MAX)
+public:
+    npc_apoko() : CreatureScript("npc_apoko") { }
+
+    UnitAI* GetAI(Creature* creature)
     {
-        AddCombatAction(APOKO_TOTEM, 0u);
-        AddCombatAction(APOKO_WAR_STOMP, 10000u);
-        AddCombatAction(APOKO_PURGE, 8000u);
-        AddCombatAction(APOKO_HEALING_WAVE, 5000u);
-        AddCombatAction(APOKO_FROST_SHOCK, 7000u);
-        Reset();
+        return new npc_apokoAI(creature);
     }
 
-    void ExecuteAction(uint32 action) override
+
+
+    struct npc_apokoAI : public priestess_companion_commonAI
     {
-        switch (action)
+        npc_apokoAI(Creature* creature) : priestess_companion_commonAI(creature, APOKO_ACTION_MAX)
         {
-            case APOKO_TOTEM:
-                // It's not very clear how exactly these spells should be cast
-                switch (urand(0, 2))
-                {
-                    case 0: DoCastSpellIfCan(nullptr, SPELL_WINDFURY_TOTEM);  break;
-                    case 1: DoCastSpellIfCan(nullptr, SPELL_FIRE_NOVA_TOTEM); break;
-                    case 2: DoCastSpellIfCan(nullptr, SPELL_EARTHBIND_TOTEM); break;
-                }
-                ResetCombatAction(action, urand(2000, 6000));
-                break;
-            case APOKO_WAR_STOMP:
-                if (DoCastSpellIfCan(nullptr, SPELL_WAR_STOMP) == CAST_OK)
-                    ResetCombatAction(action, 10000);
-                break;
-            case APOKO_PURGE:
-                if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, nullptr, SELECT_FLAG_PLAYER))
-                    if (DoCastSpellIfCan(target, SPELL_PURGE) == CAST_OK)
-                        ResetCombatAction(action, 15000);
-                break;
-            case APOKO_HEALING_WAVE:
-                if (Unit* target = DoSelectLowestHpFriendly(50.0f))
-                    if (DoCastSpellIfCan(target, m_isRegularMode ? SPELL_LESSER_HEALING_WAVE : SPELL_LESSER_HEALING_WAVE_H) == CAST_OK)
-                        ResetCombatAction(action, 5000);
-                break;
-            case APOKO_FROST_SHOCK:
-                if (DoCastSpellIfCan(m_creature->GetVictim(), m_isRegularMode ? SPELL_FROST_SHOCK : SPELL_FROST_SHOCK_H) == CAST_OK)
-                    ResetCombatAction(action, 7000);
-                break;
+            AddCombatAction(APOKO_TOTEM, 0u);
+            AddCombatAction(APOKO_WAR_STOMP, 10000u);
+            AddCombatAction(APOKO_PURGE, 8000u);
+            AddCombatAction(APOKO_HEALING_WAVE, 5000u);
+            AddCombatAction(APOKO_FROST_SHOCK, 7000u);
+            Reset();
         }
-        priestess_companion_commonAI::ExecuteAction(action);
-    }
+
+        void ExecuteAction(uint32 action) override
+        {
+            switch (action)
+            {
+                case APOKO_TOTEM:
+                    // It's not very clear how exactly these spells should be cast
+                    switch (urand(0, 2))
+                    {
+                        case 0: DoCastSpellIfCan(nullptr, SPELL_WINDFURY_TOTEM);  break;
+                        case 1: DoCastSpellIfCan(nullptr, SPELL_FIRE_NOVA_TOTEM); break;
+                        case 2: DoCastSpellIfCan(nullptr, SPELL_EARTHBIND_TOTEM); break;
+                    }
+                    ResetCombatAction(action, urand(2000, 6000));
+                    break;
+                case APOKO_WAR_STOMP:
+                    if (DoCastSpellIfCan(nullptr, SPELL_WAR_STOMP) == CAST_OK)
+                        ResetCombatAction(action, 10000);
+                    break;
+                case APOKO_PURGE:
+                    if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, nullptr, SELECT_FLAG_PLAYER))
+                        if (DoCastSpellIfCan(target, SPELL_PURGE) == CAST_OK)
+                            ResetCombatAction(action, 15000);
+                    break;
+                case APOKO_HEALING_WAVE:
+                    if (Unit* target = DoSelectLowestHpFriendly(50.0f))
+                        if (DoCastSpellIfCan(target, m_isRegularMode ? SPELL_LESSER_HEALING_WAVE : SPELL_LESSER_HEALING_WAVE_H) == CAST_OK)
+                            ResetCombatAction(action, 5000);
+                    break;
+                case APOKO_FROST_SHOCK:
+                    if (DoCastSpellIfCan(m_creature->GetVictim(), m_isRegularMode ? SPELL_FROST_SHOCK : SPELL_FROST_SHOCK_H) == CAST_OK)
+                        ResetCombatAction(action, 7000);
+                    break;
+            }
+            priestess_companion_commonAI::ExecuteAction(action);
+        }
+    };
+
+
+
 };
 
-UnitAI* GetAI_npc_apoko(Creature* creature)
-{
-    return new npc_apokoAI(creature);
-}
 
 enum
 {
@@ -1012,117 +1100,94 @@ enum ZelfanActions
     ZELFAN_FEL_IRON_BOMB,
     ZELFAN_ACTIONS_MAX,
 };
-
-struct npc_zelfanAI : public priestess_companion_commonAI
+class npc_zelfan : public CreatureScript
 {
-    npc_zelfanAI(Creature* creature) : priestess_companion_commonAI(creature, ZELFAN_ACTIONS_MAX)
+public:
+    npc_zelfan() : CreatureScript("npc_zelfan") { }
+
+    UnitAI* GetAI(Creature* creature)
     {
-        AddCombatAction(ZELFAN_GOBLIN_DRAGON_GUN, 20000u);
-        AddCombatAction(ZELFAN_ROCKET_LAUNCH, 7000u);
-        AddCombatAction(ZELFAN_RECOMBOBULATE, 4000u);
-        AddCombatAction(ZELFAN_HIGH_EXPLOSIVE_SHEEP, 1200u);
-        AddCombatAction(ZELFAN_FEL_IRON_BOMB, 15000u);
-        Reset();
+        return new npc_zelfanAI(creature);
     }
 
-    void JustSummoned(Creature* summoned) override
-    {
-        if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_NEAREST_BY, 0, nullptr, SELECT_FLAG_PLAYER))
-            summoned->AI()->AttackStart(m_creature->GetVictim());
-    }
 
-    void ExecuteAction(uint32 action) override
+
+    struct npc_zelfanAI : public priestess_companion_commonAI
     {
-        switch (action)
+        npc_zelfanAI(Creature* creature) : priestess_companion_commonAI(creature, ZELFAN_ACTIONS_MAX)
         {
-            case ZELFAN_GOBLIN_DRAGON_GUN:
-                if (DoCastSpellIfCan(nullptr, m_isRegularMode ? SPELL_GOBLIN_DRAGON_GUN : SPELL_GOBLIN_DRAGON_GUN_H) == CAST_OK)
-                    ResetCombatAction(action, urand(10000, 20000));
-                break;
-            case ZELFAN_ROCKET_LAUNCH:
-                if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, nullptr, SELECT_FLAG_PLAYER))
-                    if (DoCastSpellIfCan(target, m_isRegularMode ? SPELL_ROCKET_LAUNCH : SPELL_ROCKET_LAUNCH_H) == CAST_OK)
-                        ResetCombatAction(action, 9000);
-                break;
-            case ZELFAN_RECOMBOBULATE:
-            {
-                // Note: this should be casted only on Polyformed targets
-                Unit* target = nullptr;
-                std::list<Creature*> lTempList = DoFindFriendlyCC(50.0f);
-
-                if (!lTempList.empty())
-                    target = *(lTempList.begin());
-                else
-                    target = DoSelectLowestHpFriendly(50.0f);
-
-                if (target)
-                    if (DoCastSpellIfCan(target, SPELL_RECOMBOBULATE) == CAST_OK)
-                        ResetCombatAction(action, 2000);
-                break;
-            }
-            case ZELFAN_HIGH_EXPLOSIVE_SHEEP:
-                if (DoCastSpellIfCan(nullptr, SPELL_HIGH_EXPLOSIVE_SHEEP) == CAST_OK)
-                    ResetCombatAction(action, 65000);
-                break;
-            case ZELFAN_FEL_IRON_BOMB:
-                if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, nullptr, SELECT_FLAG_PLAYER))
-                    if (DoCastSpellIfCan(target, m_isRegularMode ? SPELL_FEL_IRON_BOMB : SPELL_FEL_IRON_BOMB_H) == CAST_OK)
-                        ResetCombatAction(action, 15000);
-                break;
+            AddCombatAction(ZELFAN_GOBLIN_DRAGON_GUN, 20000u);
+            AddCombatAction(ZELFAN_ROCKET_LAUNCH, 7000u);
+            AddCombatAction(ZELFAN_RECOMBOBULATE, 4000u);
+            AddCombatAction(ZELFAN_HIGH_EXPLOSIVE_SHEEP, 1200u);
+            AddCombatAction(ZELFAN_FEL_IRON_BOMB, 15000u);
+            Reset();
         }
-        priestess_companion_commonAI::ExecuteAction(action);
-    }
+
+        void JustSummoned(Creature* summoned) override
+        {
+            if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_NEAREST_BY, 0, nullptr, SELECT_FLAG_PLAYER))
+                summoned->AI()->AttackStart(m_creature->GetVictim());
+        }
+
+        void ExecuteAction(uint32 action) override
+        {
+            switch (action)
+            {
+                case ZELFAN_GOBLIN_DRAGON_GUN:
+                    if (DoCastSpellIfCan(nullptr, m_isRegularMode ? SPELL_GOBLIN_DRAGON_GUN : SPELL_GOBLIN_DRAGON_GUN_H) == CAST_OK)
+                        ResetCombatAction(action, urand(10000, 20000));
+                    break;
+                case ZELFAN_ROCKET_LAUNCH:
+                    if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, nullptr, SELECT_FLAG_PLAYER))
+                        if (DoCastSpellIfCan(target, m_isRegularMode ? SPELL_ROCKET_LAUNCH : SPELL_ROCKET_LAUNCH_H) == CAST_OK)
+                            ResetCombatAction(action, 9000);
+                    break;
+                case ZELFAN_RECOMBOBULATE:
+                {
+                    // Note: this should be casted only on Polyformed targets
+                    Unit* target = nullptr;
+                    std::list<Creature*> lTempList = DoFindFriendlyCC(50.0f);
+
+                    if (!lTempList.empty())
+                        target = *(lTempList.begin());
+                    else
+                        target = DoSelectLowestHpFriendly(50.0f);
+
+                    if (target)
+                        if (DoCastSpellIfCan(target, SPELL_RECOMBOBULATE) == CAST_OK)
+                            ResetCombatAction(action, 2000);
+                    break;
+                }
+                case ZELFAN_HIGH_EXPLOSIVE_SHEEP:
+                    if (DoCastSpellIfCan(nullptr, SPELL_HIGH_EXPLOSIVE_SHEEP) == CAST_OK)
+                        ResetCombatAction(action, 65000);
+                    break;
+                case ZELFAN_FEL_IRON_BOMB:
+                    if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, nullptr, SELECT_FLAG_PLAYER))
+                        if (DoCastSpellIfCan(target, m_isRegularMode ? SPELL_FEL_IRON_BOMB : SPELL_FEL_IRON_BOMB_H) == CAST_OK)
+                            ResetCombatAction(action, 15000);
+                    break;
+            }
+            priestess_companion_commonAI::ExecuteAction(action);
+        }
+    };
+
+
+
 };
 
-UnitAI* GetAI_npc_zelfan(Creature* creature)
-{
-    return new npc_zelfanAI(creature);
-}
 
 void AddSC_boss_priestess_delrissa()
 {
-    Script* pNewScript = new Script;
-    pNewScript->Name = "boss_priestess_delrissa";
-    pNewScript->GetAI = &GetAI_boss_priestess_delrissa;
-    pNewScript->RegisterSelf();
+    new boss_priestess_delrissa();
+    new npc_kagani_nightstrike();
+    new npc_ellris_duskhallow();
+    new npc_eramas_brightblaze();
+    new npc_yazzai();
+    new npc_warlord_salaris();
+    new npc_garaxxas();
+    new npc_apoko();
+    new npc_zelfan();
 
-    pNewScript = new Script;
-    pNewScript->Name = "npc_kagani_nightstrike";
-    pNewScript->GetAI = &GetAI_npc_kagani_nightstrike;
-    pNewScript->RegisterSelf();
-
-    pNewScript = new Script;
-    pNewScript->Name = "npc_ellris_duskhallow";
-    pNewScript->GetAI = &GetAI_npc_ellris_duskhallow;
-    pNewScript->RegisterSelf();
-
-    pNewScript = new Script;
-    pNewScript->Name = "npc_eramas_brightblaze";
-    pNewScript->GetAI = &GetAI_npc_eramas_brightblaze;
-    pNewScript->RegisterSelf();
-
-    pNewScript = new Script;
-    pNewScript->Name = "npc_yazzai";
-    pNewScript->GetAI = &GetAI_npc_yazzai;
-    pNewScript->RegisterSelf();
-
-    pNewScript = new Script;
-    pNewScript->Name = "npc_warlord_salaris";
-    pNewScript->GetAI = &GetAI_npc_warlord_salaris;
-    pNewScript->RegisterSelf();
-
-    pNewScript = new Script;
-    pNewScript->Name = "npc_garaxxas";
-    pNewScript->GetAI = &GetAI_npc_garaxxas;
-    pNewScript->RegisterSelf();
-
-    pNewScript = new Script;
-    pNewScript->Name = "npc_apoko";
-    pNewScript->GetAI = &GetAI_npc_apoko;
-    pNewScript->RegisterSelf();
-
-    pNewScript = new Script;
-    pNewScript->Name = "npc_zelfan";
-    pNewScript->GetAI = &GetAI_npc_zelfan;
-    pNewScript->RegisterSelf();
 }

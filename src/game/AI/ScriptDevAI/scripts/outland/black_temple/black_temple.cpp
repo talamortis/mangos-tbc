@@ -464,16 +464,23 @@ void instance_black_temple::Load(const char* chrIn)
 
     OUT_LOAD_INST_DATA_COMPLETE;
 }
-
-InstanceData* GetInstanceData_instance_black_temple(Map* map)
+class instance_black_temple : public InstanceMapScript
 {
-    return new instance_black_temple(map);
-}
+public:
+    instance_black_temple() : InstanceMapScript("instance_black_temple") { }
+
+    InstanceData* GetInstanceScript(Map* map) const override
+    {
+        return new instance_black_temple(map);
+    }
+
+
+
+
+};
 
 void AddSC_instance_black_temple()
 {
-    Script* pNewScript = new Script;
-    pNewScript->Name = "instance_black_temple";
-    pNewScript->GetInstanceData = &GetInstanceData_instance_black_temple;
-    pNewScript->RegisterSelf();
+    new instance_black_temple();
+
 }

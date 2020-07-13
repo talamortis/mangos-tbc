@@ -375,35 +375,46 @@ void instance_temple_of_ahnqiraj::Update(uint32 uiDiff)
     else
         m_uiCthunWhisperTimer -= uiDiff;
 }
-
-InstanceData* GetInstanceData_instance_temple_of_ahnqiraj(Map* pMap)
+class instance_temple_of_ahnqiraj : public InstanceMapScript
 {
-    return new instance_temple_of_ahnqiraj(pMap);
-}
+public:
+    instance_temple_of_ahnqiraj() : InstanceMapScript("instance_temple_of_ahnqiraj") { }
 
-bool AreaTrigger_at_temple_ahnqiraj(Player* player, AreaTriggerEntry const* at)
-{
-    if (at->id == AREATRIGGER_TWIN_EMPERORS || at->id == AREATRIGGER_SARTURA)
+    InstanceData* GetInstanceScript(Map* pMap) const override
     {
-        if (player->isGameMaster() || !player->IsAlive())
-            return false;
-
-        if (instance_temple_of_ahnqiraj* pInstance = (instance_temple_of_ahnqiraj*)player->GetInstanceData())
-            pInstance->DoHandleTempleAreaTrigger(at->id, player);
+        return new instance_temple_of_ahnqiraj(pMap);
     }
 
-    return false;
-}
+
+
+
+};
+class at_temple_ahnqiraj : public AreaTriggerScript
+{
+public:
+    at_temple_ahnqiraj() : AreaTriggerScript("at_temple_ahnqiraj") { }
+
+    bool OnTrigger(Player* player, AreaTriggerEntry const* at) override
+    {
+        if (at->id == AREATRIGGER_TWIN_EMPERORS || at->id == AREATRIGGER_SARTURA)
+        {
+            if (player->isGameMaster() || !player->IsAlive())
+                return false;
+
+            if (instance_temple_of_ahnqiraj* pInstance = (instance_temple_of_ahnqiraj*)player->GetInstanceData())
+                pInstance->DoHandleTempleAreaTrigger(at->id, player);
+        }
+
+        return false;
+    }
+
+
+
+};
 
 void AddSC_instance_temple_of_ahnqiraj()
 {
-    Script* pNewScript = new Script;
-    pNewScript->Name = "instance_temple_of_ahnqiraj";
-    pNewScript->GetInstanceData = &GetInstanceData_instance_temple_of_ahnqiraj;
-    pNewScript->RegisterSelf();
+    new instance_temple_of_ahnqiraj();
+    new at_temple_ahnqiraj();
 
-    pNewScript = new Script;
-    pNewScript->Name = "at_temple_ahnqiraj";
-    pNewScript->pAreaTrigger = &AreaTrigger_at_temple_ahnqiraj;
-    pNewScript->RegisterSelf();
 }

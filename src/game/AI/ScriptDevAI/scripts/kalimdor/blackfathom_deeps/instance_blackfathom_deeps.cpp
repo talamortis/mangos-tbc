@@ -245,60 +245,75 @@ void instance_blackfathom_deeps::Update(uint32 uiDiff)
         }
     }
 }
-
-InstanceData* GetInstanceData_instance_blackfathom_deeps(Map* pMap)
+class instance_blackfathom_deeps : public InstanceMapScript
 {
-    return new instance_blackfathom_deeps(pMap);
-}
+public:
+    instance_blackfathom_deeps() : InstanceMapScript("instance_blackfathom_deeps") { }
 
-bool GOUse_go_fire_of_akumai(Player* /*pPlayer*/, GameObject* pGo)
-{
-    instance_blackfathom_deeps* pInstance = (instance_blackfathom_deeps*)pGo->GetInstanceData();
-
-    if (!pInstance)
-        return true;
-
-    if (pInstance->GetData(TYPE_SHRINE) == DONE)
-        return true;
-
-    if (pInstance->GetData(TYPE_KELRIS) == DONE)
+    InstanceData* GetInstanceScript(Map* pMap) const override
     {
-        pInstance->SetData(TYPE_SHRINE, IN_PROGRESS);
+        return new instance_blackfathom_deeps(pMap);
+    }
+
+
+
+
+};
+class go_fire_of_akumai : public GameObjectScript
+{
+public:
+    go_fire_of_akumai() : GameObjectScript("go_fire_of_akumai") { }
+
+    bool OnGameObjectUse(Player* /*pPlayer*/, GameObject* pGo) override
+    {
+        instance_blackfathom_deeps* pInstance = (instance_blackfathom_deeps*)pGo->GetInstanceData();
+
+        if (!pInstance)
+            return true;
+
+        if (pInstance->GetData(TYPE_SHRINE) == DONE)
+            return true;
+
+        if (pInstance->GetData(TYPE_KELRIS) == DONE)
+        {
+            pInstance->SetData(TYPE_SHRINE, IN_PROGRESS);
+            return false;
+        }
+
+        return true;
+    }
+
+
+
+};
+class go_fathom_stone : public GameObjectScript
+{
+public:
+    go_fathom_stone() : GameObjectScript("go_fathom_stone") { }
+
+    bool OnGameObjectUse(Player* pPlayer, GameObject* pGo) override
+    {
+        instance_blackfathom_deeps* pInstance = (instance_blackfathom_deeps*)pGo->GetInstanceData();
+        if (!pInstance)
+            return true;
+
+        if (pInstance->GetData(TYPE_AQUANIS) == NOT_STARTED)
+        {
+            pPlayer->SummonCreature(NPC_BARON_AQUANIS, afAquanisPos[0], afAquanisPos[1], afAquanisPos[2], afAquanisPos[3], TEMPSPAWN_DEAD_DESPAWN, 0);
+            pInstance->SetData(TYPE_AQUANIS, IN_PROGRESS);
+        }
+
         return false;
     }
 
-    return true;
-}
 
-bool GOUse_go_fathom_stone(Player* pPlayer, GameObject* pGo)
-{
-    instance_blackfathom_deeps* pInstance = (instance_blackfathom_deeps*)pGo->GetInstanceData();
-    if (!pInstance)
-        return true;
 
-    if (pInstance->GetData(TYPE_AQUANIS) == NOT_STARTED)
-    {
-        pPlayer->SummonCreature(NPC_BARON_AQUANIS, afAquanisPos[0], afAquanisPos[1], afAquanisPos[2], afAquanisPos[3], TEMPSPAWN_DEAD_DESPAWN, 0);
-        pInstance->SetData(TYPE_AQUANIS, IN_PROGRESS);
-    }
-
-    return false;
-}
+};
 
 void AddSC_instance_blackfathom_deeps()
 {
-    Script* pNewScript = new Script;
-    pNewScript->Name = "instance_blackfathom_deeps";
-    pNewScript->GetInstanceData = &GetInstanceData_instance_blackfathom_deeps;
-    pNewScript->RegisterSelf();
+    new instance_blackfathom_deeps();
+    new go_fire_of_akumai();
+    new go_fathom_stone();
 
-    pNewScript = new Script;
-    pNewScript->Name = "go_fire_of_akumai";
-    pNewScript->pGOUse = &GOUse_go_fire_of_akumai;
-    pNewScript->RegisterSelf();
-
-    pNewScript = new Script;
-    pNewScript->Name = "go_fathom_stone";
-    pNewScript->pGOUse = &GOUse_go_fathom_stone;
-    pNewScript->RegisterSelf();
 }

@@ -45,58 +45,70 @@ enum
 
     SPELL_WAITING_TO_RESURRECT      = 2584                  // players who cancel this aura don't want a resurrection
 };
-
-struct npc_spirit_guideAI : public ScriptedAI
+class npc_spirit_guide : public CreatureScript
 {
-    npc_spirit_guideAI(Creature* pCreature) : ScriptedAI(pCreature)
+public:
+    npc_spirit_guide() : CreatureScript("npc_spirit_guide") { }
+
+    bool OnGossipHello(Player* pPlayer, Creature* /*pCreature*/) override
     {
-        pCreature->SetActiveObjectState(true);
-        Reset();
+        pPlayer->CastSpell(pPlayer, SPELL_WAITING_TO_RESURRECT, TRIGGERED_OLD_TRIGGERED);
+        return true;
     }
 
-    void Reset() override {}
 
-    void UpdateAI(const uint32 /*uiDiff*/) override
+
+
+    struct npc_spirit_guideAI : public ScriptedAI
     {
-        // auto cast the whole time this spell
-        if (!m_creature->GetCurrentSpell(CURRENT_CHANNELED_SPELL))
-            m_creature->CastSpell(m_creature, SPELL_SPIRIT_HEAL_CHANNEL, TRIGGERED_NONE);
-    }
-
-    void CorpseRemoved(uint32&) override
-    {
-        // TODO: would be better to cast a dummy spell
-        Map* pMap = m_creature->GetMap();
-
-        if (!pMap || !pMap->IsBattleGround())
-            return;
-
-        Map::PlayerList const& PlayerList = pMap->GetPlayers();
-
-        for (const auto& itr : PlayerList)
+        npc_spirit_guideAI(Creature* pCreature) : ScriptedAI(pCreature)
         {
-            Player* pPlayer = itr.getSource();
-            if (!pPlayer || !pPlayer->IsWithinDistInMap(m_creature, 20.0f) || !pPlayer->HasAura(SPELL_WAITING_TO_RESURRECT))
-                continue;
-
-            // repop player again - now this node won't be counted and another node is searched
-            pPlayer->RepopAtGraveyard();
+            pCreature->SetActiveObjectState(true);
+            Reset();
         }
-    }
 
-    void SpellHitTarget(Unit* pUnit, const SpellEntry* pSpellEntry) override
-    {
-        if (pSpellEntry->Id == SPELL_SPIRIT_HEAL && pUnit->GetTypeId() == TYPEID_PLAYER
-                && pUnit->HasAura(SPELL_WAITING_TO_RESURRECT))
-            pUnit->CastSpell(pUnit, SPELL_SPIRIT_HEAL_MANA, TRIGGERED_OLD_TRIGGERED);
-    }
+        void Reset() override {}
+
+        void UpdateAI(const uint32 /*uiDiff*/) override
+        {
+            // auto cast the whole time this spell
+            if (!m_creature->GetCurrentSpell(CURRENT_CHANNELED_SPELL))
+                m_creature->CastSpell(m_creature, SPELL_SPIRIT_HEAL_CHANNEL, TRIGGERED_NONE);
+        }
+
+        void CorpseRemoved(uint32&) override
+        {
+            // TODO: would be better to cast a dummy spell
+            Map* pMap = m_creature->GetMap();
+
+            if (!pMap || !pMap->IsBattleGround())
+                return;
+
+            Map::PlayerList const& PlayerList = pMap->GetPlayers();
+
+            for (const auto& itr : PlayerList)
+            {
+                Player* pPlayer = itr.getSource();
+                if (!pPlayer || !pPlayer->IsWithinDistInMap(m_creature, 20.0f) || !pPlayer->HasAura(SPELL_WAITING_TO_RESURRECT))
+                    continue;
+
+                // repop player again - now this node won't be counted and another node is searched
+                pPlayer->RepopAtGraveyard();
+            }
+        }
+
+        void SpellHitTarget(Unit* pUnit, const SpellEntry* pSpellEntry) override
+        {
+            if (pSpellEntry->Id == SPELL_SPIRIT_HEAL && pUnit->GetTypeId() == TYPEID_PLAYER
+                    && pUnit->HasAura(SPELL_WAITING_TO_RESURRECT))
+                pUnit->CastSpell(pUnit, SPELL_SPIRIT_HEAL_MANA, TRIGGERED_OLD_TRIGGERED);
+        }
+    };
+
+
+
 };
 
-bool GossipHello_npc_spirit_guide(Player* pPlayer, Creature* /*pCreature*/)
-{
-    pPlayer->CastSpell(pPlayer, SPELL_WAITING_TO_RESURRECT, TRIGGERED_OLD_TRIGGERED);
-    return true;
-}
 
 struct GYMidTrigger : public SpellScript
 {
@@ -120,11 +132,7 @@ struct GYMidTrigger : public SpellScript
 
 void AddSC_battleground()
 {
-    Script* pNewScript = new Script;
-    pNewScript->Name = "npc_spirit_guide";
-    pNewScript->GetAI = &GetNewAIInstance<npc_spirit_guideAI>;
-    pNewScript->pGossipHello = &GossipHello_npc_spirit_guide;
-    pNewScript->RegisterSelf();
+    new npc_spirit_guide();
 
     RegisterSpellScript<GYMidTrigger>("spell_gy_mid_trigger");
 }

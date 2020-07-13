@@ -116,16 +116,23 @@ uint32 instance_razorfen_kraul::GetData(uint32 uiType) const
     }
     return 0;
 }
-
-InstanceData* GetInstanceData_instance_razorfen_kraul(Map* pMap)
+class instance_razorfen_kraul : public InstanceMapScript
 {
-    return new instance_razorfen_kraul(pMap);
-}
+public:
+    instance_razorfen_kraul() : InstanceMapScript("instance_razorfen_kraul") { }
+
+    InstanceData* GetInstanceScript(Map* pMap) const override
+    {
+        return new instance_razorfen_kraul(pMap);
+    }
+
+
+
+
+};
 
 void AddSC_instance_razorfen_kraul()
 {
-    Script* pNewScript = new Script;
-    pNewScript->Name = "instance_razorfen_kraul";
-    pNewScript->GetInstanceData = &GetInstanceData_instance_razorfen_kraul;
-    pNewScript->RegisterSelf();
+    new instance_razorfen_kraul();
+
 }

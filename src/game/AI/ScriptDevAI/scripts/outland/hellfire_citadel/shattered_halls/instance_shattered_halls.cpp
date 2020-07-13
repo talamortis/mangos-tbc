@@ -384,11 +384,20 @@ void instance_shattered_halls::DoCastGroupDebuff(uint32 uiSpellId)
             pPlayer->CastSpell(pPlayer, uiSpellId, TRIGGERED_OLD_TRIGGERED);
     }
 }
-
-InstanceData* GetInstanceData_instance_shattered_halls(Map* pMap)
+class instance_shattered_halls : public InstanceMapScript
 {
-    return new instance_shattered_halls(pMap);
-}
+public:
+    instance_shattered_halls() : InstanceMapScript("instance_shattered_halls") { }
+
+    InstanceData* GetInstanceScript(Map* pMap) const override
+    {
+        return new instance_shattered_halls(pMap);
+    }
+
+
+
+
+};
 
 enum {
     NPC_SHATTERED_HAND_SCOUT  = 17693,
@@ -746,11 +755,19 @@ struct npc_Gauntlet_of_Fire : public ScriptedAI
         }
     }
 };
-
-UnitAI* GetAI_npc_Gauntlet_of_Fire(Creature* pCreature)
+class npc_gauntlet_of_fire : public CreatureScript
 {
-    return new npc_Gauntlet_of_Fire(pCreature);
-}
+public:
+    npc_gauntlet_of_fire() : CreatureScript("npc_gauntlet_of_fire") { }
+
+    UnitAI* GetAI_npc_Gauntlet_of_Fire(Creature* pCreature)
+    {
+        return new npc_Gauntlet_of_Fire(pCreature);
+    }
+
+
+
+};
 
 // Scout scripting
 struct npc_Shattered_Hand_Scout : public ScriptedAI
@@ -822,57 +839,58 @@ struct npc_Shattered_Hand_Scout : public ScriptedAI
         return;
     }
 };
-
-UnitAI* GetAI_npc_Shattered_Hand_Scout(Creature* pCreature)
+class npc_shattered_hand_scout : public CreatureScript
 {
-    return new npc_Shattered_Hand_Scout(pCreature);
-}
+public:
+    npc_shattered_hand_scout() : CreatureScript("npc_shattered_hand_scout") { }
+
+    UnitAI* GetAI_npc_Shattered_Hand_Scout(Creature* pCreature)
+    {
+        return new npc_Shattered_Hand_Scout(pCreature);
+    }
 
 
-bool AreaTrigger_at_shattered_halls(Player* pPlayer, AreaTriggerEntry const* /*pAt*/)
+
+};
+
+class at_shattered_halls : public AreaTriggerScript
 {
-    if (pPlayer->isGameMaster() || !pPlayer->IsAlive())
-        return false;
+public:
+    at_shattered_halls() : AreaTriggerScript("at_shattered_halls") { }
 
-    instance_shattered_halls* pInstance = (instance_shattered_halls*)pPlayer->GetInstanceData();
+    bool OnTrigger(Player* pPlayer, AreaTriggerEntry const* /*pAt*/) override
+    {
+        if (pPlayer->isGameMaster() || !pPlayer->IsAlive())
+            return false;
 
-    if (!pInstance)
-        return false;
+        instance_shattered_halls* pInstance = (instance_shattered_halls*)pPlayer->GetInstanceData();
 
-    // Only on heroic
-    if (pInstance->instance->IsRegularDifficulty())
-        return false;
+        if (!pInstance)
+            return false;
 
-    // Don't allow players to cheat
-    if (pInstance->GetData(TYPE_BLADEFIST) == DONE || pInstance->GetData(TYPE_OMROGG) == DONE)
-        return false;
+        // Only on heroic
+        if (pInstance->instance->IsRegularDifficulty())
+            return false;
 
-    if (pInstance->GetData(TYPE_EXECUTION) == NOT_STARTED)
-        pInstance->SetData(TYPE_EXECUTION, IN_PROGRESS);
+        // Don't allow players to cheat
+        if (pInstance->GetData(TYPE_BLADEFIST) == DONE || pInstance->GetData(TYPE_OMROGG) == DONE)
+            return false;
 
-    return true;
-}
+        if (pInstance->GetData(TYPE_EXECUTION) == NOT_STARTED)
+            pInstance->SetData(TYPE_EXECUTION, IN_PROGRESS);
+
+        return true;
+    }
+
+
+
+};
 
 void AddSC_instance_shattered_halls()
 {
-    Script* pNewScript = new Script;
-    pNewScript->Name = "instance_shattered_halls";
-    pNewScript->GetInstanceData = &GetInstanceData_instance_shattered_halls;
-    pNewScript->RegisterSelf();
-
-    pNewScript = new Script;
-    pNewScript->Name = "at_shattered_halls";
-    pNewScript->pAreaTrigger = &AreaTrigger_at_shattered_halls;
-    pNewScript->RegisterSelf();
-
-    pNewScript = new Script;
-    pNewScript->Name = "npc_gauntlet_of_fire";
-    pNewScript->GetAI = &GetAI_npc_Gauntlet_of_Fire;
-    pNewScript->RegisterSelf();
-
-    pNewScript = new Script;
-    pNewScript->Name = "npc_shattered_hand_scout";
-    pNewScript->GetAI = &GetAI_npc_Shattered_Hand_Scout;
-    pNewScript->RegisterSelf();
+    new instance_shattered_halls();
+    new at_shattered_halls();
+    new npc_gauntlet_of_fire();
+    new npc_shattered_hand_scout();
 
 }

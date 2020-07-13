@@ -37,100 +37,109 @@ enum
     SPELL_EXPLODING_BREAKER_H   = 40059,
     SPELL_DOMINATION            = 30923
 };
-
-struct boss_the_makerAI : public ScriptedAI
+class boss_the_maker : public CreatureScript
 {
-    boss_the_makerAI(Creature* pCreature) : ScriptedAI(pCreature)
+public:
+    boss_the_maker() : CreatureScript("boss_the_maker") { }
+
+    UnitAI* GetAI(Creature* pCreature)
     {
-        m_pInstance = (ScriptedInstance*)pCreature->GetInstanceData();
-        m_bIsRegularMode = pCreature->GetMap()->IsRegularDifficulty();
-        Reset();
+        return new boss_the_makerAI(pCreature);
     }
 
-    ScriptedInstance* m_pInstance;
-    bool m_bIsRegularMode;
 
-    uint32 m_uiExplodingBreakerTimer;
-    uint32 m_uiDominationTimer;
 
-    void Reset() override
+    struct boss_the_makerAI : public ScriptedAI
     {
-        m_uiExplodingBreakerTimer   = 6000;
-        m_uiDominationTimer         = 20000;
-    }
-
-    void Aggro(Unit* /*pWho*/) override
-    {
-        switch (urand(0, 2))
+        boss_the_makerAI(Creature* pCreature) : ScriptedAI(pCreature)
         {
-            case 0: DoScriptText(SAY_AGGRO_1, m_creature); break;
-            case 1: DoScriptText(SAY_AGGRO_2, m_creature); break;
-            case 2: DoScriptText(SAY_AGGRO_3, m_creature); break;
+            m_pInstance = (ScriptedInstance*)pCreature->GetInstanceData();
+            m_bIsRegularMode = pCreature->GetMap()->IsRegularDifficulty();
+            Reset();
         }
 
-        if (m_pInstance)
-            m_pInstance->SetData(TYPE_THE_MAKER_EVENT, IN_PROGRESS);
-    }
+        ScriptedInstance* m_pInstance;
+        bool m_bIsRegularMode;
 
-    void JustReachedHome() override
-    {
-        if (m_pInstance)
-            m_pInstance->SetData(TYPE_THE_MAKER_EVENT, FAIL);
-    }
+        uint32 m_uiExplodingBreakerTimer;
+        uint32 m_uiDominationTimer;
 
-    void KilledUnit(Unit* /*pVictim*/) override
-    {
-        DoScriptText(urand(0, 1) ? SAY_KILL_1 : SAY_KILL_2, m_creature);
-    }
-
-    void JustDied(Unit* /*pKiller*/) override
-    {
-        DoScriptText(SAY_DIE, m_creature);
-
-        if (m_pInstance)
-            m_pInstance->SetData(TYPE_THE_MAKER_EVENT, DONE);
-    }
-
-    void UpdateAI(const uint32 uiDiff) override
-    {
-        if (!m_creature->SelectHostileTarget() || !m_creature->GetVictim())
-            return;
-
-        if (m_uiExplodingBreakerTimer < uiDiff)
+        void Reset() override
         {
-            if (Unit* pTarget = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, nullptr, SELECT_FLAG_PLAYER))
+            m_uiExplodingBreakerTimer   = 6000;
+            m_uiDominationTimer         = 20000;
+        }
+
+        void Aggro(Unit* /*pWho*/) override
+        {
+            switch (urand(0, 2))
             {
-                if (DoCastSpellIfCan(pTarget, m_bIsRegularMode ? SPELL_EXPLODING_BREAKER : SPELL_EXPLODING_BREAKER_H) == CAST_OK)
-                    m_uiExplodingBreakerTimer = urand(4000, 12000);
+                case 0: DoScriptText(SAY_AGGRO_1, m_creature); break;
+                case 1: DoScriptText(SAY_AGGRO_2, m_creature); break;
+                case 2: DoScriptText(SAY_AGGRO_3, m_creature); break;
             }
-        }
-        else
-            m_uiExplodingBreakerTimer -= uiDiff;
 
-        if (m_uiDominationTimer < uiDiff)
+            if (m_pInstance)
+                m_pInstance->SetData(TYPE_THE_MAKER_EVENT, IN_PROGRESS);
+        }
+
+        void JustReachedHome() override
         {
-            if (Unit* pTarget = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 1, nullptr, SELECT_FLAG_PLAYER))
-            {
-                if (DoCastSpellIfCan(pTarget, SPELL_DOMINATION) == CAST_OK)
-                    m_uiDominationTimer = urand(15000, 25000);
-            }
+            if (m_pInstance)
+                m_pInstance->SetData(TYPE_THE_MAKER_EVENT, FAIL);
         }
-        else
-            m_uiDominationTimer -= uiDiff;
 
-        DoMeleeAttackIfReady();
-    }
+        void KilledUnit(Unit* /*pVictim*/) override
+        {
+            DoScriptText(urand(0, 1) ? SAY_KILL_1 : SAY_KILL_2, m_creature);
+        }
+
+        void JustDied(Unit* /*pKiller*/) override
+        {
+            DoScriptText(SAY_DIE, m_creature);
+
+            if (m_pInstance)
+                m_pInstance->SetData(TYPE_THE_MAKER_EVENT, DONE);
+        }
+
+        void UpdateAI(const uint32 uiDiff) override
+        {
+            if (!m_creature->SelectHostileTarget() || !m_creature->GetVictim())
+                return;
+
+            if (m_uiExplodingBreakerTimer < uiDiff)
+            {
+                if (Unit* pTarget = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, nullptr, SELECT_FLAG_PLAYER))
+                {
+                    if (DoCastSpellIfCan(pTarget, m_bIsRegularMode ? SPELL_EXPLODING_BREAKER : SPELL_EXPLODING_BREAKER_H) == CAST_OK)
+                        m_uiExplodingBreakerTimer = urand(4000, 12000);
+                }
+            }
+            else
+                m_uiExplodingBreakerTimer -= uiDiff;
+
+            if (m_uiDominationTimer < uiDiff)
+            {
+                if (Unit* pTarget = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 1, nullptr, SELECT_FLAG_PLAYER))
+                {
+                    if (DoCastSpellIfCan(pTarget, SPELL_DOMINATION) == CAST_OK)
+                        m_uiDominationTimer = urand(15000, 25000);
+                }
+            }
+            else
+                m_uiDominationTimer -= uiDiff;
+
+            DoMeleeAttackIfReady();
+        }
+    };
+
+
+
 };
 
-UnitAI* GetAI_boss_the_makerAI(Creature* pCreature)
-{
-    return new boss_the_makerAI(pCreature);
-}
 
 void AddSC_boss_the_maker()
 {
-    Script* pNewScript = new Script;
-    pNewScript->Name = "boss_the_maker";
-    pNewScript->GetAI = &GetAI_boss_the_makerAI;
-    pNewScript->RegisterSelf();
+    new boss_the_maker();
+
 }

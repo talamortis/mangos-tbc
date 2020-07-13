@@ -38,27 +38,42 @@ enum
     TITLE_CHAMPION_OF_THE_NAARU             = 53,
     TITLE_HAND_OF_ADAL                      = 64,
 };
-
-bool QuestRewarded_tbc_attunement_titles(Player* player, Creature* /*creature*/, Quest const* quest)
+class npc_quest_attunement : public CreatureScript
 {
-    switch (quest->GetQuestId())
+public:
+    npc_quest_attunement() : CreatureScript("npc_quest_attunement") { }
+
+    bool OnQuestReward(Player* player, Creature* /*creature*/, Quest const* quest) override
     {
-        case QUEST_CUDGEL_OF_KARDESH:
-            if (player->GetQuestStatus(QUEST_TRIAL_OF_THE_NAARU_MAGTHERIDON) == QUEST_STATUS_COMPLETE)
-                player->SetTitle(TITLE_CHAMPION_OF_THE_NAARU);
-            return true;
-        case QUEST_DISTRACTION_FOR_AKAMA:
-            if (player->GetQuestStatus(QUEST_VIALS_OF_ETERNITY) == QUEST_STATUS_COMPLETE)
-                player->SetTitle(TITLE_HAND_OF_ADAL);
-            return true;
-        case QUEST_VIALS_OF_ETERNITY:
-            if (player->GetQuestStatus(QUEST_DISTRACTION_FOR_AKAMA) == QUEST_STATUS_COMPLETE)
-                player->SetTitle(TITLE_HAND_OF_ADAL);
-            return true;
+        switch (quest->GetQuestId())
+        {
+            case QUEST_CUDGEL_OF_KARDESH:
+                if (player->GetQuestStatus(QUEST_TRIAL_OF_THE_NAARU_MAGTHERIDON) == QUEST_STATUS_COMPLETE)
+                    player->SetTitle(TITLE_CHAMPION_OF_THE_NAARU);
+                return true;
+            case QUEST_DISTRACTION_FOR_AKAMA:
+                if (player->GetQuestStatus(QUEST_VIALS_OF_ETERNITY) == QUEST_STATUS_COMPLETE)
+                    player->SetTitle(TITLE_HAND_OF_ADAL);
+                return true;
+            case QUEST_VIALS_OF_ETERNITY:
+                if (player->GetQuestStatus(QUEST_DISTRACTION_FOR_AKAMA) == QUEST_STATUS_COMPLETE)
+                    player->SetTitle(TITLE_HAND_OF_ADAL);
+                return true;
+        }
+
+        return false;
     }
 
-    return false;
-}
+
+
+    UnitAI* GetAI_npc_xiri(Creature* pCreature)
+    {
+        return new npc_xiri(pCreature);
+    }
+
+
+
+};
 
 float DeathswornSpawnCoords[8][3] = {
     { -3562.689f, 696.251f, -8.158f },
@@ -292,16 +307,9 @@ struct npc_xiri : public ScriptedAI
     }
 };
 
-UnitAI* GetAI_npc_xiri(Creature* pCreature)
-{
-    return new npc_xiri(pCreature);
-}
 
 void AddSC_quests_scripts()
 {
-    Script* pNewScript = new Script;
-    pNewScript->Name = "npc_quest_attunement";
-    pNewScript->GetAI = &GetAI_npc_xiri;
-    pNewScript->pQuestRewardedNPC = &QuestRewarded_tbc_attunement_titles;
-    pNewScript->RegisterSelf();
+    new npc_quest_attunement();
+
 }

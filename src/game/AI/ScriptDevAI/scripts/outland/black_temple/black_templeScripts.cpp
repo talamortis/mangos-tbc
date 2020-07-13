@@ -50,16 +50,22 @@ struct npc_greater_shadowfiend : public ScriptedAI
             m_creature->AddThreat(pTarget, 100000.f);
     }
 };
-
-UnitAI* GetAI_npc_greater_shadowfiend(Creature* pCreature)
+class npc_greater_shadowfiend : public CreatureScript
 {
-    return new npc_greater_shadowfiend(pCreature);
-}
+public:
+    npc_greater_shadowfiend() : CreatureScript("npc_greater_shadowfiend") { }
+
+    UnitAI* GetAI(Creature* pCreature)
+    {
+        return new npc_greater_shadowfiend(pCreature);
+    }
+
+
+
+};
 
 void AddSC_black_temple()
 {
-    Script* pNewScript = new Script;
-    pNewScript->Name = "npc_greater_shadowfiend";
-    pNewScript->GetAI = &GetAI_npc_greater_shadowfiend;
-    pNewScript->RegisterSelf();
+    new npc_greater_shadowfiend();
+
 }

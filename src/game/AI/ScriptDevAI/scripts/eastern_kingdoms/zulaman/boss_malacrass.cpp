@@ -219,263 +219,272 @@ enum MalacrassActions
     MALACRASS_PLAYER_ABILITY_4,
     MALACRASS_ACTION_MAX,
 };
-
-struct boss_malacrassAI : public CombatAI
+class boss_malacrass : public CreatureScript
 {
-    boss_malacrassAI(Creature* creature) : CombatAI(creature, MALACRASS_ACTION_MAX), m_instance(static_cast<ScriptedInstance*>(creature->GetInstanceData()))
+public:
+    boss_malacrass() : CreatureScript("boss_malacrass") { }
+
+    UnitAI* GetAI(Creature* creature)
     {
-        AddCombatAction(MALACRASS_SPIRIT_BOLTS, 30000u);
-        AddTimerlessCombatAction(MALACRASS_DRAIN_POWER_ENABLE, true);
-        AddCombatAction(MALACRASS_DRAIN_POWER, true);
-        AddCombatAction(MALACRASS_SIPHON_SOUL, true);
-        AddCombatAction(MALACRASS_PLAYER_ABILITY_1, true);
-        AddCombatAction(MALACRASS_PLAYER_ABILITY_2, true);
-        AddCombatAction(MALACRASS_PLAYER_ABILITY_3, true);
-        AddCombatAction(MALACRASS_PLAYER_ABILITY_4, true);
-        Reset();
+        return new boss_malacrassAI(creature);
     }
 
-    ScriptedInstance* m_instance;
 
-    uint8 m_playerClass;
 
-    std::vector<uint32> m_addsEntryList;
-
-    void Reset() override
+    struct boss_malacrassAI : public CombatAI
     {
-        CombatAI::Reset();
-        m_playerClass         = 0;
-
-        DoInitializeAdds();
-
-        m_creature->ApplySpellImmune(nullptr, IMMUNITY_MECHANIC, MECHANIC_DISARM, true);
-    }
-
-    void JustReachedHome() override
-    {
-        if (m_instance)
-            m_instance->SetData(TYPE_MALACRASS, FAIL);
-    }
-
-    void CorpseRemoved(uint32& respawnDelay) override
-    {
-        // Respawn after 30 seconds
-        if (m_instance->GetData(TYPE_MALACRASS) == FAIL)
-            respawnDelay = 30;
-    }
-
-    void ReceiveAIEvent(AIEventType eventType, Unit* /*sender*/, Unit* /*invoker*/, uint32 /*miscValue*/) override
-    {
-        if (eventType == AI_EVENT_CUSTOM_A) // encounter wipe
+        boss_malacrassAI(Creature* creature) : CombatAI(creature, MALACRASS_ACTION_MAX), m_instance(static_cast<ScriptedInstance*>(creature->GetInstanceData()))
         {
-            m_creature->ForcedDespawn();
-            for (uint8 i = 0; i < MAX_ACTIVE_ADDS; ++i)
-                if (Creature* add = m_instance->GetSingleCreatureFromStorage(m_addsEntryList[i], true))
-                    add->ForcedDespawn();
+            AddCombatAction(MALACRASS_SPIRIT_BOLTS, 30000u);
+            AddTimerlessCombatAction(MALACRASS_DRAIN_POWER_ENABLE, true);
+            AddCombatAction(MALACRASS_DRAIN_POWER, true);
+            AddCombatAction(MALACRASS_SIPHON_SOUL, true);
+            AddCombatAction(MALACRASS_PLAYER_ABILITY_1, true);
+            AddCombatAction(MALACRASS_PLAYER_ABILITY_2, true);
+            AddCombatAction(MALACRASS_PLAYER_ABILITY_3, true);
+            AddCombatAction(MALACRASS_PLAYER_ABILITY_4, true);
+            Reset();
         }
-    }
 
-    void DoInitializeAdds()
-    {
-        // not if m_creature are dead, so avoid
-        if (!m_creature->IsAlive())
-            return;
+        ScriptedInstance* m_instance;
 
-        // it's empty, so first time
-        if (m_addsEntryList.empty())
+        uint8 m_playerClass;
+
+        std::vector<uint32> m_addsEntryList;
+
+        void Reset() override
         {
-            m_addsEntryList.resize(MAX_ACTIVE_ADDS);
+            CombatAI::Reset();
+            m_playerClass         = 0;
 
-            for (uint8 i = 0; i < MAX_ACTIVE_ADDS; ++i)
+            DoInitializeAdds();
+
+            m_creature->ApplySpellImmune(nullptr, IMMUNITY_MECHANIC, MECHANIC_DISARM, true);
+        }
+
+        void JustReachedHome() override
+        {
+            if (m_instance)
+                m_instance->SetData(TYPE_MALACRASS, FAIL);
+        }
+
+        void CorpseRemoved(uint32& respawnDelay) override
+        {
+            // Respawn after 30 seconds
+            if (m_instance->GetData(TYPE_MALACRASS) == FAIL)
+                respawnDelay = 30;
+        }
+
+        void ReceiveAIEvent(AIEventType eventType, Unit* /*sender*/, Unit* /*invoker*/, uint32 /*miscValue*/) override
+        {
+            if (eventType == AI_EVENT_CUSTOM_A) // encounter wipe
             {
-                uint8 addVersion = urand(0, 1);
-                m_addsEntryList[i] = aSpawnEntries[i][addVersion];
-                Creature* creature = m_creature->SummonCreature(aSpawnEntries[i][addVersion], m_aAddPositions[i][0], m_aAddPositions[i][1], m_aAddPositions[i][2], m_aAddPositions[i][3], TEMPSPAWN_DEAD_DESPAWN, 0);
-                creature->SetCorpseDelay(5);
+                m_creature->ForcedDespawn();
+                for (uint8 i = 0; i < MAX_ACTIVE_ADDS; ++i)
+                    if (Creature* add = m_instance->GetSingleCreatureFromStorage(m_addsEntryList[i], true))
+                        add->ForcedDespawn();
             }
         }
-        // Resummon the killed adds
-        else
+
+        void DoInitializeAdds()
         {
-            if (!m_instance)
+            // not if m_creature are dead, so avoid
+            if (!m_creature->IsAlive())
                 return;
 
-            for (uint8 i = 0; i < MAX_ACTIVE_ADDS; ++i)
+            // it's empty, so first time
+            if (m_addsEntryList.empty())
             {
-                // If we already have the creature on the map, then don't summon it
-                if (m_instance->GetSingleCreatureFromStorage(m_addsEntryList[i], true))
-                    continue;
+                m_addsEntryList.resize(MAX_ACTIVE_ADDS);
 
-                m_creature->SummonCreature(m_addsEntryList[i], m_aAddPositions[i][0], m_aAddPositions[i][1], m_aAddPositions[i][2], m_aAddPositions[i][3], TEMPSPAWN_DEAD_DESPAWN, 0);
-            }
-        }
-    }
-
-    void Aggro(Unit* /*who*/) override
-    {
-        DoScriptText(SAY_AGGRO, m_creature);
-
-        if (m_instance)
-            m_instance->SetData(TYPE_MALACRASS, IN_PROGRESS);
-    }
-
-    void KilledUnit(Unit* pVictim) override
-    {
-        if (pVictim->GetTypeId() != TYPEID_PLAYER)
-            return;
-
-        DoScriptText(urand(0, 1) ? SAY_KILL1 : SAY_KILL2, m_creature);
-    }
-
-    void JustDied(Unit* /*killer*/) override
-    {
-        DoScriptText(SAY_DEATH, m_creature);
-
-        if (m_instance)
-            m_instance->SetData(TYPE_MALACRASS, DONE);
-    }
-
-    void SummonedCreatureJustDied(Creature* /*summoned*/) override
-    {
-        switch (urand(0, 2))
-        {
-            case 0: DoScriptText(SAY_ADD_DIED1, m_creature); break;
-            case 1: DoScriptText(SAY_ADD_DIED2, m_creature); break;
-            case 2: DoScriptText(SAY_ADD_DIED3, m_creature); break;
-        }
-    }
-
-    void SpellHitTarget(Unit* target, const SpellEntry* spellInfo) override
-    {
-        // Set the player's class when hit with soul siphon
-        if (target->GetTypeId() == TYPEID_PLAYER && spellInfo->Id == SPELL_SIPHON_SOUL)
-        {
-            m_playerClass = target->getClass();
-
-            if (m_playerClass == CLASS_WARRIOR || m_playerClass == CLASS_ROGUE)
-                m_creature->ApplySpellImmune(nullptr, IMMUNITY_MECHANIC, MECHANIC_DISARM, false);
-
-            for (uint8 i = 0; i < 3; ++i)
-            {
-                switch (aMalacrassStolenAbility[m_playerClass][i].m_uiSpellId)
+                for (uint8 i = 0; i < MAX_ACTIVE_ADDS; ++i)
                 {
-                    case SPELL_HU_EXPLOSIVE_TRAP:
-                    case SPELL_HU_FREEZING_TRAP:
-                    case SPELL_HU_SNAKE_TRAP:
-                        ResetCombatAction(MALACRASS_PLAYER_ABILITY_1 + i, urand(1000, 25000));
-                        break;
-                    default:
-                        ResetCombatAction(MALACRASS_PLAYER_ABILITY_1 + i, aMalacrassStolenAbility[m_playerClass][i].m_uiInitialTimer);
-                        break;
+                    uint8 addVersion = urand(0, 1);
+                    m_addsEntryList[i] = aSpawnEntries[i][addVersion];
+                    Creature* creature = m_creature->SummonCreature(aSpawnEntries[i][addVersion], m_aAddPositions[i][0], m_aAddPositions[i][1], m_aAddPositions[i][2], m_aAddPositions[i][3], TEMPSPAWN_DEAD_DESPAWN, 0);
+                    creature->SetCorpseDelay(5);
+                }
+            }
+            // Resummon the killed adds
+            else
+            {
+                if (!m_instance)
+                    return;
+
+                for (uint8 i = 0; i < MAX_ACTIVE_ADDS; ++i)
+                {
+                    // If we already have the creature on the map, then don't summon it
+                    if (m_instance->GetSingleCreatureFromStorage(m_addsEntryList[i], true))
+                        continue;
+
+                    m_creature->SummonCreature(m_addsEntryList[i], m_aAddPositions[i][0], m_aAddPositions[i][1], m_aAddPositions[i][2], m_aAddPositions[i][3], TEMPSPAWN_DEAD_DESPAWN, 0);
                 }
             }
         }
-    }
 
-    bool CanUseSpecialAbility(uint32 spellIndex)
-    {
-        Unit* target = nullptr;
-        bool requireTarget = true;
-
-        switch (aMalacrassStolenAbility[m_playerClass][spellIndex].m_uiTargetType)
+        void Aggro(Unit* /*who*/) override
         {
-            case TARGET_TYPE_SELF:
-                target = nullptr;
-                requireTarget = false;
-                break;
-            case TARGET_TYPE_VICTIM:
-                target = m_creature->GetVictim();
-                break;
-            case TARGET_TYPE_RANDOM:
-                target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, nullptr, SELECT_FLAG_PLAYER);
-                break;
-            case TARGET_TYPE_FRIENDLY:
-                target = DoSelectLowestHpFriendly(50.0f);
-                break;
-            case TARGET_TYPE_RANDOM_NOT_MAIN:
-                target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, nullptr, SELECT_FLAG_PLAYER | SELECT_FLAG_SKIP_TANK);
-                break;
+            DoScriptText(SAY_AGGRO, m_creature);
+
+            if (m_instance)
+                m_instance->SetData(TYPE_MALACRASS, IN_PROGRESS);
         }
 
-        if (!requireTarget || target)
+        void KilledUnit(Unit* pVictim) override
         {
-            if (DoCastSpellIfCan(target, aMalacrassStolenAbility[m_playerClass][spellIndex].m_uiSpellId) == CAST_OK)
-                return true;
+            if (pVictim->GetTypeId() != TYPEID_PLAYER)
+                return;
+
+            DoScriptText(urand(0, 1) ? SAY_KILL1 : SAY_KILL2, m_creature);
         }
 
-        return false;
-    }
-
-    void ExecuteAction(uint32 action) override
-    {
-        switch (action)
+        void JustDied(Unit* /*killer*/) override
         {
-            case MALACRASS_SPIRIT_BOLTS:
-                if (DoCastSpellIfCan(nullptr, SPELL_SPIRIT_BOLTS) == CAST_OK)
-                {
-                    DoScriptText(SAY_SPIRIT_BOLTS, m_creature);
-                    DisableCombatAction(MALACRASS_PLAYER_ABILITY_1);
-                    DisableCombatAction(MALACRASS_PLAYER_ABILITY_2);
-                    DisableCombatAction(MALACRASS_PLAYER_ABILITY_3);
-                    DisableCombatAction(MALACRASS_PLAYER_ABILITY_4);
-                    DisableCombatAction(action);
-                    ResetCombatAction(MALACRASS_SIPHON_SOUL, 0);
-                    if (m_playerClass == CLASS_WARRIOR || m_playerClass == CLASS_ROGUE)
-                        m_creature->ApplySpellImmune(nullptr, IMMUNITY_MECHANIC, MECHANIC_DISARM, true);
-                }
-                break;
-            case MALACRASS_DRAIN_POWER_ENABLE:
-                if (m_creature->GetHealthPercent() < 80.0f && DoCastSpellIfCan(nullptr, SPELL_DRAIN_POWER) == CAST_OK)
-                {
-                    SetActionReadyStatus(action, false);
-                    DoScriptText(SAY_DRAIN_POWER, m_creature);
-                    ResetCombatAction(MALACRASS_DRAIN_POWER, 30000);
-                }
-                break;
-            case MALACRASS_DRAIN_POWER:
-                if (DoCastSpellIfCan(nullptr, SPELL_DRAIN_POWER) == CAST_OK)
-                {
-                    DoScriptText(SAY_DRAIN_POWER, m_creature);
-                    ResetCombatAction(action, 30000);
-                }
-                break;
-            case MALACRASS_SIPHON_SOUL:
-                if (DoCastSpellIfCan(nullptr, SPELL_SIPHON_SOUL_DUMMY) == CAST_OK)
-                {
-                    DoScriptText(SAY_SOUL_SIPHON, m_creature);
-                    DisableCombatAction(action);
-                    ResetCombatAction(MALACRASS_SPIRIT_BOLTS, 30000);
-                }
-                break;
-            case MALACRASS_PLAYER_ABILITY_1:
-            case MALACRASS_PLAYER_ABILITY_2:
-            case MALACRASS_PLAYER_ABILITY_3:
-            case MALACRASS_PLAYER_ABILITY_4:
-                if (CanUseSpecialAbility(action - MALACRASS_PLAYER_ABILITY_1))
-                    ResetCombatAction(action, aMalacrassStolenAbility[m_playerClass][action - MALACRASS_PLAYER_ABILITY_1].m_uiCooldown);
-                break;
-        }
-    }
+            DoScriptText(SAY_DEATH, m_creature);
 
-    void UpdateAI(const uint32 diff) override
-    {
-        CombatAI::UpdateAI(diff);
-        if (m_creature->IsInCombat())
-            EnterEvadeIfOutOfCombatArea(diff);
-    }
+            if (m_instance)
+                m_instance->SetData(TYPE_MALACRASS, DONE);
+        }
+
+        void SummonedCreatureJustDied(Creature* /*summoned*/) override
+        {
+            switch (urand(0, 2))
+            {
+                case 0: DoScriptText(SAY_ADD_DIED1, m_creature); break;
+                case 1: DoScriptText(SAY_ADD_DIED2, m_creature); break;
+                case 2: DoScriptText(SAY_ADD_DIED3, m_creature); break;
+            }
+        }
+
+        void SpellHitTarget(Unit* target, const SpellEntry* spellInfo) override
+        {
+            // Set the player's class when hit with soul siphon
+            if (target->GetTypeId() == TYPEID_PLAYER && spellInfo->Id == SPELL_SIPHON_SOUL)
+            {
+                m_playerClass = target->getClass();
+
+                if (m_playerClass == CLASS_WARRIOR || m_playerClass == CLASS_ROGUE)
+                    m_creature->ApplySpellImmune(nullptr, IMMUNITY_MECHANIC, MECHANIC_DISARM, false);
+
+                for (uint8 i = 0; i < 3; ++i)
+                {
+                    switch (aMalacrassStolenAbility[m_playerClass][i].m_uiSpellId)
+                    {
+                        case SPELL_HU_EXPLOSIVE_TRAP:
+                        case SPELL_HU_FREEZING_TRAP:
+                        case SPELL_HU_SNAKE_TRAP:
+                            ResetCombatAction(MALACRASS_PLAYER_ABILITY_1 + i, urand(1000, 25000));
+                            break;
+                        default:
+                            ResetCombatAction(MALACRASS_PLAYER_ABILITY_1 + i, aMalacrassStolenAbility[m_playerClass][i].m_uiInitialTimer);
+                            break;
+                    }
+                }
+            }
+        }
+
+        bool CanUseSpecialAbility(uint32 spellIndex)
+        {
+            Unit* target = nullptr;
+            bool requireTarget = true;
+
+            switch (aMalacrassStolenAbility[m_playerClass][spellIndex].m_uiTargetType)
+            {
+                case TARGET_TYPE_SELF:
+                    target = nullptr;
+                    requireTarget = false;
+                    break;
+                case TARGET_TYPE_VICTIM:
+                    target = m_creature->GetVictim();
+                    break;
+                case TARGET_TYPE_RANDOM:
+                    target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, nullptr, SELECT_FLAG_PLAYER);
+                    break;
+                case TARGET_TYPE_FRIENDLY:
+                    target = DoSelectLowestHpFriendly(50.0f);
+                    break;
+                case TARGET_TYPE_RANDOM_NOT_MAIN:
+                    target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, nullptr, SELECT_FLAG_PLAYER | SELECT_FLAG_SKIP_TANK);
+                    break;
+            }
+
+            if (!requireTarget || target)
+            {
+                if (DoCastSpellIfCan(target, aMalacrassStolenAbility[m_playerClass][spellIndex].m_uiSpellId) == CAST_OK)
+                    return true;
+            }
+
+            return false;
+        }
+
+        void ExecuteAction(uint32 action) override
+        {
+            switch (action)
+            {
+                case MALACRASS_SPIRIT_BOLTS:
+                    if (DoCastSpellIfCan(nullptr, SPELL_SPIRIT_BOLTS) == CAST_OK)
+                    {
+                        DoScriptText(SAY_SPIRIT_BOLTS, m_creature);
+                        DisableCombatAction(MALACRASS_PLAYER_ABILITY_1);
+                        DisableCombatAction(MALACRASS_PLAYER_ABILITY_2);
+                        DisableCombatAction(MALACRASS_PLAYER_ABILITY_3);
+                        DisableCombatAction(MALACRASS_PLAYER_ABILITY_4);
+                        DisableCombatAction(action);
+                        ResetCombatAction(MALACRASS_SIPHON_SOUL, 0);
+                        if (m_playerClass == CLASS_WARRIOR || m_playerClass == CLASS_ROGUE)
+                            m_creature->ApplySpellImmune(nullptr, IMMUNITY_MECHANIC, MECHANIC_DISARM, true);
+                    }
+                    break;
+                case MALACRASS_DRAIN_POWER_ENABLE:
+                    if (m_creature->GetHealthPercent() < 80.0f && DoCastSpellIfCan(nullptr, SPELL_DRAIN_POWER) == CAST_OK)
+                    {
+                        SetActionReadyStatus(action, false);
+                        DoScriptText(SAY_DRAIN_POWER, m_creature);
+                        ResetCombatAction(MALACRASS_DRAIN_POWER, 30000);
+                    }
+                    break;
+                case MALACRASS_DRAIN_POWER:
+                    if (DoCastSpellIfCan(nullptr, SPELL_DRAIN_POWER) == CAST_OK)
+                    {
+                        DoScriptText(SAY_DRAIN_POWER, m_creature);
+                        ResetCombatAction(action, 30000);
+                    }
+                    break;
+                case MALACRASS_SIPHON_SOUL:
+                    if (DoCastSpellIfCan(nullptr, SPELL_SIPHON_SOUL_DUMMY) == CAST_OK)
+                    {
+                        DoScriptText(SAY_SOUL_SIPHON, m_creature);
+                        DisableCombatAction(action);
+                        ResetCombatAction(MALACRASS_SPIRIT_BOLTS, 30000);
+                    }
+                    break;
+                case MALACRASS_PLAYER_ABILITY_1:
+                case MALACRASS_PLAYER_ABILITY_2:
+                case MALACRASS_PLAYER_ABILITY_3:
+                case MALACRASS_PLAYER_ABILITY_4:
+                    if (CanUseSpecialAbility(action - MALACRASS_PLAYER_ABILITY_1))
+                        ResetCombatAction(action, aMalacrassStolenAbility[m_playerClass][action - MALACRASS_PLAYER_ABILITY_1].m_uiCooldown);
+                    break;
+            }
+        }
+
+        void UpdateAI(const uint32 diff) override
+        {
+            CombatAI::UpdateAI(diff);
+            if (m_creature->IsInCombat())
+                EnterEvadeIfOutOfCombatArea(diff);
+        }
+    };
+
+
+
 };
 
 
 
-UnitAI* GetAI_boss_malacrass(Creature* creature)
-{
-    return new boss_malacrassAI(creature);
-}
 
 void AddSC_boss_malacrass()
 {
-    Script* pNewScript = new Script;
-    pNewScript->Name = "boss_malacrass";
-    pNewScript->GetAI = &GetAI_boss_malacrass;
-    pNewScript->RegisterSelf();
+    new boss_malacrass();
+
 }

@@ -377,18 +377,5 @@ struct boss_yaujAI : public boss_silithidRoyaltyAI
 
 void AddSC_bug_trio()
 {
-    Script* newScript = new Script;
-    newScript->Name = "boss_kri";
-    newScript->GetAI = &GetNewAIInstance<boss_kriAI>;
-    newScript->RegisterSelf();
 
-    newScript = new Script;
-    newScript->Name = "boss_vem";
-    newScript->GetAI = &GetNewAIInstance<boss_vemAI>;
-    newScript->RegisterSelf();
-
-    newScript = new Script;
-    newScript->Name = "boss_yauj";
-    newScript->GetAI = &GetNewAIInstance<boss_yaujAI>;
-    newScript->RegisterSelf();
 }

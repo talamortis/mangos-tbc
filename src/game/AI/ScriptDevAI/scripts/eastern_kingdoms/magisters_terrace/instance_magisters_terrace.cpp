@@ -241,16 +241,23 @@ uint32 instance_magisters_terrace::GetData(uint32 uiType) const
 
     return 0;
 }
-
-InstanceData* GetInstanceData_instance_magisters_terrace(Map* pMap)
+class instance_magisters_terrace : public InstanceMapScript
 {
-    return new instance_magisters_terrace(pMap);
-}
+public:
+    instance_magisters_terrace() : InstanceMapScript("instance_magisters_terrace") { }
+
+    InstanceData* GetInstanceScript(Map* pMap) const override
+    {
+        return new instance_magisters_terrace(pMap);
+    }
+
+
+
+
+};
 
 void AddSC_instance_magisters_terrace()
 {
-    Script* pNewScript = new Script;
-    pNewScript->Name = "instance_magisters_terrace";
-    pNewScript->GetInstanceData = &GetInstanceData_instance_magisters_terrace;
-    pNewScript->RegisterSelf();
+    new instance_magisters_terrace();
+
 }

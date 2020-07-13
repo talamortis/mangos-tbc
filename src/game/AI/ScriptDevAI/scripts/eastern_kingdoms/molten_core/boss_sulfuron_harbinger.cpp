@@ -47,81 +47,96 @@ enum SulfuronActions
     SULFURON_FLAME_SPEAR,
     SULFURON_ACTION_MAX,
 };
-
-struct boss_sulfuronAI : public CombatAI
+class boss_sulfuron : public CreatureScript
 {
-    boss_sulfuronAI(Creature* creature) : CombatAI(creature, SULFURON_ACTION_MAX), m_instance(static_cast<ScriptedInstance*>(creature->GetInstanceData()))
+public:
+    boss_sulfuron() : CreatureScript("boss_sulfuron") { }
+
+    UnitAI* GetAI(Creature* creature)
     {
-        AddCombatAction(SULFURON_DEMORALIZING_SHOUT, 15000u);
-        AddCombatAction(SULFURON_INSPIRE, 3000u);
-        AddCombatAction(SULFURON_HAND_OF_RAGNAROS, 6000u);
-        AddCombatAction(SULFURON_FLAME_SPEAR, 2000u);
-        Reset();
+        return new boss_sulfuronAI(creature);
     }
 
-    ScriptedInstance* m_instance;
 
-    void Aggro(Unit* /*who*/) override
-    {
-        if (m_instance)
-            m_instance->SetData(TYPE_SULFURON, IN_PROGRESS);
-    }
 
-    void JustDied(Unit* /*killer*/) override
+    struct boss_sulfuronAI : public CombatAI
     {
-        if (m_instance)
-            m_instance->SetData(TYPE_SULFURON, DONE);
-    }
-
-    void JustReachedHome() override
-    {
-        if (m_instance)
-            m_instance->SetData(TYPE_SULFURON, FAIL);
-    }
-
-    void ExecuteAction(uint32 action) override
-    {
-        switch (action)
+        boss_sulfuronAI(Creature* creature) : CombatAI(creature, SULFURON_ACTION_MAX), m_instance(static_cast<ScriptedInstance*>(creature->GetInstanceData()))
         {
-            case SULFURON_DEMORALIZING_SHOUT:
+            AddCombatAction(SULFURON_DEMORALIZING_SHOUT, 15000u);
+            AddCombatAction(SULFURON_INSPIRE, 3000u);
+            AddCombatAction(SULFURON_HAND_OF_RAGNAROS, 6000u);
+            AddCombatAction(SULFURON_FLAME_SPEAR, 2000u);
+            Reset();
+        }
+
+        ScriptedInstance* m_instance;
+
+        void Aggro(Unit* /*who*/) override
+        {
+            if (m_instance)
+                m_instance->SetData(TYPE_SULFURON, IN_PROGRESS);
+        }
+
+        void JustDied(Unit* /*killer*/) override
+        {
+            if (m_instance)
+                m_instance->SetData(TYPE_SULFURON, DONE);
+        }
+
+        void JustReachedHome() override
+        {
+            if (m_instance)
+                m_instance->SetData(TYPE_SULFURON, FAIL);
+        }
+
+        void ExecuteAction(uint32 action) override
+        {
+            switch (action)
             {
-                if (DoCastSpellIfCan(nullptr, SPELL_DEMORALIZING_SHOUT) == CAST_OK)
-                    ResetCombatAction(action, urand(15000, 20000));
-                break;
-            }
-            case SULFURON_INSPIRE:
-            {
-                Creature* target = nullptr;
-                CreatureList pList = DoFindFriendlyMissingBuff(45.0f, SPELL_INSPIRE);
-                if (!pList.empty())
+                case SULFURON_DEMORALIZING_SHOUT:
                 {
-                    CreatureList::iterator i = pList.begin();
-                    advance(i, (rand() % pList.size()));
-                    target = (*i);
+                    if (DoCastSpellIfCan(nullptr, SPELL_DEMORALIZING_SHOUT) == CAST_OK)
+                        ResetCombatAction(action, urand(15000, 20000));
+                    break;
                 }
+                case SULFURON_INSPIRE:
+                {
+                    Creature* target = nullptr;
+                    CreatureList pList = DoFindFriendlyMissingBuff(45.0f, SPELL_INSPIRE);
+                    if (!pList.empty())
+                    {
+                        CreatureList::iterator i = pList.begin();
+                        advance(i, (rand() % pList.size()));
+                        target = (*i);
+                    }
 
-                if (!target)
-                    target = m_creature;
+                    if (!target)
+                        target = m_creature;
 
-                if (DoCastSpellIfCan(target, SPELL_INSPIRE) == CAST_OK)
-                    ResetCombatAction(action, 10000);
-                break;
-            }
-            case SULFURON_HAND_OF_RAGNAROS:
-            {
-                if (DoCastSpellIfCan(nullptr, SPELL_HAND_OF_RAGNAROS) == CAST_OK)
-                    ResetCombatAction(action, urand(12000, 15000));
-                break;
-            }
-            case SULFURON_FLAME_SPEAR:
-            {
-                if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, SPELL_SHADOWWORD_PAIN, SELECT_FLAG_PLAYER))
-                    if (DoCastSpellIfCan(target, SPELL_FLAMESPEAR) == CAST_OK)
-                        ResetCombatAction(action, urand(12000, 16000));
-                break;
+                    if (DoCastSpellIfCan(target, SPELL_INSPIRE) == CAST_OK)
+                        ResetCombatAction(action, 10000);
+                    break;
+                }
+                case SULFURON_HAND_OF_RAGNAROS:
+                {
+                    if (DoCastSpellIfCan(nullptr, SPELL_HAND_OF_RAGNAROS) == CAST_OK)
+                        ResetCombatAction(action, urand(12000, 15000));
+                    break;
+                }
+                case SULFURON_FLAME_SPEAR:
+                {
+                    if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, SPELL_SHADOWWORD_PAIN, SELECT_FLAG_PLAYER))
+                        if (DoCastSpellIfCan(target, SPELL_FLAMESPEAR) == CAST_OK)
+                            ResetCombatAction(action, urand(12000, 16000));
+                    break;
+                }
             }
         }
-    }
+    };
+
+
+
 };
 
 enum FlamewakerPriestActions
@@ -132,73 +147,74 @@ enum FlamewakerPriestActions
     FLAMEWAKER_PRIEST_IMMOLATE,
     FLAMEWAKER_PRIEST_ACTION_MAX,
 };
-
-struct mob_flamewaker_priestAI : public CombatAI
+class mob_flamewaker_priest : public CreatureScript
 {
-    mob_flamewaker_priestAI(Creature* creature) : CombatAI(creature, FLAMEWAKER_PRIEST_ACTION_MAX), m_instance(static_cast<ScriptedInstance*>(creature->GetInstanceData()))
+public:
+    mob_flamewaker_priest() : CreatureScript("mob_flamewaker_priest") { }
+
+    UnitAI* GetAI(Creature* creature)
     {
-        AddCombatAction(FLAMEWAKER_PRIEST_DARK_STRIKE, 10000u);
-        AddCombatAction(FLAMEWAKER_PRIEST_DARK_MENDING, 15000, 30000);
-        AddCombatAction(FLAMEWAKER_PRIEST_SHADOW_WORD_PAIN, 2000u);
-        AddCombatAction(FLAMEWAKER_PRIEST_IMMOLATE, 8000u);
+        return new mob_flamewaker_priestAI(creature);
     }
 
-    ScriptedInstance* m_instance;
 
-    void ExecuteAction(uint32 action) override
+
+    struct mob_flamewaker_priestAI : public CombatAI
     {
-        switch (action)
+        mob_flamewaker_priestAI(Creature* creature) : CombatAI(creature, FLAMEWAKER_PRIEST_ACTION_MAX), m_instance(static_cast<ScriptedInstance*>(creature->GetInstanceData()))
         {
-            case FLAMEWAKER_PRIEST_DARK_STRIKE:
+            AddCombatAction(FLAMEWAKER_PRIEST_DARK_STRIKE, 10000u);
+            AddCombatAction(FLAMEWAKER_PRIEST_DARK_MENDING, 15000, 30000);
+            AddCombatAction(FLAMEWAKER_PRIEST_SHADOW_WORD_PAIN, 2000u);
+            AddCombatAction(FLAMEWAKER_PRIEST_IMMOLATE, 8000u);
+        }
+
+        ScriptedInstance* m_instance;
+
+        void ExecuteAction(uint32 action) override
+        {
+            switch (action)
             {
-                if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_DARK_STRIKE) == CAST_OK)
-                    ResetCombatAction(action, urand(15000, 18000));
-                break;
-            }
-            case FLAMEWAKER_PRIEST_DARK_MENDING:
-            {
-                if (Unit* target = DoSelectLowestHpFriendly(60.0f, 1))
-                    if (DoCastSpellIfCan(target, SPELL_HEAL) == CAST_OK)
-                        ResetCombatAction(action, urand(15000, 20000));
-                break;
-            }
-            case FLAMEWAKER_PRIEST_SHADOW_WORD_PAIN:
-            {
-                if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, SPELL_SHADOWWORD_PAIN, SELECT_FLAG_PLAYER))
-                    if (DoCastSpellIfCan(target, SPELL_SHADOWWORD_PAIN) == CAST_OK)
-                        ResetCombatAction(action, urand(18000, 26000));
-                break;
-            }
-            case FLAMEWAKER_PRIEST_IMMOLATE:
-            {
-                if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, SPELL_SHADOWWORD_PAIN, SELECT_FLAG_PLAYER))
-                    if (DoCastSpellIfCan(target, SPELL_IMMOLATE) == CAST_OK)
-                        ResetCombatAction(action, urand(15000, 25000));
-                break;
+                case FLAMEWAKER_PRIEST_DARK_STRIKE:
+                {
+                    if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_DARK_STRIKE) == CAST_OK)
+                        ResetCombatAction(action, urand(15000, 18000));
+                    break;
+                }
+                case FLAMEWAKER_PRIEST_DARK_MENDING:
+                {
+                    if (Unit* target = DoSelectLowestHpFriendly(60.0f, 1))
+                        if (DoCastSpellIfCan(target, SPELL_HEAL) == CAST_OK)
+                            ResetCombatAction(action, urand(15000, 20000));
+                    break;
+                }
+                case FLAMEWAKER_PRIEST_SHADOW_WORD_PAIN:
+                {
+                    if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, SPELL_SHADOWWORD_PAIN, SELECT_FLAG_PLAYER))
+                        if (DoCastSpellIfCan(target, SPELL_SHADOWWORD_PAIN) == CAST_OK)
+                            ResetCombatAction(action, urand(18000, 26000));
+                    break;
+                }
+                case FLAMEWAKER_PRIEST_IMMOLATE:
+                {
+                    if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, SPELL_SHADOWWORD_PAIN, SELECT_FLAG_PLAYER))
+                        if (DoCastSpellIfCan(target, SPELL_IMMOLATE) == CAST_OK)
+                            ResetCombatAction(action, urand(15000, 25000));
+                    break;
+                }
             }
         }
-    }
+    };
+
+
+
 };
 
-UnitAI* GetAI_boss_sulfuron(Creature* creature)
-{
-    return new boss_sulfuronAI(creature);
-}
 
-UnitAI* GetAI_mob_flamewaker_priest(Creature* creature)
-{
-    return new mob_flamewaker_priestAI(creature);
-}
 
 void AddSC_boss_sulfuron()
 {
-    Script* pNewScript = new Script;
-    pNewScript->Name = "boss_sulfuron";
-    pNewScript->GetAI = &GetAI_boss_sulfuron;
-    pNewScript->RegisterSelf();
+    new boss_sulfuron();
+    new mob_flamewaker_priest();
 
-    pNewScript = new Script;
-    pNewScript->Name = "mob_flamewaker_priest";
-    pNewScript->GetAI = &GetAI_mob_flamewaker_priest;
-    pNewScript->RegisterSelf();
 }

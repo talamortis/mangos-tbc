@@ -54,112 +54,121 @@ enum MoamActions
     MOAM_ACTION_MAX,
     MOAM_CANCEL_ENERGIZE,
 };
-
-struct boss_moamAI : public CombatAI
+class boss_moam : public CreatureScript
 {
-    boss_moamAI(Creature* creature) :
-        CombatAI(creature, MOAM_ACTION_MAX),
-        m_uiPhase(0)
-    {
-        AddCombatAction(MOAM_ARCANE_ERUPTION, 0u);
-        AddCombatAction(MOAM_TRAMPLE, 9000u);
-        AddCombatAction(MOAM_MANA_DRAIN, 6000u);
-        AddCombatAction(MOAM_MANA_FIENDS, 90000u);
-        AddCombatAction(MOAM_ENERGIZE, 90000u);
-        AddCustomAction(MOAM_CANCEL_ENERGIZE, true, [&]()
-        {
-            m_creature->RemoveAurasDueToSpell(SPELL_ENERGIZE);
-        });
+public:
+    boss_moam() : CreatureScript("boss_moam") { }
 
-        if (m_creature->GetInstanceData())
+
+    struct boss_moamAI : public CombatAI
+    {
+        boss_moamAI(Creature* creature) :
+            CombatAI(creature, MOAM_ACTION_MAX),
+            m_uiPhase(0)
         {
-            m_creature->GetCombatManager().SetLeashingCheck([](Unit* unit, float /*x*/, float /*y*/, float /*z*/)
+            AddCombatAction(MOAM_ARCANE_ERUPTION, 0u);
+            AddCombatAction(MOAM_TRAMPLE, 9000u);
+            AddCombatAction(MOAM_MANA_DRAIN, 6000u);
+            AddCombatAction(MOAM_MANA_FIENDS, 90000u);
+            AddCombatAction(MOAM_ENERGIZE, 90000u);
+            AddCustomAction(MOAM_CANCEL_ENERGIZE, true, [&]()
             {
-                return static_cast<ScriptedInstance*>(unit->GetInstanceData())->GetPlayerInMap(true, false) == nullptr;
+                m_creature->RemoveAurasDueToSpell(SPELL_ENERGIZE);
             });
-        }
-    }
 
-    uint8 m_uiPhase;
-    GuidVector m_summons;
-
-    void Reset() override
-    {
-        CombatAI::Reset();
-        m_creature->SetPower(POWER_MANA, 0);
-        DespawnGuids(m_summons);
-    }
-
-    void Aggro(Unit* /*who*/) override
-    {
-        DoScriptText(EMOTE_AGGRO, m_creature);
-    }
-
-    void JustSummoned(Creature* summoned) override
-    {
-        if (summoned->GetEntry() == NPC_MANA_FIEND)
-        {
-            summoned->SetInCombatWithZone();
-            if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, nullptr, SELECT_FLAG_PLAYER))
+            if (m_creature->GetInstanceData())
             {
-                summoned->AddThreat(target, 100000.f);
-                summoned->AI()->AttackStart(target);
-            }
-            summoned->SetCorpseDelay(2);
-        }
-        m_summons.push_back(summoned->GetObjectGuid());
-    }
-
-    void SummonedCreatureJustDied(Creature* summoned) override
-    {
-        m_summons.erase(std::remove(m_summons.begin(), m_summons.end(), summoned->GetObjectGuid()), m_summons.end());
-        if (m_summons.size() == 0)
-            m_creature->RemoveAurasDueToSpell(SPELL_ENERGIZE);
-    }
-
-    void ExecuteAction(uint32 action) override
-    {
-        switch (action)
-        {
-            case MOAM_ARCANE_ERUPTION:
-            {
-                if (DoCastSpellIfCan(nullptr, SPELL_ARCANE_ERUPTION) == CAST_OK)
+                m_creature->GetCombatManager().SetLeashingCheck([](Unit* unit, float /*x*/, float /*y*/, float /*z*/)
                 {
-                    DoScriptText(EMOTE_MANA_FULL, m_creature);
-                    ResetCombatAction(action, 5000); // small CD to prevent AI spam
-                }
-                break;
-            }
-            case MOAM_TRAMPLE:
-            {
-                if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_TRAMPLE) == CAST_OK)
-                    ResetCombatAction(action, 15000);
-                break;
-            }
-            case MOAM_MANA_DRAIN:
-            {
-                if (DoCastSpellIfCan(nullptr, SPELL_DRAIN_MANA) == CAST_OK)
-                    ResetCombatAction(action, 6000);
-                break;
-            }
-            case MOAM_MANA_FIENDS:
-            {
-                if (DoCastSpellIfCan(nullptr, SPELL_SUMMON_MANAFIENDS) == CAST_OK)
-                    ResetCombatAction(action, 90000);
-                break;
-            }
-            case MOAM_ENERGIZE:
-            {
-                if (DoCastSpellIfCan(nullptr, SPELL_ENERGIZE) == CAST_OK)
-                {
-                    DoScriptText(EMOTE_ENERGIZING, m_creature);
-                    ResetTimer(MOAM_CANCEL_ENERGIZE, 90000);
-                    ResetCombatAction(action, 180000);
-                }
-                break;
+                    return static_cast<ScriptedInstance*>(unit->GetInstanceData())->GetPlayerInMap(true, false) == nullptr;
+                });
             }
         }
-    }
+
+        uint8 m_uiPhase;
+        GuidVector m_summons;
+
+        void Reset() override
+        {
+            CombatAI::Reset();
+            m_creature->SetPower(POWER_MANA, 0);
+            DespawnGuids(m_summons);
+        }
+
+        void Aggro(Unit* /*who*/) override
+        {
+            DoScriptText(EMOTE_AGGRO, m_creature);
+        }
+
+        void JustSummoned(Creature* summoned) override
+        {
+            if (summoned->GetEntry() == NPC_MANA_FIEND)
+            {
+                summoned->SetInCombatWithZone();
+                if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, nullptr, SELECT_FLAG_PLAYER))
+                {
+                    summoned->AddThreat(target, 100000.f);
+                    summoned->AI()->AttackStart(target);
+                }
+                summoned->SetCorpseDelay(2);
+            }
+            m_summons.push_back(summoned->GetObjectGuid());
+        }
+
+        void SummonedCreatureJustDied(Creature* summoned) override
+        {
+            m_summons.erase(std::remove(m_summons.begin(), m_summons.end(), summoned->GetObjectGuid()), m_summons.end());
+            if (m_summons.size() == 0)
+                m_creature->RemoveAurasDueToSpell(SPELL_ENERGIZE);
+        }
+
+        void ExecuteAction(uint32 action) override
+        {
+            switch (action)
+            {
+                case MOAM_ARCANE_ERUPTION:
+                {
+                    if (DoCastSpellIfCan(nullptr, SPELL_ARCANE_ERUPTION) == CAST_OK)
+                    {
+                        DoScriptText(EMOTE_MANA_FULL, m_creature);
+                        ResetCombatAction(action, 5000); // small CD to prevent AI spam
+                    }
+                    break;
+                }
+                case MOAM_TRAMPLE:
+                {
+                    if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_TRAMPLE) == CAST_OK)
+                        ResetCombatAction(action, 15000);
+                    break;
+                }
+                case MOAM_MANA_DRAIN:
+                {
+                    if (DoCastSpellIfCan(nullptr, SPELL_DRAIN_MANA) == CAST_OK)
+                        ResetCombatAction(action, 6000);
+                    break;
+                }
+                case MOAM_MANA_FIENDS:
+                {
+                    if (DoCastSpellIfCan(nullptr, SPELL_SUMMON_MANAFIENDS) == CAST_OK)
+                        ResetCombatAction(action, 90000);
+                    break;
+                }
+                case MOAM_ENERGIZE:
+                {
+                    if (DoCastSpellIfCan(nullptr, SPELL_ENERGIZE) == CAST_OK)
+                    {
+                        DoScriptText(EMOTE_ENERGIZING, m_creature);
+                        ResetTimer(MOAM_CANCEL_ENERGIZE, 90000);
+                        ResetCombatAction(action, 180000);
+                    }
+                    break;
+                }
+            }
+        }
+    };
+
+
+
 };
 
 struct SummonManaFiendsMoam : public SpellScript
@@ -174,10 +183,7 @@ struct SummonManaFiendsMoam : public SpellScript
 
 void AddSC_boss_moam()
 {
-    Script* pNewScript = new Script;
-    pNewScript->Name = "boss_moam";
-    pNewScript->GetAI = &GetNewAIInstance<boss_moamAI>;
-    pNewScript->RegisterSelf();
+    new boss_moam();
 
     RegisterSpellScript<SummonManaFiendsMoam>("spell_summon_mana_fiends_moam");
 }

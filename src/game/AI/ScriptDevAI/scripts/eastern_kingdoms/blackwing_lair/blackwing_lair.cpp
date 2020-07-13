@@ -705,11 +705,20 @@ void instance_blackwing_lair::CleanupNefarianStage(bool fullCleanup)
             nefarius->Respawn();
     }
 }
-
-InstanceData* GetInstanceData_instance_blackwing_lair(Map* pMap)
+class instance_blackwing_lair : public InstanceMapScript
 {
-    return new instance_blackwing_lair(pMap);
-}
+public:
+    instance_blackwing_lair() : InstanceMapScript("instance_blackwing_lair") { }
+
+    InstanceData* GetInstanceScript(Map* pMap) const override
+    {
+        return new instance_blackwing_lair(pMap);
+    }
+
+
+
+
+};
 
 /*###############
 ## go_suppression
@@ -758,72 +767,78 @@ struct go_ai_suppression : public GameObjectAI
     }
 };
 
-
-GameObjectAI* GetAI_go_suppression(GameObject* go)
+class go_suppression : public CreatureScript
 {
-    return new go_ai_suppression(go);
-}
+public:
+    go_suppression() : CreatureScript("go_suppression") { }
+
+    GameObjectAI* GetAI(GameObject* go)
+    {
+        return new go_ai_suppression(go);
+    }
+
+
+
+};
 
 /*###################################################
 ## Chromaggus' breaths and Nefarian tunnels selection
 ####################################################*/
-
-bool ProcessEventId_event_weekly_chromatic_selection(uint32 uiEventId, Object* pSource, Object* /*pTarget*/, bool /*bIsStart*/)
+class event_weekly_chromatic_selection : public UnknownScript
 {
-    if (pSource->GetTypeId() == TYPEID_UNIT)
+public:
+    event_weekly_chromatic_selection() : UnknownScript("event_weekly_chromatic_selection") { }
+
+    bool OnProcessEvent(uint32 uiEventId, Object* pSource, Object* /*pTarget*/, bool /*bIsStart*/) override
     {
-        if (instance_blackwing_lair* pInstance = (instance_blackwing_lair*)((Creature*)pSource)->GetInstanceData())
+        if (pSource->GetTypeId() == TYPEID_UNIT)
         {
-            switch (uiEventId)
+            if (instance_blackwing_lair* pInstance = (instance_blackwing_lair*)((Creature*)pSource)->GetInstanceData())
             {
-                // Left Chromaggus breath
-                case 8446:
-                case 8447:
-                case 8448:
-                case 8449:
-                case 8450:
-                // Right Chromaggus breath
-                case 8451:
-                case 8452:
-                case 8453:
-                case 8454:
-                case 8455:
-                    pInstance->InitiateBreath(uiEventId);
-                    break;
-                // Left tunnel in Nefarian's lair
-                case 8520:
-                case 8521:
-                case 8522:
-                case 8523:
-                case 8524:
-                // Right tunnel in Nefarian's lair
-                case 8525:
-                case 8526:
-                case 8527:
-                case 8528:
-                case 8529:
-                    pInstance->InitiateDrakonid(uiEventId);
-                    break;
+                switch (uiEventId)
+                {
+                    // Left Chromaggus breath
+                    case 8446:
+                    case 8447:
+                    case 8448:
+                    case 8449:
+                    case 8450:
+                    // Right Chromaggus breath
+                    case 8451:
+                    case 8452:
+                    case 8453:
+                    case 8454:
+                    case 8455:
+                        pInstance->InitiateBreath(uiEventId);
+                        break;
+                    // Left tunnel in Nefarian's lair
+                    case 8520:
+                    case 8521:
+                    case 8522:
+                    case 8523:
+                    case 8524:
+                    // Right tunnel in Nefarian's lair
+                    case 8525:
+                    case 8526:
+                    case 8527:
+                    case 8528:
+                    case 8529:
+                        pInstance->InitiateDrakonid(uiEventId);
+                        break;
+                }
             }
         }
+        return false;
     }
-    return false;
-}
+
+
+
+};
 
 void AddSC_instance_blackwing_lair()
 {
-    Script* pNewScript = new Script;
-    pNewScript->Name = "instance_blackwing_lair";
-    pNewScript->GetInstanceData = &GetInstanceData_instance_blackwing_lair;
-    pNewScript->RegisterSelf();
+    new instance_blackwing_lair();
+    new go_suppression();
+    new event_weekly_chromatic_selection();
 
-    pNewScript = new Script;
-    pNewScript->Name = "go_suppression";
-    pNewScript->GetGameObjectAI = &GetAI_go_suppression;
-    pNewScript->RegisterSelf();
-
-    pNewScript = new Script;
-    pNewScript->Name = "event_weekly_chromatic_selection";
-    pNewScript->pProcessEventId = &ProcessEventId_event_weekly_chromatic_selection;
-    pNewScript->RegisterSelf();
 }

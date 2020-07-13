@@ -83,335 +83,370 @@ enum GorefiendActions
     GOREFIEND_ACTION_CRUSHING_SHADOWS,
     GOREFIEND_ACTION_MAX,
 };
-
-struct boss_teron_gorefiendAI : public ScriptedAI, public CombatActions
+class boss_teron_gorefiend : public CreatureScript
 {
-    boss_teron_gorefiendAI(Creature* creature) : ScriptedAI(creature), CombatActions(GOREFIEND_ACTION_MAX), m_introDone(false)
+public:
+    boss_teron_gorefiend() : CreatureScript("boss_teron_gorefiend") { }
+
+
+    struct boss_teron_gorefiendAI : public ScriptedAI, public CombatActions
     {
-        m_instance = static_cast<instance_black_temple*>(creature->GetInstanceData());
-        AddCombatAction(GOREFIEND_ACTION_DOOM_BLOSSOM, 0u);
-        AddCombatAction(GOREFIEND_ACTION_INCINERATE, 0u);
-        AddCombatAction(GOREFIEND_ACTION_SHADOW_OF_DEATH, 0u);
-        AddCombatAction(GOREFIEND_ACTION_CRUSHING_SHADOWS, 0u);
-        AddCombatAction(GOREFIEND_ACTION_BERSERK, 0u);
-        Reset();
-    }
-
-    instance_black_temple* m_instance;
-
-    bool m_introDone;
-
-    GuidVector m_blossoms;
-
-    void Reset() override
-    {
-        for (uint32 i = 0; i < GOREFIEND_ACTION_MAX; ++i)
-            SetActionReadyStatus(i, false);
-
-        ResetTimer(GOREFIEND_ACTION_DOOM_BLOSSOM, GetInitialActionTimer(GOREFIEND_ACTION_DOOM_BLOSSOM));
-        ResetTimer(GOREFIEND_ACTION_INCINERATE, GetInitialActionTimer(GOREFIEND_ACTION_INCINERATE));
-        ResetTimer(GOREFIEND_ACTION_SHADOW_OF_DEATH, GetInitialActionTimer(GOREFIEND_ACTION_SHADOW_OF_DEATH));
-        ResetTimer(GOREFIEND_ACTION_CRUSHING_SHADOWS, GetInitialActionTimer(GOREFIEND_ACTION_CRUSHING_SHADOWS));
-        ResetTimer(GOREFIEND_ACTION_BERSERK, GetInitialActionTimer(GOREFIEND_ACTION_BERSERK));
-
-        DespawnSummons();
-    }
-
-    uint32 GetInitialActionTimer(GorefiendActions id)
-    {
-        switch (id)
+        boss_teron_gorefiendAI(Creature* creature) : ScriptedAI(creature), CombatActions(GOREFIEND_ACTION_MAX), m_introDone(false)
         {
-            case GOREFIEND_ACTION_DOOM_BLOSSOM: return urand(5000, 10000);
-            case GOREFIEND_ACTION_INCINERATE: return urand(20000, 30000);;
-            case GOREFIEND_ACTION_SHADOW_OF_DEATH: return 10000;
-            case GOREFIEND_ACTION_CRUSHING_SHADOWS: return 22000;
-            case GOREFIEND_ACTION_BERSERK: return 10 * MINUTE * IN_MILLISECONDS;
-            default: return 0;
+            m_instance = static_cast<instance_black_temple*>(creature->GetInstanceData());
+            AddCombatAction(GOREFIEND_ACTION_DOOM_BLOSSOM, 0u);
+            AddCombatAction(GOREFIEND_ACTION_INCINERATE, 0u);
+            AddCombatAction(GOREFIEND_ACTION_SHADOW_OF_DEATH, 0u);
+            AddCombatAction(GOREFIEND_ACTION_CRUSHING_SHADOWS, 0u);
+            AddCombatAction(GOREFIEND_ACTION_BERSERK, 0u);
+            Reset();
         }
-    }
 
-    uint32 GetSubsequentActionTimer(GorefiendActions id)
-    {
-        switch (id)
+        instance_black_temple* m_instance;
+
+        bool m_introDone;
+
+        GuidVector m_blossoms;
+
+        void Reset() override
         {
-            case GOREFIEND_ACTION_DOOM_BLOSSOM: return 35000;
-            case GOREFIEND_ACTION_INCINERATE: return urand(20000, 50000);
-            case GOREFIEND_ACTION_SHADOW_OF_DEATH: return urand(30000, 50000);
-            case GOREFIEND_ACTION_CRUSHING_SHADOWS: return urand(10000, 26000);
-            default: return 0;
+            for (uint32 i = 0; i < GOREFIEND_ACTION_MAX; ++i)
+                SetActionReadyStatus(i, false);
+
+            ResetTimer(GOREFIEND_ACTION_DOOM_BLOSSOM, GetInitialActionTimer(GOREFIEND_ACTION_DOOM_BLOSSOM));
+            ResetTimer(GOREFIEND_ACTION_INCINERATE, GetInitialActionTimer(GOREFIEND_ACTION_INCINERATE));
+            ResetTimer(GOREFIEND_ACTION_SHADOW_OF_DEATH, GetInitialActionTimer(GOREFIEND_ACTION_SHADOW_OF_DEATH));
+            ResetTimer(GOREFIEND_ACTION_CRUSHING_SHADOWS, GetInitialActionTimer(GOREFIEND_ACTION_CRUSHING_SHADOWS));
+            ResetTimer(GOREFIEND_ACTION_BERSERK, GetInitialActionTimer(GOREFIEND_ACTION_BERSERK));
+
+            DespawnSummons();
         }
-    }
 
-    void JustReachedHome() override
-    {
-        if (m_instance)
-            m_instance->SetData(TYPE_GOREFIEND, FAIL);
-
-        DespawnSummons();
-        DoCastSpellIfCan(nullptr, SPELL_DESTROY_ALL_SPIRITS);
-    }
-
-    void Aggro(Unit* /*pWho*/) override
-    {
-        DoScriptText(SAY_AGGRO, m_creature);
-
-        if (m_instance)
-            m_instance->SetData(TYPE_GOREFIEND, IN_PROGRESS);
-    }
-
-    void ReceiveAIEvent(AIEventType eventType, Unit* /*sender*/, Unit* /*invoker*/, uint32 /*miscValue*/) override
-    {
-        switch (eventType)
+        uint32 GetInitialActionTimer(GorefiendActions id)
         {
-            case AI_EVENT_CUSTOM_A:
-                if (!m_introDone)
-                {
-                    DoScriptText(SAY_INTRO, m_creature);
-                    m_introDone = true;
-                }
-                break;
-        }
-    }
-
-    void KilledUnit(Unit* pVictim) override
-    {
-        if (pVictim->GetTypeId() != TYPEID_PLAYER)
-            return;
-
-        DoScriptText(urand(0, 1) ? SAY_SLAY1 : SAY_SLAY2, m_creature);
-    }
-
-    void JustDied(Unit* /*pKiller*/) override
-    {
-        if (m_instance)
-            m_instance->SetData(TYPE_GOREFIEND, DONE);
-
-        DoScriptText(SAY_DEATH, m_creature);
-        DoCastSpellIfCan(nullptr, SPELL_SHADOW_OF_DEATH_REMOVE);
-        DoCastSpellIfCan(nullptr, SPELL_DESTROY_ALL_SPIRITS);
-        DespawnSummons();
-    }
-
-    void JustSummoned(Creature* summoned) override
-    {
-        if (summoned->GetEntry() == NPC_DOOM_BLOSSOM)
-            m_blossoms.push_back(summoned->GetObjectGuid());
-    }
-
-    void DespawnSummons()
-    {
-        GuidVector& constructs = m_instance->GetShadowyConstructGuidVector();
-        DespawnGuids(constructs);
-        DespawnGuids(m_blossoms);
-    }
-
-    void OnSpellCooldownAdded(SpellEntry const* spellInfo) override
-    {
-        if (spellInfo->Id == SPELL_SHADOW_OF_DEATH)
-        {
-            ResetTimer(GOREFIEND_ACTION_SHADOW_OF_DEATH, GetSubsequentActionTimer(GorefiendActions(GOREFIEND_ACTION_SHADOW_OF_DEATH)));
-            SetActionReadyStatus(GOREFIEND_ACTION_SHADOW_OF_DEATH, false);
-        }
-    }
-
-    void ExecuteActions()
-    {
-        if (!CanExecuteCombatAction())
-            return;
-
-        for (uint32 i = 0; i < GOREFIEND_ACTION_MAX; ++i)
-        {
-            if (GetActionReadyStatus(i))
+            switch (id)
             {
-                switch (i)
-                {
-                    case GOREFIEND_ACTION_BERSERK:
-                    {
-                        if (DoCastSpellIfCan(nullptr, SPELL_BERSERK) == CAST_OK)
-                        {
-                            DoScriptText(EMOTE_BERSERK, m_creature);
-                            SetActionReadyStatus(i, false);
-                            return;
-                        }
-                        continue;
-                    }
-                    case GOREFIEND_ACTION_DOOM_BLOSSOM:
-                    {
-                        if (DoCastSpellIfCan(nullptr, SPELL_SUMMON_DOOM_BLOSSOM) == CAST_OK)
-                        {
-                            if (urand(0, 1))
-                                DoScriptText(urand(0, 1) ? SAY_SPELL1 : SAY_SPELL2, m_creature);
+                case GOREFIEND_ACTION_DOOM_BLOSSOM: return urand(5000, 10000);
+                case GOREFIEND_ACTION_INCINERATE: return urand(20000, 30000);;
+                case GOREFIEND_ACTION_SHADOW_OF_DEATH: return 10000;
+                case GOREFIEND_ACTION_CRUSHING_SHADOWS: return 22000;
+                case GOREFIEND_ACTION_BERSERK: return 10 * MINUTE * IN_MILLISECONDS;
+                default: return 0;
+            }
+        }
 
-                            ResetTimer(i, GetSubsequentActionTimer(GorefiendActions(i)));
-                            SetActionReadyStatus(i, false);
-                            return;
-                        }
-                        continue;
-                    }
-                    case GOREFIEND_ACTION_INCINERATE:
+        uint32 GetSubsequentActionTimer(GorefiendActions id)
+        {
+            switch (id)
+            {
+                case GOREFIEND_ACTION_DOOM_BLOSSOM: return 35000;
+                case GOREFIEND_ACTION_INCINERATE: return urand(20000, 50000);
+                case GOREFIEND_ACTION_SHADOW_OF_DEATH: return urand(30000, 50000);
+                case GOREFIEND_ACTION_CRUSHING_SHADOWS: return urand(10000, 26000);
+                default: return 0;
+            }
+        }
+
+        void JustReachedHome() override
+        {
+            if (m_instance)
+                m_instance->SetData(TYPE_GOREFIEND, FAIL);
+
+            DespawnSummons();
+            DoCastSpellIfCan(nullptr, SPELL_DESTROY_ALL_SPIRITS);
+        }
+
+        void Aggro(Unit* /*pWho*/) override
+        {
+            DoScriptText(SAY_AGGRO, m_creature);
+
+            if (m_instance)
+                m_instance->SetData(TYPE_GOREFIEND, IN_PROGRESS);
+        }
+
+        void ReceiveAIEvent(AIEventType eventType, Unit* /*sender*/, Unit* /*invoker*/, uint32 /*miscValue*/) override
+        {
+            switch (eventType)
+            {
+                case AI_EVENT_CUSTOM_A:
+                    if (!m_introDone)
                     {
-                        Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, nullptr, SELECT_FLAG_SKIP_TANK);
-                        if (DoCastSpellIfCan(target, SPELL_INCINERATE) == CAST_OK)
-                        {
-                            ResetTimer(i, GetSubsequentActionTimer(GorefiendActions(i)));
-                            SetActionReadyStatus(i, false);
-                            return;
-                        }
-                        continue;
+                        DoScriptText(SAY_INTRO, m_creature);
+                        m_introDone = true;
                     }
-                    case GOREFIEND_ACTION_SHADOW_OF_DEATH:
+                    break;
+            }
+        }
+
+        void KilledUnit(Unit* pVictim) override
+        {
+            if (pVictim->GetTypeId() != TYPEID_PLAYER)
+                return;
+
+            DoScriptText(urand(0, 1) ? SAY_SLAY1 : SAY_SLAY2, m_creature);
+        }
+
+        void JustDied(Unit* /*pKiller*/) override
+        {
+            if (m_instance)
+                m_instance->SetData(TYPE_GOREFIEND, DONE);
+
+            DoScriptText(SAY_DEATH, m_creature);
+            DoCastSpellIfCan(nullptr, SPELL_SHADOW_OF_DEATH_REMOVE);
+            DoCastSpellIfCan(nullptr, SPELL_DESTROY_ALL_SPIRITS);
+            DespawnSummons();
+        }
+
+        void JustSummoned(Creature* summoned) override
+        {
+            if (summoned->GetEntry() == NPC_DOOM_BLOSSOM)
+                m_blossoms.push_back(summoned->GetObjectGuid());
+        }
+
+        void DespawnSummons()
+        {
+            GuidVector& constructs = m_instance->GetShadowyConstructGuidVector();
+            DespawnGuids(constructs);
+            DespawnGuids(m_blossoms);
+        }
+
+        void OnSpellCooldownAdded(SpellEntry const* spellInfo) override
+        {
+            if (spellInfo->Id == SPELL_SHADOW_OF_DEATH)
+            {
+                ResetTimer(GOREFIEND_ACTION_SHADOW_OF_DEATH, GetSubsequentActionTimer(GorefiendActions(GOREFIEND_ACTION_SHADOW_OF_DEATH)));
+                SetActionReadyStatus(GOREFIEND_ACTION_SHADOW_OF_DEATH, false);
+            }
+        }
+
+        void ExecuteActions()
+        {
+            if (!CanExecuteCombatAction())
+                return;
+
+            for (uint32 i = 0; i < GOREFIEND_ACTION_MAX; ++i)
+            {
+                if (GetActionReadyStatus(i))
+                {
+                    switch (i)
                     {
-                        if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, SPELL_SHADOW_OF_DEATH, SELECT_FLAG_PLAYER | SELECT_FLAG_NOT_AURA | SELECT_FLAG_SKIP_TANK))
+                        case GOREFIEND_ACTION_BERSERK:
                         {
-                            if (DoCastSpellIfCan(target, SPELL_SHADOW_OF_DEATH) == CAST_OK)
+                            if (DoCastSpellIfCan(nullptr, SPELL_BERSERK) == CAST_OK)
                             {
-                                DoScriptText(urand(0, 1) ? SAY_SPECIAL1 : SAY_SPECIAL2, m_creature);
+                                DoScriptText(EMOTE_BERSERK, m_creature);
+                                SetActionReadyStatus(i, false);
                                 return;
                             }
+                            continue;
                         }
-                        continue;
-                    }
-                    case GOREFIEND_ACTION_CRUSHING_SHADOWS:
-                    {
-                        if (DoCastSpellIfCan(nullptr, SPELL_CRUSHING_SHADOWS) == CAST_OK)
+                        case GOREFIEND_ACTION_DOOM_BLOSSOM:
                         {
-                            if (urand(0, 1))
-                                DoScriptText(urand(0, 1) ? SAY_SPECIAL1 : SAY_SPECIAL2, m_creature);
+                            if (DoCastSpellIfCan(nullptr, SPELL_SUMMON_DOOM_BLOSSOM) == CAST_OK)
+                            {
+                                if (urand(0, 1))
+                                    DoScriptText(urand(0, 1) ? SAY_SPELL1 : SAY_SPELL2, m_creature);
 
-                            ResetTimer(i, GetSubsequentActionTimer(GorefiendActions(i)));
-                            SetActionReadyStatus(i, false);
-                            return;
+                                ResetTimer(i, GetSubsequentActionTimer(GorefiendActions(i)));
+                                SetActionReadyStatus(i, false);
+                                return;
+                            }
+                            continue;
                         }
-                        continue;
+                        case GOREFIEND_ACTION_INCINERATE:
+                        {
+                            Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, nullptr, SELECT_FLAG_SKIP_TANK);
+                            if (DoCastSpellIfCan(target, SPELL_INCINERATE) == CAST_OK)
+                            {
+                                ResetTimer(i, GetSubsequentActionTimer(GorefiendActions(i)));
+                                SetActionReadyStatus(i, false);
+                                return;
+                            }
+                            continue;
+                        }
+                        case GOREFIEND_ACTION_SHADOW_OF_DEATH:
+                        {
+                            if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, SPELL_SHADOW_OF_DEATH, SELECT_FLAG_PLAYER | SELECT_FLAG_NOT_AURA | SELECT_FLAG_SKIP_TANK))
+                            {
+                                if (DoCastSpellIfCan(target, SPELL_SHADOW_OF_DEATH) == CAST_OK)
+                                {
+                                    DoScriptText(urand(0, 1) ? SAY_SPECIAL1 : SAY_SPECIAL2, m_creature);
+                                    return;
+                                }
+                            }
+                            continue;
+                        }
+                        case GOREFIEND_ACTION_CRUSHING_SHADOWS:
+                        {
+                            if (DoCastSpellIfCan(nullptr, SPELL_CRUSHING_SHADOWS) == CAST_OK)
+                            {
+                                if (urand(0, 1))
+                                    DoScriptText(urand(0, 1) ? SAY_SPECIAL1 : SAY_SPECIAL2, m_creature);
+
+                                ResetTimer(i, GetSubsequentActionTimer(GorefiendActions(i)));
+                                SetActionReadyStatus(i, false);
+                                return;
+                            }
+                            continue;
+                        }
                     }
                 }
             }
         }
-    }
 
-    void UpdateAI(const uint32 diff) override
-    {
-        UpdateTimers(diff, m_creature->IsInCombat());
-
-        if (!m_creature->SelectHostileTarget() || !m_creature->GetVictim())
-            return;
-
-        ExecuteActions();
-        DoMeleeAttackIfReady();
-    }
-};
-
-struct npc_doom_blossomAI : public ScriptedAI, public TimerManager
-{
-    npc_doom_blossomAI(Creature* creature) : ScriptedAI(creature)
-    {
-        AddCustomAction(0, true, [&]
+        void UpdateAI(const uint32 diff) override
         {
-            if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, SPELL_SHADOW_BOLT, SELECT_FLAG_PLAYER))
-                DoCastSpellIfCan(target, SPELL_SHADOW_BOLT);
-            ResetTimer(0, 1200);
-        });
-        SetCombatMovement(false);
-    }
+            UpdateTimers(diff, m_creature->IsInCombat());
 
-    void Reset() override
-    {
+            if (!m_creature->SelectHostileTarget() || !m_creature->GetVictim())
+                return;
 
-    }
-
-    void JustRespawned() override
-    {
-        m_creature->CastSpell(nullptr, SPELL_SUMMON_BLOSSOM_MOVE_TARGET, TRIGGERED_NONE);
-        m_creature->SetInCombatWithZone(true);
-    }
-
-    void JustSummoned(Creature* summoned) override
-    {
-        m_creature->GetMotionMaster()->MovePoint(1, summoned->GetPositionX(), summoned->GetPositionY(), summoned->GetPositionZ());
-    }
-
-    void MovementInform(uint32 motionType, uint32 /*data*/) override
-    {
-        if (motionType != POINT_MOTION_TYPE)
-            return;
-
-        ResetTimer(0, 0);
-    }
-
-    void UpdateAI(const uint32 diff) override
-    {
-        UpdateTimers(diff);
-    }
-};
-
-struct npc_shadow_constructAI : public ScriptedAI, public TimerManager
-{
-    npc_shadow_constructAI(Creature* creature) : ScriptedAI(creature), m_instance(static_cast<instance_black_temple*>(creature->GetMap()->GetInstanceData()))
-    {
-        AddCustomAction(1, 0u, [&]
-        {
-            if (Creature* teron = m_instance->GetSingleCreatureFromStorage(NPC_TERON_GOREFIEND))
-            {
-                if (Unit* target = teron->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, nullptr, SELECT_FLAG_PLAYER))
-                {
-                    SetCombatScriptStatus(false);
-                    SetCombatMovement(true);
-                    m_creature->AddThreat(target, 100000.f);
-                    AttackStart(target);
-                    m_creature->SetInCombatWithZone(true);
-                    DoStartMovement(target);
-                }
-            }
-        });
-        Reset();
-    }
-
-    uint32 m_atrophyTimer;
-    instance_black_temple* m_instance;
-
-    void Reset() override
-    {
-        m_atrophyTimer = 2500;
-    }
-
-    void JustRespawned() override
-    {
-        SetCombatScriptStatus(true);
-        SetCombatMovement(false);
-        DoCastSpellIfCan(nullptr, SPELL_SHADOWY_CONSTRUCT, CAST_TRIGGERED | CAST_AURA_NOT_PRESENT);
-        DoCastSpellIfCan(nullptr, SPELL_SHADOW_STRIKES, CAST_TRIGGERED | CAST_AURA_NOT_PRESENT);
-        SetReactState(REACT_DEFENSIVE);
-        ResetTimer(1, 1500);
-    }
-
-    void UpdateAI(const uint32 diff) override
-    {
-        UpdateTimers(diff);
-
-        if (!m_creature->SelectHostileTarget() || !m_creature->GetVictim())
-            return;
-
-        if (m_atrophyTimer <= diff)
-        {
-            m_atrophyTimer = 0;
-            if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_ATROPHY) == CAST_OK)
-                m_atrophyTimer = 2500;
+            ExecuteActions();
+            DoMeleeAttackIfReady();
         }
-        else m_atrophyTimer -= diff;
+    };
 
-        DoMeleeAttackIfReady();
-    }
+
+
 };
-
-bool AreaTrigger_at_teron_gorefiend(Player* player, AreaTriggerEntry const* /*at*/)
+class npc_doom_blossom : public CreatureScript
 {
-    instance_black_temple* temple = static_cast<instance_black_temple*>(player->GetMap()->GetInstanceData());
-    if (Creature* teron = temple->GetSingleCreatureFromStorage(NPC_TERON_GOREFIEND))
-        if (teron->IsAlive())
-            teron->AI()->SendAIEvent(AI_EVENT_CUSTOM_A, player, teron);
+public:
+    npc_doom_blossom() : CreatureScript("npc_doom_blossom") { }
 
-    return false;
-}
+
+    struct npc_doom_blossomAI : public ScriptedAI, public TimerManager
+    {
+        npc_doom_blossomAI(Creature* creature) : ScriptedAI(creature)
+        {
+            AddCustomAction(0, true, [&]
+            {
+                if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, SPELL_SHADOW_BOLT, SELECT_FLAG_PLAYER))
+                    DoCastSpellIfCan(target, SPELL_SHADOW_BOLT);
+                ResetTimer(0, 1200);
+            });
+            SetCombatMovement(false);
+        }
+
+        void Reset() override
+        {
+
+        }
+
+        void JustRespawned() override
+        {
+            m_creature->CastSpell(nullptr, SPELL_SUMMON_BLOSSOM_MOVE_TARGET, TRIGGERED_NONE);
+            m_creature->SetInCombatWithZone(true);
+        }
+
+        void JustSummoned(Creature* summoned) override
+        {
+            m_creature->GetMotionMaster()->MovePoint(1, summoned->GetPositionX(), summoned->GetPositionY(), summoned->GetPositionZ());
+        }
+
+        void MovementInform(uint32 motionType, uint32 /*data*/) override
+        {
+            if (motionType != POINT_MOTION_TYPE)
+                return;
+
+            ResetTimer(0, 0);
+        }
+
+        void UpdateAI(const uint32 diff) override
+        {
+            UpdateTimers(diff);
+        }
+    };
+
+
+
+};
+class npc_shadow_construct : public CreatureScript
+{
+public:
+    npc_shadow_construct() : CreatureScript("npc_shadow_construct") { }
+
+
+    struct npc_shadow_constructAI : public ScriptedAI, public TimerManager
+    {
+        npc_shadow_constructAI(Creature* creature) : ScriptedAI(creature), m_instance(static_cast<instance_black_temple*>(creature->GetMap()->GetInstanceData()))
+        {
+            AddCustomAction(1, 0u, [&]
+            {
+                if (Creature* teron = m_instance->GetSingleCreatureFromStorage(NPC_TERON_GOREFIEND))
+                {
+                    if (Unit* target = teron->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, nullptr, SELECT_FLAG_PLAYER))
+                    {
+                        SetCombatScriptStatus(false);
+                        SetCombatMovement(true);
+                        m_creature->AddThreat(target, 100000.f);
+                        AttackStart(target);
+                        m_creature->SetInCombatWithZone(true);
+                        DoStartMovement(target);
+                    }
+                }
+            });
+            Reset();
+        }
+
+        uint32 m_atrophyTimer;
+        instance_black_temple* m_instance;
+
+        void Reset() override
+        {
+            m_atrophyTimer = 2500;
+        }
+
+        void JustRespawned() override
+        {
+            SetCombatScriptStatus(true);
+            SetCombatMovement(false);
+            DoCastSpellIfCan(nullptr, SPELL_SHADOWY_CONSTRUCT, CAST_TRIGGERED | CAST_AURA_NOT_PRESENT);
+            DoCastSpellIfCan(nullptr, SPELL_SHADOW_STRIKES, CAST_TRIGGERED | CAST_AURA_NOT_PRESENT);
+            SetReactState(REACT_DEFENSIVE);
+            ResetTimer(1, 1500);
+        }
+
+        void UpdateAI(const uint32 diff) override
+        {
+            UpdateTimers(diff);
+
+            if (!m_creature->SelectHostileTarget() || !m_creature->GetVictim())
+                return;
+
+            if (m_atrophyTimer <= diff)
+            {
+                m_atrophyTimer = 0;
+                if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_ATROPHY) == CAST_OK)
+                    m_atrophyTimer = 2500;
+            }
+            else m_atrophyTimer -= diff;
+
+            DoMeleeAttackIfReady();
+        }
+    };
+
+
+
+};
+class at_teron_gorefiend : public AreaTriggerScript
+{
+public:
+    at_teron_gorefiend() : AreaTriggerScript("at_teron_gorefiend") { }
+
+    bool OnTrigger(Player* player, AreaTriggerEntry const* /*at*/) override
+    {
+        instance_black_temple* temple = static_cast<instance_black_temple*>(player->GetMap()->GetInstanceData());
+        if (Creature* teron = temple->GetSingleCreatureFromStorage(NPC_TERON_GOREFIEND))
+            if (teron->IsAlive())
+                teron->AI()->SendAIEvent(AI_EVENT_CUSTOM_A, player, teron);
+
+        return false;
+    }
+
+
+
+};
 
 struct ShadowOfDeath : public AuraScript
 {
@@ -468,27 +503,12 @@ struct SummonBlossomMoveTarget : public SpellScript
 
 void AddSC_boss_teron_gorefiend()
 {
-    Script* pNewScript = new Script;
-    pNewScript->Name = "boss_teron_gorefiend";
-    pNewScript->GetAI = &GetNewAIInstance<boss_teron_gorefiendAI>;
-    pNewScript->RegisterSelf();
+    new boss_teron_gorefiend();
+    new npc_doom_blossom();
+    new npc_shadow_construct();
+    new at_teron_gorefiend();
 
-    pNewScript = new Script;
-    pNewScript->Name = "npc_doom_blossom";
-    pNewScript->GetAI = &GetNewAIInstance<npc_doom_blossomAI>;
-    pNewScript->RegisterSelf();
-
-    pNewScript = new Script;
-    pNewScript->Name = "npc_shadow_construct";
-    pNewScript->GetAI = &GetNewAIInstance<npc_shadow_constructAI>;
-    pNewScript->RegisterSelf();
-
-    pNewScript = new Script;
-    pNewScript->Name = "at_teron_gorefiend";
-    pNewScript->pAreaTrigger = &AreaTrigger_at_teron_gorefiend;
-    pNewScript->RegisterSelf();
-
-    RegisterAuraScript<ShadowOfDeath>("spell_shadow_of_death");
-    RegisterAuraScript<ShadowOfDeathRemove>("spell_shadow_of_death_remove");
     RegisterSpellScript<SummonBlossomMoveTarget>("spell_summon_blossom_move_target");
+    RegisterAuraScript<ShadowOfDeathRemove>("spell_shadow_of_death_remove");
+    RegisterAuraScript<ShadowOfDeath>("spell_shadow_of_death");
 }

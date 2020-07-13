@@ -58,212 +58,221 @@ enum
     COUNT_OVERRUN               = 5,
     POINT_OVERRUN               = 1,
 };
-
-struct boss_doomwalkerAI : public ScriptedAI
+class boss_doomwalker : public CreatureScript
 {
-    boss_doomwalkerAI(Creature* pCreature) : ScriptedAI(pCreature) { Reset(); }
+public:
+    boss_doomwalker() : CreatureScript("boss_doomwalker") { }
 
-    uint32 m_uiChainTimer;
-    uint32 m_uiOverrunTimer;
-    uint32 m_uiQuakeTimer;
-    uint32 m_uiArmorTimer;
-
-    uint32 m_overrunTargets;
-    uint32 m_overrunExecTimer;
-    GuidVector m_overrunCandidates;
-    SelectAttackingTargetParams m_overrunParams;
-
-    bool m_bHasEnrage;
-
-    void Reset() override
+    UnitAI* GetAI(Creature* pCreature)
     {
-        m_uiArmorTimer     = urand(5000, 13000);
-        m_uiChainTimer     = urand(10000, 30000);
-        m_uiQuakeTimer     = urand(25000, 35000);
-        m_uiOverrunTimer   = urand(30000, 45000);
-
-        m_bHasEnrage       = false;
-
-        m_overrunTargets = 0;
-        m_overrunCandidates.clear();
-
-        m_overrunParams.range.minRange = 0;
-        m_overrunParams.range.maxRange = 30;
-
-        m_creature->RemoveAurasDueToSpell(SPELL_MARK_OF_DEATH_AURA);
+        return new boss_doomwalkerAI(pCreature);
     }
 
-    void KilledUnit(Unit* pVictim) override
+
+
+    struct boss_doomwalkerAI : public ScriptedAI
     {
-        if (pVictim->GetTypeId() != TYPEID_PLAYER)
-            return;
+        boss_doomwalkerAI(Creature* pCreature) : ScriptedAI(pCreature) { Reset(); }
 
-        pVictim->CastSpell(pVictim, SPELL_MARK_OF_DEATH_PLAYER, TRIGGERED_OLD_TRIGGERED, nullptr, nullptr, m_creature->GetObjectGuid());
+        uint32 m_uiChainTimer;
+        uint32 m_uiOverrunTimer;
+        uint32 m_uiQuakeTimer;
+        uint32 m_uiArmorTimer;
 
-        if (urand(0, 4))
-            return;
+        uint32 m_overrunTargets;
+        uint32 m_overrunExecTimer;
+        GuidVector m_overrunCandidates;
+        SelectAttackingTargetParams m_overrunParams;
 
-        switch (urand(0, 2))
+        bool m_bHasEnrage;
+
+        void Reset() override
         {
-            case 0: DoScriptText(SAY_SLAY_1, m_creature); break;
-            case 1: DoScriptText(SAY_SLAY_2, m_creature); break;
-            case 2: DoScriptText(SAY_SLAY_3, m_creature); break;
+            m_uiArmorTimer     = urand(5000, 13000);
+            m_uiChainTimer     = urand(10000, 30000);
+            m_uiQuakeTimer     = urand(25000, 35000);
+            m_uiOverrunTimer   = urand(30000, 45000);
+
+            m_bHasEnrage       = false;
+
+            m_overrunTargets = 0;
+            m_overrunCandidates.clear();
+
+            m_overrunParams.range.minRange = 0;
+            m_overrunParams.range.maxRange = 30;
+
+            m_creature->RemoveAurasDueToSpell(SPELL_MARK_OF_DEATH_AURA);
         }
-    }
 
-    void MovementInform(uint32 movementType, uint32 data) override
-    {
-        if (movementType == POINT_MOTION_TYPE && data == POINT_OVERRUN)
+        void KilledUnit(Unit* pVictim) override
         {
-            if (Unit* victim = m_creature->GetVictim())
+            if (pVictim->GetTypeId() != TYPEID_PLAYER)
+                return;
+
+            pVictim->CastSpell(pVictim, SPELL_MARK_OF_DEATH_PLAYER, TRIGGERED_OLD_TRIGGERED, nullptr, nullptr, m_creature->GetObjectGuid());
+
+            if (urand(0, 4))
+                return;
+
+            switch (urand(0, 2))
             {
-                m_creature->MeleeAttackStart(victim);
-                m_creature->SetTarget(victim);
-                DoStartMovement(victim);
+                case 0: DoScriptText(SAY_SLAY_1, m_creature); break;
+                case 1: DoScriptText(SAY_SLAY_2, m_creature); break;
+                case 2: DoScriptText(SAY_SLAY_3, m_creature); break;
             }
-            SetCombatScriptStatus(false);
-            m_creature->RemoveAurasDueToSpell(SPELL_OVERRUN);
-            DoResetThreat();
         }
-    }
 
-    void JustSummoned(Creature* summoned) override
-    {
-        m_creature->MeleeAttackStop(m_creature->GetVictim());
-        m_creature->SetTarget(nullptr);
-        SetCombatScriptStatus(true);
-        float x, y, z;
-        summoned->GetNearPoint(m_creature, x, y, z, 0.f, 0.f, summoned->GetAngle(m_creature));
-        m_creature->GetMotionMaster()->MovePoint(POINT_OVERRUN, x, y, z);
-        m_overrunExecTimer = 250;
-    }
-
-    void JustRespawned() override
-    {
-        Reset();
-
-        std::list<Creature*> npcList;
-        GetCreatureListWithEntryInGrid(npcList, m_creature, NPC_DREADLORD, 200.0f);
-        GetCreatureListWithEntryInGrid(npcList, m_creature, NPC_ILLIDARI_RAVAGER, 200.0f);
-        GetCreatureListWithEntryInGrid(npcList, m_creature, NPC_SHADOWHOOF_ASSASSIN, 200.0f);
-        GetCreatureListWithEntryInGrid(npcList, m_creature, NPC_SHADOWHOOF_SUMMONER, 200.0f);
-        GetCreatureListWithEntryInGrid(npcList, m_creature, NPC_ILLIDARI_SUCCUBUS, 200.0f);
-
-        for (Creature* creature : npcList)
-            creature->Suicide();
-    }
-
-    void JustDied(Unit* /*pKiller*/) override
-    {
-        DoScriptText(SAY_DEATH, m_creature);
-        m_creature->RemoveAurasDueToSpell(SPELL_MARK_OF_DEATH_AURA);
-    }
-
-    void Aggro(Unit* /*pWho*/) override
-    {
-        DoCastSpellIfCan(m_creature, SPELL_MARK_OF_DEATH_AURA, CAST_TRIGGERED);
-        DoScriptText(SAY_AGGRO, m_creature);
-    }
-
-    void UpdateAI(const uint32 uiDiff) override
-    {
-        if (!m_creature->SelectHostileTarget() || !m_creature->GetVictim())
-            return;
-
-        if (GetCombatScriptStatus())
+        void MovementInform(uint32 movementType, uint32 data) override
         {
-            if (m_overrunExecTimer <= uiDiff)
+            if (movementType == POINT_MOTION_TYPE && data == POINT_OVERRUN)
             {
-                m_creature->CastSpell(nullptr, SPELL_OVERRUN_DAMAGE, TRIGGERED_NONE);
-                m_overrunExecTimer = 250;
+                if (Unit* victim = m_creature->GetVictim())
+                {
+                    m_creature->MeleeAttackStart(victim);
+                    m_creature->SetTarget(victim);
+                    DoStartMovement(victim);
+                }
+                SetCombatScriptStatus(false);
+                m_creature->RemoveAurasDueToSpell(SPELL_OVERRUN);
+                DoResetThreat();
+            }
+        }
+
+        void JustSummoned(Creature* summoned) override
+        {
+            m_creature->MeleeAttackStop(m_creature->GetVictim());
+            m_creature->SetTarget(nullptr);
+            SetCombatScriptStatus(true);
+            float x, y, z;
+            summoned->GetNearPoint(m_creature, x, y, z, 0.f, 0.f, summoned->GetAngle(m_creature));
+            m_creature->GetMotionMaster()->MovePoint(POINT_OVERRUN, x, y, z);
+            m_overrunExecTimer = 250;
+        }
+
+        void JustRespawned() override
+        {
+            Reset();
+
+            std::list<Creature*> npcList;
+            GetCreatureListWithEntryInGrid(npcList, m_creature, NPC_DREADLORD, 200.0f);
+            GetCreatureListWithEntryInGrid(npcList, m_creature, NPC_ILLIDARI_RAVAGER, 200.0f);
+            GetCreatureListWithEntryInGrid(npcList, m_creature, NPC_SHADOWHOOF_ASSASSIN, 200.0f);
+            GetCreatureListWithEntryInGrid(npcList, m_creature, NPC_SHADOWHOOF_SUMMONER, 200.0f);
+            GetCreatureListWithEntryInGrid(npcList, m_creature, NPC_ILLIDARI_SUCCUBUS, 200.0f);
+
+            for (Creature* creature : npcList)
+                creature->Suicide();
+        }
+
+        void JustDied(Unit* /*pKiller*/) override
+        {
+            DoScriptText(SAY_DEATH, m_creature);
+            m_creature->RemoveAurasDueToSpell(SPELL_MARK_OF_DEATH_AURA);
+        }
+
+        void Aggro(Unit* /*pWho*/) override
+        {
+            DoCastSpellIfCan(m_creature, SPELL_MARK_OF_DEATH_AURA, CAST_TRIGGERED);
+            DoScriptText(SAY_AGGRO, m_creature);
+        }
+
+        void UpdateAI(const uint32 uiDiff) override
+        {
+            if (!m_creature->SelectHostileTarget() || !m_creature->GetVictim())
+                return;
+
+            if (GetCombatScriptStatus())
+            {
+                if (m_overrunExecTimer <= uiDiff)
+                {
+                    m_creature->CastSpell(nullptr, SPELL_OVERRUN_DAMAGE, TRIGGERED_NONE);
+                    m_overrunExecTimer = 250;
+                }
+                else
+                    m_overrunExecTimer -= uiDiff;
+                return;
+            }
+
+            // Spell Enrage, when hp <= 20% gain enrage
+            if (m_creature->GetHealthPercent() <= 20.0f && !m_bHasEnrage)
+            {
+                if (DoCastSpellIfCan(m_creature, SPELL_ENRAGE) == CAST_OK)
+                {
+                    DoScriptText(EMOTE_FRENZY, m_creature);
+                    m_bHasEnrage = true;
+                }
+            }
+
+            // Spell Overrun
+            if (m_uiOverrunTimer < uiDiff)
+            {
+                std::vector<Unit*> targets;
+                m_creature->SelectAttackingTargets(targets, ATTACKING_TARGET_ALL_SUITABLE, 0, nullptr, SELECT_FLAG_PLAYER | SELECT_FLAG_RANGE_AOE_RANGE, m_overrunParams);
+                while (targets.size() > COUNT_OVERRUN)
+                    targets.erase(targets.begin() + urand(0, targets.size() - 1));
+
+                if (!targets.empty())
+                {
+                    float angle = m_creature->GetAngle(targets[0]);
+                    m_creature->SetFacingTo(angle);
+                    m_creature->SetOrientation(angle);
+                    m_creature->CastSpell(nullptr, SPELL_OVERRUN, TRIGGERED_NONE);
+                    m_creature->CastSpell(nullptr, SPELL_OVERRUN_TRIGGER_SPAWN, TRIGGERED_OLD_TRIGGERED); // shouldnt be sent to client
+                    DoScriptText(urand(0, 1) ? SAY_OVERRUN_1 : SAY_OVERRUN_2, m_creature);
+                    m_uiOverrunTimer = urand(25000, 40000);
+                }
             }
             else
-                m_overrunExecTimer -= uiDiff;
-            return;
-        }
+                m_uiOverrunTimer -= uiDiff;
 
-        // Spell Enrage, when hp <= 20% gain enrage
-        if (m_creature->GetHealthPercent() <= 20.0f && !m_bHasEnrage)
-        {
-            if (DoCastSpellIfCan(m_creature, SPELL_ENRAGE) == CAST_OK)
+            // Spell Earthquake
+            if (m_uiQuakeTimer < uiDiff)
             {
-                DoScriptText(EMOTE_FRENZY, m_creature);
-                m_bHasEnrage = true;
+                if (DoCastSpellIfCan(m_creature, SPELL_EARTHQUAKE) == CAST_OK)
+                {
+                    DoScriptText(urand(0, 1) ? SAY_EARTHQUAKE_1 : SAY_EARTHQUAKE_2, m_creature);
+                    m_uiQuakeTimer = urand(30000, 55000);
+                }
             }
-        }
+            else
+                m_uiQuakeTimer -= uiDiff;
 
-        // Spell Overrun
-        if (m_uiOverrunTimer < uiDiff)
-        {
-            std::vector<Unit*> targets;
-            m_creature->SelectAttackingTargets(targets, ATTACKING_TARGET_ALL_SUITABLE, 0, nullptr, SELECT_FLAG_PLAYER | SELECT_FLAG_RANGE_AOE_RANGE, m_overrunParams);
-            while (targets.size() > COUNT_OVERRUN)
-                targets.erase(targets.begin() + urand(0, targets.size() - 1));
-
-            if (!targets.empty())
+            // Spell Chain Lightning
+            if (m_uiChainTimer < uiDiff)
             {
-                float angle = m_creature->GetAngle(targets[0]);
-                m_creature->SetFacingTo(angle);
-                m_creature->SetOrientation(angle);
-                m_creature->CastSpell(nullptr, SPELL_OVERRUN, TRIGGERED_NONE);
-                m_creature->CastSpell(nullptr, SPELL_OVERRUN_TRIGGER_SPAWN, TRIGGERED_OLD_TRIGGERED); // shouldnt be sent to client
-                DoScriptText(urand(0, 1) ? SAY_OVERRUN_1 : SAY_OVERRUN_2, m_creature);
-                m_uiOverrunTimer = urand(25000, 40000);
-            }
-        }
-        else
-            m_uiOverrunTimer -= uiDiff;
+                Unit* pTarget = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 1, nullptr, SELECT_FLAG_PLAYER);
+                if (!pTarget)
+                    pTarget = m_creature->GetVictim();
 
-        // Spell Earthquake
-        if (m_uiQuakeTimer < uiDiff)
-        {
-            if (DoCastSpellIfCan(m_creature, SPELL_EARTHQUAKE) == CAST_OK)
+                if (pTarget)
+                {
+                    if (DoCastSpellIfCan(pTarget, SPELL_LIGHTNING_WRATH) == CAST_OK)
+                        m_uiChainTimer = urand(7000, 27000);
+                }
+            }
+            else
+                m_uiChainTimer -= uiDiff;
+
+            // Spell Sunder Armor
+            if (m_uiArmorTimer < uiDiff)
             {
-                DoScriptText(urand(0, 1) ? SAY_EARTHQUAKE_1 : SAY_EARTHQUAKE_2, m_creature);
-                m_uiQuakeTimer = urand(30000, 55000);
+                if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_CRUSH_ARMOR) == CAST_OK)
+                    m_uiArmorTimer = urand(10000, 25000);
             }
+            else
+                m_uiArmorTimer -= uiDiff;
+
+            DoMeleeAttackIfReady();
         }
-        else
-            m_uiQuakeTimer -= uiDiff;
+    };
 
-        // Spell Chain Lightning
-        if (m_uiChainTimer < uiDiff)
-        {
-            Unit* pTarget = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 1, nullptr, SELECT_FLAG_PLAYER);
-            if (!pTarget)
-                pTarget = m_creature->GetVictim();
 
-            if (pTarget)
-            {
-                if (DoCastSpellIfCan(pTarget, SPELL_LIGHTNING_WRATH) == CAST_OK)
-                    m_uiChainTimer = urand(7000, 27000);
-            }
-        }
-        else
-            m_uiChainTimer -= uiDiff;
 
-        // Spell Sunder Armor
-        if (m_uiArmorTimer < uiDiff)
-        {
-            if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_CRUSH_ARMOR) == CAST_OK)
-                m_uiArmorTimer = urand(10000, 25000);
-        }
-        else
-            m_uiArmorTimer -= uiDiff;
-
-        DoMeleeAttackIfReady();
-    }
 };
 
-UnitAI* GetAI_boss_doomwalker(Creature* pCreature)
-{
-    return new boss_doomwalkerAI(pCreature);
-}
 
 void AddSC_boss_doomwalker()
 {
-    Script* pNewScript = new Script;
-    pNewScript->Name = "boss_doomwalker";
-    pNewScript->GetAI = &GetAI_boss_doomwalker;
-    pNewScript->RegisterSelf();
+    new boss_doomwalker();
+
 }

@@ -68,222 +68,224 @@ enum
 // Actually such gossip can already be handled in normal World-Database
 // If (and only if) a gossip must be handled within SD2, then it should be moved to SD2-database!
 #define GOSSIP_ITEM     "I'm looking for a fight"
-
-struct example_creatureAI : public ScriptedAI
+class  example_creature : public CreatureScript
 {
-    // *** HANDLED FUNCTION ***
-    // This is the constructor, called only once when the creature is first created
-    example_creatureAI(Creature* pCreature) : ScriptedAI(pCreature) { Reset(); }
-
-    // *** CUSTOM VARIABLES ****
-    // These variables are for use only by this individual script.
-    // Nothing else will ever call them but us.
-
-    uint32 m_uiSayTimer;                                    // Timer for random chat
-    uint32 m_uiRebuffTimer;                                 // Timer for rebuffing
-    uint32 m_uiSpellOneTimer;                               // Timer for spell 1 when in combat
-    uint32 m_uiSpellTwoTimer;                               // Timer for spell 1 when in combat
-    uint32 m_uiSpellThreeTimer;                             // Timer for spell 1 when in combat
-    uint32 m_uiBeserkTimer;                                 // Timer until we go into Beserk (enraged) mode
-    uint32 m_uiPhase;                                       // The current battle phase we are in
-    uint32 m_uiPhaseTimer;                                  // Timer until phase transition
-
-    // *** HANDLED FUNCTION ***
-    // This is called whenever the core decides we need to evade
-    void Reset() override
+public:
+    example_creature() : CreatureScript(" example_creature") { }
+    struct example_creatureAI : public ScriptedAI
     {
-        m_uiPhase = 1;                                      // Start in phase 1
-        m_uiPhaseTimer = 60000;                             // 60 seconds
-        m_uiSpellOneTimer = 5000;                           // 5 seconds
-        m_uiSpellTwoTimer = 37000;                          // 37 seconds
-        m_uiSpellThreeTimer = 19000;                        // 19 seconds
-        m_uiBeserkTimer = 120000;                           // 2 minutes
-    }
+        // *** HANDLED FUNCTION ***
+        // This is the constructor, called only once when the creature is first created
+        example_creatureAI(Creature* pCreature) : ScriptedAI(pCreature) { Reset(); }
 
-    // *** HANDLED FUNCTION ***
-    // Aggro is called when we enter combat, against an enemy, and haven't been in combat before
-    void Aggro(Unit* pWho) override
-    {
-        // Say some stuff
-        DoScriptText(SAY_AGGRO, m_creature, pWho);
-    }
+        // *** CUSTOM VARIABLES ****
+        // These variables are for use only by this individual script.
+        // Nothing else will ever call them but us.
 
-    // *** HANDLED FUNCTION ***
-    // Our Recive emote function
-    void ReceiveEmote(Player* /*pPlayer*/, uint32 uiTextEmote) override
-    {
-        m_creature->HandleEmote(uiTextEmote);
+        uint32 m_uiSayTimer;                                    // Timer for random chat
+        uint32 m_uiRebuffTimer;                                 // Timer for rebuffing
+        uint32 m_uiSpellOneTimer;                               // Timer for spell 1 when in combat
+        uint32 m_uiSpellTwoTimer;                               // Timer for spell 1 when in combat
+        uint32 m_uiSpellThreeTimer;                             // Timer for spell 1 when in combat
+        uint32 m_uiBeserkTimer;                                 // Timer until we go into Beserk (enraged) mode
+        uint32 m_uiPhase;                                       // The current battle phase we are in
+        uint32 m_uiPhaseTimer;                                  // Timer until phase transition
 
-        switch (uiTextEmote)
+        // *** HANDLED FUNCTION ***
+        // This is called whenever the core decides we need to evade
+        void Reset() override
         {
+            m_uiPhase = 1;                                      // Start in phase 1
+            m_uiPhaseTimer = 60000;                             // 60 seconds
+            m_uiSpellOneTimer = 5000;                           // 5 seconds
+            m_uiSpellTwoTimer = 37000;                          // 37 seconds
+            m_uiSpellThreeTimer = 19000;                        // 19 seconds
+            m_uiBeserkTimer = 120000;                           // 2 minutes
+        }
+
+        // *** HANDLED FUNCTION ***
+        // Aggro is called when we enter combat, against an enemy, and haven't been in combat before
+        void Aggro(Unit* pWho) override
+        {
+            // Say some stuff
+            DoScriptText(SAY_AGGRO, m_creature, pWho);
+        }
+
+        // *** HANDLED FUNCTION ***
+        // Our Recive emote function
+        void ReceiveEmote(Player* /*pPlayer*/, uint32 uiTextEmote) override
+        {
+            m_creature->HandleEmote(uiTextEmote);
+
+            switch (uiTextEmote)
+            {
             case TEXTEMOTE_DANCE:
                 DoScriptText(SAY_DANCE, m_creature);
                 break;
             case TEXTEMOTE_SALUTE:
                 DoScriptText(SAY_SALUTE, m_creature);
                 break;
+            }
         }
-    }
 
-    // *** HANDLED FUNCTION ***
-    // Update AI is called Every single map update (roughly once every 100ms if a player is within the grid)
-    void UpdateAI(const uint32 uiDiff) override
-    {
-        // Out of combat timers
-        if (!m_creature->GetVictim())
+        // *** HANDLED FUNCTION ***
+        // Update AI is called Every single map update (roughly once every 100ms if a player is within the grid)
+        void UpdateAI(const uint32 uiDiff) override
         {
-            // Random Say timer
-            if (m_uiSayTimer < uiDiff)
+            // Out of combat timers
+            if (!m_creature->GetVictim())
             {
-                // Random switch between 5 outcomes
-                switch (urand(0, 4))
+                // Random Say timer
+                if (m_uiSayTimer < uiDiff)
                 {
+                    // Random switch between 5 outcomes
+                    switch (urand(0, 4))
+                    {
                     case 0: DoScriptText(SAY_RANDOM_0, m_creature); break;
                     case 1: DoScriptText(SAY_RANDOM_1, m_creature); break;
                     case 2: DoScriptText(SAY_RANDOM_2, m_creature); break;
                     case 3: DoScriptText(SAY_RANDOM_3, m_creature); break;
                     case 4: DoScriptText(SAY_RANDOM_4, m_creature); break;
+                    }
+
+                    m_uiSayTimer = 45 * IN_MILLISECONDS;        // Say something agian in 45 seconds
                 }
+                else
+                    m_uiSayTimer -= uiDiff;
 
-                m_uiSayTimer = 45 * IN_MILLISECONDS;        // Say something agian in 45 seconds
-            }
-            else
-                m_uiSayTimer -= uiDiff;
-
-            // Rebuff timer
-            if (m_uiRebuffTimer < uiDiff)
-            {
-                DoCastSpellIfCan(m_creature, SPELL_BUFF);
-                // Rebuff agian in 15 minutes
-                m_uiRebuffTimer = 15 * MINUTE * IN_MILLISECONDS;
-            }
-            else
-                m_uiRebuffTimer -= uiDiff;
-        }
-
-        // Return since we have no target
-        if (!m_creature->SelectHostileTarget() || !m_creature->GetVictim())
-            return;
-
-        // Abilities of all phases
-        // Spell One timer
-        if (m_uiSpellOneTimer < uiDiff)
-        {
-            // Cast spell one on our current target.
-            if (rand() % 50 > 10)
-                DoCastSpellIfCan(m_creature->GetVictim(), SPELL_ONE_ALT);
-            else if (m_creature->IsWithinDist(m_creature->GetVictim(), 25.0f))
-                DoCastSpellIfCan(m_creature->GetVictim(), SPELL_ONE);
-
-            m_uiSpellOneTimer = 5000;
-        }
-        else
-            m_uiSpellOneTimer -= uiDiff;
-
-        // Spell Two timer
-        if (m_uiSpellTwoTimer < uiDiff)
-        {
-            // Cast spell two on self (AoE spell with only self-target) if we can
-            if (DoCastSpellIfCan(m_creature, SPELL_TWO) == CAST_OK)
-                m_uiSpellTwoTimer = 37 * IN_MILLISECONDS;   // Only Update Timer, if we could start casting
-        }
-        else
-            m_uiSpellTwoTimer -= uiDiff;
-
-        // End of abliities of all phases
-
-        // Phase 1 abilities
-        if (m_uiPhase == 1)
-        {
-            // Phase timer
-            if (m_uiPhaseTimer < uiDiff)
-            {
-                // Only switch phase and display phase-switich text, if out cast was started sucessfull
-                if (DoCastSpellIfCan(m_creature, SPELL_ENRAGE) == CAST_OK)
+                // Rebuff timer
+                if (m_uiRebuffTimer < uiDiff)
                 {
-                    // Go to next phase
-                    ++m_uiPhase;
-                    DoScriptText(SAY_PHASE, m_creature);
+                    DoCastSpellIfCan(m_creature, SPELL_BUFF);
+                    // Rebuff agian in 15 minutes
+                    m_uiRebuffTimer = 15 * MINUTE * IN_MILLISECONDS;
                 }
+                else
+                    m_uiRebuffTimer -= uiDiff;
             }
-            else
-                m_uiPhaseTimer -= uiDiff;
-        }
-        // Phase 2 abilities
-        else if (m_uiPhase > 1)
-        {
-            // Spell Three timer
-            if (m_uiSpellThreeTimer < uiDiff)
-            {
-                // Cast spell three on self (AoE spell with only self-target)
-                if (DoCastSpellIfCan(m_creature, SPELL_THREE) == CAST_OK)
-                    m_uiSpellThreeTimer = 19000;
-            }
-            else
-                m_uiSpellThreeTimer -= uiDiff;
 
-            // Beserk timer
-            if (m_uiBeserkTimer < uiDiff)
+            // Return since we have no target
+            if (!m_creature->SelectHostileTarget() || !m_creature->GetVictim())
+                return;
+
+            // Abilities of all phases
+            // Spell One timer
+            if (m_uiSpellOneTimer < uiDiff)
             {
-                // Cast uber death spell if possible
-                if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_BESERK) == CAST_OK)
+                // Cast spell one on our current target.
+                if (rand() % 50 > 10)
+                    DoCastSpellIfCan(m_creature->GetVictim(), SPELL_ONE_ALT);
+                else if (m_creature->IsWithinDist(m_creature->GetVictim(), 25.0f))
+                    DoCastSpellIfCan(m_creature->GetVictim(), SPELL_ONE);
+
+                m_uiSpellOneTimer = 5000;
+            }
+            else
+                m_uiSpellOneTimer -= uiDiff;
+
+            // Spell Two timer
+            if (m_uiSpellTwoTimer < uiDiff)
+            {
+                // Cast spell two on self (AoE spell with only self-target) if we can
+                if (DoCastSpellIfCan(m_creature, SPELL_TWO) == CAST_OK)
+                    m_uiSpellTwoTimer = 37 * IN_MILLISECONDS;   // Only Update Timer, if we could start casting
+            }
+            else
+                m_uiSpellTwoTimer -= uiDiff;
+
+            // End of abliities of all phases
+
+            // Phase 1 abilities
+            if (m_uiPhase == 1)
+            {
+                // Phase timer
+                if (m_uiPhaseTimer < uiDiff)
                 {
-                    // Say our line if we cast
-                    DoScriptText(SAY_BESERK, m_creature, m_creature->GetVictim());
-
-                    // Cast our beserk spell agian in 12 seconds (if we didn't kill everyone)
-                    m_uiBeserkTimer = 12000;
+                    // Only switch phase and display phase-switich text, if out cast was started sucessfull
+                    if (DoCastSpellIfCan(m_creature, SPELL_ENRAGE) == CAST_OK)
+                    {
+                        // Go to next phase
+                        ++m_uiPhase;
+                        DoScriptText(SAY_PHASE, m_creature);
+                    }
                 }
+                else
+                    m_uiPhaseTimer -= uiDiff;
             }
-            else
-                m_uiBeserkTimer -= uiDiff;
+            // Phase 2 abilities
+            else if (m_uiPhase > 1)
+            {
+                // Spell Three timer
+                if (m_uiSpellThreeTimer < uiDiff)
+                {
+                    // Cast spell three on self (AoE spell with only self-target)
+                    if (DoCastSpellIfCan(m_creature, SPELL_THREE) == CAST_OK)
+                        m_uiSpellThreeTimer = 19000;
+                }
+                else
+                    m_uiSpellThreeTimer -= uiDiff;
+
+                // Beserk timer
+                if (m_uiBeserkTimer < uiDiff)
+                {
+                    // Cast uber death spell if possible
+                    if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_BESERK) == CAST_OK)
+                    {
+                        // Say our line if we cast
+                        DoScriptText(SAY_BESERK, m_creature, m_creature->GetVictim());
+
+                        // Cast our beserk spell agian in 12 seconds (if we didn't kill everyone)
+                        m_uiBeserkTimer = 12000;
+                    }
+                }
+                else
+                    m_uiBeserkTimer -= uiDiff;
+            }
+
+            // Normal behaviour: if possible mobs do attack with melee
+            DoMeleeAttackIfReady();
+        }
+    };
+
+    // This is the GetAI method used by all scripts that involve AI
+    // It is called every time a new creature using this script is created
+    UnitAI* GetAI(Creature* pCreature)
+    {
+        return new example_creatureAI(pCreature);
+    }
+
+    // This function is called when the player opens the gossip menu
+    // In this case as there is nothing special about this gossip dialogue, it should be moved to world-DB
+    bool OnGossipHello(Player* pPlayer, Creature* pCreature) override
+    {
+        pPlayer->ADD_GOSSIP_ITEM(GOSSIP_ICON_CHAT, GOSSIP_ITEM, GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF + 1);
+        pPlayer->SEND_GOSSIP_MENU(TEXT_ID_GREET, pCreature->GetObjectGuid());
+
+        return true;
+    }
+
+    // This function is called when the player clicks an option on the gossip menu
+    // In this case here the faction change could be handled by world-DB gossip, hence it should be handled there!
+    bool OnGossipSelect(Player* pPlayer, Creature* pCreature, uint32 /*uiSender*/, uint32 uiAction) override
+    {
+        if (uiAction == GOSSIP_ACTION_INFO_DEF + 1)
+        {
+            pPlayer->CLOSE_GOSSIP_MENU();
+            // Set our faction to hostile towards all
+            pCreature->SetFactionTemporary(FACTION_WORGEN, TEMPFACTION_RESTORE_RESPAWN);
+            pCreature->AI()->AttackStart(pPlayer);
         }
 
-        // Normal behaviour: if possible mobs do attack with melee
-        DoMeleeAttackIfReady();
+        return true;
     }
 };
 
-// This is the GetAI method used by all scripts that involve AI
-// It is called every time a new creature using this script is created
-UnitAI* GetAI_example_creature(Creature* pCreature)
-{
-    return new example_creatureAI(pCreature);
-}
 
-// This function is called when the player opens the gossip menu
-// In this case as there is nothing special about this gossip dialogue, it should be moved to world-DB
-bool GossipHello_example_creature(Player* pPlayer, Creature* pCreature)
-{
-    pPlayer->ADD_GOSSIP_ITEM(GOSSIP_ICON_CHAT, GOSSIP_ITEM, GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF + 1);
-    pPlayer->SEND_GOSSIP_MENU(TEXT_ID_GREET, pCreature->GetObjectGuid());
-
-    return true;
-}
-
-// This function is called when the player clicks an option on the gossip menu
-// In this case here the faction change could be handled by world-DB gossip, hence it should be handled there!
-bool GossipSelect_example_creature(Player* pPlayer, Creature* pCreature, uint32 /*uiSender*/, uint32 uiAction)
-{
-    if (uiAction == GOSSIP_ACTION_INFO_DEF + 1)
-    {
-        pPlayer->CLOSE_GOSSIP_MENU();
-        // Set our faction to hostile towards all
-        pCreature->SetFactionTemporary(FACTION_WORGEN, TEMPFACTION_RESTORE_RESPAWN);
-        pCreature->AI()->AttackStart(pPlayer);
-    }
-
-    return true;
-}
 
 // This is the actual function called only once durring InitScripts()
 // It must define all handled functions that are to be run in this script
 void AddSC_example_creature()
 {
-    Script* pNewScript = new Script;
-    pNewScript->Name = "example_creature";
-    pNewScript->GetAI = &GetAI_example_creature;
-    pNewScript->pGossipHello = &GossipHello_example_creature;
-    pNewScript->pGossipSelect = &GossipSelect_example_creature;
-    pNewScript->RegisterSelf(false);
+    new example_creature();
+
 }

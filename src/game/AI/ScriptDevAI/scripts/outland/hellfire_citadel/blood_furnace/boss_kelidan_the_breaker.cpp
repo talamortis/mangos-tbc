@@ -371,7 +371,7 @@ public:
                 return;
 
             if (Creature* pKelidan = m_pInstance->GetSingleCreatureFromStorage(NPC_KELIDAN_THE_BREAKER))
-                if (boss_kelidan_the_breakerAI* pKelidanAI = dynamic_cast<boss_kelidan_the_breakerAI*>(pKelidan->AI()))
+                if (boss_kelidan_the_breaker::boss_kelidan_the_breakerAI* pKelidanAI = dynamic_cast<boss_kelidan_the_breaker::boss_kelidan_the_breakerAI*>(pKelidan->AI()))
                     pKelidanAI->AddJustAggroed(pWho);
         }
 
@@ -381,7 +381,7 @@ public:
                 return;
 
             if (Creature* pKelidan = m_pInstance->GetSingleCreatureFromStorage(NPC_KELIDAN_THE_BREAKER))
-                if (boss_kelidan_the_breakerAI* pKelidanAI = dynamic_cast<boss_kelidan_the_breakerAI*>(pKelidan->AI()))
+                if (boss_kelidan_the_breaker::boss_kelidan_the_breakerAI* pKelidanAI = dynamic_cast<boss_kelidan_the_breaker::boss_kelidan_the_breakerAI*>(pKelidan->AI()))
                     pKelidanAI->AddJustDied(pKiller);
         }
 
@@ -391,7 +391,7 @@ public:
                 return;
 
             if (Creature* pKelidan = m_pInstance->GetSingleCreatureFromStorage(NPC_KELIDAN_THE_BREAKER))
-                if (boss_kelidan_the_breakerAI* pKelidanAI = dynamic_cast<boss_kelidan_the_breakerAI*>(pKelidan->AI()))
+                if (boss_kelidan_the_breaker::boss_kelidan_the_breakerAI* pKelidanAI = dynamic_cast<boss_kelidan_the_breaker::boss_kelidan_the_breakerAI*>(pKelidan->AI()))
                     pKelidanAI->AddJustReachedHome();
         }
 

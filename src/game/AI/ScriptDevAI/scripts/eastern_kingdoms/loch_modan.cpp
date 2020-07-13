@@ -127,7 +127,7 @@ public:
     {
         if (pQuest->GetQuestId() == QUEST_PROTECTING_THE_SHIPMENT)
         {
-            if (npc_miranAI* pEscortAI = dynamic_cast<npc_miranAI*>(pCreature->AI()))
+            if (npc_miran::npc_miranAI* pEscortAI = dynamic_cast<npc_miran::npc_miranAI*>(pCreature->AI()))
                 pEscortAI->Start(false, pPlayer, pQuest);
         }
         return true;

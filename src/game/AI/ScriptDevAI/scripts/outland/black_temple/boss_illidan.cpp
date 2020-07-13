@@ -1379,7 +1379,7 @@ public:
         {
             player->CLOSE_GOSSIP_MENU();
 
-            if (npc_akama_illidanAI* pAkamaAI = dynamic_cast<npc_akama_illidanAI*>(creature->AI()))
+            if (npc_akama_illidan::npc_akama_illidanAI* pAkamaAI = dynamic_cast<npc_akama_illidan::npc_akama_illidanAI*>(creature->AI()))
                 pAkamaAI->DoResumeEvent();
         }
 
@@ -1561,7 +1561,7 @@ public:
                             m_creature->GetMotionMaster()->MoveIdle();
                             if (Creature* illidan = m_instance->GetSingleCreatureFromStorage(NPC_ILLIDAN_STORMRAGE))
                             {
-                                if (boss_illidan_stormrageAI* illidanAI = dynamic_cast<boss_illidan_stormrageAI*>(illidan->AI()))
+                                if (boss_illidan_stormrage::boss_illidan_stormrageAI* illidanAI = dynamic_cast<boss_illidan_stormrage::boss_illidan_stormrageAI*>(illidan->AI()))
                                     illidanAI->DoStartCombatEvent();
 
                                 m_creature->SetFacingToObject(illidan);
@@ -2297,7 +2297,7 @@ public:
                 // For some reason it doesn't work with Spell Hit for SPELL_GLAIVE_RETURNS script effect, so we need to inform him manually
                 if (Creature* illidan = m_instance->GetSingleCreatureFromStorage(NPC_ILLIDAN_STORMRAGE))
                 {
-                    if (boss_illidan_stormrageAI* illidanAI = dynamic_cast<boss_illidan_stormrageAI*>(illidan->AI()))
+                    if (boss_illidan_stormrage::boss_illidan_stormrageAI* illidanAI = dynamic_cast<boss_illidan_stormrage::boss_illidan_stormrageAI*>(illidan->AI()))
                         illidanAI->DoInformFlameKilled();
                 }
             }

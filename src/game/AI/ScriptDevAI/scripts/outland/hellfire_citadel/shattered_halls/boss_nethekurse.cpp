@@ -373,7 +373,7 @@ public:
                 Creature* pKurse = m_pInstance->GetSingleCreatureFromStorage(NPC_NETHEKURSE);
                 if (pKurse && m_creature->IsWithinDist(pKurse, 45.0f))
                 {
-                    if (boss_grand_warlock_nethekurseAI* pKurseAI = dynamic_cast<boss_grand_warlock_nethekurseAI*>(pKurse->AI()))
+                    if (boss_grand_warlock_nethekurse::boss_grand_warlock_nethekurseAI* pKurseAI = dynamic_cast<boss_grand_warlock_nethekurse::boss_grand_warlock_nethekurseAI*>(pKurse->AI()))
                         pKurseAI->DoYellForPeonAggro();
 
                     if (m_pInstance->GetData(TYPE_NETHEKURSE) == IN_PROGRESS)
@@ -392,7 +392,7 @@ public:
 
                 if (Creature* pKurse = m_pInstance->GetSingleCreatureFromStorage(NPC_NETHEKURSE))
                 {
-                    if (boss_grand_warlock_nethekurseAI* pKurseAI = dynamic_cast<boss_grand_warlock_nethekurseAI*>(pKurse->AI()))
+                    if (boss_grand_warlock_nethekurse::boss_grand_warlock_nethekurseAI* pKurseAI = dynamic_cast<boss_grand_warlock_nethekurse::boss_grand_warlock_nethekurseAI*>(pKurse->AI()))
                         pKurseAI->DoYellForPeonDeath(pKiller);
                 }
             }

@@ -1005,7 +1005,7 @@ public:
         if (uiSpellId == SPELL_DRINK_POISON && uiEffIndex == EFFECT_INDEX_0)
         {
             // Set fake death on poison
-            if (boss_julianneAI* pJulianneAI = dynamic_cast<boss_julianneAI*>(pCreatureTarget->AI()))
+            if (boss_julianne::boss_julianneAI* pJulianneAI = dynamic_cast<boss_julianne::boss_julianneAI*>(pCreatureTarget->AI()))
                 pJulianneAI->DoSetFakeDeath();
 
             DoScriptText(SAY_JULIANNE_DEATH01, pCreatureTarget);
@@ -1410,7 +1410,7 @@ public:
                     {
                         if (Creature* pJulianne = m_pInstance->GetSingleCreatureFromStorage(NPC_JULIANNE))
                         {
-                            if (boss_julianneAI* pJulianneAI = dynamic_cast<boss_julianneAI*>(pJulianne->AI()))
+                            if (boss_julianne::boss_julianneAI* pJulianneAI = dynamic_cast<boss_julianne::boss_julianneAI*>(pJulianne->AI()))
                                 pJulianneAI->DoHandleRomuloResurrect();
                         }
                     }

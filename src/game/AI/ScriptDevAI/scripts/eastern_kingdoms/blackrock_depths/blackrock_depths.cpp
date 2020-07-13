@@ -783,7 +783,7 @@ public:
 
         if (pQuest->GetQuestId() == QUEST_POTION_LOVE)
         {
-            if (npc_mistress_nagmaraAI* pNagmaraAI = dynamic_cast<npc_mistress_nagmaraAI*>(pCreature->AI()))
+            if (npc_mistress_nagmara::npc_mistress_nagmaraAI* pNagmaraAI = dynamic_cast<npc_mistress_nagmara::npc_mistress_nagmaraAI*>(pCreature->AI()))
                 pNagmaraAI->DoPotionOfLoveIfCan();
         }
 
@@ -798,7 +798,7 @@ public:
         {
             case GOSSIP_ACTION_INFO_DEF+1:
                 pPlayer->CLOSE_GOSSIP_MENU();
-                if (npc_mistress_nagmaraAI* pNagmaraAI = dynamic_cast<npc_mistress_nagmaraAI*>(pCreature->AI()))
+                if (npc_mistress_nagmara::npc_mistress_nagmaraAI* pNagmaraAI = dynamic_cast<npc_mistress_nagmara::npc_mistress_nagmaraAI*>(pCreature->AI()))
                     pNagmaraAI->DoPotionOfLoveIfCan();
                 break;
         }
@@ -981,7 +981,7 @@ public:
 
             pCreature->SetFacingToObject(pPlayer);
             DoScriptText(SAY_GOT_BEER, pCreature);
-            if (npc_rocknotAI* pEscortAI = dynamic_cast<npc_rocknotAI*>(pCreature->AI()))
+            if (npc_rocknot::npc_rocknotAI* pEscortAI = dynamic_cast<npc_rocknot::npc_rocknotAI*>(pCreature->AI()))
                 pEscortAI->m_uiEmoteTimer = 1500;
 
             // We keep track of amount of beers given in the instance script by setting data to SPECIAL
@@ -1103,7 +1103,7 @@ public:
 
                     pNagmara->GetMotionMaster()->MoveIdle();
                     pNagmara->GetMotionMaster()->MovePoint(0, aPosNagmaraRocknot[0], aPosNagmaraRocknot[1], aPosNagmaraRocknot[2]);
-                    if (npc_mistress_nagmaraAI* pNagmaraAI = dynamic_cast<npc_mistress_nagmaraAI*>(pNagmara->AI()))
+                    if (npc_mistress_nagmara::npc_mistress_nagmaraAI* pNagmaraAI = dynamic_cast<npc_mistress_nagmara::npc_mistress_nagmaraAI*>(pNagmara->AI()))
                     {
                         pNagmaraAI->m_uiPhase = 4;
                         pNagmaraAI->m_uiPhaseTimer = 5000;
@@ -1166,7 +1166,7 @@ public:
                     // Activate Phalanx and handle nearby patrons says
                     if (Creature* pPhalanx = m_pInstance->GetSingleCreatureFromStorage(NPC_PHALANX))
                     {
-                        if (npc_phalanxAI* pEscortAI = dynamic_cast<npc_phalanxAI*>(pPhalanx->AI()))
+                        if (npc_phalanx::npc_phalanxAI* pEscortAI = dynamic_cast<npc_phalanx::npc_phalanxAI*>(pPhalanx->AI()))
                             pEscortAI->Start(false, nullptr, nullptr, true);
                     }
                     m_pInstance->SetData(TYPE_ROCKNOT, DONE);
@@ -1263,7 +1263,7 @@ public:
         {
             pCreature->SetFactionTemporary(FACTION_ESCORT_A_NEUTRAL_ACTIVE, TEMPFACTION_RESTORE_RESPAWN);
 
-            if (npc_marshal_windsorAI* pEscortAI = dynamic_cast<npc_marshal_windsorAI*>(pCreature->AI()))
+            if (npc_marshal_windsor::npc_marshal_windsorAI* pEscortAI = dynamic_cast<npc_marshal_windsor::npc_marshal_windsorAI*>(pCreature->AI()))
                 pEscortAI->Start(false, pPlayer, pQuest);
 
             return true;
@@ -1857,7 +1857,7 @@ public:
             // Activate Phalanx and handle patrons faction
             if (Creature* pPhalanx = m_pInstance->GetSingleCreatureFromStorage(NPC_PHALANX))
             {
-                if (npc_phalanxAI* pEscortAI = dynamic_cast<npc_phalanxAI*>(pPhalanx->AI()))
+                if (npc_phalanx::npc_phalanxAI* pEscortAI = dynamic_cast<npc_phalanx::npc_phalanxAI*>(pPhalanx->AI()))
                     pEscortAI->Start(false, nullptr, nullptr, true);
             }
             m_pInstance->HandleBarPatrons(PATRON_HOSTILE);
@@ -1992,7 +1992,7 @@ public:
                 return false;
             if (Creature* pPlugger = pInstance->GetSingleCreatureFromStorage(NPC_PLUGGER_SPAZZRING))
             {
-                if (boss_plugger_spazzringAI* pPluggerAI = dynamic_cast<boss_plugger_spazzringAI*>(pPlugger->AI()))
+                if (boss_plugger_spazzring::boss_plugger_spazzringAI* pPluggerAI = dynamic_cast<boss_plugger_spazzring::boss_plugger_spazzringAI*>(pPlugger->AI()))
                 {
                     // Every time we set the event to SPECIAL, the instance script increments the number of stolen mugs/boars, capping at 3
                     pInstance->SetData(TYPE_PLUGGER, SPECIAL);

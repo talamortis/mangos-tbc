@@ -193,7 +193,7 @@ bool GossipHello_example_escort(Player* pPlayer, Creature* pCreature)
 
 bool GossipSelect_example_escort(Player* pPlayer, Creature* pCreature, uint32 /*uiSender*/, uint32 uiAction)
 {
-    example_escortAI* pEscortAI = dynamic_cast<example_escortAI*>(pCreature->AI());
+    example_escort::example_escortAI* pEscortAI = dynamic_cast<example_escort::example_escortAI*>(pCreature->AI());
 
     switch (uiAction)
     {

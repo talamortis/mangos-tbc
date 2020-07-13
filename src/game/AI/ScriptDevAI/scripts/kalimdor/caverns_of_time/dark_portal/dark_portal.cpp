@@ -157,7 +157,7 @@ public:
         // always check spellid and effectindex
         if (uiSpellId == SPELL_RIFT_PERIODIC && uiEffIndex == EFFECT_INDEX_0)
         {
-            if (npc_time_riftAI* pTimeRiftAI = dynamic_cast<npc_time_riftAI*>(pCreatureTarget->AI()))
+            if (npc_time_rift::npc_time_riftAI* pTimeRiftAI = dynamic_cast<npc_time_rift::npc_time_riftAI*>(pCreatureTarget->AI()))
                 pTimeRiftAI->DoSummon();
 
             // always return true when we are handling this spell and effect

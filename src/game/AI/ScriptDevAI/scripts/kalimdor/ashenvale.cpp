@@ -88,7 +88,7 @@ public:
     {
         if (pQuest->GetQuestId() == QUEST_VORSHA)
         {
-            if (npc_muglashAI* pEscortAI = dynamic_cast<npc_muglashAI*>(pCreature->AI()))
+            if (npc_muglash::npc_muglashAI* pEscortAI = dynamic_cast<npc_muglash::npc_muglashAI*>(pCreature->AI()))
             {
                 DoScriptText(SAY_MUG_START1, pCreature);
                 pCreature->SetFactionTemporary(FACTION_ESCORT_H_PASSIVE, TEMPFACTION_RESTORE_RESPAWN | TEMPFACTION_TOGGLE_IMMUNE_TO_NPC);
@@ -246,7 +246,7 @@ public:
     {
         if (Creature* pCreature = GetClosestCreatureWithEntry(pGo, NPC_MUGLASH, INTERACTION_DISTANCE * 2))
         {
-            if (npc_muglashAI* pEscortAI = dynamic_cast<npc_muglashAI*>(pCreature->AI()))
+            if (npc_muglash::npc_muglashAI* pEscortAI = dynamic_cast<npc_muglash::npc_muglashAI*>(pCreature->AI()))
             {
                 DoScriptText(SAY_MUG_BRAZIER_WAIT, pCreature);
 
@@ -295,7 +295,7 @@ public:
             creature->SetFactionTemporary(FACTION_ESCORT_N_NEUTRAL_PASSIVE, TEMPFACTION_RESTORE_RESPAWN);
             creature->SetStandState(UNIT_STAND_STATE_STAND);
 
-            if (npc_ruul_snowhoofAI* escortAI = dynamic_cast<npc_ruul_snowhoofAI*>(creature->AI()))
+            if (npc_ruul_snowhoof::npc_ruul_snowhoofAI* escortAI = dynamic_cast<npc_ruul_snowhoof::npc_ruul_snowhoofAI*>(creature->AI()))
                 escortAI->Start(false, player, quest);
         }
         return true;
@@ -412,7 +412,7 @@ public:
             // TODO: find companions, make them follow Torek, at any time (possibly done by mangos/database in future?)
             DoScriptText(SAY_READY, pCreature, pPlayer);
 
-            if (npc_torekAI* pEscortAI = dynamic_cast<npc_torekAI*>(pCreature->AI()))
+            if (npc_torek::npc_torekAI* pEscortAI = dynamic_cast<npc_torek::npc_torekAI*>(pCreature->AI()))
                 pEscortAI->Start(true, pPlayer, pQuest);
         }
 
@@ -566,7 +566,7 @@ public:
             DoScriptText(SAY_QUEST_START, pCreature, pPlayer);
             pCreature->SetFactionTemporary(FACTION_ESCORT_A_NEUTRAL_PASSIVE, TEMPFACTION_RESTORE_RESPAWN | TEMPFACTION_TOGGLE_IMMUNE_TO_NPC);
 
-            if (npc_feero_ironhandAI* pEscortAI = dynamic_cast<npc_feero_ironhandAI*>(pCreature->AI()))
+            if (npc_feero_ironhand::npc_feero_ironhandAI* pEscortAI = dynamic_cast<npc_feero_ironhand::npc_feero_ironhandAI*>(pCreature->AI()))
                 pEscortAI->Start(true, pPlayer, pQuest, true);
         }
 

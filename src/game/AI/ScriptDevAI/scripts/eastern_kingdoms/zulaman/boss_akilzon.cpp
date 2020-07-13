@@ -333,7 +333,7 @@ public:
         {
             if (eventType == AI_EVENT_CUSTOM_A)
             {
-                boss_akilzonAI* ai = static_cast<boss_akilzonAI*>(sender->AI());
+                boss_akilzon::boss_akilzonAI* ai = static_cast<boss_akilzon::boss_akilzonAI*>(sender->AI());
                 if (miscValue % 2 == 0) // main mob
                 {
                     m_creature->GetMotionMaster()->Clear(false, true);
@@ -350,7 +350,7 @@ public:
             }
             else if (eventType == AI_EVENT_CUSTOM_B) // if follower - move on WPs
             {
-                boss_akilzonAI* ai = static_cast<boss_akilzonAI*>(sender->AI());
+                boss_akilzon::boss_akilzonAI* ai = static_cast<boss_akilzon::boss_akilzonAI*>(sender->AI());
                 if (miscValue % 2 == 0)
                 {
                     m_creature->GetMotionMaster()->Clear(false, true);

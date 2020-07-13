@@ -60,7 +60,7 @@ public:
             pCreature->SetStandState(UNIT_STAND_STATE_STAND);
             pCreature->SetFactionTemporary(FACTION_ESCORT_N_FRIEND_ACTIVE, TEMPFACTION_RESTORE_RESPAWN | TEMPFACTION_TOGGLE_IMMUNE_TO_NPC);
 
-            if (npc_00x09hlAI* pEscortAI = dynamic_cast<npc_00x09hlAI*>(pCreature->AI()))
+            if (npc_00x09hl::npc_00x09hlAI* pEscortAI = dynamic_cast<npc_00x09hl::npc_00x09hlAI*>(pCreature->AI()))
                 pEscortAI->Start(false, pPlayer, pQuest);
         }
         return true;
@@ -222,7 +222,7 @@ public:
             if (GameObject* pGo = GetClosestGameObjectWithEntry(pCreature, GO_RINJI_CAGE, INTERACTION_DISTANCE))
                 pGo->UseDoorOrButton();
 
-            if (npc_rinjiAI* pEscortAI = dynamic_cast<npc_rinjiAI*>(pCreature->AI()))
+            if (npc_rinji::npc_rinjiAI* pEscortAI = dynamic_cast<npc_rinji::npc_rinjiAI*>(pCreature->AI()))
                 pEscortAI->Start(false, pPlayer, pQuest);
 
             pCreature->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_NPC);

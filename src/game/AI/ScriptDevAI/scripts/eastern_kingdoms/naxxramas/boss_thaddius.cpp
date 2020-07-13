@@ -307,7 +307,7 @@ struct boss_thaddiusAddsAI : public ScriptedAI
         // Check if the other add needs to be alive and return nullptr if dead of faking death
         if (hasToBeAlive && otherAdd)
         {
-            if (boss_thaddiusAddsAI* otherAddAI = dynamic_cast<boss_thaddiusAddsAI*>(otherAdd->AI()))
+            if (boss_thaddiusAdds::boss_thaddiusAddsAI* otherAddAI = dynamic_cast<boss_thaddiusAdds::boss_thaddiusAddsAI*>(otherAdd->AI()))
             {
                 if (otherAddAI->IsCountingDead())
                     return nullptr;
@@ -389,7 +389,7 @@ struct boss_thaddiusAddsAI : public ScriptedAI
             {
                 if (Creature* pOther = GetOtherAdd())
                 {
-                    if (boss_thaddiusAddsAI* otherAI = dynamic_cast<boss_thaddiusAddsAI*>(pOther->AI()))
+                    if (boss_thaddiusAdds::boss_thaddiusAddsAI* otherAI = dynamic_cast<boss_thaddiusAdds::boss_thaddiusAddsAI*>(pOther->AI()))
                     {
                         if (!otherAI->IsCountingDead())     // Raid was to slow to kill the second add
                         {
@@ -571,7 +571,7 @@ struct boss_feugenAI : public boss_thaddiusAddsAI
             {
                 if (DoMagneticPullIfCan())                  // This will return false if Stalagg has no victim we can pull
                 {
-                    if (boss_thaddiusAddsAI* stalaggAI = dynamic_cast<boss_thaddiusAddsAI*>(GetOtherAdd()->AI()))
+                    if (boss_thaddiusAdds::boss_thaddiusAddsAI* stalaggAI = dynamic_cast<boss_thaddiusAdds::boss_thaddiusAddsAI*>(GetOtherAdd()->AI()))
                     {
                         stalaggAI->DoMagneticPullIfCan();
                         m_magneticPullTimer = 20 * IN_MILLISECONDS;

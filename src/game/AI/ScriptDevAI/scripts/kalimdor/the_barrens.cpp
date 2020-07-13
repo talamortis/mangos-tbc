@@ -67,7 +67,7 @@ public:
 
             DoScriptText(SAY_GIL_START, pCreature, pPlayer);
 
-            if (npc_giltharesAI* pEscortAI = dynamic_cast<npc_giltharesAI*>(pCreature->AI()))
+            if (npc_gilthares::npc_giltharesAI* pEscortAI = dynamic_cast<npc_gilthares::npc_giltharesAI*>(pCreature->AI()))
                 pEscortAI->Start(false, pPlayer, pQuest);
         }
         return true;
@@ -533,7 +533,7 @@ public:
             if (!pCreature)
                 return true;
 
-            if (npc_twiggy_flatheadAI* pTwiggyAI = dynamic_cast<npc_twiggy_flatheadAI*>(pCreature->AI()))
+            if (npc_twiggy_flathead::npc_twiggy_flatheadAI* pTwiggyAI = dynamic_cast<npc_twiggy_flathead::npc_twiggy_flatheadAI*>(pCreature->AI()))
             {
                 if (pTwiggyAI->CanStartEvent(pPlayer))
                     return false;                               // ok to let mangos process further
@@ -580,7 +580,7 @@ public:
             DoScriptText(SAY_START, pCreature);
             pCreature->SetFactionTemporary(FACTION_RATCHET, TEMPFACTION_RESTORE_RESPAWN);
 
-            if (npc_wizzlecranks_shredderAI* pEscortAI = dynamic_cast<npc_wizzlecranks_shredderAI*>(pCreature->AI()))
+            if (npc_wizzlecranks_shredder::npc_wizzlecranks_shredderAI* pEscortAI = dynamic_cast<npc_wizzlecranks_shredder::npc_wizzlecranks_shredderAI*>(pCreature->AI()))
                 pEscortAI->Start(true, pPlayer, pQuest);
         }
         return true;
@@ -923,7 +923,7 @@ public:
         {
             DoScriptText(SAY_START_REGTHAR, creature, player);
             player->CLOSE_GOSSIP_MENU();
-            if (npc_regthar_deathgateAI* regtharAI = dynamic_cast<npc_regthar_deathgateAI*>(creature->AI()))
+            if (npc_regthar_deathgate::npc_regthar_deathgateAI* regtharAI = dynamic_cast<npc_regthar_deathgate::npc_regthar_deathgateAI*>(creature->AI()))
                 regtharAI->StartEvent();
         }
         return true;
@@ -937,7 +937,7 @@ public:
         {
             DoScriptText(SAY_START_REGTHAR, creature, player);
             player->CLOSE_GOSSIP_MENU();
-            if (npc_regthar_deathgateAI* regtharAI = dynamic_cast<npc_regthar_deathgateAI*>(creature->AI()))
+            if (npc_regthar_deathgate::npc_regthar_deathgateAI* regtharAI = dynamic_cast<npc_regthar_deathgate::npc_regthar_deathgateAI*>(creature->AI()))
                 regtharAI->StartEvent();
         }
         return true;

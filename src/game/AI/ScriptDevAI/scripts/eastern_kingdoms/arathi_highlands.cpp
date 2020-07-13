@@ -61,7 +61,7 @@ public:
             pCreature->SetFactionTemporary(FACTION_ESCORT_N_NEUTRAL_PASSIVE, TEMPFACTION_RESTORE_RESPAWN);
             DoScriptText(SAY_PROGRESS_1, pCreature, pPlayer);
 
-            if (npc_professor_phizzlethorpeAI* pEscortAI = dynamic_cast<npc_professor_phizzlethorpeAI*>(pCreature->AI()))
+            if (npc_professor_phizzlethorpe::npc_professor_phizzlethorpeAI* pEscortAI = dynamic_cast<npc_professor_phizzlethorpe::npc_professor_phizzlethorpeAI*>(pCreature->AI()))
                 pEscortAI->Start(false, pPlayer, pQuest, true);
         }
         return true;

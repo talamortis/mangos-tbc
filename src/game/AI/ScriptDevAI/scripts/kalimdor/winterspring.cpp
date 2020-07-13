@@ -157,7 +157,7 @@ public:
             DoScriptText(SAY_QUEST_START, pCreature);
             pCreature->SetFactionTemporary(FACTION_ESCORT_A_NEUTRAL_PASSIVE, TEMPFACTION_RESTORE_RESPAWN);
 
-            if (npc_ranshallaAI* pEscortAI = dynamic_cast<npc_ranshallaAI*>(pCreature->AI()))
+            if (npc_ranshalla::npc_ranshallaAI* pEscortAI = dynamic_cast<npc_ranshalla::npc_ranshallaAI*>(pCreature->AI()))
                 pEscortAI->Start(false, pPlayer, pQuest, true);
 
             return true;
@@ -499,7 +499,7 @@ public:
 
         if (Creature* pRanshalla = GetClosestCreatureWithEntry(pGo, NPC_RANSHALLA, 10.0f))
         {
-            if (npc_ranshallaAI* pEscortAI = dynamic_cast<npc_ranshallaAI*>(pRanshalla->AI()))
+            if (npc_ranshalla::npc_ranshallaAI* pEscortAI = dynamic_cast<npc_ranshalla::npc_ranshallaAI*>(pRanshalla->AI()))
                 pEscortAI->DoContinueEscort(bIsAltar);
         }
 

@@ -407,7 +407,7 @@ public:
     {
         if (action == GOSSIP_ACTION_INFO_DEF + 1)
         {
-            if (npc_harrison_jones_zaAI* pHarrisonAI = dynamic_cast<npc_harrison_jones_zaAI*>(creature->AI()))
+            if (npc_harrison_jones_za::npc_harrison_jones_zaAI* pHarrisonAI = dynamic_cast<npc_harrison_jones_za::npc_harrison_jones_zaAI*>(creature->AI()))
                 pHarrisonAI->StartEvent();
 
             player->CLOSE_GOSSIP_MENU();
@@ -813,7 +813,7 @@ public:
 
     bool OnGossipSelect(Player* player, Creature* creature, uint32 /*uiSender*/, uint32 action) override
     {
-        if (npc_harkorAI* harkorAI = dynamic_cast<npc_harkorAI*>(creature->AI()))
+        if (npc_harkor::npc_harkorAI* harkorAI = dynamic_cast<npc_harkor::npc_harkorAI*>(creature->AI()))
         {
             if (action == GOSSIP_ACTION_INFO_DEF + 1 && !harkorAI->m_bCompletedChestEvent)
             {
@@ -837,7 +837,7 @@ public:
 
         player->PrepareGossipMenu(creature, player->GetDefaultGossipMenuForSource(creature));
 
-        if (npc_harkorAI* harkorAI = dynamic_cast<npc_harkorAI*>(creature->AI()))
+        if (npc_harkor::npc_harkorAI* harkorAI = dynamic_cast<npc_harkor::npc_harkorAI*>(creature->AI()))
         {
             if (instance && instance->GetData(TYPE_AKILZON) == DONE && !harkorAI->m_bCompletedChestEvent)
                 player->ADD_GOSSIP_ITEM_ID(GOSSIP_ICON_CHAT, GOSSIP_ITEM_ID_HARKOR_FREE, GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF + 1);
@@ -1214,7 +1214,7 @@ public:
 
     bool OnGossipSelect(Player* player, Creature* creature, uint32 /*uiSender*/, uint32 action) override
     {
-        if (npc_tanzarAI* tanzarAI = dynamic_cast<npc_tanzarAI*>(creature->AI()))
+        if (npc_tanzar::npc_tanzarAI* tanzarAI = dynamic_cast<npc_tanzar::npc_tanzarAI*>(creature->AI()))
         {
             if (action == GOSSIP_ACTION_INFO_DEF + 1 && !tanzarAI->m_bCompletedChestEvent)
             {
@@ -1244,7 +1244,7 @@ public:
 
         player->PrepareGossipMenu(creature, player->GetDefaultGossipMenuForSource(creature));
 
-        if (npc_tanzarAI* tanzarAI = dynamic_cast<npc_tanzarAI*>(creature->AI()))
+        if (npc_tanzar::npc_tanzarAI* tanzarAI = dynamic_cast<npc_tanzar::npc_tanzarAI*>(creature->AI()))
         {
             if (instance && instance->GetData(TYPE_NALORAKK) == DONE && !tanzarAI->m_bCompletedChestEvent)
                 player->ADD_GOSSIP_ITEM_ID(GOSSIP_ICON_CHAT, GOSSIP_ITEM_ID_TANZAR_FREE, GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF + 1);
@@ -1558,7 +1558,7 @@ public:
 
     bool OnGossipSelect(Player* player, Creature* creature, uint32 /*uiSender*/, uint32 action) override
     {
-        if (npc_krazAI* krazAI = dynamic_cast<npc_krazAI*>(creature->AI()))
+        if (npc_kraz::npc_krazAI* krazAI = dynamic_cast<npc_kraz::npc_krazAI*>(creature->AI()))
         {
             if (action == GOSSIP_ACTION_INFO_DEF + 1 && !krazAI->m_bCompletedChestEvent)
             {
@@ -1579,7 +1579,7 @@ public:
 
         player->PrepareGossipMenu(creature, player->GetDefaultGossipMenuForSource(creature));
 
-        if (npc_krazAI* krazAI = dynamic_cast<npc_krazAI*>(creature->AI()))
+        if (npc_kraz::npc_krazAI* krazAI = dynamic_cast<npc_kraz::npc_krazAI*>(creature->AI()))
         {
             if (instance && instance->GetData(TYPE_JANALAI) == DONE && !krazAI->m_bCompletedChestEvent)
             {
@@ -1842,7 +1842,7 @@ public:
 
     bool OnGossipSelect(Player* player, Creature* creature, uint32 /*uiSender*/, uint32 action) override
     {
-        if (npc_ashliAI* ashliAI = dynamic_cast<npc_ashliAI*>(creature->AI()))
+        if (npc_ashli::npc_ashliAI* ashliAI = dynamic_cast<npc_ashli::npc_ashliAI*>(creature->AI()))
         {
             if (action == GOSSIP_ACTION_INFO_DEF + 1 && !ashliAI->m_bCompletedChestEvent)
             {
@@ -1866,7 +1866,7 @@ public:
 
         player->PrepareGossipMenu(creature, player->GetDefaultGossipMenuForSource(creature));
 
-        if (npc_ashliAI* ashliAI = dynamic_cast<npc_ashliAI*>(creature->AI()))
+        if (npc_ashli::npc_ashliAI* ashliAI = dynamic_cast<npc_ashli::npc_ashliAI*>(creature->AI()))
         {
             if (instance && instance->GetData(TYPE_HALAZZI) == DONE && !ashliAI->m_bCompletedChestEvent)
                 player->ADD_GOSSIP_ITEM_ID(GOSSIP_ICON_CHAT, GOSSIP_ITEM_ID_ASHLI_FREE, GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF + 1);

@@ -492,7 +492,7 @@ public:
         {
             pPlayer->CLOSE_GOSSIP_MENU();
 
-            if (npc_akamaAI* pAkamaAI = dynamic_cast<npc_akamaAI*>(pCreature->AI()))
+            if (npc_akama::npc_akamaAI* pAkamaAI = dynamic_cast<npc_akama::npc_akamaAI*>(pCreature->AI()))
                 pAkamaAI->DoStartEvent();
         }
 

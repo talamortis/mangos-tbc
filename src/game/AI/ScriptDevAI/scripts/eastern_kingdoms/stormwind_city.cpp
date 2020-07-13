@@ -124,7 +124,7 @@ public:
             pCreature->AI()->SetReactState(REACT_AGGRESSIVE);
             DoScriptText(SAY_STONEFIST_1, pCreature, pPlayer);
 
-            if (npc_dashel_stonefistAI* pStonefistAI = dynamic_cast<npc_dashel_stonefistAI*>(pCreature->AI()))
+            if (npc_dashel_stonefist::npc_dashel_stonefistAI* pStonefistAI = dynamic_cast<npc_dashel_stonefist::npc_dashel_stonefistAI*>(pCreature->AI()))
                pStonefistAI->StartEvent(pPlayer->GetObjectGuid());
         }
         return true;
@@ -326,7 +326,7 @@ public:
     {
         if (action == GOSSIP_ACTION_INFO_DEF + 1)
         {
-            if (npc_squire_roweAI* roweAi = dynamic_cast<npc_squire_roweAI*>(creature->AI()))
+            if (npc_squire_rowe::npc_squire_roweAI* roweAi = dynamic_cast<npc_squire_rowe::npc_squire_roweAI*>(creature->AI()))
                 roweAi->Start(true, player, nullptr, true, false);
 
             player->CLOSE_GOSSIP_MENU();
@@ -346,7 +346,7 @@ public:
             bool isEventInProgress = true;
 
             // Check if event is already in progress
-            if (npc_squire_roweAI* roweAi = dynamic_cast<npc_squire_roweAI*>(creature->AI()))
+            if (npc_squire_rowe::npc_squire_roweAI* roweAi = dynamic_cast<npc_squire_rowe::npc_squire_roweAI*>(creature->AI()))
                 isEventInProgress = roweAi->IsStormwindQuestActive();
 
             // If event is already in progress, then inform the player to wait
@@ -664,7 +664,7 @@ public:
     {
         if (action == GOSSIP_ACTION_INFO_DEF + 1)
         {
-            if (npc_reginald_windsorAI* reginaldWindsorAI = dynamic_cast<npc_reginald_windsorAI*>(creature->AI()))
+            if (npc_reginald_windsor::npc_reginald_windsorAI* reginaldWindsorAI = dynamic_cast<npc_reginald_windsor::npc_reginald_windsorAI*>(creature->AI()))
                 reginaldWindsorAI->DoStartKeepEvent();
 
             player->CLOSE_GOSSIP_MENU();
@@ -679,7 +679,7 @@ public:
     {
         bool isEventReady = false;
 
-        if (npc_reginald_windsorAI* reginaldAI = dynamic_cast<npc_reginald_windsorAI*>(creature->AI()))
+        if (npc_reginald_windsor::npc_reginald_windsorAI* reginaldAI = dynamic_cast<npc_reginald_windsor::npc_reginald_windsorAI*>(creature->AI()))
             isEventReady = reginaldAI->IsKeepEventReady();
 
         // Check if event is possible and also check the status of the quests
@@ -705,7 +705,7 @@ public:
     {
         if (quest->GetQuestId() == QUEST_THE_GREAT_MASQUERADE)
         {
-            if (npc_reginald_windsorAI* pReginaldAI = dynamic_cast<npc_reginald_windsorAI*>(creature->AI()))
+            if (npc_reginald_windsor::npc_reginald_windsorAI* pReginaldAI = dynamic_cast<npc_reginald_windsor::npc_reginald_windsorAI*>(creature->AI()))
                 pReginaldAI->DoStartEscort(player);
         }
 

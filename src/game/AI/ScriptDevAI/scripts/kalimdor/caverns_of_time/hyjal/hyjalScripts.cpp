@@ -39,7 +39,7 @@ public:
     {
         if (instance_mount_hyjal* instance = (instance_mount_hyjal*)creature->GetInstanceData())
         {
-            if (hyjalAI* jainaAI = dynamic_cast<hyjalAI*>(creature->AI()))
+            if (hyjal::hyjalAI* jainaAI = dynamic_cast<hyjal::hyjalAI*>(creature->AI()))
             {
                 switch (action)
                 {
@@ -104,7 +104,7 @@ public:
     {
         if (instance_mount_hyjal* instance = (instance_mount_hyjal*)creature->GetInstanceData())
         {
-            if (hyjalAI* thrallAI = dynamic_cast<hyjalAI*>(creature->AI()))
+            if (hyjal::hyjalAI* thrallAI = dynamic_cast<hyjal::hyjalAI*>(creature->AI()))
             {
                 switch (action)
                 {

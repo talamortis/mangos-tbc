@@ -159,7 +159,7 @@ public:
         {
             pPlayer->CLOSE_GOSSIP_MENU();
 
-            if (npc_kittenAI* pKittenAI = dynamic_cast<npc_kittenAI*>(pCreature->AI()))
+            if (npc_kitten::npc_kittenAI* pKittenAI = dynamic_cast<npc_kitten::npc_kittenAI*>(pCreature->AI()))
                 pKittenAI->SetFollowComplete();
 
             pPlayer->AreaExploredOrEventHappens(QUEST_CORRUPT_SABER);
@@ -214,7 +214,7 @@ public:
     {
         if (pQuest->GetQuestId() == QUEST_KROSHIUS)
         {
-            if (npc_niby_the_almightyAI* pNibyAI = dynamic_cast<npc_niby_the_almightyAI*>(pCreature->AI()))
+            if (npc_niby_the_almighty::npc_niby_the_almightyAI* pNibyAI = dynamic_cast<npc_niby_the_almighty::npc_niby_the_almightyAI*>(pCreature->AI()))
             {
                 pNibyAI->StartEvent();
             }
@@ -341,7 +341,7 @@ public:
             {
                 if (Creature* pKroshius = GetClosestCreatureWithEntry((Player*)pSource, NPC_KROSHIUS, 20.0f))
                 {
-                    if (npc_kroshiusAI* pKroshiusAI = dynamic_cast<npc_kroshiusAI*>(pKroshius->AI()))
+                    if (npc_kroshius::npc_kroshiusAI* pKroshiusAI = dynamic_cast<npc_kroshius::npc_kroshiusAI*>(pKroshius->AI()))
                         pKroshiusAI->DoRevive((Player*)pSource);
                 }
             }

@@ -478,7 +478,7 @@ public:
     {
         if ((pQuest->GetQuestId() == QUEST_TRIAGE_A) || (pQuest->GetQuestId() == QUEST_TRIAGE_H))
         {
-            if (npc_doctorAI* pDocAI = dynamic_cast<npc_doctorAI*>(pCreature->AI()))
+            if (npc_doctor::npc_doctorAI* pDocAI = dynamic_cast<npc_doctor::npc_doctorAI*>(pCreature->AI()))
                 pDocAI->BeginEvent(pPlayer);
         }
 
@@ -696,7 +696,7 @@ public:
                 {
                     if (Creature* pDoctor = m_creature->GetMap()->GetCreature(m_doctorGuid))
                     {
-                        if (npc_doctorAI* pDocAI = dynamic_cast<npc_doctorAI*>(pDoctor->AI()))
+                        if (npc_doctor::npc_doctorAI* pDocAI = dynamic_cast<npc_doctor::npc_doctorAI*>(pDoctor->AI()))
                             pDocAI->PatientSaved(m_creature, pPlayer, m_pCoord);
                     }
                 }
@@ -751,7 +751,7 @@ public:
 
                 if (Creature* pDoctor = m_creature->GetMap()->GetCreature(m_doctorGuid))
                 {
-                    if (npc_doctorAI* pDocAI = dynamic_cast<npc_doctorAI*>(pDoctor->AI()))
+                    if (npc_doctor::npc_doctorAI* pDocAI = dynamic_cast<npc_doctor::npc_doctorAI*>(pDoctor->AI()))
                         pDocAI->PatientDied(m_pCoord);
                 }
 
@@ -1131,7 +1131,7 @@ public:
         // always check spellid and effectindex
         if ((uiSpellId == SPELL_SYMBOL_OF_LIFE || uiSpellId == SPELL_SHIMMERING_VESSEL) && uiEffIndex == EFFECT_INDEX_0)
         {
-            if (npc_redemption_targetAI* pTargetAI = dynamic_cast<npc_redemption_targetAI*>(pCreatureTarget->AI()))
+            if (npc_redemption_target::npc_redemption_targetAI* pTargetAI = dynamic_cast<npc_redemption_target::npc_redemption_targetAI*>(pCreatureTarget->AI()))
                 pTargetAI->DoReviveSelf(pCaster->GetObjectGuid());
 
             // always return true when we are handling this spell and effect

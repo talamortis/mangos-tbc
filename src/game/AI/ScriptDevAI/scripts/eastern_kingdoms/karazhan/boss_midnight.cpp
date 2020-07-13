@@ -271,7 +271,7 @@ public:
             if (pCaster->GetEntry() == NPC_MIDNIGHT && pCreatureTarget->GetEntry() == NPC_ATTUMEN)
             {
                 // Prepare for mount
-                if (boss_midnightAI* pMidnightAI = dynamic_cast<boss_midnightAI*>(((Creature*)pCaster)->AI()))
+                if (boss_midnight::boss_midnightAI* pMidnightAI = dynamic_cast<boss_midnight::boss_midnightAI*>(((Creature*)pCaster)->AI()))
                     pMidnightAI->DoPrepareMount(pCreatureTarget);
             }
 

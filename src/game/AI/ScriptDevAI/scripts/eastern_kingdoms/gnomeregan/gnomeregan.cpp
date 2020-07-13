@@ -140,7 +140,7 @@ public:
             {
                 if (pInstance->GetData(TYPE_GRUBBIS) == NOT_STARTED || pInstance->GetData(TYPE_GRUBBIS) == FAIL)
                 {
-                    if (npc_blastmaster_emi_shortfuseAI* pEmiAI = dynamic_cast<npc_blastmaster_emi_shortfuseAI*>(pCreature->AI()))
+                    if (npc_blastmaster_emi_shortfuse::npc_blastmaster_emi_shortfuseAI* pEmiAI = dynamic_cast<npc_blastmaster_emi_shortfuse::npc_blastmaster_emi_shortfuseAI*>(pCreature->AI()))
                         pEmiAI->StartEvent(pPlayer);
                 }
             }

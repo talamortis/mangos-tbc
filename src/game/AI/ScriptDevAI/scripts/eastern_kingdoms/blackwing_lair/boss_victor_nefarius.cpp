@@ -96,7 +96,7 @@ public:
                 creature->RemoveFlag(UNIT_NPC_FLAGS, UNIT_NPC_FLAG_GOSSIP);
                 player->CLOSE_GOSSIP_MENU();
                 // Start the intro event
-                if (boss_victor_nefariusAI* bossAI = dynamic_cast<boss_victor_nefariusAI*>(creature->AI()))
+                if (boss_victor_nefarius::boss_victor_nefariusAI* bossAI = dynamic_cast<boss_victor_nefarius::boss_victor_nefariusAI*>(creature->AI()))
                     bossAI->DoStartIntro();
                 break;
         }

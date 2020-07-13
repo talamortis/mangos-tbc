@@ -894,7 +894,7 @@ public:
 
             if (Creature* pVashj = pInstance->GetSingleCreatureFromStorage(NPC_LADYVASHJ))
             {
-                if (boss_lady_vashjAI* pLadyAI = dynamic_cast<boss_lady_vashjAI*>(pVashj->AI()))
+                if (boss_lady_vashj::boss_lady_vashjAI* pLadyAI = dynamic_cast<boss_lady_vashj::boss_lady_vashjAI*>(pVashj->AI()))
                     pLadyAI->DoInformGeneratorStopped();
             }
 

@@ -244,7 +244,7 @@ public:
 
                     if (Player* pTarget = m_creature->GetMap()->GetPlayer(m_targetGuid))
                     {
-                        if (mob_stolen_soulAI* pSoulAI = dynamic_cast<mob_stolen_soulAI*>(pSummoned->AI()))
+                        if (mob_stolen_soul::mob_stolen_soulAI* pSoulAI = dynamic_cast<mob_stolen_soul::mob_stolen_soulAI*>(pSummoned->AI()))
                             pSoulAI->SetSoulInfo(pTarget);
 
                         pSummoned->AI()->AttackStart(pTarget);

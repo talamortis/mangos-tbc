@@ -132,7 +132,7 @@ void instance_ramparts::DoFailVazruden()
             pVazruden->Respawn();
         else
         {
-            if (ScriptedAI* pVazrudenAI = dynamic_cast<ScriptedAI*>(pVazruden->AI()))
+            if (Scripted::ScriptedAI* pVazrudenAI = dynamic_cast<Scripted::ScriptedAI*>(pVazruden->AI()))
                 pVazrudenAI->EnterEvadeMode();
         }
     }

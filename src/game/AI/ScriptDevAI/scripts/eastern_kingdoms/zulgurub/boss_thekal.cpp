@@ -226,12 +226,12 @@ public:
             // Else Prevent them Resurrecting
             if (Creature* pLorkhan = m_pInstance->GetSingleCreatureFromStorage(NPC_LORKHAN))
             {
-                if (boss_thekalBaseAI* pFakerAI = dynamic_cast<boss_thekalBaseAI*>(pLorkhan->AI()))
+                if (boss_thekalBase::boss_thekalBaseAI* pFakerAI = dynamic_cast<boss_thekalBase::boss_thekalBaseAI*>(pLorkhan->AI()))
                     pFakerAI->PreventRevive();
             }
             if (Creature* pZath = m_pInstance->GetSingleCreatureFromStorage(NPC_ZATH))
             {
-                if (boss_thekalBaseAI* pFakerAI = dynamic_cast<boss_thekalBaseAI*>(pZath->AI()))
+                if (boss_thekalBase::boss_thekalBaseAI* pFakerAI = dynamic_cast<boss_thekalBase::boss_thekalBaseAI*>(pZath->AI()))
                     pFakerAI->PreventRevive();
             }
 
@@ -550,7 +550,7 @@ public:
         // always check spellid and effectindex
         if (uiSpellId == SPELL_RESURRECT && uiEffIndex == EFFECT_INDEX_0)
         {
-            if (boss_thekalBaseAI* pFakerAI = dynamic_cast<boss_thekalBaseAI*>(pCreatureTarget->AI()))
+            if (boss_thekalBase::boss_thekalBaseAI* pFakerAI = dynamic_cast<boss_thekalBase::boss_thekalBaseAI*>(pCreatureTarget->AI()))
                 pFakerAI->Revive();
 
             // always return true when we are handling this spell and effect

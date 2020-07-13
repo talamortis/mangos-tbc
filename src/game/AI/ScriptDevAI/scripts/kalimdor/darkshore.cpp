@@ -97,7 +97,7 @@ public:
     {
         if (pQuest->GetQuestId() == QUEST_SLEEPER_AWAKENED)
         {
-            if (npc_kerlonianAI* pKerlonianAI = dynamic_cast<npc_kerlonianAI*>(pCreature->AI()))
+            if (npc_kerlonian::npc_kerlonianAI* pKerlonianAI = dynamic_cast<npc_kerlonian::npc_kerlonianAI*>(pCreature->AI()))
             {
                 pCreature->RemoveAurasDueToSpell(SPELL_BEAR_FORM);
                 pCreature->SetStandState(UNIT_STAND_STATE_STAND);
@@ -266,7 +266,7 @@ public:
         {
             pCreature->SetFactionTemporary(FACTION_ESCORT_A_NEUTRAL_PASSIVE, TEMPFACTION_RESTORE_RESPAWN | TEMPFACTION_TOGGLE_IMMUNE_TO_NPC);
 
-            if (npc_prospector_remtravelAI* pEscortAI = dynamic_cast<npc_prospector_remtravelAI*>(pCreature->AI()))
+            if (npc_prospector_remtravel::npc_prospector_remtravelAI* pEscortAI = dynamic_cast<npc_prospector_remtravel::npc_prospector_remtravelAI*>(pCreature->AI()))
                 pEscortAI->Start(false, pPlayer, pQuest, true);
         }
 
@@ -398,7 +398,7 @@ public:
         {
             pPlayer->CLOSE_GOSSIP_MENU();
 
-            if (npc_threshwackonatorAI* pThreshAI = dynamic_cast<npc_threshwackonatorAI*>(pCreature->AI()))
+            if (npc_threshwackonator::npc_threshwackonatorAI* pThreshAI = dynamic_cast<npc_threshwackonator::npc_threshwackonatorAI*>(pCreature->AI()))
             {
                 DoScriptText(EMOTE_START, pCreature);
                 pThreshAI->StartFollow(pPlayer);
@@ -521,7 +521,7 @@ public:
     {
         if (pQuest->GetQuestId() == QUEST_ESCAPE_THROUGH_FORCE || pQuest->GetQuestId() == QUEST_ESCAPE_THROUGH_STEALTH)
         {
-            if (npc_volcorAI* pEscortAI = dynamic_cast<npc_volcorAI*>(pCreature->AI()))
+            if (npc_volcor::npc_volcorAI* pEscortAI = dynamic_cast<npc_volcor::npc_volcorAI*>(pCreature->AI()))
                 pEscortAI->StartEscort(pPlayer, pQuest);
         }
 
@@ -670,7 +670,7 @@ public:
     {
         if (pQuest->GetQuestId() == QUEST_ID_THERYLUNE_ESCAPE)
         {
-            if (npc_theryluneAI* pEscortAI = dynamic_cast<npc_theryluneAI*>(pCreature->AI()))
+            if (npc_therylune::npc_theryluneAI* pEscortAI = dynamic_cast<npc_therylune::npc_theryluneAI*>(pCreature->AI()))
             {
                 pEscortAI->Start(false, pPlayer, pQuest);
                 pCreature->SetFactionTemporary(FACTION_ESCORT_A_NEUTRAL_ACTIVE, TEMPFACTION_RESTORE_RESPAWN | TEMPFACTION_TOGGLE_IMMUNE_TO_NPC);
@@ -1096,7 +1096,7 @@ public:
                 if (furbolg->IsInCombat() || !furbolg->IsAlive() || !((Unit*)source)->IsEnemy(furbolg))
                     continue;
 
-                if (auto* furbolgAI = dynamic_cast<npc_corrupted_furbolgAI*>(furbolg->AI()))
+                if (auto* furbolgAI = dynamic_cast<npc_corrupted_furbolg::npc_corrupted_furbolgAI*>(furbolg->AI()))
                     furbolgAI->SeekPurification();
             }
 

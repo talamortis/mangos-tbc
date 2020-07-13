@@ -276,7 +276,7 @@ public:
             pCreature->SetStandState(UNIT_STAND_STATE_STAND);
             pCreature->SetFactionTemporary(FACTION_ESCORT_N_FRIEND_ACTIVE, TEMPFACTION_RESTORE_RESPAWN | TEMPFACTION_TOGGLE_IMMUNE_TO_NPC);
 
-            if (npc_oox17tnAI* pEscortAI = dynamic_cast<npc_oox17tnAI*>(pCreature->AI()))
+            if (npc_oox17tn::npc_oox17tnAI* pEscortAI = dynamic_cast<npc_oox17tn::npc_oox17tnAI*>(pCreature->AI()))
                 pEscortAI->Start(false, pPlayer, pQuest);
         }
         return true;
@@ -470,7 +470,7 @@ public:
     {
         if (pQuest->GetQuestId() == QUEST_TOOGA)
         {
-            if (npc_toogaAI* pToogaAI = dynamic_cast<npc_toogaAI*>(pCreature->AI()))
+            if (npc_tooga::npc_toogaAI* pToogaAI = dynamic_cast<npc_tooga::npc_toogaAI*>(pCreature->AI()))
                 pToogaAI->StartFollow(pPlayer, FACTION_ESCORT_N_FRIEND_PASSIVE, pQuest);
         }
 

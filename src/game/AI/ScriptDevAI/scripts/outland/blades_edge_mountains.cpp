@@ -3167,7 +3167,7 @@ public:
     bool OnQuestAccept(Player* player, Creature* creature, const Quest* /*quest*/) override
     {
         // As soon as the player has accepted a quest, return to spawn again
-        if (npc_evergrove_druidAI* druidAI = dynamic_cast<npc_evergrove_druidAI*>(creature->AI()))
+        if (npc_evergrove_druid::npc_evergrove_druidAI* druidAI = dynamic_cast<npc_evergrove_druid::npc_evergrove_druidAI*>(creature->AI()))
             druidAI->ReturnToSpawn(player);
 
         return true;

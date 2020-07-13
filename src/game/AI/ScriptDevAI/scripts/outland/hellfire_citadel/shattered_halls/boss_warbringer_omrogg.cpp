@@ -290,7 +290,7 @@ public:
             DoScriptText(YELL_DIE_L, pLeftHead);
             pLeftHead->ForcedDespawn(1000);
 
-            if (mob_omrogg_headsAI* pHeadAI = dynamic_cast<mob_omrogg_headsAI*>(pRightHead->AI()))
+            if (mob_omrogg_heads::mob_omrogg_headsAI* pHeadAI = dynamic_cast<mob_omrogg_heads::mob_omrogg_headsAI*>(pRightHead->AI()))
                 pHeadAI->DoDeathYell();
 
             if (m_pInstance)

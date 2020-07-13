@@ -56,7 +56,7 @@ public:
         if (uiSpellId == SPELL_AWAKEN_PEON && uiEffIndex == EFFECT_INDEX_0)
         {
             //awaken peon
-            if (npc_lazy_peonAI* pPeonAI = dynamic_cast<npc_lazy_peonAI*>(pCreatureTarget->AI()))
+            if (npc_lazy_peon::npc_lazy_peonAI* pPeonAI = dynamic_cast<npc_lazy_peon::npc_lazy_peonAI*>(pCreatureTarget->AI()))
                 pPeonAI->Awaken(pCaster);
             //right spell, return true
             return true;

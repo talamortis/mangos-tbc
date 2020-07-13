@@ -64,7 +64,7 @@ public:
         {
             DoScriptText(SAY_START_1, pCreature);
 
-            if (npc_deathstalker_erlandAI* pEscortAI = dynamic_cast<npc_deathstalker_erlandAI*>(pCreature->AI()))
+            if (npc_deathstalker_erland::npc_deathstalker_erlandAI* pEscortAI = dynamic_cast<npc_deathstalker_erland::npc_deathstalker_erlandAI*>(pCreature->AI()))
                 pEscortAI->Start(false, pPlayer, pQuest);
         }
         return true;
@@ -197,7 +197,7 @@ public:
         {
             DoScriptText(SAY_START, pCreature, pPlayer);
 
-            if (npc_deathstalker_faerleiaAI* pFaerleiaAI = dynamic_cast<npc_deathstalker_faerleiaAI*>(pCreature->AI()))
+            if (npc_deathstalker_faerleia::npc_deathstalker_faerleiaAI* pFaerleiaAI = dynamic_cast<npc_deathstalker_faerleia::npc_deathstalker_faerleiaAI*>(pCreature->AI()))
             {
                 pFaerleiaAI->StartEvent(pPlayer);
                 pCreature->SetFactionTemporary(FACTION_ESCORT_H_NEUTRAL_ACTIVE, TEMPFACTION_RESTORE_RESPAWN); // faction guessed

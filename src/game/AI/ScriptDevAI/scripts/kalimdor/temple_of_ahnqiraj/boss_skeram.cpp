@@ -182,7 +182,7 @@ struct boss_skeramAI : public CombatAI
             // Get an available teleport location from original boss
             if (Creature* prophet = m_instance->GetSingleCreatureFromStorage(NPC_SKERAM))
             {
-                if (boss_skeramAI* skeramAI = dynamic_cast<boss_skeramAI*>(prophet->AI()))
+                if (boss_skeram::boss_skeramAI* skeramAI = dynamic_cast<boss_skeram::boss_skeramAI*>(prophet->AI()))
                     teleportSpellID = skeramAI->GetAvailableTeleport();
             }
         }
@@ -378,7 +378,7 @@ struct TeleportImage : public SpellScript
     void OnEffectExecute(Spell* spell, SpellEffectIndex /*effIdx*/) const override
     {
         if (Unit* target = spell->GetUnitTarget())
-            if (boss_skeramAI* skeramAI = dynamic_cast<boss_skeramAI*>(target->AI()))
+            if (boss_skeram::boss_skeramAI* skeramAI = dynamic_cast<boss_skeram::boss_skeramAI*>(target->AI()))
                 skeramAI->DoTeleport(false);
     }
 };

@@ -682,7 +682,7 @@ public:
         {
             m_vSummonGuids.push_back(pSummoned->GetObjectGuid());
 
-            npc_manaforge_spawnAI* pSummonedAI = dynamic_cast<npc_manaforge_spawnAI*>(pSummoned->AI());
+            npc_manaforge_spawn::npc_manaforge_spawnAI* pSummonedAI = dynamic_cast<npc_manaforge_spawn::npc_manaforge_spawnAI*>(pSummoned->AI());
             pSummonedAI->m_manaforgeGuid = m_creature->GetObjectGuid();
         }
 
@@ -851,7 +851,7 @@ public:
 
             if (pManaforge)
             {
-                if (npc_manaforge_control_consoleAI* pManaforgeAI = dynamic_cast<npc_manaforge_control_consoleAI*>(pManaforge->AI()))
+                if (npc_manaforge_control_console::npc_manaforge_control_consoleAI* pManaforgeAI = dynamic_cast<npc_manaforge_control_console::npc_manaforge_control_consoleAI*>(pManaforge->AI()))
                 {
                     pManaforgeAI->m_playerGuid = pPlayer->GetObjectGuid();
                     pManaforgeAI->m_consoleGuid = pGo->GetObjectGuid();
@@ -1221,7 +1221,7 @@ public:
             if (!pDawnforge)
                 return false;
 
-            if (npc_commander_dawnforgeAI* pDawnforgeAI = dynamic_cast<npc_commander_dawnforgeAI*>(pDawnforge->AI()))
+            if (npc_commander_dawnforge::npc_commander_dawnforgeAI* pDawnforgeAI = dynamic_cast<npc_commander_dawnforge::npc_commander_dawnforgeAI*>(pDawnforge->AI()))
             {
                 pDawnforgeAI->CanStartEvent(pPlayer);
                 return true;
@@ -1257,7 +1257,7 @@ public:
         {
             pCreature->SetFactionTemporary(FACTION_ESCORT_N_NEUTRAL_ACTIVE, TEMPFACTION_RESTORE_RESPAWN | TEMPFACTION_TOGGLE_NON_ATTACKABLE);
 
-            if (npc_bessyAI* pBessyAI = dynamic_cast<npc_bessyAI*>(pCreature->AI()))
+            if (npc_bessy::npc_bessyAI* pBessyAI = dynamic_cast<npc_bessy::npc_bessyAI*>(pCreature->AI()))
                 pBessyAI->Start(true, pPlayer, pQuest);
         }
         return true;
@@ -1451,7 +1451,7 @@ public:
     {
         if (pQuest->GetQuestId() == QUEST_MARK_V_IS_ALIVE)
         {
-            if (npc_maxx_a_million_escortAI* pEscortAI = dynamic_cast<npc_maxx_a_million_escortAI*>(pCreature->AI()))
+            if (npc_maxx_a_million_escort::npc_maxx_a_million_escortAI* pEscortAI = dynamic_cast<npc_maxx_a_million_escort::npc_maxx_a_million_escortAI*>(pCreature->AI()))
             {
                 // Set Faction to Escort Faction
                 pCreature->SetFactionTemporary(FACTION_ESCORT_N_NEUTRAL_PASSIVE, TEMPFACTION_RESTORE_RESPAWN | TEMPFACTION_TOGGLE_IMMUNE_TO_PLAYER | TEMPFACTION_TOGGLE_IMMUNE_TO_NPC);
@@ -1720,7 +1720,7 @@ public:
     {
         if (pQuest->GetQuestId() == QUEST_ID_ESCAPE_STAGING_GROUNDS)
         {
-            if (npc_captured_vanguardAI* pEscortAI = dynamic_cast<npc_captured_vanguardAI*>(pCreature->AI()))
+            if (npc_captured_vanguard::npc_captured_vanguardAI* pEscortAI = dynamic_cast<npc_captured_vanguard::npc_captured_vanguardAI*>(pCreature->AI()))
                 pEscortAI->Start(false, pPlayer, pQuest);
 
             DoScriptText(SAY_VANGUARD_START, pCreature, pPlayer);
@@ -2314,7 +2314,7 @@ public:
 
     bool OnGossipSelect(Player* player, Creature* creature, uint32 /*sender*/, uint32 action) override
     {
-        if (npc_saeed_escortAI* ai = dynamic_cast<npc_saeed_escortAI*>(creature->AI()))
+        if (npc_saeed_escort::npc_saeed_escortAI* ai = dynamic_cast<npc_saeed_escort::npc_saeed_escortAI*>(creature->AI()))
         {
             // begin escort
             if (action == 100)
@@ -2463,7 +2463,7 @@ public:
         {
             if (Creature* saeed = GetClosestCreatureWithEntry(m_creature, NPC_CAPTAIN_SAEED, 40.0f))
             {
-                if (npc_saeed_escortAI* ai = dynamic_cast<npc_saeed_escortAI*>(saeed->AI()))
+                if (npc_saeed_escort::npc_saeed_escortAI* ai = dynamic_cast<npc_saeed_escort::npc_saeed_escortAI*>(saeed->AI()))
                 {
                     ai->m_uiEventTimer = 3000;
                     ai->m_uiEvent = 7;
@@ -4038,7 +4038,7 @@ public:
     {
         if (action == 1)
         {
-            if (npc_adyen_the_lightwardenAI* ai = dynamic_cast<npc_adyen_the_lightwardenAI*>(creature->AI()))
+            if (npc_adyen_the_lightwarden::npc_adyen_the_lightwardenAI* ai = dynamic_cast<npc_adyen_the_lightwarden::npc_adyen_the_lightwardenAI*>(creature->AI()))
                 ai->StartEvent(player);
 
             player->CLOSE_GOSSIP_MENU();
@@ -4058,7 +4058,7 @@ public:
             gossipId = GOSSIP_SHATTRATH;
         else
         {
-            if (npc_adyen_the_lightwardenAI* ai = dynamic_cast<npc_adyen_the_lightwardenAI*>(creature->AI()))
+            if (npc_adyen_the_lightwarden::npc_adyen_the_lightwardenAI* ai = dynamic_cast<npc_adyen_the_lightwarden::npc_adyen_the_lightwardenAI*>(creature->AI()))
             {
                 Creature* socrethar = ((ScriptedInstance*)creature->GetMap()->GetInstanceData())->GetSingleCreatureFromStorage(NPC_SOCRETHAR);
                 if (!socrethar || !socrethar->IsAlive() || socrethar->IsInCombat())

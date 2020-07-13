@@ -242,7 +242,7 @@ struct Council_Base_AI : public ScriptedAI
         Creature* pMaulgar = m_pInstance->GetSingleCreatureFromStorage(NPC_MAULGAR);
         if (pMaulgar && pMaulgar->IsAlive())
         {
-            if (boss_high_king_maulgarAI* pMaulgarAI = dynamic_cast<boss_high_king_maulgarAI*>(pMaulgar->AI()))
+            if (boss_high_king_maulgar::boss_high_king_maulgarAI* pMaulgarAI = dynamic_cast<boss_high_king_maulgar::boss_high_king_maulgarAI*>(pMaulgar->AI()))
                 pMaulgarAI->EventCouncilDeath();
         }
 

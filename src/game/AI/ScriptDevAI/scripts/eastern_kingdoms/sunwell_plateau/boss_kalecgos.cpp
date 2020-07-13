@@ -399,7 +399,7 @@ public:
 
             if (Creature* pKalecgos = m_pInstance->GetSingleCreatureFromStorage(NPC_KALECGOS_DRAGON))
             {
-                if (boss_kalecgosAI* pKalecgosAI = dynamic_cast<boss_kalecgosAI*>(pKalecgos->AI()))
+                if (boss_kalecgos::boss_kalecgosAI* pKalecgosAI = dynamic_cast<boss_kalecgos::boss_kalecgosAI*>(pKalecgos->AI()))
                     pKalecgosAI->m_bIsUncorrupted = true;
             }
 

@@ -106,7 +106,7 @@ public:
                 break;
             case GOSSIP_ACTION_INFO_DEF + 3:
                 player->CLOSE_GOSSIP_MENU();
-                if (boss_majordomoAI* pMajoAI = dynamic_cast<boss_majordomoAI*>(creature->AI()))
+                if (boss_majordomo::boss_majordomoAI* pMajoAI = dynamic_cast<boss_majordomo::boss_majordomoAI*>(creature->AI()))
                     pMajoAI->StartSummonEvent(player);
                 break;
         }

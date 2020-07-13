@@ -113,7 +113,7 @@ public:
                 pPlayer->CLOSE_GOSSIP_MENU();
                 DoScriptText(SAY_BARNES_EVENT_START, pCreature);
                 // start the stage escort
-                if (npc_barnesAI* pBarnesAI = dynamic_cast<npc_barnesAI*>(pCreature->AI()))
+                if (npc_barnes::npc_barnesAI* pBarnesAI = dynamic_cast<npc_barnes::npc_barnesAI*>(pCreature->AI()))
                     pBarnesAI->Start(false, nullptr, nullptr, true);
                 break;
             // GM gossip options
@@ -540,7 +540,7 @@ public:
                 pMedivh->SummonCreature(NPC_IMAGE_OF_ARCANAGOS, afArcanagosSpawnLoc[0], afArcanagosSpawnLoc[1], afArcanagosSpawnLoc[2], afArcanagosSpawnLoc[3], TEMPSPAWN_DEAD_DESPAWN, 0);
 
                 // store the player who started the event
-                if (npc_image_of_medivhAI* pMedivhAI = dynamic_cast<npc_image_of_medivhAI*>(pMedivh->AI()))
+                if (npc_image_of_medivh::npc_image_of_medivhAI* pMedivhAI = dynamic_cast<npc_image_of_medivh::npc_image_of_medivhAI*>(pMedivh->AI()))
                     pMedivhAI->SetEventStarter(pSource->GetObjectGuid());
             }
         }

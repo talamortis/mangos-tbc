@@ -273,7 +273,7 @@ public:
         // always check spellid and effectindex
         if (uiSpellId == SPELL_KAEL_PHASE_2 && uiEffIndex == EFFECT_INDEX_0)
         {
-            if (boss_kaelthasAI* pKaelAI = dynamic_cast<boss_kaelthasAI*>(pCreatureTarget->AI()))
+            if (boss_kaelthas::boss_kaelthasAI* pKaelAI = dynamic_cast<boss_kaelthas::boss_kaelthasAI*>(pCreatureTarget->AI()))
                 pKaelAI->AdvisorDefeated(pCaster->GetEntry());
 
             // always return true when we are handling this spell and effect
@@ -1459,7 +1459,7 @@ struct advisor_base_ai : public ScriptedAI
         if (m_pInstance)
         {
             if (Creature* kael = m_pInstance->GetSingleCreatureFromStorage(NPC_KAELTHAS))
-                if (boss_kaelthasAI* pKaelAI = dynamic_cast<boss_kaelthasAI*>(kael->AI()))
+                if (boss_kaelthas::boss_kaelthasAI* pKaelAI = dynamic_cast<boss_kaelthas::boss_kaelthasAI*>(kael->AI()))
                     pKaelAI->AdvisorDefeated(m_creature->GetEntry());
         }
     }

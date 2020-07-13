@@ -372,7 +372,7 @@ public:
                     {
                         if (Creature* halazzi = m_instance->GetSingleCreatureFromStorage(NPC_HALAZZI))
                         {
-                            if (boss_halazziAI* bossAI = dynamic_cast<boss_halazziAI*>(halazzi->AI()))
+                            if (boss_halazzi::boss_halazziAI* bossAI = dynamic_cast<boss_halazzi::boss_halazziAI*>(halazzi->AI()))
                                 bossAI->DoReuniteSpirits();
                         }
                     }

@@ -261,7 +261,7 @@ public:
                 if (pInstance)
                     pInstance->SetData(TYPE_THRALL_EVENT, IN_PROGRESS);
 
-                if (npc_thrall_old_hillsbradAI* pThrallAI = dynamic_cast<npc_thrall_old_hillsbradAI*>(pCreature->AI()))
+                if (npc_thrall_old_hillsbrad::npc_thrall_old_hillsbradAI* pThrallAI = dynamic_cast<npc_thrall_old_hillsbrad::npc_thrall_old_hillsbradAI*>(pCreature->AI()))
                 {
                     pThrallAI->Start(true, pPlayer);
                     pThrallAI->DoRestartEscortMovement();
@@ -291,7 +291,7 @@ public:
                 if (pInstance)
                     pInstance->SetData(TYPE_ESCORT_BARN, IN_PROGRESS);
 
-                if (npc_thrall_old_hillsbradAI* pThrallAI = dynamic_cast<npc_thrall_old_hillsbradAI*>(pCreature->AI()))
+                if (npc_thrall_old_hillsbrad::npc_thrall_old_hillsbradAI* pThrallAI = dynamic_cast<npc_thrall_old_hillsbrad::npc_thrall_old_hillsbradAI*>(pCreature->AI()))
                 {
                     pThrallAI->Start(true, pPlayer);
                     pThrallAI->DoRestartEscortMovement();
@@ -307,7 +307,7 @@ public:
                 if (pInstance)
                     pInstance->SetData(TYPE_ESCORT_INN, IN_PROGRESS);
 
-                if (npc_thrall_old_hillsbradAI* pThrallAI = dynamic_cast<npc_thrall_old_hillsbradAI*>(pCreature->AI()))
+                if (npc_thrall_old_hillsbrad::npc_thrall_old_hillsbradAI* pThrallAI = dynamic_cast<npc_thrall_old_hillsbrad::npc_thrall_old_hillsbradAI*>(pCreature->AI()))
                 {
                     pThrallAI->Start(true, pPlayer);
                     pThrallAI->DoRestartEscortMovement();
@@ -1188,7 +1188,7 @@ public:
 
                 if (Creature* pThrall = pInstance->GetSingleCreatureFromStorage(NPC_THRALL))
                 {
-                    if (npc_thrall_old_hillsbradAI* pThrallAI = dynamic_cast<npc_thrall_old_hillsbradAI*>(pThrall->AI()))
+                    if (npc_thrall_old_hillsbrad::npc_thrall_old_hillsbradAI* pThrallAI = dynamic_cast<npc_thrall_old_hillsbrad::npc_thrall_old_hillsbradAI*>(pThrall->AI()))
                         pThrallAI->DoRestartEscortMovement();
                 }
             }
@@ -1293,7 +1293,7 @@ public:
                 case NPC_THRALL:
                     if (Creature* pThrall = m_pInstance->GetSingleCreatureFromStorage(NPC_THRALL))
                     {
-                        if (npc_thrall_old_hillsbradAI* pThrallAI = dynamic_cast<npc_thrall_old_hillsbradAI*>(pThrall->AI()))
+                        if (npc_thrall_old_hillsbrad::npc_thrall_old_hillsbradAI* pThrallAI = dynamic_cast<npc_thrall_old_hillsbrad::npc_thrall_old_hillsbradAI*>(pThrall->AI()))
                             pThrallAI->SetEscortPaused(false);
                     }
                     break;

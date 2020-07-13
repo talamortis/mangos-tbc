@@ -822,7 +822,7 @@ public:
                 if (Creature* pCthun = pInstance->GetSingleCreatureFromStorage(NPC_CTHUN))
                 {
                     // Remove player from the Stomach
-                    if (boss_cthunAI* pBossAI = dynamic_cast<boss_cthunAI*>(pCthun->AI()))
+                    if (boss_cthun::boss_cthunAI* pBossAI = dynamic_cast<boss_cthun::boss_cthunAI*>(pCthun->AI()))
                         pBossAI->DoRemovePlayerFromStomach(pPlayer);
 
                     // Teleport back to C'thun and remove the Digestive Acid

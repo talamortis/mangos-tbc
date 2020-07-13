@@ -776,7 +776,7 @@ public:
             if (Creature* pAnachronos = pPlayer->SummonCreature(NPC_ANACHRONOS_THE_ANCIENT, pGo->GetPositionX(), pGo->GetPositionY(), pGo->GetPositionZ(), 3.75f, TEMPSPAWN_CORPSE_DESPAWN, 0))
             {
                 // Send the player's guid in order to handle the quest complete
-                if (npc_anachronos_the_ancientAI* pAnachronosAI = dynamic_cast<npc_anachronos_the_ancientAI*>(pAnachronos->AI()))
+                if (npc_anachronos_the_ancient::npc_anachronos_the_ancientAI* pAnachronosAI = dynamic_cast<npc_anachronos_the_ancient::npc_anachronos_the_ancientAI*>(pAnachronos->AI()))
                     pAnachronosAI->m_playerGuid = pPlayer->GetObjectGuid();
             }
         }

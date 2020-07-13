@@ -72,7 +72,7 @@ public:
             pCreature->SetStandState(UNIT_STAND_STATE_STAND);
             pCreature->SetFactionTemporary(FACTION_ESCORT_N_FRIEND_ACTIVE, TEMPFACTION_RESTORE_RESPAWN | TEMPFACTION_TOGGLE_IMMUNE_TO_NPC);
 
-            if (npc_oox22feAI* pEscortAI = dynamic_cast<npc_oox22feAI*>(pCreature->AI()))
+            if (npc_oox22fe::npc_oox22feAI* pEscortAI = dynamic_cast<npc_oox22fe::npc_oox22feAI*>(pCreature->AI()))
                 pEscortAI->Start(false, pPlayer, pQuest);
         }
         return true;
@@ -466,7 +466,7 @@ public:
         for (auto& spriteDart : spriteDarts)
         {
             spriteDart->SetFactionTemporary(FACTION_ESCORT_N_FRIEND_ACTIVE, TEMPFACTION_RESTORE_RESPAWN);
-            if (auto* escortAI = dynamic_cast<npc_captured_sprite_darterAI*>(spriteDart->AI()))
+            if (auto* escortAI = dynamic_cast<npc_captured_sprite_darter::npc_captured_sprite_darterAI*>(spriteDart->AI()))
                 escortAI->Start(true, player, nullptr);
         }
         // Spawn a Grimtotem Raider
@@ -498,7 +498,7 @@ public:
     {
         if (quest->GetQuestId() == QUEST_FREEDOM_ALL_CREATURES)
         {
-            if (npc_kindal_moonweaverAI* kindal = dynamic_cast<npc_kindal_moonweaverAI*>(creature->AI()))
+            if (npc_kindal_moonweaver::npc_kindal_moonweaverAI* kindal = dynamic_cast<npc_kindal_moonweaver::npc_kindal_moonweaverAI*>(creature->AI()))
                 kindal->StartFollow(player, FACTION_ESCORT_A_NEUTRAL_ACTIVE, quest);
             DoScriptText(SAY_KINDAL_QUEST_START, creature);
             creature->SetStandState(UNIT_STAND_STATE_STAND);

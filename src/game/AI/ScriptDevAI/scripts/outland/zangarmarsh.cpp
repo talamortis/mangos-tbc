@@ -121,7 +121,7 @@ public:
             DoScriptText(SAY_START, pCreature, pPlayer);
             pCreature->SetFactionTemporary(FACTION_ESCORT_N_FRIEND_ACTIVE, TEMPFACTION_RESTORE_RESPAWN); // sniffed faction
 
-            if (npc_kayra_longmaneAI* pEscortAI = dynamic_cast<npc_kayra_longmaneAI*>(pCreature->AI()))
+            if (npc_kayra_longmane::npc_kayra_longmaneAI* pEscortAI = dynamic_cast<npc_kayra_longmane::npc_kayra_longmaneAI*>(pCreature->AI()))
                 pEscortAI->Start(false, pPlayer, pQuest);
         }
         return true;

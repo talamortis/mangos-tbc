@@ -92,7 +92,7 @@ public:
     {
         if (action == GOSSIP_ACTION_INFO_DEF + 1)
         {
-            if (npc_general_andorovAI* andorovAI = dynamic_cast<npc_general_andorovAI*>(creature->AI()))
+            if (npc_general_andorov::npc_general_andorovAI* andorovAI = dynamic_cast<npc_general_andorov::npc_general_andorovAI*>(creature->AI()))
                 andorovAI->DoMoveToEventLocation();
 
             player->CLOSE_GOSSIP_MENU();

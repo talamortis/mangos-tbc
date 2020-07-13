@@ -103,7 +103,7 @@ public:
                 break;
             case GOSSIP_ACTION_INFO_DEF + 2:
                 pPlayer->CLOSE_GOSSIP_MENU();
-                if (boss_vaelastraszAI* pVaelAI = dynamic_cast<boss_vaelastraszAI*>(creature->AI()))
+                if (boss_vaelastrasz::boss_vaelastraszAI* pVaelAI = dynamic_cast<boss_vaelastrasz::boss_vaelastraszAI*>(creature->AI()))
                     pVaelAI->BeginSpeech(pPlayer);
                 break;
         }
@@ -407,7 +407,7 @@ public:
                 if (pInstance->GetData(TYPE_VAELASTRASZ) == NOT_STARTED)
                 {
                     if (Creature* pVaelastrasz = pInstance->GetSingleCreatureFromStorage(NPC_VAELASTRASZ))
-                        if (boss_vaelastraszAI* pVaelAI = dynamic_cast<boss_vaelastraszAI*>(pVaelastrasz->AI()))
+                        if (boss_vaelastrasz::boss_vaelastraszAI* pVaelAI = dynamic_cast<boss_vaelastrasz::boss_vaelastraszAI*>(pVaelastrasz->AI()))
                             pVaelAI->BeginIntro();
                 }
             }

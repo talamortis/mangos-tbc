@@ -58,7 +58,7 @@ public:
         {
             pCreature->SetFactionTemporary(FACTION_SMOON_E, TEMPFACTION_RESTORE_RESPAWN);
 
-            if (npc_ranger_lilathaAI* pEscortAI = dynamic_cast<npc_ranger_lilathaAI*>(pCreature->AI()))
+            if (npc_ranger_lilatha::npc_ranger_lilathaAI* pEscortAI = dynamic_cast<npc_ranger_lilatha::npc_ranger_lilathaAI*>(pCreature->AI()))
                 pEscortAI->Start(false, pPlayer, pQuest);
         }
         return true;

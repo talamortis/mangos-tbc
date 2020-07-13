@@ -524,7 +524,7 @@ public:
                 // Start the intro event
                 if (Creature* pBrutallus = pInstance->GetSingleCreatureFromStorage(NPC_BRUTALLUS))
                 {
-                    if (boss_brutallusAI* pBossAI = dynamic_cast<boss_brutallusAI*>(pBrutallus->AI()))
+                    if (boss_brutallus::boss_brutallusAI* pBossAI = dynamic_cast<boss_brutallus::boss_brutallusAI*>(pBrutallus->AI()))
                         pBossAI->DoStartIntro();
                 }
             }

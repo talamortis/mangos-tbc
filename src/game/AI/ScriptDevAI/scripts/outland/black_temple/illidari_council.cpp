@@ -269,7 +269,7 @@ public:
             // Start the event for the Voice Trigger
             if (Creature* voiceTrigger = m_instance->GetSingleCreatureFromStorage(NPC_COUNCIL_VOICE))
             {
-                if (mob_blood_elf_council_voice_triggerAI* voiceAI = dynamic_cast<mob_blood_elf_council_voice_triggerAI*>(voiceTrigger->AI()))
+                if (mob_blood_elf_council_voice_trigger::mob_blood_elf_council_voice_triggerAI* voiceAI = dynamic_cast<mob_blood_elf_council_voice_trigger::mob_blood_elf_council_voice_triggerAI*>(voiceTrigger->AI()))
                     voiceAI->StartVoiceEvent();
             }
 
@@ -342,7 +342,7 @@ struct boss_illidari_councilAI : public CombatAI
 
             if (Creature* controller = m_instance->GetSingleCreatureFromStorage(NPC_ILLIDARI_COUNCIL))
             {
-                if (mob_illidari_councilAI* controlAI = dynamic_cast<mob_illidari_councilAI*>(controller->AI()))
+                if (mob_illidari_council::mob_illidari_councilAI* controlAI = dynamic_cast<mob_illidari_council::mob_illidari_councilAI*>(controller->AI()))
                     controlAI->DoStartEvent();
             }
 

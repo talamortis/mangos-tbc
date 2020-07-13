@@ -77,7 +77,7 @@ public:
     {
         if (pQuest->GetQuestId() == QUEST_SECOND_TRIAL)
         {
-            if (npc_kelerun_bloodmournAI* pKelrunAI = dynamic_cast<npc_kelerun_bloodmournAI*>(pCreature->AI()))
+            if (npc_kelerun_bloodmourn::npc_kelerun_bloodmournAI* pKelrunAI = dynamic_cast<npc_kelerun_bloodmourn::npc_kelerun_bloodmournAI*>(pCreature->AI()))
                 pKelrunAI->StartEvent(pPlayer);
         }
 
@@ -260,7 +260,7 @@ public:
         {
             if (Creature* pCreature = GetClosestCreatureWithEntry(pGO, NPC_KELERUN, 30.0f))
             {
-                if (npc_kelerun_bloodmournAI* pKelrunAI = dynamic_cast<npc_kelerun_bloodmournAI*>(pCreature->AI()))
+                if (npc_kelerun_bloodmourn::npc_kelerun_bloodmournAI* pKelrunAI = dynamic_cast<npc_kelerun_bloodmourn::npc_kelerun_bloodmournAI*>(pCreature->AI()))
                     pKelrunAI->CanProgressEvent();
             }
         }
@@ -306,7 +306,7 @@ public:
             case GOSSIP_ACTION_INFO_DEF+2:
                 pPlayer->CLOSE_GOSSIP_MENU();
 
-                if (npc_prospector_anvilwardAI* pEscortAI = dynamic_cast<npc_prospector_anvilwardAI*>(pCreature->AI()))
+                if (npc_prospector_anvilward::npc_prospector_anvilwardAI* pEscortAI = dynamic_cast<npc_prospector_anvilward::npc_prospector_anvilwardAI*>(pCreature->AI()))
                     pEscortAI->Start(false, pPlayer);
 
                 break;
@@ -395,7 +395,7 @@ public:
     bool OnQuestAccept(Player* pPlayer, Creature* pCreature, const Quest* pQuest) override
     {
         if (pQuest->GetQuestId() == QUEST_UNEXPECTED_RESULT)
-            if (npc_apprentice_mirvedaAI* pMirvedaAI = dynamic_cast<npc_apprentice_mirvedaAI*>(pCreature->AI()))
+            if (npc_apprentice_mirveda::npc_apprentice_mirvedaAI* pMirvedaAI = dynamic_cast<npc_apprentice_mirveda::npc_apprentice_mirvedaAI*>(pCreature->AI()))
                 pMirvedaAI->StartEvent(pPlayer);
         return true;
     }

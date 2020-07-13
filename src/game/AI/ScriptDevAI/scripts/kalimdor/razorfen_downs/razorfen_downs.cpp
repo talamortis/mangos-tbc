@@ -86,7 +86,7 @@ public:
     {
         if (pQuest->GetQuestId() == QUEST_EXTINGUISHING_THE_IDOL)
         {
-            if (npc_belnistraszAI* pEscortAI = dynamic_cast<npc_belnistraszAI*>(pCreature->AI()))
+            if (npc_belnistrasz::npc_belnistraszAI* pEscortAI = dynamic_cast<npc_belnistrasz::npc_belnistraszAI*>(pCreature->AI()))
             {
                 pEscortAI->Start(true, pPlayer, pQuest);
                 DoScriptText(SAY_BELNISTRASZ_READY, pCreature, pPlayer);

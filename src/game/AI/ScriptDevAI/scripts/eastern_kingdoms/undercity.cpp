@@ -78,7 +78,7 @@ public:
     {
         if (pQuest->GetQuestId() == QUEST_ID_JOURNEY_UNDERCITY)
         {
-            if (npc_lady_sylvanas_windrunnerAI* pSylvanAI = dynamic_cast<npc_lady_sylvanas_windrunnerAI*>(pCreature->AI()))
+            if (npc_lady_sylvanas_windrunner::npc_lady_sylvanas_windrunnerAI* pSylvanAI = dynamic_cast<npc_lady_sylvanas_windrunner::npc_lady_sylvanas_windrunnerAI*>(pCreature->AI()))
                 pSylvanAI->DoStartLamentEvent(pPlayer->GetObjectGuid());
         }
 

@@ -229,7 +229,7 @@ public:
     {
         if (pQuest->GetQuestId() == QUEST_CHALLENGE_MOROKK)
         {
-            if (npc_morokkAI* pEscortAI = dynamic_cast<npc_morokkAI*>(pCreature->AI()))
+            if (npc_morokk::npc_morokkAI* pEscortAI = dynamic_cast<npc_morokk::npc_morokkAI*>(pCreature->AI()))
                 pEscortAI->Start(true, pPlayer, pQuest);
 
             return true;
@@ -398,7 +398,7 @@ public:
     {
         if (pQuest->GetQuestId() == QUEST_QUESTIONING)
         {
-            if (npc_ogronAI* pEscortAI = dynamic_cast<npc_ogronAI*>(pCreature->AI()))
+            if (npc_ogron::npc_ogronAI* pEscortAI = dynamic_cast<npc_ogron::npc_ogronAI*>(pCreature->AI()))
             {
                 pEscortAI->Start(false, pPlayer, pQuest, true);
                 pCreature->SetFactionTemporary(FACTION_ESCORT_N_FRIEND_PASSIVE, TEMPFACTION_RESTORE_RESPAWN | TEMPFACTION_TOGGLE_IMMUNE_TO_NPC);

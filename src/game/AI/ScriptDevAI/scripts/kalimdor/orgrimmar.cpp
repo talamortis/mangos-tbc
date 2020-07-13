@@ -44,7 +44,7 @@ public:
     {
         if (pQuest->GetQuestId() == QUEST_SHATTERED_SALUTE)
         {
-            if (npc_shenthulAI* pShenAI = dynamic_cast<npc_shenthulAI*>(pCreature->AI()))
+            if (npc_shenthul::npc_shenthulAI* pShenAI = dynamic_cast<npc_shenthul::npc_shenthulAI*>(pCreature->AI()))
                 pShenAI->DoStartQuestEvent(pPlayer);
         }
 

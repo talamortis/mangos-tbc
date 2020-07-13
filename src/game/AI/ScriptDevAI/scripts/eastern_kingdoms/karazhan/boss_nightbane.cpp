@@ -442,7 +442,7 @@ public:
                     nightbane->SetHover(true);
 
                     // Switch to waypoint movement
-                    if (boss_nightbaneAI* nightbaneAI = dynamic_cast<boss_nightbaneAI*>(nightbane->AI()))
+                    if (boss_nightbane::boss_nightbaneAI* nightbaneAI = dynamic_cast<boss_nightbane::boss_nightbaneAI*>(nightbane->AI()))
                         nightbaneAI->StartIntro();
                 }
             }

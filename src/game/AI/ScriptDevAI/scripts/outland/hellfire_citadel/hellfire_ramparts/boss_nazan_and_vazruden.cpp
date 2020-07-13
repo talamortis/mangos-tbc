@@ -432,7 +432,7 @@ public:
             if (!m_bHealthBelow && m_pInstance && (float(m_creature->GetHealth() - damage) / m_creature->GetMaxHealth()) < 0.40f)
             {
                 if (Creature* pNazan = m_pInstance->GetSingleCreatureFromStorage(NPC_VAZRUDEN_HERALD))
-                    if (boss_vazruden_heraldAI* pNazanAI = dynamic_cast<boss_vazruden_heraldAI*>(pNazan->AI()))
+                    if (boss_vazruden_herald::boss_vazruden_heraldAI* pNazanAI = dynamic_cast<boss_vazruden_herald::boss_vazruden_heraldAI*>(pNazan->AI()))
                         pNazanAI->DoMoveToCombat();
 
                 m_bHealthBelow = true;

@@ -49,7 +49,7 @@ public:
     {
         if (pQuest->GetQuestId() == QUEST_MIST)
         {
-            if (npc_mistAI* pMistAI = dynamic_cast<npc_mistAI*>(pCreature->AI()))
+            if (npc_mist::npc_mistAI* pMistAI = dynamic_cast<npc_mist::npc_mistAI*>(pCreature->AI()))
                 pMistAI->StartFollow(pPlayer, FACTION_DARNASSUS, pQuest);
         }
 

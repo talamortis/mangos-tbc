@@ -74,7 +74,7 @@ public:
                 return true;
 
             // done here, escort can start
-            if (npc_clintar_dw_spiritAI* pSpiritAI = dynamic_cast<npc_clintar_dw_spiritAI*>(pCreatureTarget->AI()))
+            if (npc_clintar_dw_spirit::npc_clintar_dw_spiritAI* pSpiritAI = dynamic_cast<npc_clintar_dw_spirit::npc_clintar_dw_spiritAI*>(pCreatureTarget->AI()))
                 pSpiritAI->DoStart(pCaster);
 
             // always return true when we are handling this spell and effect
@@ -337,7 +337,7 @@ public:
     {
         if (pQuest->GetQuestId() == QUEST_NIGHTMARE_MANIFESTS)
         {
-            if (npc_keeper_remulosAI* pEscortAI = dynamic_cast<npc_keeper_remulosAI*>(pCreature->AI()))
+            if (npc_keeper_remulos::npc_keeper_remulosAI* pEscortAI = dynamic_cast<npc_keeper_remulos::npc_keeper_remulosAI*>(pCreature->AI()))
                 pEscortAI->Start(true, pPlayer, pQuest);
 
             return true;

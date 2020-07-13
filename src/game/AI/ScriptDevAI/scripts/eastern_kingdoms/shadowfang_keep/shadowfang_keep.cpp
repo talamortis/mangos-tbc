@@ -73,7 +73,7 @@ public:
         {
             pPlayer->CLOSE_GOSSIP_MENU();
 
-            if (npc_shadowfang_prisonerAI* pEscortAI = dynamic_cast<npc_shadowfang_prisonerAI*>(pCreature->AI()))
+            if (npc_shadowfang_prisoner::npc_shadowfang_prisonerAI* pEscortAI = dynamic_cast<npc_shadowfang_prisoner::npc_shadowfang_prisonerAI*>(pCreature->AI()))
                 pEscortAI->Start();
         }
         return true;
@@ -258,7 +258,7 @@ public:
                 {
                     if (itr->IsAlive())
                     {
-                        if (mob_arugal_voidwalkerAI* pVoidwalkerAI = dynamic_cast<mob_arugal_voidwalkerAI*>(itr->AI()))
+                        if (mob_arugal_voidwalker::mob_arugal_voidwalkerAI* pVoidwalkerAI = dynamic_cast<mob_arugal_voidwalker::mob_arugal_voidwalkerAI*>(itr->AI()))
                         {
                             uint8 uiPosition = pVoidwalkerAI->GetPosition();
                             if (uiPosition > uiHighestPosition)
@@ -380,7 +380,7 @@ public:
             for (auto& itr : lVoidwalkerList)
             {
                 if (itr->IsAlive())
-                    if (mob_arugal_voidwalkerAI* pVoidwalkerAI = dynamic_cast<mob_arugal_voidwalkerAI*>(itr->AI()))
+                    if (mob_arugal_voidwalker::mob_arugal_voidwalkerAI* pVoidwalkerAI = dynamic_cast<mob_arugal_voidwalker::mob_arugal_voidwalkerAI*>(itr->AI()))
                         pVoidwalkerAI->ReceiveWaypoint(m_uiCurrentPoint, m_bReverse);
             }
         }
@@ -547,7 +547,7 @@ public:
                                 if (!i)
                                     pLeader = pVoidwalker;
 
-                                if (mob_arugal_voidwalkerAI* pVoidwalkerAI = dynamic_cast<mob_arugal_voidwalkerAI*>(pVoidwalker->AI()))
+                                if (mob_arugal_voidwalker::mob_arugal_voidwalkerAI* pVoidwalkerAI = dynamic_cast<mob_arugal_voidwalker::mob_arugal_voidwalkerAI*>(pVoidwalker->AI()))
                                     pVoidwalkerAI->SetPosition(i, pLeader);
 
                                 pVoidwalker = nullptr;

@@ -55,7 +55,7 @@ public:
     {
         if (uiAction == GOSSIP_ACTION_INFO_DEF + 1)
         {
-            if (npc_dirty_larryAI* pLarryAI = dynamic_cast<npc_dirty_larryAI*>(pCreature->AI()))
+            if (npc_dirty_larry::npc_dirty_larryAI* pLarryAI = dynamic_cast<npc_dirty_larry::npc_dirty_larryAI*>(pCreature->AI()))
                 pLarryAI->StartEvent(pPlayer);
 
             pPlayer->CLOSE_GOSSIP_MENU();

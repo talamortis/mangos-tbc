@@ -202,7 +202,7 @@ public:
     {
         if (pQuest->GetQuestId() == QUEST_RETURN_TO_VAHLARRIEL)
         {
-            if (npc_dalinda_malemAI* pEscortAI = dynamic_cast<npc_dalinda_malemAI*>(pCreature->AI()))
+            if (npc_dalinda_malem::npc_dalinda_malemAI* pEscortAI = dynamic_cast<npc_dalinda_malem::npc_dalinda_malemAI*>(pCreature->AI()))
             {
                 // TODO This faction change needs confirmation, also possible that we need to drop her PASSIVE flag
                 pCreature->SetFactionTemporary(FACTION_ESCORT_A_NEUTRAL_PASSIVE, TEMPFACTION_RESTORE_RESPAWN | TEMPFACTION_TOGGLE_IMMUNE_TO_NPC);
@@ -310,7 +310,7 @@ public:
     {
         if (pQuest->GetQuestId() == QUEST_GET_ME_OUT_OF_HERE)
         {
-            if (npc_melizza_brimbuzzleAI* pEscortAI = dynamic_cast<npc_melizza_brimbuzzleAI*>(pCreature->AI()))
+            if (npc_melizza_brimbuzzle::npc_melizza_brimbuzzleAI* pEscortAI = dynamic_cast<npc_melizza_brimbuzzle::npc_melizza_brimbuzzleAI*>(pCreature->AI()))
                 pEscortAI->Start(false, pPlayer, pQuest);
         }
 

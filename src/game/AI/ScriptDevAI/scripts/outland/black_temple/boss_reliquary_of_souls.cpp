@@ -821,7 +821,7 @@ public:
             {
                 if (Creature* reliquary = m_instance->GetSingleCreatureFromStorage(NPC_RELIQUARY_OF_SOULS))
                 {
-                    if (boss_reliquary_of_soulsAI* pBossAI = dynamic_cast<boss_reliquary_of_soulsAI*>(reliquary->AI()))
+                    if (boss_reliquary_of_souls::boss_reliquary_of_soulsAI* pBossAI = dynamic_cast<boss_reliquary_of_souls::boss_reliquary_of_soulsAI*>(reliquary->AI()))
                         pBossAI->DoNotifySouldDead();
                 }
             }

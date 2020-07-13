@@ -54,7 +54,7 @@ public:
     {
         if (pQuest->GetQuestId() == QUEST_CHASING_AME)
         {
-            if (npc_ame01AI* pAmeAI = dynamic_cast<npc_ame01AI*>(pCreature->AI()))
+            if (npc_ame01::npc_ame01AI* pAmeAI = dynamic_cast<npc_ame01::npc_ame01AI*>(pCreature->AI()))
             {
                 pCreature->SetStandState(UNIT_STAND_STATE_STAND);
 
@@ -169,7 +169,7 @@ public:
     {
         if (pQuest->GetQuestId() == QUEST_A_LITTLE_HELP)
         {
-            if (npc_ringoAI* pRingoAI = dynamic_cast<npc_ringoAI*>(pCreature->AI()))
+            if (npc_ringo::npc_ringoAI* pRingoAI = dynamic_cast<npc_ringo::npc_ringoAI*>(pCreature->AI()))
             {
                 pCreature->SetStandState(UNIT_STAND_STATE_STAND);
                 pRingoAI->StartFollow(pPlayer, FACTION_ESCORT_N_FRIEND_PASSIVE, pQuest);
@@ -516,7 +516,7 @@ public:
                     {
                         m_preciousGuid = pPreciousNew->GetObjectGuid();
 
-                        if (npc_precious_the_devourerAI * pDevourer = dynamic_cast<npc_precious_the_devourerAI*> (pPreciousNew->AI()))
+                        if (npc_precious_the_devourerAI * pDevourer = dynamic_cast<npc_precious_the_devourer::npc_precious_the_devourerAI*> (pPreciousNew->AI()))
                             pDevourer->m_simoneGuid = m_creature->GetObjectGuid();
                     }
                 }
@@ -530,7 +530,7 @@ public:
                 {
                     m_preciousGuid = pPreciousNew->GetObjectGuid();
 
-                    if (npc_precious_the_devourerAI * pDevourer = dynamic_cast<npc_precious_the_devourerAI*> (pPreciousNew->AI()))
+                    if (npc_precious_the_devourerAI * pDevourer = dynamic_cast<npc_precious_the_devourer::npc_precious_the_devourerAI*> (pPreciousNew->AI()))
                         pDevourer->m_simoneGuid = m_creature->GetObjectGuid();
                 }
             }
@@ -782,7 +782,7 @@ public:
 
                 if (pDemon)
                 {
-                    if (npc_simone_seductressAI * pSimone = dynamic_cast<npc_simone_seductressAI*> (pDemon->AI()))
+                    if (npc_simone_seductressAI * pSimone = dynamic_cast<npc_simone_seductress::npc_simone_seductressAI*> (pDemon->AI()))
                         pSimone->m_simoneGuid = m_creature->GetObjectGuid();
 
                     m_creature->SetVisibility(VISIBILITY_OFF);
@@ -796,10 +796,10 @@ public:
 
                     if (pPreciousDevourer)
                     {
-                        if (npc_simone_seductressAI * pSimone = dynamic_cast<npc_simone_seductressAI*> (pDemon->AI()))
+                        if (npc_simone_seductressAI * pSimone = dynamic_cast<npc_simone_seductress::npc_simone_seductressAI*> (pDemon->AI()))
                             pSimone->m_preciousGuid = pPreciousDevourer->GetObjectGuid();
 
-                        if (npc_precious_the_devourerAI * pDevourer = dynamic_cast<npc_precious_the_devourerAI*> (pPreciousDevourer->AI()))
+                        if (npc_precious_the_devourerAI * pDevourer = dynamic_cast<npc_precious_the_devourer::npc_precious_the_devourerAI*> (pPreciousDevourer->AI()))
                             pDevourer->m_simoneGuid = pDemon->GetObjectGuid();
                     }
 

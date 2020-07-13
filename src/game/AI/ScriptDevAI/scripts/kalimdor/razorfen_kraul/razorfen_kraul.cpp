@@ -71,7 +71,7 @@ public:
     {
         if (pQuest->GetQuestId() == QUEST_WILLIX_THE_IMPORTER)
         {
-            if (npc_willix_the_importerAI* pEscortAI = dynamic_cast<npc_willix_the_importerAI*>(pCreature->AI()))
+            if (npc_willix_the_importer::npc_willix_the_importerAI* pEscortAI = dynamic_cast<npc_willix_the_importer::npc_willix_the_importerAI*>(pCreature->AI()))
             {
                 // After 4.0.1 set run = true
                 pEscortAI->Start(false, pPlayer, pQuest);
@@ -186,7 +186,7 @@ public:
         {
             if (pCreatureTarget->GetEntry() == NPC_SNUFFLENOSE_GOPHER)
             {
-                if (npc_snufflenose_gopherAI* pGopherAI = dynamic_cast<npc_snufflenose_gopherAI*>(pCreatureTarget->AI()))
+                if (npc_snufflenose_gopher::npc_snufflenose_gopherAI* pGopherAI = dynamic_cast<npc_snufflenose_gopher::npc_snufflenose_gopherAI*>(pCreatureTarget->AI()))
                     pGopherAI->DoFindNewTubber();
             }
 

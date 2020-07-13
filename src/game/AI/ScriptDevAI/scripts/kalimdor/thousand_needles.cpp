@@ -54,7 +54,7 @@ public:
     {
         if (pQuest->GetQuestId() == QUEST_PROTECT_KANATI)
         {
-            if (npc_kanatiAI* pEscortAI = dynamic_cast<npc_kanatiAI*>(pCreature->AI()))
+            if (npc_kanati::npc_kanatiAI* pEscortAI = dynamic_cast<npc_kanati::npc_kanatiAI*>(pCreature->AI()))
                 pEscortAI->Start(false, pPlayer, pQuest, true);
         }
         return true;
@@ -153,7 +153,7 @@ public:
             DoScriptText(SAY_LAKO_START, pCreature, pPlayer);
             pCreature->SetFactionTemporary(FACTION_ESCORT_H_NEUTRAL_ACTIVE, TEMPFACTION_RESTORE_RESPAWN);
 
-            if (npc_lakota_windsongAI* pEscortAI = dynamic_cast<npc_lakota_windsongAI*>(pCreature->AI()))
+            if (npc_lakota_windsong::npc_lakota_windsongAI* pEscortAI = dynamic_cast<npc_lakota_windsong::npc_lakota_windsongAI*>(pCreature->AI()))
                 pEscortAI->Start(false, pPlayer, pQuest);
         }
         return true;
@@ -248,7 +248,7 @@ public:
             DoScriptText(SAY_START, pCreature, pPlayer);
             pCreature->SetFactionTemporary(FACTION_ESCORT_H_NEUTRAL_ACTIVE, TEMPFACTION_RESTORE_RESPAWN);
 
-            if (npc_paoka_swiftmountainAI* pEscortAI = dynamic_cast<npc_paoka_swiftmountainAI*>(pCreature->AI()))
+            if (npc_paoka_swiftmountain::npc_paoka_swiftmountainAI* pEscortAI = dynamic_cast<npc_paoka_swiftmountain::npc_paoka_swiftmountainAI*>(pCreature->AI()))
                 pEscortAI->Start(false, pPlayer, pQuest);
         }
         return true;

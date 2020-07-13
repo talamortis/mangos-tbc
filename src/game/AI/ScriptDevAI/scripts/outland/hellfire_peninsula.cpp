@@ -238,7 +238,7 @@ public:
 
     bool OnGossipHello(Player* pPlayer, Creature* pCreature) override
     {
-        if (npc_demoniac_scryerAI* pScryerAI = dynamic_cast<npc_demoniac_scryerAI*>(pCreature->AI()))
+        if (npc_demoniac_scryer::npc_demoniac_scryerAI* pScryerAI = dynamic_cast<npc_demoniac_scryer::npc_demoniac_scryerAI*>(pCreature->AI()))
         {
             if (pScryerAI->m_bIsComplete)
             {
@@ -416,7 +416,7 @@ public:
             pCreature->SetFactionTemporary(FACTION_TROLL_FROSTMANE, TEMPFACTION_RESTORE_RESPAWN);
             pCreature->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_NPC);
 
-            if (npc_wounded_blood_elfAI* pEscortAI = dynamic_cast<npc_wounded_blood_elfAI*>(pCreature->AI()))
+            if (npc_wounded_blood_elf::npc_wounded_blood_elfAI* pEscortAI = dynamic_cast<npc_wounded_blood_elf::npc_wounded_blood_elfAI*>(pCreature->AI()))
                 pEscortAI->Start(false, pPlayer, pQuest);
         }
 
@@ -528,7 +528,7 @@ public:
         {
             if (pCaster->GetEntry() == NPC_DERANGED_HELBOAR)
             {
-                if (npc_fel_guard_houndAI* pHoundAI = dynamic_cast<npc_fel_guard_houndAI*>(pCreatureTarget->AI()))
+                if (npc_fel_guard_hound::npc_fel_guard_houndAI* pHoundAI = dynamic_cast<npc_fel_guard_hound::npc_fel_guard_houndAI*>(pCreatureTarget->AI()))
                     pHoundAI->DoMoveToCorpse(pCaster);
             }
 
@@ -686,7 +686,7 @@ public:
             if (!pAnchorite)
                 return true;
 
-            if (npc_anchorite_baradaAI* pAnchoriteAI = dynamic_cast<npc_anchorite_baradaAI*>(pAnchorite->AI()))
+            if (npc_anchorite_barada::npc_anchorite_baradaAI* pAnchoriteAI = dynamic_cast<npc_anchorite_barada::npc_anchorite_baradaAI*>(pAnchorite->AI()))
             {
                 // event complete - give credit and reset
                 if (pAnchoriteAI->IsExorcismComplete())
@@ -906,7 +906,7 @@ public:
     {
         // check if quest is active but not completed
         if (pPlayer->IsCurrentQuest(QUEST_ID_EXORCISM, 1))
-            if (npc_anchorite_baradaAI* baradaAI = dynamic_cast<npc_anchorite_baradaAI*>(pCreature->AI()))
+            if (npc_anchorite_barada::npc_anchorite_baradaAI* baradaAI = dynamic_cast<npc_anchorite_barada::npc_anchorite_baradaAI*>(pCreature->AI()))
                 if (!baradaAI->m_bEventInProgress)
                     pPlayer->ADD_GOSSIP_ITEM_ID(GOSSIP_ICON_CHAT, GOSSIP_ITEM_EXORCISM, GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF + 1);
 
@@ -981,7 +981,7 @@ public:
                 {
                     m_colonelGuid = pColonel->GetObjectGuid();
 
-                    if (npc_colonel_julesAI* julesAI = dynamic_cast<npc_colonel_julesAI*>(pColonel->AI()))
+                    if (npc_colonel_jules::npc_colonel_julesAI* julesAI = dynamic_cast<npc_colonel_jules::npc_colonel_julesAI*>(pColonel->AI()))
                         julesAI->m_bReturnHome = false;
                 }
 
@@ -1084,7 +1084,7 @@ public:
                     break;
                 case NPC_BUBBLING_SLIMER_BUNNY:
                     if (Creature* pColonel = m_creature->GetMap()->GetCreature(m_colonelGuid))
-                        if (npc_colonel_julesAI* julesAI = dynamic_cast<npc_colonel_julesAI*>(pColonel->AI()))
+                        if (npc_colonel_jules::npc_colonel_julesAI* julesAI = dynamic_cast<npc_colonel_jules::npc_colonel_julesAI*>(pColonel->AI()))
                             julesAI->GoHome();
                     break;
                 case SAY_EXORCISM_7:
@@ -1104,7 +1104,7 @@ public:
             if (m_bEventInProgress)
             {
                 if (Creature* pColonel = m_creature->GetMap()->GetCreature(m_colonelGuid))
-                    if (npc_colonel_julesAI* julesAI = dynamic_cast<npc_colonel_julesAI*>(pColonel->AI()))
+                    if (npc_colonel_jules::npc_colonel_julesAI* julesAI = dynamic_cast<npc_colonel_jules::npc_colonel_julesAI*>(pColonel->AI()))
                         julesAI->EndEvent();
 
                 if (Player* pPlayer = m_creature->GetMap()->GetPlayer(m_playerGuid))
@@ -1140,7 +1140,7 @@ public:
                 if (m_reset)
                 {
                     if (Creature* pColonel = m_creature->GetMap()->GetCreature(m_colonelGuid))
-                        if (npc_colonel_julesAI* julesAI = dynamic_cast<npc_colonel_julesAI*>(pColonel->AI()))
+                        if (npc_colonel_jules::npc_colonel_julesAI* julesAI = dynamic_cast<npc_colonel_jules::npc_colonel_julesAI*>(pColonel->AI()))
                             julesAI->EndEvent();
 
                     if (m_creature->IsAlive())

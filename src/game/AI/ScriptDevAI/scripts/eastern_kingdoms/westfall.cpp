@@ -87,7 +87,7 @@ public:
         {
             DoScriptText(SAY_DS_START, pCreature);
 
-            if (npc_daphne_stilwellAI* pEscortAI = dynamic_cast<npc_daphne_stilwellAI*>(pCreature->AI()))
+            if (npc_daphne_stilwell::npc_daphne_stilwellAI* pEscortAI = dynamic_cast<npc_daphne_stilwell::npc_daphne_stilwellAI*>(pCreature->AI()))
                 pEscortAI->Start(true, pPlayer, pQuest);
         }
 
@@ -340,7 +340,7 @@ public:
         {
             DoScriptText(SAY_START, creature, player);
 
-            if (npc_defias_traitorAI* escortAI = dynamic_cast<npc_defias_traitorAI*>(creature->AI()))
+            if (npc_defias_traitor::npc_defias_traitorAI* escortAI = dynamic_cast<npc_defias_traitor::npc_defias_traitorAI*>(creature->AI()))
                 escortAI->Start(true, player, quest);
         }
 

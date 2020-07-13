@@ -114,7 +114,7 @@ public:
     {
         if (pQuest->GetQuestId() == QUEST_ID_PRECARIOUS_PREDICAMENT)
         {
-            if (npc_grark_lorkrubAI* pEscortAI = dynamic_cast<npc_grark_lorkrubAI*>(pCreature->AI()))
+            if (npc_grark_lorkrub::npc_grark_lorkrubAI* pEscortAI = dynamic_cast<npc_grark_lorkrub::npc_grark_lorkrubAI*>(pCreature->AI()))
                 pEscortAI->Start(false, pPlayer, pQuest);
 
             return true;

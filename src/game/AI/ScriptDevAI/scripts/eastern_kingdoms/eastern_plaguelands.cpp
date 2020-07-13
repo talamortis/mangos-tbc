@@ -85,7 +85,7 @@ public:
     {
         if (pQuest->GetQuestId() == QUEST_BALANCE_OF_LIGHT_AND_SHADOW)
         {
-            if (npc_eris_havenfireAI* pErisAI = dynamic_cast<npc_eris_havenfireAI*>(pCreature->AI()))
+            if (npc_eris_havenfire::npc_eris_havenfireAI* pErisAI = dynamic_cast<npc_eris_havenfire::npc_eris_havenfireAI*>(pCreature->AI()))
                 pErisAI->DoStartBalanceEvent(pPlayer);
         }
 

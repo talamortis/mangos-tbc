@@ -223,7 +223,7 @@ bool GOUse_go_anub_door(Player* /*pPlayer*/, GameObject* go)
         {
             if (Creature* anub = instance->GetSingleCreatureFromStorage(NPC_ANUB_REKHAN))
             {
-                if (boss_anubrekhanAI* anubAI = dynamic_cast<boss_anubrekhanAI*>(anub->AI()))
+                if (boss_anubrekhan::boss_anubrekhanAI* anubAI = dynamic_cast<boss_anubrekhan::boss_anubrekhanAI*>(anub->AI()))
                     anubAI->StartIntro();
             }
         }

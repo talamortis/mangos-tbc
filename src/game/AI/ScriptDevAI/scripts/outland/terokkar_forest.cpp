@@ -231,7 +231,7 @@ public:
     {
         if (pQuest->GetQuestId() == QUEST_ESCAPING_TOMB)
         {
-            if (npc_akunoAI* pEscortAI = dynamic_cast<npc_akunoAI*>(pCreature->AI()))
+            if (npc_akuno::npc_akunoAI* pEscortAI = dynamic_cast<npc_akuno::npc_akunoAI*>(pCreature->AI()))
             {
                 pCreature->SetStandState(UNIT_STAND_STATE_STAND);
                 pCreature->SetFactionTemporary(FACTION_ESCORT_N_NEUTRAL_ACTIVE, TEMPFACTION_RESTORE_RESPAWN);
@@ -464,7 +464,7 @@ public:
     {
         if (pQuest->GetQuestId() == QUEST_DIGGING_BONES)
         {
-            if (npc_letollAI* pEscortAI = dynamic_cast<npc_letollAI*>(pCreature->AI()))
+            if (npc_letoll::npc_letollAI* pEscortAI = dynamic_cast<npc_letoll::npc_letollAI*>(pCreature->AI()))
             {
                 DoScriptText(SAY_LE_START, pCreature);
                 pCreature->SetFactionTemporary(FACTION_ESCORT_N_NEUTRAL_PASSIVE, TEMPFACTION_RESTORE_RESPAWN);
@@ -717,7 +717,7 @@ public:
     {
         if (pQuest->GetQuestId() == QUEST_ESCAPE_FROM_FIREWING_POINT_A || pQuest->GetQuestId() == QUEST_ESCAPE_FROM_FIREWING_POINT_H)
         {
-            if (npc_isla_starmaneAI* pEscortAI = dynamic_cast<npc_isla_starmaneAI*>(pCreature->AI()))
+            if (npc_isla_starmane::npc_isla_starmaneAI* pEscortAI = dynamic_cast<npc_isla_starmane::npc_isla_starmaneAI*>(pCreature->AI()))
             {
                 pCreature->SetFactionTemporary(pPlayer->GetTeam() == ALLIANCE ? FACTION_ESCORT_A_NEUTRAL_ACTIVE : FACTION_ESCORT_H_NEUTRAL_ACTIVE, TEMPFACTION_RESTORE_RESPAWN);
                 pEscortAI->Start(false, pPlayer, pQuest);
@@ -880,7 +880,7 @@ public:
     {
         if (pQuest->GetQuestId() == QUEST_SKYWING)
         {
-            if (npc_skywingAI* pEscortAI = dynamic_cast<npc_skywingAI*>(pCreature->AI()))
+            if (npc_skywing::npc_skywingAI* pEscortAI = dynamic_cast<npc_skywing::npc_skywingAI*>(pCreature->AI()))
             {
                 pCreature->SetFactionTemporary(FACTION_ESCORT_N_NEUTRAL_PASSIVE, TEMPFACTION_RESTORE_RESPAWN);
                 DoScriptText(SAY_SKYWING_START, pCreature);

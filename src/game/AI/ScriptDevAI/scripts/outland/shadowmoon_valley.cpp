@@ -340,7 +340,7 @@ public:
         if (uiEffIndex != EFFECT_INDEX_1 || uiSpellId != SPELL_SERVING_MUTTON || pCaster->GetTypeId() != TYPEID_PLAYER)
             return false;
 
-        npc_dragonmaw_peonAI* pPeonAI = dynamic_cast<npc_dragonmaw_peonAI*>(pCreatureTarget->AI());
+        npc_dragonmaw_peon::npc_dragonmaw_peonAI* pPeonAI = dynamic_cast<npc_dragonmaw_peon::npc_dragonmaw_peonAI*>(pCreatureTarget->AI());
 
         if (!pPeonAI)
             return false;
@@ -531,7 +531,7 @@ public:
             pCreature->SetFactionTemporary(FACTION_ESCORT_N_FRIEND_ACTIVE, TEMPFACTION_RESTORE_RESPAWN);
             pCreature->SetLevitate(false);
 
-            if (npc_wildaAI* pEscortAI = dynamic_cast<npc_wildaAI*>(pCreature->AI()))
+            if (npc_wilda::npc_wildaAI* pEscortAI = dynamic_cast<npc_wilda::npc_wildaAI*>(pCreature->AI()))
                 pEscortAI->Start(false, pPlayer, pQuest);
         }
         return true;

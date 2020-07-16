@@ -1403,59 +1403,69 @@ enum
     DBSCRIPT_TOMB_GUARDIAN = 10062,
     DBSCRIPT_EVENT_RESET = 10068
 };
-
-struct npc_draenei_tomb_guardian : public ScriptedAI
+class npc_draenei_tomb_guardian : public CreatureScript
 {
-    npc_draenei_tomb_guardian(Creature* pCreature) : ScriptedAI(pCreature) { Reset(); summons.clear(); }
+public:
+    npc_draenei_tomb_guardian() : CreatureScript("npc_draenei_tomb_guardian") { }
 
-    Creature* harbinger;
-    std::vector<ObjectGuid> summons;
-    ObjectGuid m_playerGuid;
-
-    void Reset() override {}
-
-    void JustRespawned() override
+    UnitAI* GetAI(Creature* pCreature)
     {
-        if (Unit* spawner = m_creature->GetSpawner()) // spawner is white orb
-            if (Unit* player = spawner->GetSpawner()) // white orbs spawner is player
-                m_playerGuid = player->GetObjectGuid();
-
-        m_creature->CastSpell(nullptr, SPELL_ETHEREAL_TELEPORT, TRIGGERED_NONE);
+        return new npc_draenei_tomb_guardianAI(pCreature);
     }
 
-    void JustSummoned(Creature* pSummoned) override
+
+    struct npc_draenei_tomb_guardianAI : public ScriptedAI
     {
-        summons.push_back(pSummoned->GetObjectGuid());
-    }
+        npc_draenei_tomb_guardianAI(Creature* pCreature) : ScriptedAI(pCreature) { Reset(); summons.clear(); }
 
-    ObjectGuid GetPlayerGuid()
-    {
-        return m_playerGuid;
-    }
+        Creature* harbinger;
+        std::vector<ObjectGuid> summons;
+        ObjectGuid m_playerGuid;
 
-    void ResetEvent()
-    {
-        //m_creature->RemoveGuardians();
+        void Reset() override {}
 
-        // Despawn Bone Wastes - Orb Waypoint 01, Bone Wastes - Event Trigger B, Nether Cloud
-        m_creature->GetMap()->ScriptsStart(sRelayScripts, DBSCRIPT_EVENT_RESET, m_creature, m_creature);
-
-        // Despawn Vengeful Harbinger and Vengeful Draenei
-        for (ObjectGuid &guid : summons)
-            if (Creature* creature = m_creature->GetMap()->GetCreature(guid))
-                creature->ForcedDespawn();
-
-        // Despawn Self
-        m_creature->ForcedDespawn();
-    }
-
-    void ReceiveAIEvent(AIEventType eventType, Unit* sender, Unit* /*pInvoker*/, uint32 /*uiMiscValue*/) override
-    {
-        if (sender->GetEntry() != NPC_VENGEFUL_HARBINGER)
-            return;
-
-        switch (eventType)
+        void JustRespawned() override
         {
+            if (Unit* spawner = m_creature->GetSpawner()) // spawner is white orb
+                if (Unit* player = spawner->GetSpawner()) // white orbs spawner is player
+                    m_playerGuid = player->GetObjectGuid();
+
+            m_creature->CastSpell(nullptr, SPELL_ETHEREAL_TELEPORT, TRIGGERED_NONE);
+        }
+
+        void JustSummoned(Creature* pSummoned) override
+        {
+            summons.push_back(pSummoned->GetObjectGuid());
+        }
+
+        ObjectGuid GetPlayerGuid()
+        {
+            return m_playerGuid;
+        }
+
+        void ResetEvent()
+        {
+            //m_creature->RemoveGuardians();
+
+            // Despawn Bone Wastes - Orb Waypoint 01, Bone Wastes - Event Trigger B, Nether Cloud
+            m_creature->GetMap()->ScriptsStart(sRelayScripts, DBSCRIPT_EVENT_RESET, m_creature, m_creature);
+
+            // Despawn Vengeful Harbinger and Vengeful Draenei
+            for (ObjectGuid &guid : summons)
+                if (Creature* creature = m_creature->GetMap()->GetCreature(guid))
+                    creature->ForcedDespawn();
+
+            // Despawn Self
+            m_creature->ForcedDespawn();
+        }
+
+        void ReceiveAIEvent(AIEventType eventType, Unit* sender, Unit* /*pInvoker*/, uint32 /*uiMiscValue*/) override
+        {
+            if (sender->GetEntry() != NPC_VENGEFUL_HARBINGER)
+                return;
+
+            switch (eventType)
+            {
             case AI_EVENT_CUSTOM_A:
             {
                 harbinger = static_cast<Creature*>(sender);
@@ -1471,28 +1481,18 @@ struct npc_draenei_tomb_guardian : public ScriptedAI
             }
             default:
                 break;
+            }
         }
-    }
 
-    void MovementInform(uint32 uiMovementType, uint32 uiData) override
-    {
-        if (uiMovementType == POINT_MOTION_TYPE && uiData == POINT_HARBINGER_POSITION && harbinger)
+        void MovementInform(uint32 uiMovementType, uint32 uiData) override
         {
-            m_creature->CastSpell(harbinger, SPELL_COSMETIC_CHAIN_LIGHTNING, TRIGGERED_OLD_TRIGGERED);
-            m_creature->GetMap()->ScriptsStart(sRelayScripts, DBSCRIPT_TOMB_GUARDIAN, m_creature, m_creature);
+            if (uiMovementType == POINT_MOTION_TYPE && uiData == POINT_HARBINGER_POSITION && harbinger)
+            {
+                m_creature->CastSpell(harbinger, SPELL_COSMETIC_CHAIN_LIGHTNING, TRIGGERED_OLD_TRIGGERED);
+                m_creature->GetMap()->ScriptsStart(sRelayScripts, DBSCRIPT_TOMB_GUARDIAN, m_creature, m_creature);
+            }
         }
-    }
-};
-class npc_draenei_tomb_guardian : public CreatureScript
-{
-public:
-    npc_draenei_tomb_guardian() : CreatureScript("npc_draenei_tomb_guardian") { }
-
-    UnitAI* GetAI(Creature* pCreature)
-    {
-        return new npc_draenei_tomb_guardian(pCreature);
-    }
-
+    };
 
 
 };
@@ -1516,49 +1516,59 @@ enum
     POINT_ID_END = 4,
     PATH_ID_END = 2,
 };
-
-struct npc_vengeful_harbinger : public ScriptedAI
+class npc_vengeful_harbinger : public CreatureScript
 {
-    npc_vengeful_harbinger(Creature* pCreature) : ScriptedAI(pCreature) { Reset(); }
+public:
+    npc_vengeful_harbinger() : CreatureScript("npc_vengeful_harbinger") { }
 
-    uint32 eventResetTimer;
-    ObjectGuid m_playerGuid;
-
-    void Reset() override
+    UnitAI* GetAI(Creature* pCreature)
     {
-        eventResetTimer = EVENT_RESET_TIMER;
+        return new npc_vengeful_harbingerAI(pCreature);
     }
 
-    void JustRespawned() override
+
+    struct npc_vengeful_harbingerAI : public ScriptedAI
     {
-        if (Unit* spawner = m_creature->GetSpawner()) // spawner is tomb guardian
-            if (npc_draenei_tomb_guardian* ai = dynamic_cast<npc_draenei_tomb_guardian*>(spawner->AI()))
-                m_playerGuid = ai->GetPlayerGuid();
-    }
+        npc_vengeful_harbingerAI(Creature* pCreature) : ScriptedAI(pCreature) { Reset(); }
 
-    void ReceiveAIEvent(AIEventType eventType, Unit* sender, Unit* /*pInvoker*/, uint32 /*uiMiscValue*/) override
-    {
-        if (sender != m_creature) // Sender should always be the creature itself
-            return;
+        uint32 eventResetTimer;
+        ObjectGuid m_playerGuid;
 
-        if (eventType != AI_EVENT_CUSTOM_A)
-            return;
-
-        if (Creature* waypointTrigger = GetClosestCreatureWithEntry(m_creature, NPC_ORB_WAYPOINT_1, 45.f))
+        void Reset() override
         {
-            m_creature->GetMotionMaster()->MovePoint(POINT_ORB_WAYPOINT, waypointTrigger->GetPositionX(), waypointTrigger->GetPositionY(), waypointTrigger->GetPositionZ());
+            eventResetTimer = EVENT_RESET_TIMER;
         }
-        else // Players somehow managed to kill him really far away. In this case just move on waypoints directly.
-        {
-            m_creature->GetMotionMaster()->Clear(false, true);
-            m_creature->GetMotionMaster()->MoveWaypoint(2);
-        }
-    }
 
-    void MovementInform(uint32 uiMovementType, uint32 uiData) override
-    {
-        switch (uiMovementType)
+        void JustRespawned() override
         {
+            if (Unit* spawner = m_creature->GetSpawner()) // spawner is tomb guardian
+                if (npc_draenei_tomb_guardian::npc_draenei_tomb_guardianAI* ai = dynamic_cast<npc_draenei_tomb_guardian::npc_draenei_tomb_guardianAI*>(spawner->AI()))
+                    m_playerGuid = ai->GetPlayerGuid();
+        }
+
+        void ReceiveAIEvent(AIEventType eventType, Unit* sender, Unit* /*pInvoker*/, uint32 /*uiMiscValue*/) override
+        {
+            if (sender != m_creature) // Sender should always be the creature itself
+                return;
+
+            if (eventType != AI_EVENT_CUSTOM_A)
+                return;
+
+            if (Creature* waypointTrigger = GetClosestCreatureWithEntry(m_creature, NPC_ORB_WAYPOINT_1, 45.f))
+            {
+                m_creature->GetMotionMaster()->MovePoint(POINT_ORB_WAYPOINT, waypointTrigger->GetPositionX(), waypointTrigger->GetPositionY(), waypointTrigger->GetPositionZ());
+            }
+            else // Players somehow managed to kill him really far away. In this case just move on waypoints directly.
+            {
+                m_creature->GetMotionMaster()->Clear(false, true);
+                m_creature->GetMotionMaster()->MoveWaypoint(2);
+            }
+        }
+
+        void MovementInform(uint32 uiMovementType, uint32 uiData) override
+        {
+            switch (uiMovementType)
+            {
             case POINT_MOTION_TYPE:
             {
                 if (uiData == POINT_ORB_WAYPOINT)
@@ -1574,67 +1584,57 @@ struct npc_vengeful_harbinger : public ScriptedAI
             //        if (Player* player = m_creature->GetMap()->GetPlayer(m_playerGuid))
             //            player->GroupEventHappens(QUEST_VENGEFUL_HARBINGER, m_creature);
             //    break;
-        }
-    }
-
-    void UpdateAI(const uint32 uiDiff) override
-    {
-        if (!m_creature->SelectHostileTarget() || !m_creature->GetVictim())
-        {
-            if (eventResetTimer)
-            {
-                if (eventResetTimer <= uiDiff)
-                {
-                    if (Creature* tombGuardian = GetClosestCreatureWithEntry(m_creature, NPC_DRAENEI_TOMB_GUARDIAN, 15))
-                    {
-                        m_creature->AI()->SendAIEvent(AI_EVENT_CUSTOM_B, m_creature, tombGuardian);
-                        eventResetTimer = 0;
-                    }
-                    else
-                    {
-                        sLog.outCustomLog("Vengeful Harbinger found out of combat in a strange place. This should never happen!");
-                        m_creature->ForcedDespawn();
-                    }
-                }
-                else
-                    eventResetTimer -= uiDiff;
             }
         }
-        else
-            DoMeleeAttackIfReady();
-    }
 
-    void DamageTaken(Unit* /*pDoneBy*/, uint32& damage, DamageEffectType /*damagetype*/, SpellEntry const* /*spellInfo*/) override
-    {
-        if (damage < m_creature->GetHealth())
-            return;
+        void UpdateAI(const uint32 uiDiff) override
+        {
+            if (!m_creature->SelectHostileTarget() || !m_creature->GetVictim())
+            {
+                if (eventResetTimer)
+                {
+                    if (eventResetTimer <= uiDiff)
+                    {
+                        if (Creature* tombGuardian = GetClosestCreatureWithEntry(m_creature, NPC_DRAENEI_TOMB_GUARDIAN, 15))
+                        {
+                            m_creature->AI()->SendAIEvent(AI_EVENT_CUSTOM_B, m_creature, tombGuardian);
+                            eventResetTimer = 0;
+                        }
+                        else
+                        {
+                            sLog.outCustomLog("Vengeful Harbinger found out of combat in a strange place. This should never happen!");
+                            m_creature->ForcedDespawn();
+                        }
+                    }
+                    else
+                        eventResetTimer -= uiDiff;
+                }
+            }
+            else
+                DoMeleeAttackIfReady();
+        }
 
-        damage = std::min(damage, m_creature->GetHealth() - 1);
+        void DamageTaken(Unit* /*pDoneBy*/, uint32& damage, DamageEffectType /*damagetype*/, SpellEntry const* /*spellInfo*/) override
+        {
+            if (damage < m_creature->GetHealth())
+                return;
 
-        m_creature->CombatStop();
-        m_creature->InterruptNonMeleeSpells(true);
-        m_creature->DeleteThreatList();
-        m_creature->StopMoving();
-        m_creature->ClearComboPointHolders();
-        m_creature->RemoveAllAurasOnDeath();
-        m_creature->ModifyAuraState(AURA_STATE_HEALTHLESS_20_PERCENT, false);
-        m_creature->ModifyAuraState(AURA_STATE_HEALTHLESS_35_PERCENT, false);
-        m_creature->ClearAllReactives();
-        m_creature->GetMotionMaster()->Clear(false, true);
-        m_creature->GetMotionMaster()->MoveIdle();
-        m_creature->GetMap()->ScriptsStart(sRelayScripts, DBSCRIPT_VENGEFUL_HARBINGER_FAKE_DEATH, m_creature, m_creature);
-    }
-};
-class npc_vengeful_harbinger : public CreatureScript
-{
-public:
-    npc_vengeful_harbinger() : CreatureScript("npc_vengeful_harbinger") { }
+            damage = std::min(damage, m_creature->GetHealth() - 1);
 
-    UnitAI* GetAI(Creature* pCreature)
-    {
-        return new npc_vengeful_harbinger(pCreature);
-    }
-
+            m_creature->CombatStop();
+            m_creature->InterruptNonMeleeSpells(true);
+            m_creature->DeleteThreatList();
+            m_creature->StopMoving();
+            m_creature->ClearComboPointHolders();
+            m_creature->RemoveAllAurasOnDeath();
+            m_creature->ModifyAuraState(AURA_STATE_HEALTHLESS_20_PERCENT, false);
+            m_creature->ModifyAuraState(AURA_STATE_HEALTHLESS_35_PERCENT, false);
+            m_creature->ClearAllReactives();
+            m_creature->GetMotionMaster()->Clear(false, true);
+            m_creature->GetMotionMaster()->MoveIdle();
+            m_creature->GetMap()->ScriptsStart(sRelayScripts, DBSCRIPT_VENGEFUL_HARBINGER_FAKE_DEATH, m_creature, m_creature);
+        }
+    };
 
 
 };

@@ -48,7 +48,7 @@ enum
 public:
     mob_anubisath_sentinel() : CreatureScript("mob_anubisath_sentinel") { }
 
-    UnitAI* GetAI_npc_anubisath_sentinel(Creature* creature)
+    UnitAI* GetAI(Creature* creature)
     {
         return new npc_anubisath_sentinelAI(creature);
     }

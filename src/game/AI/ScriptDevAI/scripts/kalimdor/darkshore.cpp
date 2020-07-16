@@ -1105,7 +1105,7 @@ public:
                 if (furbolg->IsInCombat() || !furbolg->IsAlive() || !((Unit*)source)->IsEnemy(furbolg))
                     continue;
 
-                if (auto* furbolgAI = dynamic_cast<npc_corrupted_furbolg::npc_corrupted_furbolgAI*>(furbolg->AI()))
+                if (auto* furbolgAI = dynamic_cast<npc_corrupted_furbolgAI*>(furbolg->AI()))
                     furbolgAI->SeekPurification();
             }
 

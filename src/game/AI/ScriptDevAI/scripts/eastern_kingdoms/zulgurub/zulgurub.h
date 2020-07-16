@@ -44,41 +44,5 @@ enum
 static const float aMandokirDownstairsPos[3] = { -12196.30f, -1948.37f, 130.31f};
 static const float aArlokkWallShieldPos[3] = { -11494.76f, -1627.56f, 41.30f};
 
-class instance_zulgurub : public ScriptedInstance
-{
-    public:
-        instance_zulgurub(Map* pMap);
-        ~instance_zulgurub() {}
-
-        void Initialize() override;
-        // IsEncounterInProgress() const override { return false; }  // not active in Zul'Gurub
-
-        void OnCreatureCreate(Creature* pCreature) override;
-        void OnObjectCreate(GameObject* pGo) override;
-
-        void SetData(uint32 uiType, uint32 uiData) override;
-        uint32 GetData(uint32 uiType) const override;
-
-        const char* Save() const override { return m_strInstData.c_str(); }
-        void Load(const char* chrIn) override;
-
-        void DoYellAtTriggerIfCan(uint32 uiTriggerId);
-
-        Creature* SelectRandomPantherTrigger(bool bIsLeft);
-
-    protected:
-        void DoLowerHakkarHitPoints();
-
-        uint32 m_auiEncounter[MAX_ENCOUNTER];
-        std::string m_strInstData;
-
-        GuidList m_lRightPantherTriggerGUIDList;
-        GuidList m_lLeftPantherTriggerGUIDList;
-        GuidList m_lSpiderEggGUIDList;
-        GuidList m_lProwlerGUIDList;
-
-        bool m_bHasIntroYelled;
-        bool m_bHasAltarYelled;
-};
 
 #endif

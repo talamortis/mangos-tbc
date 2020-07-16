@@ -171,94 +171,82 @@ public:
         return new npc_manaforge_spawnAI(pCreature);
     }
 
+    struct npc_manaforge_spawnAI : public ScriptedAI
+    {
+        npc_manaforge_spawnAI(Creature* pCreature) : ScriptedAI(pCreature) { Reset(); }
 
-class npc_manaforge_spawn : public CreatureScript
-{
-public:
-    npc_manaforge_spawn() : CreatureScript("npc_manaforge_spawn") { }
+        ObjectGuid m_manaforgeGuid;
 
-
-        struct npc_manaforge_spawnAI : public ScriptedAI
+        void Reset() override
         {
-            npc_manaforge_spawnAI(Creature* pCreature) : ScriptedAI(pCreature) { Reset(); }
+            m_creature->ClearInCombat();
+        }
 
-            ObjectGuid m_manaforgeGuid;
+        void EnterEvadeMode() override
+        {
+            Reset();
+            Creature *manaforge;
 
-            void Reset() override
-            {
-                m_creature->ClearInCombat();
-            }
+            if (m_manaforgeGuid)
+                if (manaforge = m_creature->GetMap()->GetCreature(m_manaforgeGuid))
+                {
+                    uint32 uiManaforgeEntry = manaforge->GetEntry();
 
-            void EnterEvadeMode() override
-            {
-                Reset();
-                Creature *manaforge;
-
-                if (m_manaforgeGuid)
-                    if (manaforge = m_creature->GetMap()->GetCreature(m_manaforgeGuid))
+                    m_creature->GetMotionMaster()->Clear();
+                    float fDistance = m_creature->GetDistance(manaforge);
+                    if (fDistance < 20) // If within cast range
                     {
-                        uint32 uiManaforgeEntry = manaforge->GetEntry();
-
-                        m_creature->GetMotionMaster()->Clear();
-                        float fDistance = m_creature->GetDistance(manaforge);
-                        if (fDistance < 20) // If within cast range
+                        m_creature->SetFacingToObject(manaforge);
+                        if (uiManaforgeEntry == NPC_ARA_C_CONSOLE)
                         {
-                            m_creature->SetFacingToObject(manaforge);
-                            if (uiManaforgeEntry == NPC_ARA_C_CONSOLE)
-                            {
-                                m_creature->GetMotionMaster()->MovePoint(0, m_creature->GetPositionX(), m_creature->GetPositionY(), m_creature->GetPositionZ()); // Why must I do this? They walk back to spawn point otherwise (and only ara mobs do this)
-                                m_creature->CastSpell(m_creature, SPELL_INTERRUPT_2, TRIGGERED_OLD_TRIGGERED); // Ara mobs
-
-                            }
-                            else
-                                m_creature->CastSpell(m_creature, SPELL_INTERRUPT_1, TRIGGERED_OLD_TRIGGERED); // Other consoles
+                            m_creature->GetMotionMaster()->MovePoint(0, m_creature->GetPositionX(), m_creature->GetPositionY(), m_creature->GetPositionZ()); // Why must I do this? They walk back to spawn point otherwise (and only ara mobs do this)
+                            m_creature->CastSpell(m_creature, SPELL_INTERRUPT_2, TRIGGERED_OLD_TRIGGERED); // Ara mobs
 
                         }
                         else
-                        {
-                            // Otherwise need to move closer
-                            float fX, fY; // fZ will just be creatures own z
-                            float fAngle = m_creature->GetAngle(manaforge);
-                            uint32 uiMPID; // need to set this accoringly so creature will cast spell after running
+                            m_creature->CastSpell(m_creature, SPELL_INTERRUPT_1, TRIGGERED_OLD_TRIGGERED); // Other consoles
 
-                            switch (uiManaforgeEntry)
-                            {
-                                case NPC_DURO_C_CONSOLE:
-                                    uiMPID = 1;
-                                    break;
-                                case NPC_BNAAR_C_CONSOLE:
-                                    uiMPID = 3;
-                                    break;
-                                default:
-                                    uiMPID = 0;
-                                    break;
-                            }
-
-                            /* Given an origin (x,y) and line distance "d" which makes an angle "a" with the x-axis, the coordinates for the other point are:
-                                                * x' = x + (d * cos(a))
-                                                * y' = y + (d * sin(a)) */
-
-                            fX = m_creature->GetPositionX() + ((fDistance - 15) * cosf(fAngle));
-                            fY = m_creature->GetPositionY() + ((fDistance - 15) * sinf(fAngle));
-
-                            m_creature->GetMotionMaster()->MovePoint(uiMPID, fX, fY, m_creature->GetPositionZ());
-                        }
                     }
-            }
+                    else
+                    {
+                        // Otherwise need to move closer
+                        float fX, fY; // fZ will just be creatures own z
+                        float fAngle = m_creature->GetAngle(manaforge);
+                        uint32 uiMPID; // need to set this accoringly so creature will cast spell after running
 
-            void UpdateAI(const uint32 /*uiDiff*/) override
-            {
-                if (!m_creature->SelectHostileTarget() || !m_creature->GetVictim())
-                    return;
+                        switch (uiManaforgeEntry)
+                        {
+                        case NPC_DURO_C_CONSOLE:
+                            uiMPID = 1;
+                            break;
+                        case NPC_BNAAR_C_CONSOLE:
+                            uiMPID = 3;
+                            break;
+                        default:
+                            uiMPID = 0;
+                            break;
+                        }
 
-                DoMeleeAttackIfReady();
-            }
-        };
+                        /* Given an origin (x,y) and line distance "d" which makes an angle "a" with the x-axis, the coordinates for the other point are:
+                                            * x' = x + (d * cos(a))
+                                            * y' = y + (d * sin(a)) */
 
+                        fX = m_creature->GetPositionX() + ((fDistance - 15) * cosf(fAngle));
+                        fY = m_creature->GetPositionY() + ((fDistance - 15) * sinf(fAngle));
 
+                        m_creature->GetMotionMaster()->MovePoint(uiMPID, fX, fY, m_creature->GetPositionZ());
+                    }
+                }
+        }
 
+        void UpdateAI(const uint32 /*uiDiff*/) override
+        {
+            if (!m_creature->SelectHostileTarget() || !m_creature->GetVictim())
+                return;
+
+            DoMeleeAttackIfReady();
+        }
     };
-
 
 };
 
@@ -1326,33 +1314,39 @@ enum
     SAY_ALLEY_FINISH            = -1000624
 };
 
-struct npc_maxx_a_million_escortAI : public npc_escortAI
+class npc_maxx_a_million_escort : public CreatureScript
 {
-    npc_maxx_a_million_escortAI(Creature* pCreature) : npc_escortAI(pCreature) {Reset();}
+public:
+    npc_maxx_a_million_escort() : CreatureScript("npc_maxx_a_million") { }
 
-    uint8 m_uiSubEvent;
-    uint32 m_uiSubEventTimer;
-    ObjectGuid m_alleyGuid;
-    ObjectGuid m_lastDraeneiMachineGuid;
 
-    void Reset() override
+    struct npc_maxx_a_million_escortAI : public npc_escortAI
     {
-        if (!HasEscortState(STATE_ESCORT_ESCORTING))
-        {
-            m_uiSubEvent = 0;
-            m_uiSubEventTimer = 0;
-            m_alleyGuid.Clear();
-            m_lastDraeneiMachineGuid.Clear();
+        npc_maxx_a_million_escortAI(Creature* pCreature) : npc_escortAI(pCreature) { Reset(); }
 
-            // Reset fields, that were changed on escort-start
-            m_creature->HandleEmote(EMOTE_STATE_STUN);
+        uint8 m_uiSubEvent;
+        uint32 m_uiSubEventTimer;
+        ObjectGuid m_alleyGuid;
+        ObjectGuid m_lastDraeneiMachineGuid;
+
+        void Reset() override
+        {
+            if (!HasEscortState(STATE_ESCORT_ESCORTING))
+            {
+                m_uiSubEvent = 0;
+                m_uiSubEventTimer = 0;
+                m_alleyGuid.Clear();
+                m_lastDraeneiMachineGuid.Clear();
+
+                // Reset fields, that were changed on escort-start
+                m_creature->HandleEmote(EMOTE_STATE_STUN);
+            }
         }
-    }
 
-    void WaypointReached(uint32 uiPoint) override
-    {
-        switch (uiPoint)
+        void WaypointReached(uint32 uiPoint) override
         {
+            switch (uiPoint)
+            {
             case 1:
                 // turn 90 degrees , towards doorway.
                 m_creature->SetFacingTo(m_creature->GetOrientation() + (M_PI_F / 2));
@@ -1382,31 +1376,31 @@ struct npc_maxx_a_million_escortAI : public npc_escortAI
                     DoScriptText(SAY_ALLEY_FINISH, pAlley);
 
                 break;
+            }
         }
-    }
 
-    void WaypointStart(uint32 uiPoint) override
-    {
-        switch (uiPoint)
+        void WaypointStart(uint32 uiPoint) override
         {
+            switch (uiPoint)
+            {
             case 8:
             case 18:
             case 30:
                 DoScriptText(SAY_CONTINUE, m_creature);
                 break;
+            }
         }
-    }
 
-    void UpdateEscortAI(const uint32 uiDiff) override
-    {
-        if (!m_creature->SelectHostileTarget() ||  !m_creature->GetVictim())
+        void UpdateEscortAI(const uint32 uiDiff) override
         {
-            if (m_uiSubEventTimer)
+            if (!m_creature->SelectHostileTarget() || !m_creature->GetVictim())
             {
-                if (m_uiSubEventTimer <= uiDiff)
+                if (m_uiSubEventTimer)
                 {
-                    switch (m_uiSubEvent)
+                    if (m_uiSubEventTimer <= uiDiff)
                     {
+                        switch (m_uiSubEvent)
+                        {
                         case 1:                             // Wait time before Say
                             if (Creature* pAlley = GetClosestCreatureWithEntry(m_creature, NPC_BOT_SPECIALIST_ALLEY, INTERACTION_DISTANCE * 2))
                             {
@@ -1432,20 +1426,16 @@ struct npc_maxx_a_million_escortAI : public npc_escortAI
                         default:
                             m_uiSubEventTimer = 0;
                             break;
+                        }
                     }
+                    else
+                        m_uiSubEventTimer -= uiDiff;
                 }
-                else
-                    m_uiSubEventTimer -= uiDiff;
             }
+            else
+                DoMeleeAttackIfReady();
         }
-        else
-            DoMeleeAttackIfReady();
-    }
-};
-class npc_maxx_a_million : public CreatureScript
-{
-public:
-    npc_maxx_a_million() : CreatureScript("npc_maxx_a_million") { }
+    };
 
     bool OnQuestAccept(Player* pPlayer, Creature* pCreature, const Quest* pQuest) override
     {
@@ -2145,32 +2135,37 @@ enum
     SPELL_SAEED_CLEAVE              = 15496,
     SPELL_TELEPORT                  = 35517,
 };
-
-struct npc_saeed_escortAI : public npc_escortAI
+class npc_saeed_escort : public CreatureScript
 {
-    npc_saeed_escortAI(Creature* pCreature) : npc_escortAI(pCreature) { Reset(); }
+public:
+    npc_saeed_escort() : CreatureScript("npc_saeed") { }
 
-    uint8 m_uiEvent;
-    uint32 m_uiEventTimer;
-    uint32 m_uiCleaveTimer;
-    std::list<Creature*> m_lProtectorateAllyList;
 
-    void Reset() override
+    struct npc_saeed_escortAI : public npc_escortAI
     {
-        if (!HasEscortState(STATE_ESCORT_ESCORTING))
+        npc_saeed_escortAI(Creature* pCreature) : npc_escortAI(pCreature) { Reset(); }
+
+        uint8 m_uiEvent;
+        uint32 m_uiEventTimer;
+        uint32 m_uiCleaveTimer;
+        std::list<Creature*> m_lProtectorateAllyList;
+
+        void Reset() override
         {
-            m_uiEvent = 0;
-            m_uiEventTimer = 0;
-            m_lProtectorateAllyList.clear();
+            if (!HasEscortState(STATE_ESCORT_ESCORTING))
+            {
+                m_uiEvent = 0;
+                m_uiEventTimer = 0;
+                m_lProtectorateAllyList.clear();
+            }
+
+            m_uiCleaveTimer = urand(4000, 7000);
         }
 
-        m_uiCleaveTimer = urand(4000, 7000);
-    }
-
-    void WaypointReached(uint32 uiPoint) override
-    {
-        switch (uiPoint)
+        void WaypointReached(uint32 uiPoint) override
         {
+            switch (uiPoint)
+            {
             case 36:
                 SetEscortPaused(true);
                 if (Player* player = GetPlayerForEscort())
@@ -2189,20 +2184,20 @@ struct npc_saeed_escortAI : public npc_escortAI
                 m_uiEventTimer = 4000;
                 m_uiEvent = 4;
                 break;
+            }
         }
-    }
 
-    void UpdateAI(const uint32 uiDiff) override
-    {
-        if (!m_creature->SelectHostileTarget() || !m_creature->GetVictim())
+        void UpdateAI(const uint32 uiDiff) override
         {
-            if (m_uiEventTimer)
+            if (!m_creature->SelectHostileTarget() || !m_creature->GetVictim())
             {
-                if (m_uiEventTimer <= uiDiff)
+                if (m_uiEventTimer)
                 {
-                    switch (m_uiEvent)
+                    if (m_uiEventTimer <= uiDiff)
                     {
-                        // shortly following escort initiation
+                        switch (m_uiEvent)
+                        {
+                            // shortly following escort initiation
                         case 1:
                             m_creature->HandleEmote(EMOTE_ONESHOT_ROAR);
                             for (auto& ally : m_lProtectorateAllyList)
@@ -2211,14 +2206,14 @@ struct npc_saeed_escortAI : public npc_escortAI
                             m_uiEventTimer = 7000;
                             m_uiEvent = 2;
                             break;
-                        // start up waypoints
+                            // start up waypoints
                         case 2:
                             SetEscortPaused(false);
 
                             m_uiEventTimer = 0;
                             m_uiEvent = 0;
                             break;
-                        // after talking to Saeed again midway through the escort
+                            // after talking to Saeed again midway through the escort
                         case 3:
                             m_creature->HandleEmote(EMOTE_ONESHOT_ROAR);
                             DoScriptText(SAY_SAEED_ATTACK, m_creature);
@@ -2231,7 +2226,7 @@ struct npc_saeed_escortAI : public npc_escortAI
                             m_uiEventTimer = 3000;
                             m_uiEvent = 2;
                             break;
-                        // pre-fight event 1
+                            // pre-fight event 1
                         case 4:
                             DoScriptText(SAY_SAEED_TAUNT, m_creature);
                             m_creature->HandleEmoteState(EMOTE_STATE_READYUNARMED);
@@ -2241,7 +2236,7 @@ struct npc_saeed_escortAI : public npc_escortAI
                             m_uiEventTimer = 2000;
                             m_uiEvent = 5;
                             break;
-                        // pre-fight event 2
+                            // pre-fight event 2
                         case 5:
                             if (Creature* dimensius = GetClosestCreatureWithEntry(m_creature, NPC_DIMENSIUS, 40.0f))
                             {
@@ -2253,7 +2248,7 @@ struct npc_saeed_escortAI : public npc_escortAI
                             m_uiEventTimer = 3000;
                             m_uiEvent = 6;
                             break;
-                        // pre-fight event 3
+                            // pre-fight event 3
                         case 6:
                             if (Creature* dimensius = GetClosestCreatureWithEntry(m_creature, NPC_DIMENSIUS, 40.0f))
                             {
@@ -2265,7 +2260,7 @@ struct npc_saeed_escortAI : public npc_escortAI
                             m_uiEventTimer = 0;
                             m_uiEvent = 0;
                             break;
-                        // post-fight event 1
+                            // post-fight event 1
                         case 7:
                             if (Creature* avenger = GetClosestCreatureWithEntry(m_creature, NPC_PROTECTORATE_AVENGER, 40.0f))
                             {
@@ -2275,7 +2270,7 @@ struct npc_saeed_escortAI : public npc_escortAI
                             m_uiEventTimer = 4000;
                             m_uiEvent = 8;
                             break;
-                        // post-fight event 2
+                            // post-fight event 2
                         case 8:
                             for (auto& ally : m_lProtectorateAllyList)
                                 ally->CastSpell(ally, SPELL_TELEPORT, TRIGGERED_NONE);
@@ -2287,30 +2282,27 @@ struct npc_saeed_escortAI : public npc_escortAI
                         default:
                             m_uiEventTimer = 0;
                             break;
+                        }
                     }
+                    else
+                        m_uiEventTimer -= uiDiff;
                 }
-                else
-                    m_uiEventTimer -= uiDiff;
-            }
-        }
-        else
-        {
-            if (m_uiCleaveTimer < uiDiff)
-            {
-                DoCastSpellIfCan(m_creature->GetVictim(), SPELL_SAEED_CLEAVE);
-                m_uiCleaveTimer = urand(7000, 11000);
             }
             else
-                m_uiCleaveTimer -= uiDiff;
+            {
+                if (m_uiCleaveTimer < uiDiff)
+                {
+                    DoCastSpellIfCan(m_creature->GetVictim(), SPELL_SAEED_CLEAVE);
+                    m_uiCleaveTimer = urand(7000, 11000);
+                }
+                else
+                    m_uiCleaveTimer -= uiDiff;
 
-            DoMeleeAttackIfReady();
+                DoMeleeAttackIfReady();
+            }
         }
-    }
-};
-class npc_saeed : public CreatureScript
-{
-public:
-    npc_saeed() : CreatureScript("npc_saeed") { }
+    };
+
 
     bool OnGossipSelect(Player* player, Creature* creature, uint32 /*sender*/, uint32 action) override
     {
@@ -3366,60 +3358,109 @@ enum
     PATH_ID_WRATH_LORD_2 = 2,
 };
 
-struct npc_adyen_the_lightwardenAI : public ScriptedAI
+enum KaylaanActions
 {
-    npc_adyen_the_lightwardenAI(Creature* creature) : ScriptedAI(creature), m_crusaderStrikeTimer(0), m_hammerOfJusticeTimer(0), m_eventStarted(false)
+    KAYLAAN_ACTION_HEAL,
+    KAYLAAN_ACTION_AVENGERS,
+    KAYLAAN_ACTION_HOLY_SLAM,
+    KAYLAAN_ACTION_BURNING_LIGHT,
+    KAYLAAN_ACTION_MAX,
+};class npc_adyen_the_lightwarden : public CreatureScript
+{
+public:
+    npc_adyen_the_lightwarden() : CreatureScript("npc_adyen_the_lightwarden") { }
+
+    bool OnGossipSelect(Player* player, Creature* creature, uint32 /*sender*/, uint32 action) override
     {
-    }
-
-    ObjectGuid m_playerGuid;
-    ObjectGuid m_orelisGuid;
-    ObjectGuid m_karjaGuid;
-    ObjectGuid m_ishanahGuid;
-    ObjectGuid m_kaylaanGuid;
-    ObjectGuid m_socretharGuid;
-
-    uint32 m_crusaderStrikeTimer;
-    uint32 m_hammerOfJusticeTimer;
-
-    bool m_eventStarted;
-
-    std::map<uint32, uint32> m_timers;
-
-    void Reset() override
-    {
-        m_crusaderStrikeTimer = 10000;
-        m_hammerOfJusticeTimer = 20000;
-    }
-
-    void AddTimer(const uint32 id, const uint32 timer)
-    {
-        m_timers[id] = timer;
-    }
-
-    void UpdateTimers(const uint32 diff)
-    {
-        std::vector<uint32> removedTimers;
-
-        for (auto& m_timer : m_timers)
+        if (action == 1)
         {
-            if (m_timer.second <= diff)
+            if (npc_adyen_the_lightwarden::npc_adyen_the_lightwardenAI* ai = dynamic_cast<npc_adyen_the_lightwarden::npc_adyen_the_lightwardenAI*>(creature->AI()))
+                ai->StartEvent(player);
+
+            player->CLOSE_GOSSIP_MENU();
+            return true;
+        }
+        return false;
+    }
+
+
+
+    bool OnGossipHello(Player* player, Creature* creature) override
+    {
+        uint32 gossipId = GOSSIP_NETHERSTORM;
+
+        // custom code required because it utilizes two entries
+        if (creature->getFaction() == FACTION_SHATTRATH)
+            gossipId = GOSSIP_SHATTRATH;
+        else
+        {
+            if (npc_adyen_the_lightwarden::npc_adyen_the_lightwardenAI* ai = dynamic_cast<npc_adyen_the_lightwarden::npc_adyen_the_lightwardenAI*>(creature->AI()))
             {
-                ExecuteTimer(m_timer.first);
-                removedTimers.push_back(m_timer.first);
+                Creature* socrethar = ((ScriptedInstance*)creature->GetMap()->GetInstanceData())->GetSingleCreatureFromStorage(NPC_SOCRETHAR);
+                if (!socrethar || !socrethar->IsAlive() || socrethar->IsInCombat())
+                    ai->DespawnEvent();
             }
-            else
-                m_timer.second -= diff;
+        }
+        player->PrepareGossipMenu(creature, gossipId);
+        player->SendPreparedGossip(creature);
+        return true;
+    }
+
+
+    struct npc_adyen_the_lightwardenAI : public ScriptedAI
+    {
+        npc_adyen_the_lightwardenAI(Creature* creature) : ScriptedAI(creature), m_crusaderStrikeTimer(0), m_hammerOfJusticeTimer(0), m_eventStarted(false)
+        {
         }
 
-        for (uint32 id : removedTimers)
-            m_timers.erase(id);
-    }
+        ObjectGuid m_playerGuid;
+        ObjectGuid m_orelisGuid;
+        ObjectGuid m_karjaGuid;
+        ObjectGuid m_ishanahGuid;
+        ObjectGuid m_kaylaanGuid;
+        ObjectGuid m_socretharGuid;
 
-    void ExecuteTimer(const uint32 id)
-    {
-        switch (id)
+        uint32 m_crusaderStrikeTimer;
+        uint32 m_hammerOfJusticeTimer;
+
+        bool m_eventStarted;
+
+        std::map<uint32, uint32> m_timers;
+
+        void Reset() override
         {
+            m_crusaderStrikeTimer = 10000;
+            m_hammerOfJusticeTimer = 20000;
+        }
+
+        void AddTimer(const uint32 id, const uint32 timer)
+        {
+            m_timers[id] = timer;
+        }
+
+        void UpdateTimers(const uint32 diff)
+        {
+            std::vector<uint32> removedTimers;
+
+            for (auto& m_timer : m_timers)
+            {
+                if (m_timer.second <= diff)
+                {
+                    ExecuteTimer(m_timer.first);
+                    removedTimers.push_back(m_timer.first);
+                }
+                else
+                    m_timer.second -= diff;
+            }
+
+            for (uint32 id : removedTimers)
+                m_timers.erase(id);
+        }
+
+        void ExecuteTimer(const uint32 id)
+        {
+            switch (id)
+            {
             case EVENT_SOCRETHAR_SAY_1:
                 if (Creature* socrethar = m_creature->GetMap()->GetCreature(m_socretharGuid))
                     DoScriptText(SAY_SOCRETHAR_1, socrethar, GetPlayerTarget());
@@ -3556,135 +3597,135 @@ struct npc_adyen_the_lightwardenAI : public ScriptedAI
                 break;
             default:
                 break;
+            }
         }
-    }
 
-    Player* GetPlayerTarget() const
-    {
-        return m_creature->GetMap()->GetPlayer(m_playerGuid);
-    }
-
-    void JustSummoned(Creature* summoned) override
-    {
-        switch (summoned->GetEntry())
+        Player* GetPlayerTarget() const
         {
+            return m_creature->GetMap()->GetPlayer(m_playerGuid);
+        }
+
+        void JustSummoned(Creature* summoned) override
+        {
+            switch (summoned->GetEntry())
+            {
             case NPC_EXARCH_ORELIS:     m_orelisGuid = summoned->GetObjectGuid(); break;
             case NPC_ANCHORITE_KARJA:   m_karjaGuid = summoned->GetObjectGuid(); break;
             case NPC_ISHANAH:           m_ishanahGuid = summoned->GetObjectGuid(); break;
             case NPC_KAYLAAN_THE_LOST:  m_kaylaanGuid = summoned->GetObjectGuid(); break;
             default: break;
+            }
         }
-    }
 
-    void StartEvent(Player* player)
-    {
-        if (Creature* socrethar = ((ScriptedInstance*)m_creature->GetMap()->GetInstanceData())->GetSingleCreatureFromStorage(NPC_SOCRETHAR))
+        void StartEvent(Player* player)
         {
-            if (!socrethar->IsAlive())
+            if (Creature* socrethar = ((ScriptedInstance*)m_creature->GetMap()->GetInstanceData())->GetSingleCreatureFromStorage(NPC_SOCRETHAR))
+            {
+                if (!socrethar->IsAlive())
+                    return;
+
+                m_socretharGuid = socrethar->GetObjectGuid();
+                socrethar->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_PLAYER);
+            }
+            else
                 return;
 
-            m_socretharGuid = socrethar->GetObjectGuid();
-            socrethar->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_PLAYER);
+            if (m_eventStarted)
+                return;
+
+            m_playerGuid = player->GetObjectGuid();
+            m_creature->setFaction(FACTION_DEATHBLOW_IN_PROGRESS);
+            // TODO: Formation movement
+            if (Creature* orelis = m_creature->GetMap()->GetCreature(m_orelisGuid))
+            {
+                orelis->setFaction(FACTION_DEATHBLOW_IN_PROGRESS);
+                orelis->GetMotionMaster()->MoveFollow(m_creature, 1.f, M_PI_F - M_PI_F / 4, true);
+            }
+            if (Creature* karja = m_creature->GetMap()->GetCreature(m_karjaGuid))
+            {
+                karja->setFaction(FACTION_DEATHBLOW_IN_PROGRESS);
+                karja->GetMotionMaster()->MoveFollow(m_creature, 1.f, M_PI_F + M_PI_F / 4, true);
+            }
+            if (Creature* wrathLord = m_creature->GetMap()->GetCreature(ObjectGuid(HIGHGUID_UNIT, uint32(NPC_WRATH_LORD), uint32(DB_GUID_WRATH_LORD_1))))
+            {
+                wrathLord->GetMotionMaster()->Clear(false, true);
+                wrathLord->GetMotionMaster()->MoveWaypoint(PATH_ID_WRATH_LORD_1);
+            }
+            if (Creature* wrathLord = m_creature->GetMap()->GetCreature(ObjectGuid(HIGHGUID_UNIT, uint32(NPC_WRATH_LORD), uint32(DB_GUID_WRATH_LORD_2))))
+            {
+                wrathLord->GetMotionMaster()->Clear(false, true);
+                wrathLord->GetMotionMaster()->MoveWaypoint(PATH_ID_WRATH_LORD_2);
+            }
+
+            m_creature->GetMotionMaster()->Clear(false, true);
+            m_creature->GetMotionMaster()->MoveWaypoint(PATH_ID_DEATHBLOW);
+            m_creature->RemoveFlag(UNIT_NPC_FLAGS, UNIT_NPC_FLAG_GOSSIP);
+            m_eventStarted = true;
         }
-        else
-            return;
 
-        if (m_eventStarted)
-            return;
-
-        m_playerGuid = player->GetObjectGuid();
-        m_creature->setFaction(FACTION_DEATHBLOW_IN_PROGRESS);
-        // TODO: Formation movement
-        if (Creature* orelis = m_creature->GetMap()->GetCreature(m_orelisGuid))
+        void DespawnEvent()
         {
-            orelis->setFaction(FACTION_DEATHBLOW_IN_PROGRESS);
-            orelis->GetMotionMaster()->MoveFollow(m_creature, 1.f, M_PI_F - M_PI_F / 4, true);
-        }
-        if (Creature* karja = m_creature->GetMap()->GetCreature(m_karjaGuid))
-        {
-            karja->setFaction(FACTION_DEATHBLOW_IN_PROGRESS);
-            karja->GetMotionMaster()->MoveFollow(m_creature, 1.f, M_PI_F + M_PI_F / 4, true);
-        }
-        if (Creature* wrathLord = m_creature->GetMap()->GetCreature(ObjectGuid(HIGHGUID_UNIT, uint32(NPC_WRATH_LORD), uint32(DB_GUID_WRATH_LORD_1))))
-        {
-            wrathLord->GetMotionMaster()->Clear(false, true);
-            wrathLord->GetMotionMaster()->MoveWaypoint(PATH_ID_WRATH_LORD_1);
-        }
-        if (Creature* wrathLord = m_creature->GetMap()->GetCreature(ObjectGuid(HIGHGUID_UNIT, uint32(NPC_WRATH_LORD), uint32(DB_GUID_WRATH_LORD_2))))
-        {
-            wrathLord->GetMotionMaster()->Clear(false, true);
-            wrathLord->GetMotionMaster()->MoveWaypoint(PATH_ID_WRATH_LORD_2);
+            if (Creature* orelis = m_creature->GetMap()->GetCreature(m_orelisGuid))
+                orelis->ForcedDespawn(10000);
+            if (Creature* karja = m_creature->GetMap()->GetCreature(m_karjaGuid))
+                karja->ForcedDespawn(10000);
+            m_creature->ForcedDespawn(10000);
         }
 
-        m_creature->GetMotionMaster()->Clear(false, true);
-        m_creature->GetMotionMaster()->MoveWaypoint(PATH_ID_DEATHBLOW);
-        m_creature->RemoveFlag(UNIT_NPC_FLAGS, UNIT_NPC_FLAG_GOSSIP);
-        m_eventStarted = true;
-    }
-
-    void DespawnEvent()
-    {
-        if (Creature* orelis = m_creature->GetMap()->GetCreature(m_orelisGuid))
-            orelis->ForcedDespawn(10000);
-        if (Creature* karja = m_creature->GetMap()->GetCreature(m_karjaGuid))
-            karja->ForcedDespawn(10000);
-        m_creature->ForcedDespawn(10000);
-    }
-
-    void FailEvent()
-    {
-        if (Player* player = m_creature->GetMap()->GetPlayer(m_playerGuid))
-            player->FailQuestForGroup(QUEST_DEATHBLOW_TO_THE_LEGION);
-        if (Creature* orelis = m_creature->GetMap()->GetCreature(m_orelisGuid))
-            orelis->ForcedDespawn();
-        if (Creature* karja = m_creature->GetMap()->GetCreature(m_karjaGuid))
-            karja->ForcedDespawn();
-        if (Creature* ishanah = m_creature->GetMap()->GetCreature(m_ishanahGuid))
-            ishanah->ForcedDespawn();
-        if (Creature* socrethar = m_creature->GetMap()->GetCreature(m_socretharGuid))
+        void FailEvent()
         {
-            socrethar->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_PLAYER);
-            socrethar->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_NPC);
+            if (Player* player = m_creature->GetMap()->GetPlayer(m_playerGuid))
+                player->FailQuestForGroup(QUEST_DEATHBLOW_TO_THE_LEGION);
+            if (Creature* orelis = m_creature->GetMap()->GetCreature(m_orelisGuid))
+                orelis->ForcedDespawn();
+            if (Creature* karja = m_creature->GetMap()->GetCreature(m_karjaGuid))
+                karja->ForcedDespawn();
+            if (Creature* ishanah = m_creature->GetMap()->GetCreature(m_ishanahGuid))
+                ishanah->ForcedDespawn();
+            if (Creature* socrethar = m_creature->GetMap()->GetCreature(m_socretharGuid))
+            {
+                socrethar->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_PLAYER);
+                socrethar->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_NPC);
+            }
+            m_creature->ForcedDespawn();
         }
-        m_creature->ForcedDespawn();
-    }
 
-    void EndEvent(Creature* ishanah)
-    {
-        if (Player* player = m_creature->GetMap()->GetPlayer(m_playerGuid))
-            player->RewardPlayerAndGroupAtEventExplored(QUEST_DEATHBLOW_TO_THE_LEGION, m_creature);
-        if (Creature* orelis = m_creature->GetMap()->GetCreature(m_orelisGuid))
-            orelis->ForcedDespawn(60000); // can be dead
-        if (Creature* karja = m_creature->GetMap()->GetCreature(m_karjaGuid))
-            karja->ForcedDespawn(60000); // can be dead
-        ishanah->SetFlag(UNIT_NPC_FLAGS, UNIT_NPC_FLAG_QUESTGIVER);
-        ishanah->ForcedDespawn(60000);
-        m_creature->ForcedDespawn(60000);
-    }
-
-    void MovementInform(uint32 movementType, uint32 data) override
-    {
-        if (movementType == WAYPOINT_MOTION_TYPE)
-            WaypointReached(data);
-    }
-
-    void SummonedMovementInform(Creature* summoned, uint32 movementType, uint32 data) override
-    {
-        switch (movementType)
+        void EndEvent(Creature* ishanah)
         {
+            if (Player* player = m_creature->GetMap()->GetPlayer(m_playerGuid))
+                player->RewardPlayerAndGroupAtEventExplored(QUEST_DEATHBLOW_TO_THE_LEGION, m_creature);
+            if (Creature* orelis = m_creature->GetMap()->GetCreature(m_orelisGuid))
+                orelis->ForcedDespawn(60000); // can be dead
+            if (Creature* karja = m_creature->GetMap()->GetCreature(m_karjaGuid))
+                karja->ForcedDespawn(60000); // can be dead
+            ishanah->SetFlag(UNIT_NPC_FLAGS, UNIT_NPC_FLAG_QUESTGIVER);
+            ishanah->ForcedDespawn(60000);
+            m_creature->ForcedDespawn(60000);
+        }
+
+        void MovementInform(uint32 movementType, uint32 data) override
+        {
+            if (movementType == WAYPOINT_MOTION_TYPE)
+                WaypointReached(data);
+        }
+
+        void SummonedMovementInform(Creature* summoned, uint32 movementType, uint32 data) override
+        {
+            switch (movementType)
+            {
             case WAYPOINT_MOTION_TYPE:
                 SummonedWaypointReached(summoned, data);
                 break;
             case POINT_MOTION_TYPE:
                 SummonedPointReached(summoned, data);
                 break;
+            }
         }
-    }
 
-    void WaypointReached(uint32 pointId)
-    {
-        switch (pointId)
+        void WaypointReached(uint32 pointId)
         {
+            switch (pointId)
+            {
             case WAYPOINT_ADYEN_LAST: // Last initial waypoint
             {
                 m_creature->GetMotionMaster()->Clear(false, true);
@@ -3695,86 +3736,86 @@ struct npc_adyen_the_lightwardenAI : public ScriptedAI
             }
             default:
                 break;
+            }
         }
-    }
 
-    void SummonedWaypointReached(Creature* summoned, uint32 pointId)
-    {
-        switch (summoned->GetEntry())
+        void SummonedWaypointReached(Creature* summoned, uint32 pointId)
         {
+            switch (summoned->GetEntry())
+            {
             case NPC_ISHANAH:
                 switch (pointId)
                 {
-                    case 7:
-                        summoned->SetWalk(true);
-                        break;
-                    case 8:
-                        summoned->GetMotionMaster()->Clear(false, true);
-                        summoned->GetMotionMaster()->MoveIdle();
-                        summoned->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_NPC);
-                        if (Creature* kaylaan = m_creature->GetMap()->GetCreature(m_kaylaanGuid))
-                        {
-                            DoScriptText(SAY_KAYLAAN_6, kaylaan, GetPlayerTarget());
-                            kaylaan->SetFacingToObject(summoned);
-                        }
-                        if (Creature* socrethar = m_creature->GetMap()->GetCreature(m_socretharGuid))
-                            socrethar->SetFacingToObject(summoned);
-                        AddTimer(EVENT_KAYLAAN_KNEEL, 6000);
-                        break;
-                    default:
-                        break;
+                case 7:
+                    summoned->SetWalk(true);
+                    break;
+                case 8:
+                    summoned->GetMotionMaster()->Clear(false, true);
+                    summoned->GetMotionMaster()->MoveIdle();
+                    summoned->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_NPC);
+                    if (Creature* kaylaan = m_creature->GetMap()->GetCreature(m_kaylaanGuid))
+                    {
+                        DoScriptText(SAY_KAYLAAN_6, kaylaan, GetPlayerTarget());
+                        kaylaan->SetFacingToObject(summoned);
+                    }
+                    if (Creature* socrethar = m_creature->GetMap()->GetCreature(m_socretharGuid))
+                        socrethar->SetFacingToObject(summoned);
+                    AddTimer(EVENT_KAYLAAN_KNEEL, 6000);
+                    break;
+                default:
+                    break;
                 }
                 break;
             case NPC_KAYLAAN_THE_LOST:
                 switch (pointId)
                 {
-                    case 6:
-                        summoned->GetMotionMaster()->Clear(false, true);
-                        summoned->GetMotionMaster()->MoveIdle();
-                        summoned->SetStandState(UNIT_STAND_STATE_KNEEL);
-                        if (Creature* orelis = m_creature->GetMap()->GetCreature(m_orelisGuid))
-                            DoScriptText(SAY_ORELIS_1, orelis, GetPlayerTarget());
-                        AddTimer(EVENT_KAYLAAN_MOVE, 6500);
-                        break;
-                    default:
-                        break;
+                case 6:
+                    summoned->GetMotionMaster()->Clear(false, true);
+                    summoned->GetMotionMaster()->MoveIdle();
+                    summoned->SetStandState(UNIT_STAND_STATE_KNEEL);
+                    if (Creature* orelis = m_creature->GetMap()->GetCreature(m_orelisGuid))
+                        DoScriptText(SAY_ORELIS_1, orelis, GetPlayerTarget());
+                    AddTimer(EVENT_KAYLAAN_MOVE, 6500);
+                    break;
+                default:
+                    break;
                 }
                 break;
             default:
                 break;
+            }
         }
-    }
 
-    void SummonedPointReached(Creature* summoned, uint32 pointId)
-    {
-        switch (summoned->GetEntry())
+        void SummonedPointReached(Creature* summoned, uint32 pointId)
         {
+            switch (summoned->GetEntry())
+            {
             case NPC_KAYLAAN_THE_LOST:
                 switch (pointId)
                 {
-                    case POINT_KAYLAAN_MOVE:
-                        DoScriptText(SAY_KAYLAAN_1, summoned, GetPlayerTarget());
-                        summoned->SetFacingTo(3.837011f);
-                        AddTimer(EVENT_KAYLAAN_SAY_2, 9000);
-                        break;
-                    case POINT_KAYLAAN_SAVE_ISHANAH:
-                        summoned->CastSpell(summoned, SPELL_DIVINE_SHIELD, TRIGGERED_NONE);
-                        DoScriptText(SAY_KAYLAAN_8, summoned, summoned);
-                        AddTimer(EVENT_KAYLAAN_SAVE_ISHANAH, 1000);
-                        break;
-                    default:
-                        break;
+                case POINT_KAYLAAN_MOVE:
+                    DoScriptText(SAY_KAYLAAN_1, summoned, GetPlayerTarget());
+                    summoned->SetFacingTo(3.837011f);
+                    AddTimer(EVENT_KAYLAAN_SAY_2, 9000);
+                    break;
+                case POINT_KAYLAAN_SAVE_ISHANAH:
+                    summoned->CastSpell(summoned, SPELL_DIVINE_SHIELD, TRIGGERED_NONE);
+                    DoScriptText(SAY_KAYLAAN_8, summoned, summoned);
+                    AddTimer(EVENT_KAYLAAN_SAVE_ISHANAH, 1000);
+                    break;
+                default:
+                    break;
                 }
                 break;
             default:
                 break;
+            }
         }
-    }
 
-    void SummonedJustReachedHome(Creature* summoned) override
-    {
-        switch (summoned->GetEntry())
+        void SummonedJustReachedHome(Creature* summoned) override
         {
+            switch (summoned->GetEntry())
+            {
             case NPC_ISHANAH:
             {
                 EndEvent(summoned);
@@ -3786,148 +3827,161 @@ struct npc_adyen_the_lightwardenAI : public ScriptedAI
             case NPC_EXARCH_ORELIS:
                 summoned->GetMotionMaster()->MoveFollow(m_creature, 1.f, M_PI_F - M_PI_F / 4, true);
                 break;
-        }
-    }
-
-    void ReceiveAIEvent(AIEventType eventType, Unit* sender, Unit* /*invoker*/, uint32 /*miscValue*/) override
-    {
-        if (eventType == AI_EVENT_CUSTOM_A)
-        {
-            Creature* ishanah = m_creature->SummonCreature(NPC_ISHANAH, 4866.2f, 3799.016f, 199.141f, 0.4680258f, TEMPSPAWN_TIMED_OOC_OR_DEAD_DESPAWN, 3600000, true, true, 1, FACTION_DEATHBLOW);
-            ishanah->SetUInt32Value(UNIT_NPC_FLAGS, 0);
-            ishanah->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_NPC); // fix for blizzlike bug that can occur on retail
-            ishanah->GetMotionMaster()->Clear(false, true);
-            ishanah->GetMotionMaster()->MoveWaypoint(PATH_ID_DEATHBLOW);
-            if (Creature* socrethar = m_creature->GetMap()->GetCreature(m_socretharGuid))
-                DoScriptText(SAY_SOCRETHAR_4, socrethar, sender);
-            AddTimer(EVENT_KAYLAAN_SAY_5, 7000);
-        }
-    }
-
-    void JustDied(Unit* /*killer*/) override
-    {
-        FailEvent();
-    }
-
-    void UpdateAI(const uint32 diff) override
-    {
-        UpdateTimers(diff);
-
-        if (!m_creature->SelectHostileTarget() || !m_creature->GetVictim())
-            return;
-
-        if (m_hammerOfJusticeTimer <= diff)
-        {
-            if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_HAMMER_OF_JUSTICE) == CAST_OK)
-            {
-                m_hammerOfJusticeTimer = 30000;
-                return;
             }
         }
-        else
-            m_hammerOfJusticeTimer -= diff;
 
-        if (m_crusaderStrikeTimer <= diff)
+        void ReceiveAIEvent(AIEventType eventType, Unit* sender, Unit* /*invoker*/, uint32 /*miscValue*/) override
         {
-            if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_CRUSADER_STRIKE) == CAST_OK)
+            if (eventType == AI_EVENT_CUSTOM_A)
             {
-                m_crusaderStrikeTimer = 15000;
-                return;
+                Creature* ishanah = m_creature->SummonCreature(NPC_ISHANAH, 4866.2f, 3799.016f, 199.141f, 0.4680258f, TEMPSPAWN_TIMED_OOC_OR_DEAD_DESPAWN, 3600000, true, true, 1, FACTION_DEATHBLOW);
+                ishanah->SetUInt32Value(UNIT_NPC_FLAGS, 0);
+                ishanah->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_NPC); // fix for blizzlike bug that can occur on retail
+                ishanah->GetMotionMaster()->Clear(false, true);
+                ishanah->GetMotionMaster()->MoveWaypoint(PATH_ID_DEATHBLOW);
+                if (Creature* socrethar = m_creature->GetMap()->GetCreature(m_socretharGuid))
+                    DoScriptText(SAY_SOCRETHAR_4, socrethar, sender);
+                AddTimer(EVENT_KAYLAAN_SAY_5, 7000);
             }
         }
-        else
-            m_crusaderStrikeTimer -= diff;
 
-        DoMeleeAttackIfReady();
-    }
-};
-
-enum KaylaanActions
-{
-    KAYLAAN_ACTION_HEAL,
-    KAYLAAN_ACTION_AVENGERS,
-    KAYLAAN_ACTION_HOLY_SLAM,
-    KAYLAAN_ACTION_BURNING_LIGHT,
-    KAYLAAN_ACTION_MAX,
-};
-
-struct npc_kaylaan_the_lostAI : public ScriptedAI
-{
-    npc_kaylaan_the_lostAI(Creature* creature) : ScriptedAI(creature), m_deathPrevented(false), m_avengersShieldTimer(0), m_burningLightTimer(0), m_healTimer(0), m_holySlamTimer(0)
-    {
-    }
-
-    bool m_deathPrevented;
-
-    uint32 m_avengersShieldTimer;
-    uint32 m_burningLightTimer;
-    uint32 m_healTimer;
-    uint32 m_holySlamTimer;
-
-    bool m_actionReadyStatus[KAYLAAN_ACTION_MAX];
-
-    void Reset() override
-    {
-        m_avengersShieldTimer = 0;
-        m_burningLightTimer = 2000;
-        m_healTimer = 0;
-        m_holySlamTimer = 10000;
-
-        m_actionReadyStatus[KAYLAAN_ACTION_HEAL] = false;
-        m_actionReadyStatus[KAYLAAN_ACTION_AVENGERS] = true;
-        m_actionReadyStatus[KAYLAAN_ACTION_BURNING_LIGHT] = false;
-        m_actionReadyStatus[KAYLAAN_ACTION_HOLY_SLAM] = false;
-    }
-
-    void SpellHitTarget(Unit* target, const SpellEntry* spell) override
-    {
-        if (target->GetEntry() == NPC_ISHANAH && spell->Id == SPELL_RESURRECTION)
-            target->RemoveAurasDueToSpell(SPELL_PERMANENT_FEIGN_DEATH);
-    }
-
-    void DamageTaken(Unit* /*killer*/, uint32& damage, DamageEffectType /*damagetype*/, SpellEntry const* /*spellInfo*/) override
-    {
-        if (damage < m_creature->GetHealth())
-            return;
-
-        damage = std::min(damage, m_creature->GetHealth() - 1);
-
-        if (m_deathPrevented)
-            return;
-
-        m_deathPrevented = true;
-
-        m_creature->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_PLAYER);
-        m_creature->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_NPC);
-        m_creature->CastSpell(nullptr, SPELL_KAYLAN_WRATH, TRIGGERED_NONE);
-        EnterEvadeMode();
-    }
-
-    void JustReachedHome() override
-    {
-        if (Unit* spawner = m_creature->GetSpawner()) // spawner is Adyen
-            if (spawner->AI() && spawner->GetTypeId() == TYPEID_UNIT)
-                m_creature->AI()->SendAIEvent(AI_EVENT_CUSTOM_A, spawner, static_cast<Creature*>(spawner));
-    }
-
-    void UpdateActions()
-    {
-        if (!m_actionReadyStatus[KAYLAAN_ACTION_HEAL])
-            if (m_creature->GetHealthPercent() < 50.f && !m_healTimer)
-                m_actionReadyStatus[KAYLAAN_ACTION_HEAL] = true;
-    }
-
-    void ExecuteActions()
-    {
-        if (m_creature->IsNonMeleeSpellCasted(false) || m_combatScriptHappening)
-            return;
-
-        for (uint32 i = 0; i < KAYLAAN_ACTION_MAX; ++i)
+        void JustDied(Unit* /*killer*/) override
         {
-            if (m_actionReadyStatus[i])
+            FailEvent();
+        }
+
+        void UpdateAI(const uint32 diff) override
+        {
+            UpdateTimers(diff);
+
+            if (!m_creature->SelectHostileTarget() || !m_creature->GetVictim())
+                return;
+
+            if (m_hammerOfJusticeTimer <= diff)
             {
-                switch (i)
+                if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_HAMMER_OF_JUSTICE) == CAST_OK)
                 {
+                    m_hammerOfJusticeTimer = 30000;
+                    return;
+                }
+            }
+            else
+                m_hammerOfJusticeTimer -= diff;
+
+            if (m_crusaderStrikeTimer <= diff)
+            {
+                if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_CRUSADER_STRIKE) == CAST_OK)
+                {
+                    m_crusaderStrikeTimer = 15000;
+                    return;
+                }
+            }
+            else
+                m_crusaderStrikeTimer -= diff;
+
+            DoMeleeAttackIfReady();
+        }
+    };
+
+
+
+
+    UnitAI* Getnpc_adyen_the_lightwardenAI(Creature* creature)
+    {
+        return new npc_adyen_the_lightwardenAI(creature);
+    }
+
+
+
+};
+class npc_kaylaan_the_lost : public CreatureScript
+{
+public:
+    npc_kaylaan_the_lost() : CreatureScript("npc_kaylaan_the_lost") { }
+
+    UnitAI* Getnpc_kaylaan_the_lostAI(Creature* creature)
+    {
+        return new npc_kaylaan_the_lostAI(creature);
+    }
+
+
+    struct npc_kaylaan_the_lostAI : public ScriptedAI
+    {
+        npc_kaylaan_the_lostAI(Creature* creature) : ScriptedAI(creature), m_deathPrevented(false), m_avengersShieldTimer(0), m_burningLightTimer(0), m_healTimer(0), m_holySlamTimer(0)
+        {
+        }
+
+        bool m_deathPrevented;
+
+        uint32 m_avengersShieldTimer;
+        uint32 m_burningLightTimer;
+        uint32 m_healTimer;
+        uint32 m_holySlamTimer;
+
+        bool m_actionReadyStatus[KAYLAAN_ACTION_MAX];
+
+        void Reset() override
+        {
+            m_avengersShieldTimer = 0;
+            m_burningLightTimer = 2000;
+            m_healTimer = 0;
+            m_holySlamTimer = 10000;
+
+            m_actionReadyStatus[KAYLAAN_ACTION_HEAL] = false;
+            m_actionReadyStatus[KAYLAAN_ACTION_AVENGERS] = true;
+            m_actionReadyStatus[KAYLAAN_ACTION_BURNING_LIGHT] = false;
+            m_actionReadyStatus[KAYLAAN_ACTION_HOLY_SLAM] = false;
+        }
+
+        void SpellHitTarget(Unit* target, const SpellEntry* spell) override
+        {
+            if (target->GetEntry() == NPC_ISHANAH && spell->Id == SPELL_RESURRECTION)
+                target->RemoveAurasDueToSpell(SPELL_PERMANENT_FEIGN_DEATH);
+        }
+
+        void DamageTaken(Unit* /*killer*/, uint32& damage, DamageEffectType /*damagetype*/, SpellEntry const* /*spellInfo*/) override
+        {
+            if (damage < m_creature->GetHealth())
+                return;
+
+            damage = std::min(damage, m_creature->GetHealth() - 1);
+
+            if (m_deathPrevented)
+                return;
+
+            m_deathPrevented = true;
+
+            m_creature->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_PLAYER);
+            m_creature->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_NPC);
+            m_creature->CastSpell(nullptr, SPELL_KAYLAN_WRATH, TRIGGERED_NONE);
+            EnterEvadeMode();
+        }
+
+        void JustReachedHome() override
+        {
+            if (Unit* spawner = m_creature->GetSpawner()) // spawner is Adyen
+                if (spawner->AI() && spawner->GetTypeId() == TYPEID_UNIT)
+                    m_creature->AI()->SendAIEvent(AI_EVENT_CUSTOM_A, spawner, static_cast<Creature*>(spawner));
+        }
+
+        void UpdateActions()
+        {
+            if (!m_actionReadyStatus[KAYLAAN_ACTION_HEAL])
+                if (m_creature->GetHealthPercent() < 50.f && !m_healTimer)
+                    m_actionReadyStatus[KAYLAAN_ACTION_HEAL] = true;
+        }
+
+        void ExecuteActions()
+        {
+            if (m_creature->IsNonMeleeSpellCasted(false) || m_combatScriptHappening)
+                return;
+
+            for (uint32 i = 0; i < KAYLAAN_ACTION_MAX; ++i)
+            {
+                if (m_actionReadyStatus[i])
+                {
+                    switch (i)
+                    {
                     case KAYLAAN_ACTION_HEAL:
                     {
                         if (DoCastSpellIfCan(m_creature, SPELL_HEAL) == CAST_OK)
@@ -3971,126 +4025,64 @@ struct npc_kaylaan_the_lostAI : public ScriptedAI
                         }
                         break;
                     }
+                    }
                 }
             }
         }
-    }
 
 
-    void UpdateAI(const uint32 diff) override
-    {
-        if (!m_creature->SelectHostileTarget() || !m_creature->GetVictim())
-            return;
-
-        if (!m_actionReadyStatus[KAYLAAN_ACTION_AVENGERS])
+        void UpdateAI(const uint32 diff) override
         {
-            if (m_avengersShieldTimer <= diff)
+            if (!m_creature->SelectHostileTarget() || !m_creature->GetVictim())
+                return;
+
+            if (!m_actionReadyStatus[KAYLAAN_ACTION_AVENGERS])
             {
-                m_avengersShieldTimer = 0;
-                m_actionReadyStatus[KAYLAAN_ACTION_AVENGERS] = true;
+                if (m_avengersShieldTimer <= diff)
+                {
+                    m_avengersShieldTimer = 0;
+                    m_actionReadyStatus[KAYLAAN_ACTION_AVENGERS] = true;
+                }
+                else
+                    m_avengersShieldTimer -= diff;
             }
-            else
-                m_avengersShieldTimer -= diff;
-        }
 
-        if (m_healTimer)
-        {
-            if (m_healTimer <= diff)
-                m_healTimer = 0;
-            else
-                m_healTimer -= diff;
-        }
-
-        if (!m_actionReadyStatus[KAYLAAN_ACTION_HOLY_SLAM])
-        {
-            if (m_holySlamTimer <= diff)
+            if (m_healTimer)
             {
-                m_holySlamTimer = 0;
-                m_actionReadyStatus[KAYLAAN_ACTION_HOLY_SLAM] = true;
+                if (m_healTimer <= diff)
+                    m_healTimer = 0;
+                else
+                    m_healTimer -= diff;
             }
-            else
-                m_holySlamTimer -= diff;
-        }
 
-        if (!m_actionReadyStatus[KAYLAAN_ACTION_BURNING_LIGHT])
-        {
-            if (m_burningLightTimer <= diff)
+            if (!m_actionReadyStatus[KAYLAAN_ACTION_HOLY_SLAM])
             {
-                m_burningLightTimer = 0;
-                m_actionReadyStatus[KAYLAAN_ACTION_BURNING_LIGHT] = true;
+                if (m_holySlamTimer <= diff)
+                {
+                    m_holySlamTimer = 0;
+                    m_actionReadyStatus[KAYLAAN_ACTION_HOLY_SLAM] = true;
+                }
+                else
+                    m_holySlamTimer -= diff;
             }
-            else
-                m_burningLightTimer -= diff;
-        }
 
-        UpdateActions();
-        ExecuteActions();
-
-        DoMeleeAttackIfReady();
-    }
-};
-class npc_adyen_the_lightwarden : public CreatureScript
-{
-public:
-    npc_adyen_the_lightwarden() : CreatureScript("npc_adyen_the_lightwarden") { }
-
-    bool OnGossipSelect(Player* player, Creature* creature, uint32 /*sender*/, uint32 action) override
-    {
-        if (action == 1)
-        {
-            if (npc_adyen_the_lightwarden::npc_adyen_the_lightwardenAI* ai = dynamic_cast<npc_adyen_the_lightwarden::npc_adyen_the_lightwardenAI*>(creature->AI()))
-                ai->StartEvent(player);
-
-            player->CLOSE_GOSSIP_MENU();
-            return true;
-        }
-        return false;
-    }
-
-
-
-    bool OnGossipHello(Player* player, Creature* creature) override
-    {
-        uint32 gossipId = GOSSIP_NETHERSTORM;
-
-        // custom code required because it utilizes two entries
-        if (creature->getFaction() == FACTION_SHATTRATH)
-            gossipId = GOSSIP_SHATTRATH;
-        else
-        {
-            if (npc_adyen_the_lightwarden::npc_adyen_the_lightwardenAI* ai = dynamic_cast<npc_adyen_the_lightwarden::npc_adyen_the_lightwardenAI*>(creature->AI()))
+            if (!m_actionReadyStatus[KAYLAAN_ACTION_BURNING_LIGHT])
             {
-                Creature* socrethar = ((ScriptedInstance*)creature->GetMap()->GetInstanceData())->GetSingleCreatureFromStorage(NPC_SOCRETHAR);
-                if (!socrethar || !socrethar->IsAlive() || socrethar->IsInCombat())
-                    ai->DespawnEvent();
+                if (m_burningLightTimer <= diff)
+                {
+                    m_burningLightTimer = 0;
+                    m_actionReadyStatus[KAYLAAN_ACTION_BURNING_LIGHT] = true;
+                }
+                else
+                    m_burningLightTimer -= diff;
             }
+
+            UpdateActions();
+            ExecuteActions();
+
+            DoMeleeAttackIfReady();
         }
-        player->PrepareGossipMenu(creature, gossipId);
-        player->SendPreparedGossip(creature);
-        return true;
-    }
-
-
-
-    UnitAI* Getnpc_adyen_the_lightwardenAI(Creature* creature)
-    {
-        return new npc_adyen_the_lightwardenAI(creature);
-    }
-
-
-
-};
-class npc_kaylaan_the_lost : public CreatureScript
-{
-public:
-    npc_kaylaan_the_lost() : CreatureScript("npc_kaylaan_the_lost") { }
-
-    UnitAI* Getnpc_kaylaan_the_lostAI(Creature* creature)
-    {
-        return new npc_kaylaan_the_lostAI(creature);
-    }
-
-
+    };
 
 };
 class at_socrethar_seat : public AreaTriggerScript
@@ -4129,13 +4121,13 @@ void AddSC_netherstorm()
     new npc_commander_dawnforge();
     new at_commander_dawnforge();
     new npc_bessy();
-    new npc_maxx_a_million();
+    new npc_maxx_a_million_escort();
     new npc_zeppit();
     new npc_protectorate_demolitionist();
     new npc_captured_vanguard();
     new npc_drijya();
     new npc_dimensius();
-    new npc_saeed();
+    new npc_saeed_escort();
     new npc_manaforge_spawn();
     new npc_salhadaar();
     new npc_energy_ball();

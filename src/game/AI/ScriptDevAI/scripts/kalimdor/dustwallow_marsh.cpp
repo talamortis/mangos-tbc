@@ -1023,45 +1023,56 @@ enum
 
 int32 fireworkMidPoint = -4650;
 
-struct mob_invis_firework_helper : public Scripted_NoMovementAI
+class mob_invis_firework_helper : public CreatureScript
 {
-    mob_invis_firework_helper(Creature* pCreature) : Scripted_NoMovementAI(pCreature)
+public:
+    mob_invis_firework_helper() : CreatureScript("mob_invis_firework_helper") { }
+
+    UnitAI* GetAI(Creature* pCreature)
     {
-        Reset();
+        return new mob_invis_firework_helperAI(pCreature);
     }
 
-    uint32 m_uiFireworkTimer;
-    uint8  m_uiFireworkCounter;
 
-    void Reset() override
+    struct mob_invis_firework_helperAI : public Scripted_NoMovementAI
     {
-        m_uiFireworkTimer = 0;
-        m_uiFireworkCounter = 0;
-    }
+        mob_invis_firework_helperAI(Creature* pCreature) : Scripted_NoMovementAI(pCreature)
+        {
+            Reset();
+        }
 
-    bool GroupDeterminerFunc()
-    {
-        return m_creature->GetPositionY() > fireworkMidPoint;
-    }
+        uint32 m_uiFireworkTimer;
+        uint8  m_uiFireworkCounter;
 
-    void DoBeginCelebration(uint32 timer)
-    {
-        m_uiFireworkTimer = timer;
-        m_uiFireworkCounter = 0;
-    }
+        void Reset() override
+        {
+            m_uiFireworkTimer = 0;
+            m_uiFireworkCounter = 0;
+        }
 
-    void UpdateAI(const uint32 uiDiff) override
-    {
-        if (m_uiFireworkTimer)
-            if (m_uiFireworkTimer < uiDiff)
-            {
-                if (++m_uiFireworkCounter >= 5)
-                    m_uiFireworkTimer = 0;
-                else
-                    m_uiFireworkTimer = 4000;
+        bool GroupDeterminerFunc()
+        {
+            return m_creature->GetPositionY() > fireworkMidPoint;
+        }
 
-                switch (urand(0, 2))
+        void DoBeginCelebration(uint32 timer)
+        {
+            m_uiFireworkTimer = timer;
+            m_uiFireworkCounter = 0;
+        }
+
+        void UpdateAI(const uint32 uiDiff) override
+        {
+            if (m_uiFireworkTimer)
+                if (m_uiFireworkTimer < uiDiff)
                 {
+                    if (++m_uiFireworkCounter >= 5)
+                        m_uiFireworkTimer = 0;
+                    else
+                        m_uiFireworkTimer = 4000;
+
+                    switch (urand(0, 2))
+                    {
                     case 0:
                         m_creature->CastSpell(m_creature, SPELL_BLUE_THERAMORE_ROCKET, TRIGGERED_NONE);
                         break;
@@ -1071,23 +1082,12 @@ struct mob_invis_firework_helper : public Scripted_NoMovementAI
                     case 2:
                         m_creature->CastSpell(m_creature, SPELL_PURPLE_THERAMORE_ROCKET, TRIGGERED_NONE);
                         break;
+                    }
                 }
-            }
-            else
-                m_uiFireworkTimer -= uiDiff;
-    }
-};
-class mob_invis_firework_helper : public CreatureScript
-{
-public:
-    mob_invis_firework_helper() : CreatureScript("mob_invis_firework_helper") { }
-
-    UnitAI* GetAI(Creature* pCreature)
-    {
-        return new mob_invis_firework_helper(pCreature);
-    }
-
-
+                else
+                    m_uiFireworkTimer -= uiDiff;
+        }
+    };
 
 };
 
@@ -1171,7 +1171,7 @@ public:
 
             uint32 timer1 = 2000; uint32 timer2 = 2000;
             for (std::list<Creature*>::const_iterator itr = lFirworkHelpers.begin(); itr != lFirworkHelpers.end(); ++itr)
-                if (mob_invis_firework_helper* fireworkAI = dynamic_cast<mob_invis_firework_helper*>((*itr)->AI()))
+                if (mob_invis_firework_helper::mob_invis_firework_helperAI* fireworkAI = dynamic_cast<mob_invis_firework_helper::mob_invis_firework_helperAI*>((*itr)->AI()))
                 {
                     if (fireworkAI->GroupDeterminerFunc())
                     {
@@ -1396,27 +1396,6 @@ enum
 {
     DBSCRIPT_RELAY_TAKE_DOWN_TETHYR = 10161
 };
-
-struct npc_major_mills : public ScriptedAI
-{
-    npc_major_mills(Creature* pCreature) : ScriptedAI(pCreature)
-    {
-        Reset();
-    }
-
-    ObjectGuid m_playerGuid;
-
-    void Reset() override {}
-
-    void ReceiveAIEvent(AIEventType eventType, Unit* /*sender*/, Unit* /*invoker*/, uint32 /*miscValue*/) override
-    {
-        if (eventType == AI_EVENT_CUSTOM_A)
-        {
-            if (Player* player = m_creature->GetMap()->GetPlayer(m_playerGuid))
-                player->RewardPlayerAndGroupAtEventExplored(QUEST_TAKE_DOWN_TETHYR, m_creature);
-        }
-    }
-};
 class npc_major_mills : public CreatureScript
 {
 public:
@@ -1428,7 +1407,7 @@ public:
         {
             if (creature->GetMap()->GetInstanceData()->GetData(TYPE_TETHYR) == NOT_STARTED)
             {
-                if (npc_major_mills* ai = static_cast<npc_major_mills*>(creature->AI()))
+                if (npc_major_mills::npc_major_millsAI* ai = static_cast<npc_major_mills::npc_major_millsAI*>(creature->AI()))
                     ai->m_playerGuid = player->GetObjectGuid();
                 creature->GetMap()->ScriptsStart(sRelayScripts, DBSCRIPT_RELAY_TAKE_DOWN_TETHYR, creature, player);
             }
@@ -1441,9 +1420,30 @@ public:
 
     UnitAI* GetAI(Creature* pCreature)
     {
-        return new npc_major_mills(pCreature);
+        return new npc_major_millsAI(pCreature);
     }
 
+
+    struct npc_major_millsAI : public ScriptedAI
+    {
+        npc_major_millsAI(Creature* pCreature) : ScriptedAI(pCreature)
+        {
+            Reset();
+        }
+
+        ObjectGuid m_playerGuid;
+
+        void Reset() override {}
+
+        void ReceiveAIEvent(AIEventType eventType, Unit* /*sender*/, Unit* /*invoker*/, uint32 /*miscValue*/) override
+        {
+            if (eventType == AI_EVENT_CUSTOM_A)
+            {
+                if (Player* player = m_creature->GetMap()->GetPlayer(m_playerGuid))
+                    player->RewardPlayerAndGroupAtEventExplored(QUEST_TAKE_DOWN_TETHYR, m_creature);
+            }
+        }
+    };
 
 
 };
@@ -1518,20 +1518,31 @@ static const DialogueEntry SmolderDialogue[] =
     {0, 0, 0 },
 };
 
-struct npc_smolderwing : public ScriptedAI, private DialogueHelper
+class npc_smolderwing : public CreatureScript
 {
-    npc_smolderwing(Creature* pCreature) : ScriptedAI(pCreature),
-        DialogueHelper(SmolderDialogue)
+public:
+    npc_smolderwing() : CreatureScript("npc_smolderwing") { }
+
+    UnitAI* GetAI(Creature* pCreature)
     {
-        Reset();
+        return new npc_smolderwingAI(pCreature);
     }
 
-    void Reset() override {}
-    
-    void JustDidDialogueStep(int32 iEntry) override
+
+    struct npc_smolderwingAI : public ScriptedAI, private DialogueHelper
     {
-        switch (iEntry)
+        npc_smolderwingAI(Creature* pCreature) : ScriptedAI(pCreature),
+            DialogueHelper(SmolderDialogue)
         {
+            Reset();
+        }
+
+        void Reset() override {}
+
+        void JustDidDialogueStep(int32 iEntry) override
+        {
+            switch (iEntry)
+            {
             case SPELL_SMOLDERWING_FIRE_BREATH:
             {
                 if (GameObject* banner = GetClosestGameObjectWithEntry(m_creature, GO_STONEMAUL_BANNER, 50.f))
@@ -1560,62 +1571,51 @@ struct npc_smolderwing : public ScriptedAI, private DialogueHelper
             }
             case DO_NOTHING:
                 break;
+            }
         }
-    }
 
-    Creature* GetSpeakerByEntry(uint32 uiEntry) override
-    {
-        switch (uiEntry)
+        Creature* GetSpeakerByEntry(uint32 uiEntry) override
         {
+            switch (uiEntry)
+            {
             case NPC_SMOLDERWING: return m_creature;
             default:
                 return nullptr;
-        }
-    }
-
-    void MovementInform(uint32 movementType, uint32 uiPointId) override
-    {
-        if (movementType == POINT_MOTION_TYPE)
-        {
-            if (uiPointId == 1)
-            {
-                m_creature->CastSpell(m_creature, SPELL_SMOLDERWING_FIRE_BREATH, TRIGGERED_NONE);
             }
         }
-    }
 
-    void UpdateAI(const uint32 uiDiff) override
-    {
-        if (m_creature->GetMapId() != MAP_ID_KALIMDOR || m_creature->GetZoneId() != ZONE_ID_ONY_LAIR)
-            return; // sanity check
+        void MovementInform(uint32 movementType, uint32 uiPointId) override
+        {
+            if (movementType == POINT_MOTION_TYPE)
+            {
+                if (uiPointId == 1)
+                {
+                    m_creature->CastSpell(m_creature, SPELL_SMOLDERWING_FIRE_BREATH, TRIGGERED_NONE);
+                }
+            }
+        }
 
-        DialogueUpdate(uiDiff);
+        void UpdateAI(const uint32 uiDiff) override
+        {
+            if (m_creature->GetMapId() != MAP_ID_KALIMDOR || m_creature->GetZoneId() != ZONE_ID_ONY_LAIR)
+                return; // sanity check
 
-        if (!m_creature->SelectHostileTarget() || !m_creature->GetVictim())
-            return;
+            DialogueUpdate(uiDiff);
 
-        DoMeleeAttackIfReady();
-    }
+            if (!m_creature->SelectHostileTarget() || !m_creature->GetVictim())
+                return;
 
-    void JustRespawned() override
-    {
-        if (m_creature->GetMapId() != MAP_ID_KALIMDOR || m_creature->GetZoneId() != ZONE_ID_ONY_LAIR)
-            return; // sanity check
+            DoMeleeAttackIfReady();
+        }
 
-        StartNextDialogueText(DO_NOTHING);
-    }
-};
-class npc_smolderwing : public CreatureScript
-{
-public:
-    npc_smolderwing() : CreatureScript("npc_smolderwing") { }
+        void JustRespawned() override
+        {
+            if (m_creature->GetMapId() != MAP_ID_KALIMDOR || m_creature->GetZoneId() != ZONE_ID_ONY_LAIR)
+                return; // sanity check
 
-    UnitAI* GetAI(Creature* pCreature)
-    {
-        return new npc_smolderwing(pCreature);
-    }
-
-
+            StartNextDialogueText(DO_NOTHING);
+        }
+    };
 
 };
 

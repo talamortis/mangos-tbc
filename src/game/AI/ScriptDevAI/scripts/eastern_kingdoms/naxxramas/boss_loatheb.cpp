@@ -34,123 +34,135 @@ enum
 
     NPC_SPORE               = 16286
 };
-
-struct boss_loathebAI : public ScriptedAI
+class boss_loatheb : public CreatureScript
 {
-    boss_loathebAI(Creature* creature) : ScriptedAI(creature)
+public:
+    boss_loatheb() : CreatureScript("boss_loatheb") { }
+
+    UnitAI* GetAI(Creature* creature)
     {
-        m_instance = (instance_naxxramas*)creature->GetInstanceData();
-        Reset();
+        return new boss_loathebAI(creature);
     }
 
-    instance_naxxramas* m_instance;
 
-    uint32 m_poisonAuraTimer;
-    uint32 m_corruptedMindTimer;
-    uint32 m_inevitableDoomTimer;
-    uint32 m_removeCurseTimer;
-    uint32 m_summonTimer;
-    uint8 m_corruptedMindCount;
 
-    void Reset() override
+    struct boss_loathebAI : public ScriptedAI
     {
-        m_poisonAuraTimer = 5 * IN_MILLISECONDS;
-        m_corruptedMindTimer = 4 * IN_MILLISECONDS;
-        m_removeCurseTimer = 2 * IN_MILLISECONDS;
-        m_inevitableDoomTimer = 2 * MINUTE * IN_MILLISECONDS;
-        m_summonTimer = 12 * IN_MILLISECONDS;
-        m_corruptedMindCount = 0;
-    }
-
-    void Aggro(Unit* /*who*/) override
-    {
-        if (m_instance)
-            m_instance->SetData(TYPE_LOATHEB, IN_PROGRESS);
-    }
-
-    void JustDied(Unit* /*killer*/) override
-    {
-        if (m_instance)
-            m_instance->SetData(TYPE_LOATHEB, DONE);
-    }
-
-    void JustReachedHome() override
-    {
-        if (m_instance)
-            m_instance->SetData(TYPE_LOATHEB, NOT_STARTED);
-    }
-
-    void JustSummoned(Creature* summoned) override
-    {
-        if (summoned->GetEntry() == NPC_SPORE)
-            summoned->SetInCombatWithZone();
-    }
-
-    void UpdateAI(const uint32 diff) override
-    {
-        // Do nothing if no target
-        if (!m_creature->SelectHostileTarget() || !m_creature->GetVictim())
-            return;
-
-        // Inevitable Doom
-        if (m_inevitableDoomTimer < diff)
+        boss_loathebAI(Creature* creature) : ScriptedAI(creature)
         {
-            if (DoCastSpellIfCan(m_creature, SPELL_INEVITABLE_DOOM, CAST_TRIGGERED) == CAST_OK)
-                m_inevitableDoomTimer = ((m_corruptedMindCount <= 5) ? 30 : 15) * IN_MILLISECONDS;
+            m_instance = (ScriptedInstance*)creature->GetInstanceData();
+            Reset();
         }
-        else
-            m_inevitableDoomTimer -= diff;
 
-        // Corrupted Mind
-        if (m_corruptedMindTimer < diff)
+        ScriptedInstance* m_instance;
+
+        uint32 m_poisonAuraTimer;
+        uint32 m_corruptedMindTimer;
+        uint32 m_inevitableDoomTimer;
+        uint32 m_removeCurseTimer;
+        uint32 m_summonTimer;
+        uint8 m_corruptedMindCount;
+
+        void Reset() override
         {
-            if (DoCastSpellIfCan(m_creature, SPELL_CORRUPTED_MIND, CAST_TRIGGERED) == CAST_OK)
+            m_poisonAuraTimer = 5 * IN_MILLISECONDS;
+            m_corruptedMindTimer = 4 * IN_MILLISECONDS;
+            m_removeCurseTimer = 2 * IN_MILLISECONDS;
+            m_inevitableDoomTimer = 2 * MINUTE * IN_MILLISECONDS;
+            m_summonTimer = 12 * IN_MILLISECONDS;
+            m_corruptedMindCount = 0;
+        }
+
+        void Aggro(Unit* /*who*/) override
+        {
+            if (m_instance)
+                m_instance->SetData(TYPE_LOATHEB, IN_PROGRESS);
+        }
+
+        void JustDied(Unit* /*killer*/) override
+        {
+            if (m_instance)
+                m_instance->SetData(TYPE_LOATHEB, DONE);
+        }
+
+        void JustReachedHome() override
+        {
+            if (m_instance)
+                m_instance->SetData(TYPE_LOATHEB, NOT_STARTED);
+        }
+
+        void JustSummoned(Creature* summoned) override
+        {
+            if (summoned->GetEntry() == NPC_SPORE)
+                summoned->SetInCombatWithZone();
+        }
+
+        void UpdateAI(const uint32 diff) override
+        {
+            // Do nothing if no target
+            if (!m_creature->SelectHostileTarget() || !m_creature->GetVictim())
+                return;
+
+            // Inevitable Doom
+            if (m_inevitableDoomTimer < diff)
             {
-                ++m_corruptedMindCount;
-                m_corruptedMindTimer = 60 * IN_MILLISECONDS;
+                if (DoCastSpellIfCan(m_creature, SPELL_INEVITABLE_DOOM, CAST_TRIGGERED) == CAST_OK)
+                    m_inevitableDoomTimer = ((m_corruptedMindCount <= 5) ? 30 : 15) * IN_MILLISECONDS;
             }
-        }
-        else
-            m_corruptedMindTimer -= diff;
+            else
+                m_inevitableDoomTimer -= diff;
 
-        // Summon
-        if (m_summonTimer < diff)
-        {
-            if (DoCastSpellIfCan(m_creature, SPELL_SUMMON_SPORE, CAST_TRIGGERED) == CAST_OK)
-                m_summonTimer = 12 * IN_MILLISECONDS;
-        }
-        else
-            m_summonTimer -= diff;
+            // Corrupted Mind
+            if (m_corruptedMindTimer < diff)
+            {
+                if (DoCastSpellIfCan(m_creature, SPELL_CORRUPTED_MIND, CAST_TRIGGERED) == CAST_OK)
+                {
+                    ++m_corruptedMindCount;
+                    m_corruptedMindTimer = 60 * IN_MILLISECONDS;
+                }
+            }
+            else
+                m_corruptedMindTimer -= diff;
 
-        // Poison Aura
-        if (m_poisonAuraTimer < diff)
-        {
-            if (DoCastSpellIfCan(m_creature, SPELL_POISON_AURA) == CAST_OK)
-                m_poisonAuraTimer = 12 * IN_MILLISECONDS;
-        }
-        else
-            m_poisonAuraTimer -= diff;
+            // Summon
+            if (m_summonTimer < diff)
+            {
+                if (DoCastSpellIfCan(m_creature, SPELL_SUMMON_SPORE, CAST_TRIGGERED) == CAST_OK)
+                    m_summonTimer = 12 * IN_MILLISECONDS;
+            }
+            else
+                m_summonTimer -= diff;
 
-        // Remove Curse
-        if (m_removeCurseTimer < diff)
-        {
-            SpellCastResult decurseResult = m_creature->CastSpell(m_creature, SPELL_REMOVE_CURSE, TRIGGERED_OLD_TRIGGERED);
-            if (decurseResult == SPELL_CAST_OK || decurseResult == SPELL_FAILED_NOTHING_TO_DISPEL)  // Don't throw an error if there is nothing to dispel
-                m_removeCurseTimer = 30 * IN_MILLISECONDS;
-        }
-        else
-            m_removeCurseTimer -= diff;
+            // Poison Aura
+            if (m_poisonAuraTimer < diff)
+            {
+                if (DoCastSpellIfCan(m_creature, SPELL_POISON_AURA) == CAST_OK)
+                    m_poisonAuraTimer = 12 * IN_MILLISECONDS;
+            }
+            else
+                m_poisonAuraTimer -= diff;
 
-        DoMeleeAttackIfReady();
-    }
+            // Remove Curse
+            if (m_removeCurseTimer < diff)
+            {
+                SpellCastResult decurseResult = m_creature->CastSpell(m_creature, SPELL_REMOVE_CURSE, TRIGGERED_OLD_TRIGGERED);
+                if (decurseResult == SPELL_CAST_OK || decurseResult == SPELL_FAILED_NOTHING_TO_DISPEL)  // Don't throw an error if there is nothing to dispel
+                    m_removeCurseTimer = 30 * IN_MILLISECONDS;
+            }
+            else
+                m_removeCurseTimer -= diff;
+
+            DoMeleeAttackIfReady();
+        }
+    };
+
+
+
 };
 
-UnitAI* GetAI_boss_loatheb(Creature* creature)
-{
-    return new boss_loathebAI(creature);
-}
 
 void AddSC_boss_loatheb()
 {
+    new boss_loatheb();
 
 }

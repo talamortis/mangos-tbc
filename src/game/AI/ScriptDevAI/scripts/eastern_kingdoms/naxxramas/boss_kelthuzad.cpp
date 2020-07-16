@@ -136,404 +136,415 @@ enum Phase
     PHASE_NORMAL,
     PHASE_GUARDIANS,
 };
-
-struct boss_kelthuzadAI : public ScriptedAI
+class boss_kelthuzad : public CreatureScript
 {
-    boss_kelthuzadAI(Creature* creature) : ScriptedAI(creature)
-    {
-        m_instance = (instance_naxxramas*)creature->GetInstanceData();
+public:
+    boss_kelthuzad() : CreatureScript("boss_kelthuzad") { }
 
-        Reset();
+    UnitAI* GetAI(Creature* creature)
+    {
+        return new boss_kelthuzadAI(creature);
     }
 
-    instance_naxxramas* m_instance;
 
-    uint32 m_guardiansSummonTimer;
-    uint32 m_lichKingAnswerTimer;
-    uint32 m_frostBoltTimer;
-    uint32 m_frostBoltNovaTimer;
-    uint32 m_chainsTimer;
-    uint32 m_manaDetonationTimer;
-    uint32 m_shadowFissureTimer;
-    uint32 m_frostBlastTimer;
 
-    uint8 m_phase;
-    uint32 m_summonTicks;
-
-    GuidSet m_introMobsList;
-
-    CreatureList m_summoningTriggers;
-
-    void Reset() override
+    struct boss_kelthuzadAI : public ScriptedAI
     {
-        m_frostBoltTimer       = urand(5, 8) * IN_MILLISECONDS;
-        m_frostBoltNovaTimer   = 20 * IN_MILLISECONDS;
-        m_chainsTimer          = urand(60, 120) * IN_MILLISECONDS;
-        m_manaDetonationTimer  = urand(27, 40) * IN_MILLISECONDS;
-        m_shadowFissureTimer   = urand(15, 25) * IN_MILLISECONDS;
-        m_frostBlastTimer      = urand(40, 60) * IN_MILLISECONDS;
-        m_guardiansSummonTimer = 61 * IN_MILLISECONDS;      // One Guardian of Icecrown is summoned every 10 sec ; five of them in total
-        m_lichKingAnswerTimer  = 4 * IN_MILLISECONDS;
-        m_summonTicks = 0;
-
-        m_phase                = PHASE_NORMAL;
-
-        m_creature->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NON_ATTACKABLE);
-        m_creature->SetImmuneToPlayer(true);
-        SetMeleeEnabled(false);
-    }
-
-    void KilledUnit(Unit* victim) override
-    {
-        if (victim->GetTypeId() != TYPEID_PLAYER)
-            return;
-
-        if (urand(0, 1))
-            DoScriptText(urand(0, 1) ? SAY_SLAY1 : SAY_SLAY2, m_creature);
-    }
-
-    void JustDied(Unit* /*killer*/) override
-    {
-        DoScriptText(SAY_DEATH, m_creature);
-
-        if (m_instance)
-            m_instance->SetData(TYPE_KELTHUZAD, DONE);
-    }
-
-    void EnterEvadeMode() override
-    {
-        DespawnIntroCreatures();
-
-        m_creature->InterruptNonMeleeSpells(false);
-
-        if (m_creature->HasAura(SPELL_CHANNEL_VISUAL))
+        boss_kelthuzadAI(Creature* creature) : ScriptedAI(creature)
         {
-            m_creature->RemoveAurasDueToSpell(SPELL_CHANNEL_VISUAL);
-            m_creature->RemoveAurasDueToSpell(SPELL_CHANNEL_VISUAL_EFFECT);
+            m_instance = (ScriptedInstance*)creature->GetInstanceData();
+
+            Reset();
         }
 
-        if (m_instance)
-            m_instance->SetData(TYPE_KELTHUZAD, FAIL);
+        ScriptedInstance* m_instance;
 
-        ScriptedAI::EnterEvadeMode();
-    }
+        uint32 m_guardiansSummonTimer;
+        uint32 m_lichKingAnswerTimer;
+        uint32 m_frostBoltTimer;
+        uint32 m_frostBoltNovaTimer;
+        uint32 m_chainsTimer;
+        uint32 m_manaDetonationTimer;
+        uint32 m_shadowFissureTimer;
+        uint32 m_frostBlastTimer;
 
-    void SpellHit(Unit* /*caster*/, const SpellEntry* spell) override
-    {
-        // Phase 1 start
-        if (spell->Id == SPELL_CHANNEL_VISUAL)
+        uint8 m_phase;
+        uint32 m_summonTicks;
+
+        GuidSet m_introMobsList;
+
+        CreatureList m_summoningTriggers;
+
+        void Reset() override
         {
-            DoScriptText(SAY_SUMMON_MINIONS, m_creature);
+            m_frostBoltTimer       = urand(5, 8) * IN_MILLISECONDS;
+            m_frostBoltNovaTimer   = 20 * IN_MILLISECONDS;
+            m_chainsTimer          = urand(60, 120) * IN_MILLISECONDS;
+            m_manaDetonationTimer  = urand(27, 40) * IN_MILLISECONDS;
+            m_shadowFissureTimer   = urand(15, 25) * IN_MILLISECONDS;
+            m_frostBlastTimer      = urand(40, 60) * IN_MILLISECONDS;
+            m_guardiansSummonTimer = 61 * IN_MILLISECONDS;      // One Guardian of Icecrown is summoned every 10 sec ; five of them in total
+            m_lichKingAnswerTimer  = 4 * IN_MILLISECONDS;
+            m_summonTicks = 0;
 
-            // Get all summoning trigger NPCs
-            m_summoningTriggers.clear();
-            GetCreatureListWithEntryInGrid(m_summoningTriggers, m_creature, NPC_WORLD_TRIGGER, 100.0f);
+            m_phase                = PHASE_NORMAL;
+
+            m_creature->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NON_ATTACKABLE);
+            m_creature->SetImmuneToPlayer(true);
+            SetMeleeEnabled(false);
         }
-        // Phase 1 periodic update every 1 second (everything in phase 1 is handled here rather than in UpdateAI())
-        else if (spell->Id == SPELL_CHANNEL_VISUAL_EFFECT)
+
+        void KilledUnit(Unit* victim) override
         {
-            ++m_summonTicks;
-            switch (m_summonTicks)
+            if (victim->GetTypeId() != TYPEID_PLAYER)
+                return;
+
+            if (urand(0, 1))
+                DoScriptText(urand(0, 1) ? SAY_SLAY1 : SAY_SLAY2, m_creature);
+        }
+
+        void JustDied(Unit* /*killer*/) override
+        {
+            DoScriptText(SAY_DEATH, m_creature);
+
+            if (m_instance)
+                m_instance->SetData(TYPE_KELTHUZAD, DONE);
+        }
+
+        void EnterEvadeMode() override
+        {
+            DespawnIntroCreatures();
+
+            m_creature->InterruptNonMeleeSpells(false);
+
+            if (m_creature->HasAura(SPELL_CHANNEL_VISUAL))
             {
-                case 4:
-                    SummonIntroCreatures(NPC_SOLDIER_FROZEN, 9);
-                    break;
-                case 9:
-                    SummonIntroCreatures(NPC_UNSTOPPABLE_ABOM, 3);
-                    break;
-                case 12:
-                    SummonIntroCreatures(NPC_SOUL_WEAVER, 1);
-                    break;
-                case MAX_SUMMON_TICKS:
-                    DespawnIntroCreatures();    // Will leave those that for some reason are in combat
-                    switch (urand(0, 2))
+                m_creature->RemoveAurasDueToSpell(SPELL_CHANNEL_VISUAL);
+                m_creature->RemoveAurasDueToSpell(SPELL_CHANNEL_VISUAL_EFFECT);
+            }
+
+            if (m_instance)
+                m_instance->SetData(TYPE_KELTHUZAD, FAIL);
+
+            ScriptedAI::EnterEvadeMode();
+        }
+
+        void SpellHit(Unit* /*caster*/, const SpellEntry* spell) override
+        {
+            // Phase 1 start
+            if (spell->Id == SPELL_CHANNEL_VISUAL)
+            {
+                DoScriptText(SAY_SUMMON_MINIONS, m_creature);
+
+                // Get all summoning trigger NPCs
+                m_summoningTriggers.clear();
+                GetCreatureListWithEntryInGrid(m_summoningTriggers, m_creature, NPC_WORLD_TRIGGER, 100.0f);
+            }
+            // Phase 1 periodic update every 1 second (everything in phase 1 is handled here rather than in UpdateAI())
+            else if (spell->Id == SPELL_CHANNEL_VISUAL_EFFECT)
+            {
+                ++m_summonTicks;
+                switch (m_summonTicks)
+                {
+                    case 4:
+                        SummonIntroCreatures(NPC_SOLDIER_FROZEN, 9);
+                        break;
+                    case 9:
+                        SummonIntroCreatures(NPC_UNSTOPPABLE_ABOM, 3);
+                        break;
+                    case 12:
+                        SummonIntroCreatures(NPC_SOUL_WEAVER, 1);
+                        break;
+                    case MAX_SUMMON_TICKS:
+                        DespawnIntroCreatures();    // Will leave those that for some reason are in combat
+                        switch (urand(0, 2))
+                        {
+                            case 0:
+                                DoScriptText(SAY_AGGRO1, m_creature);
+                                break;
+                            case 1:
+                                DoScriptText(SAY_AGGRO2, m_creature);
+                                break;
+                            case 2:
+                                DoScriptText(SAY_AGGRO3, m_creature);
+                                break;
+                        }
+                        break;
+                    case MAX_CHANNEL_TICKS:
+                        StartPhase2();
+                        break;
+                    default:
+                        UpdateSummoning();
+                        // Kel'Thuzad does not enter combat until phase 2, so we check every second if there are still players alive and force him to evade otherwise
+                        if (!m_instance->GetPlayerInMap(true, false))
+                            EnterEvadeMode();
+                        break;
+                }
+            }
+        }
+
+        // Remove all periodic auras on Kel'Thuzad used to summon a given NPC type
+        void StopAllSummoningForNPC(uint32 entry)
+        {
+            auto iter = summoningSpells.begin();
+            while (iter != summoningSpells.end())
+            {
+                if (iter->first == entry)
+                    for (auto aura : iter->second)
+                        m_creature->RemoveAurasDueToSpell(aura);
+                ++iter;
+            }
+        }
+
+        // Called every tick (1 second) to check if the periodic summoning auras on Kel'Thuzad need to be updated or removed
+        void UpdateSummoning()
+        {
+            for (auto add : phaseOneAdds)
+            {
+                uint32 summoningAura = 0;
+                std::vector<std::vector<uint32>> spellTimers;
+                switch (add)
+                {
+                    case NPC_SOUL_WEAVER:
+                        spellTimers = soulWeaverSpellsTimers;
+                        break;
+                    case NPC_UNSTOPPABLE_ABOM:
+                        spellTimers = unstoppableAbominationSpellsTimers;
+                        break;
+                    case NPC_SOLDIER_FROZEN:
+                        spellTimers = soldierFrozenWasteSpellsTimers;
+                        break;
+                    default:
+                        return;
+                }
+
+                // Iterate the summoning auras timeline for the current add as long as the tick is in range
+                // then exit with the last valid summoning aura
+                for (const auto& spellTimer : spellTimers)
+                {
+                    if (spellTimer[0] <= m_summonTicks)
+                        summoningAura = spellTimer[1];
+                    else
+                        break;
+                }
+
+                // Do not update aura for current add type if summoning aura is already present
+                if (m_creature->HasAura(summoningAura))
+                    continue;
+
+                // Clear all summoning auras for current add before applying the new one (especially needed in case new one is NULL)
+                StopAllSummoningForNPC(add);
+                DoCastSpellIfCan(m_creature, summoningAura, CAST_TRIGGERED);
+            }
+        }
+
+        void DespawnIntroCreatures()
+        {
+            if (m_instance)
+            {
+                for (auto itr : m_introMobsList)
+                {
+                    if (Creature* creature = m_instance->instance->GetCreature(itr))
                     {
-                        case 0:
-                            DoScriptText(SAY_AGGRO1, m_creature);
-                            break;
-                        case 1:
-                            DoScriptText(SAY_AGGRO2, m_creature);
-                            break;
-                        case 2:
-                            DoScriptText(SAY_AGGRO3, m_creature);
-                            break;
+                        if (creature->IsAlive() && !creature->IsInCombat())
+                            creature->ForcedDespawn();
                     }
-                    break;
-                case MAX_CHANNEL_TICKS:
-                    StartPhase2();
-                    break;
-                default:
-                    UpdateSummoning();
-                    // Kel'Thuzad does not enter combat until phase 2, so we check every second if there are still players alive and force him to evade otherwise
-                    if (!m_instance->GetPlayerInMap(true, false))
-                        EnterEvadeMode();
-                    break;
+                }
             }
-        }
-    }
 
-    // Remove all periodic auras on Kel'Thuzad used to summon a given NPC type
-    void StopAllSummoningForNPC(uint32 entry)
-    {
-        auto iter = summoningSpells.begin();
-        while (iter != summoningSpells.end())
-        {
-            if (iter->first == entry)
-                for (auto aura : iter->second)
-                    m_creature->RemoveAurasDueToSpell(aura);
-            ++iter;
+            m_introMobsList.clear();
         }
-    }
 
-    // Called every tick (1 second) to check if the periodic summoning auras on Kel'Thuzad need to be updated or removed
-    void UpdateSummoning()
-    {
-        for (auto add : phaseOneAdds)
+        // Summon three type of adds in each of the surrounding alcoves
+        bool SummonIntroCreatures(uint32 entry, uint8 count)
         {
-            uint32 summoningAura = 0;
-            std::vector<std::vector<uint32>> spellTimers;
-            switch (add)
+            if (!m_instance)
+                return false;
+
+            float newX, newY, newZ;
+
+            // Spawn all the adds for phase 1 from each of the trigger NPCs
+            for (auto& trigger : m_summoningTriggers)
             {
-                case NPC_SOUL_WEAVER:
-                    spellTimers = soulWeaverSpellsTimers;
-                    break;
-                case NPC_UNSTOPPABLE_ABOM:
-                    spellTimers = unstoppableAbominationSpellsTimers;
-                    break;
+                // "How many NPCs per type" is stored in a vector: {npc_entry:number_of_npcs}
+                for (uint8 i = 0; i < count; ++i)
+                {
+                    m_creature->GetRandomPoint(trigger->GetPositionX(), trigger->GetPositionY(), trigger->GetPositionZ(), 12.0f, newX, newY, newZ);
+                    if (Creature* summoned = m_creature->SummonCreature(entry, newX, newY, newZ, 0.0f, TEMPSPAWN_CORPSE_DESPAWN, 5 * MINUTE * IN_MILLISECONDS))
+                    {
+                        if (summoned->AI())
+                            summoned->AI()->SetReactState(REACT_PASSIVE);   // Intro mobs only attack if engaged or hostile target in range
+                    }
+                }
+            }
+            return true;
+        }
+
+        void JustSummoned(Creature* summoned) override
+        {
+            switch (summoned->GetEntry())
+            {
                 case NPC_SOLDIER_FROZEN:
-                    spellTimers = soldierFrozenWasteSpellsTimers;
+                case NPC_UNSTOPPABLE_ABOM:
+                case NPC_SOUL_WEAVER:
+                    m_introMobsList.insert(summoned->GetObjectGuid());
                     break;
                 default:
-                    return;
-            }
-
-            // Iterate the summoning auras timeline for the current add as long as the tick is in range
-            // then exit with the last valid summoning aura
-            for (const auto& spellTimer : spellTimers)
-            {
-                if (spellTimer[0] <= m_summonTicks)
-                    summoningAura = spellTimer[1];
-                else
                     break;
             }
-
-            // Do not update aura for current add type if summoning aura is already present
-            if (m_creature->HasAura(summoningAura))
-                continue;
-
-            // Clear all summoning auras for current add before applying the new one (especially needed in case new one is NULL)
-            StopAllSummoningForNPC(add);
-            DoCastSpellIfCan(m_creature, summoningAura, CAST_TRIGGERED);
         }
-    }
 
-    void DespawnIntroCreatures()
-    {
-        if (m_instance)
+        // Every time an add dies, randomly summon the same type on one of the seven corners
+        void SummonedCreatureJustDied(Creature* summoned) override
         {
-            for (auto itr : m_introMobsList)
+            switch (summoned->GetEntry())
             {
-                if (Creature* creature = m_instance->instance->GetCreature(itr))
+                case NPC_SOLDIER_FROZEN:
+                case NPC_SOUL_WEAVER:
+                case NPC_UNSTOPPABLE_ABOM:
+                    m_introMobsList.erase(summoned->GetObjectGuid());
+                    break;
+                default:
+                    break;
+            }
+        }
+
+        void StartPhase2()
+        {
+            // Clear all summoning auras
+            m_creature->InterruptNonMeleeSpells(false);
+
+            // Make attackable and engage a target
+            m_creature->SetImmuneToPlayer(false);
+            m_creature->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NON_ATTACKABLE);
+            SetMeleeEnabled(true);
+            SetReactState(REACT_AGGRESSIVE);
+            m_creature->SetInCombatWithZone();
+        }
+
+        void UpdateAI(const uint32 diff) override
+        {
+            if (!m_creature->SelectHostileTarget() || !m_creature->GetVictim())
+                return;
+
+            // Frostbolt: main target
+            if (m_frostBoltTimer < diff)
+            {
+                if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_FROST_BOLT) == CAST_OK)
+                    m_frostBoltTimer = urand(5, 25) * IN_MILLISECONDS;
+            }
+            else
+                m_frostBoltTimer -= diff;
+
+            // Frostbolt volley: all targets (about 30% chance every 20 seconds)
+            if (m_frostBoltNovaTimer < diff)
+            {
+                if (urand(0, 2) > 1)
+                    DoCastSpellIfCan(m_creature, SPELL_FROST_BOLT_NOVA);
+                m_frostBoltNovaTimer = 20 * IN_MILLISECONDS;
+            }
+            else
+                m_frostBoltNovaTimer -= diff;
+
+            // Mana Detonation: only target players with mana
+            if (m_manaDetonationTimer < diff)
+            {
+                if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, SPELL_MANA_DETONATION, SELECT_FLAG_PLAYER | SELECT_FLAG_POWER_MANA))
                 {
-                    if (creature->IsAlive() && !creature->IsInCombat())
-                        creature->ForcedDespawn();
+                    if (DoCastSpellIfCan(target, SPELL_MANA_DETONATION) == CAST_OK)
+                        m_manaDetonationTimer = urand(27, 40) * IN_MILLISECONDS;
                 }
             }
-        }
+            else
+                m_manaDetonationTimer -= diff;
 
-        m_introMobsList.clear();
-    }
-
-    // Summon three type of adds in each of the surrounding alcoves
-    bool SummonIntroCreatures(uint32 entry, uint8 count)
-    {
-        if (!m_instance)
-            return false;
-
-        float newX, newY, newZ;
-
-        // Spawn all the adds for phase 1 from each of the trigger NPCs
-        for (auto& trigger : m_summoningTriggers)
-        {
-            // "How many NPCs per type" is stored in a vector: {npc_entry:number_of_npcs}
-            for (uint8 i = 0; i < count; ++i)
+            // Shadow Fissure: random target
+            if (m_shadowFissureTimer < diff)
             {
-                m_creature->GetRandomPoint(trigger->GetPositionX(), trigger->GetPositionY(), trigger->GetPositionZ(), 12.0f, newX, newY, newZ);
-                if (Creature* summoned = m_creature->SummonCreature(entry, newX, newY, newZ, 0.0f, TEMPSPAWN_CORPSE_DESPAWN, 5 * MINUTE * IN_MILLISECONDS))
+                if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0))
                 {
-                    if (summoned->AI())
-                        summoned->AI()->SetReactState(REACT_PASSIVE);   // Intro mobs only attack if engaged or hostile target in range
+                    if (DoCastSpellIfCan(target, SPELL_SHADOW_FISSURE) == CAST_OK)
+                        m_shadowFissureTimer = urand(15, 25) * IN_MILLISECONDS;
                 }
             }
-        }
-        return true;
-    }
+            else
+                m_shadowFissureTimer -= diff;
 
-    void JustSummoned(Creature* summoned) override
-    {
-        switch (summoned->GetEntry())
-        {
-            case NPC_SOLDIER_FROZEN:
-            case NPC_UNSTOPPABLE_ABOM:
-            case NPC_SOUL_WEAVER:
-                m_introMobsList.insert(summoned->GetObjectGuid());
-                break;
-            default:
-                break;
-        }
-    }
-
-    // Every time an add dies, randomly summon the same type on one of the seven corners
-    void SummonedCreatureJustDied(Creature* summoned) override
-    {
-        switch (summoned->GetEntry())
-        {
-            case NPC_SOLDIER_FROZEN:
-            case NPC_SOUL_WEAVER:
-            case NPC_UNSTOPPABLE_ABOM:
-                m_introMobsList.erase(summoned->GetObjectGuid());
-                break;
-            default:
-                break;
-        }
-    }
-
-    void StartPhase2()
-    {
-        // Clear all summoning auras
-        m_creature->InterruptNonMeleeSpells(false);
-
-        // Make attackable and engage a target
-        m_creature->SetImmuneToPlayer(false);
-        m_creature->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NON_ATTACKABLE);
-        SetMeleeEnabled(true);
-        SetReactState(REACT_AGGRESSIVE);
-        m_creature->SetInCombatWithZone();
-    }
-
-    void UpdateAI(const uint32 diff) override
-    {
-        if (!m_creature->SelectHostileTarget() || !m_creature->GetVictim())
-            return;
-
-        // Frostbolt: main target
-        if (m_frostBoltTimer < diff)
-        {
-            if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_FROST_BOLT) == CAST_OK)
-                m_frostBoltTimer = urand(5, 25) * IN_MILLISECONDS;
-        }
-        else
-            m_frostBoltTimer -= diff;
-
-        // Frostbolt volley: all targets (about 30% chance every 20 seconds)
-        if (m_frostBoltNovaTimer < diff)
-        {
-            if (urand(0, 2) > 1)
-                DoCastSpellIfCan(m_creature, SPELL_FROST_BOLT_NOVA);
-            m_frostBoltNovaTimer = 20 * IN_MILLISECONDS;
-        }
-        else
-            m_frostBoltNovaTimer -= diff;
-
-        // Mana Detonation: only target players with mana
-        if (m_manaDetonationTimer < diff)
-        {
-            if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, SPELL_MANA_DETONATION, SELECT_FLAG_PLAYER | SELECT_FLAG_POWER_MANA))
+            // Frostblast: random target
+            if (m_frostBlastTimer < diff)
             {
-                if (DoCastSpellIfCan(target, SPELL_MANA_DETONATION) == CAST_OK)
-                    m_manaDetonationTimer = urand(27, 40) * IN_MILLISECONDS;
-            }
-        }
-        else
-            m_manaDetonationTimer -= diff;
-
-        // Shadow Fissure: random target
-        if (m_shadowFissureTimer < diff)
-        {
-            if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0))
-            {
-                if (DoCastSpellIfCan(target, SPELL_SHADOW_FISSURE) == CAST_OK)
-                    m_shadowFissureTimer = urand(15, 25) * IN_MILLISECONDS;
-            }
-        }
-        else
-            m_shadowFissureTimer -= diff;
-
-        // Frostblast: random target
-        if (m_frostBlastTimer < diff)
-        {
-            if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0))
-            {
-                if (DoCastSpellIfCan(target, SPELL_FROST_BLAST) == CAST_OK)
-                    m_frostBlastTimer = urand(40, 60) * IN_MILLISECONDS;
-            }
-        }
-        else
-            m_frostBlastTimer -= diff;
-
-        // Chains of Kel'Thuzad: main targets and four random ones
-        if (m_chainsTimer < diff)
-        {
-            if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_CHAINS_OF_KELTHUZAD) == CAST_OK)
-                m_chainsTimer = urand(60, 220) * IN_MILLISECONDS;
-        }
-        else
-            m_chainsTimer -= diff;
-
-        if (m_phase == PHASE_NORMAL)
-        {
-            if (m_creature->GetHealthPercent() < 40.0f)
-            {
-                m_phase = PHASE_GUARDIANS;
-                DoScriptText(SAY_REQUEST_AID, m_creature);
-            }
-        }
-        if (m_phase == PHASE_GUARDIANS)
-        {
-            if (m_lichKingAnswerTimer && m_instance)
-            {
-                if (m_lichKingAnswerTimer <= diff)
+                if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0))
                 {
-                    // Start summoning Guardians of Icecrown
-                    DoCastSpellIfCan(m_creature, SPELL_SUMMON_PERIODIC_D, CAST_TRIGGERED);
-                    // Start checking if Guardians are shackled or not
-                    DoCastSpellIfCan(m_creature, SPELL_GUARDIAN_INIT, CAST_TRIGGERED);
-
-                    if (Creature* lichKing = m_instance->GetSingleCreatureFromStorage(NPC_THE_LICHKING))
-                        DoScriptText(SAY_ANSWER_REQUEST, lichKing);
-
-                    m_instance->DoUseDoorOrButton(GO_KELTHUZAD_WINDOW_1);
-                    m_instance->DoUseDoorOrButton(GO_KELTHUZAD_WINDOW_2);
-                    m_instance->DoUseDoorOrButton(GO_KELTHUZAD_WINDOW_3);
-                    m_instance->DoUseDoorOrButton(GO_KELTHUZAD_WINDOW_4);
-
-                    m_lichKingAnswerTimer = 0;
+                    if (DoCastSpellIfCan(target, SPELL_FROST_BLAST) == CAST_OK)
+                        m_frostBlastTimer = urand(40, 60) * IN_MILLISECONDS;
                 }
-                else
-                    m_lichKingAnswerTimer -= diff;
             }
+            else
+                m_frostBlastTimer -= diff;
 
-            // Stop summoning Guardians of Icecrown once five of them are spawned
-            if (m_guardiansSummonTimer)
+            // Chains of Kel'Thuzad: main targets and four random ones
+            if (m_chainsTimer < diff)
             {
-                if (m_guardiansSummonTimer <= diff)
-                {
-                    m_creature->RemoveAurasDueToSpell(SPELL_SUMMON_PERIODIC_D);
-                    m_guardiansSummonTimer = 0;
-                }
-                else
-                    m_guardiansSummonTimer -= diff;
+                if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_CHAINS_OF_KELTHUZAD) == CAST_OK)
+                    m_chainsTimer = urand(60, 220) * IN_MILLISECONDS;
             }
-        }
+            else
+                m_chainsTimer -= diff;
 
-        DoMeleeAttackIfReady();
-    }
+            if (m_phase == PHASE_NORMAL)
+            {
+                if (m_creature->GetHealthPercent() < 40.0f)
+                {
+                    m_phase = PHASE_GUARDIANS;
+                    DoScriptText(SAY_REQUEST_AID, m_creature);
+                }
+            }
+            if (m_phase == PHASE_GUARDIANS)
+            {
+                if (m_lichKingAnswerTimer && m_instance)
+                {
+                    if (m_lichKingAnswerTimer <= diff)
+                    {
+                        // Start summoning Guardians of Icecrown
+                        DoCastSpellIfCan(m_creature, SPELL_SUMMON_PERIODIC_D, CAST_TRIGGERED);
+                        // Start checking if Guardians are shackled or not
+                        DoCastSpellIfCan(m_creature, SPELL_GUARDIAN_INIT, CAST_TRIGGERED);
+
+                        if (Creature* lichKing = m_instance->GetSingleCreatureFromStorage(NPC_THE_LICHKING))
+                            DoScriptText(SAY_ANSWER_REQUEST, lichKing);
+
+                        m_instance->DoUseDoorOrButton(GO_KELTHUZAD_WINDOW_1);
+                        m_instance->DoUseDoorOrButton(GO_KELTHUZAD_WINDOW_2);
+                        m_instance->DoUseDoorOrButton(GO_KELTHUZAD_WINDOW_3);
+                        m_instance->DoUseDoorOrButton(GO_KELTHUZAD_WINDOW_4);
+
+                        m_lichKingAnswerTimer = 0;
+                    }
+                    else
+                        m_lichKingAnswerTimer -= diff;
+                }
+
+                // Stop summoning Guardians of Icecrown once five of them are spawned
+                if (m_guardiansSummonTimer)
+                {
+                    if (m_guardiansSummonTimer <= diff)
+                    {
+                        m_creature->RemoveAurasDueToSpell(SPELL_SUMMON_PERIODIC_D);
+                        m_guardiansSummonTimer = 0;
+                    }
+                    else
+                        m_guardiansSummonTimer -= diff;
+                }
+            }
+
+            DoMeleeAttackIfReady();
+        }
+    };
+
+
+
 };
 
-UnitAI* GetAI_boss_kelthuzad(Creature* creature)
-{
-    return new boss_kelthuzadAI(creature);
-}
 
 /*########################
 #   npc_icecrown_guardian
@@ -545,75 +556,86 @@ enum {
     SPELL_BLOOD_TAP             = 28470,
 };
 
-// This NPC handles the spell sync between the player that is web wrapped (with a DoT) and the related Web Wrap NPC
-struct npc_icecrown_guardianAI : public ScriptedAI
+// This NPC handles the spell sync between the player that is web wrapped (with a DoT) and the related Web Wrap NPCclass npc_icecrown_guardian : public CreatureScript
 {
-    npc_icecrown_guardianAI(Creature* creature) : ScriptedAI(creature)
+public:
+    npc_icecrown_guardian() : CreatureScript("npc_icecrown_guardian") { }
+
+    UnitAI* GetAI(Creature* creature)
     {
-        m_instance = (instance_naxxramas*)creature->GetInstanceData();
-        Reset();
+        return new npc_icecrown_guardianAI(creature);
     }
 
-    instance_naxxramas* m_instance;
 
-    ObjectGuid m_victimGuid;
-    uint32 m_checkCurrentVictimTimer;
 
-    void Reset() override
+    struct npc_icecrown_guardianAI : public ScriptedAI
     {
-        m_victimGuid.Clear();
-        m_checkCurrentVictimTimer = 2 * IN_MILLISECONDS;    // Check every 2 seconds that we still have the same target
-
-        DoCastSpellIfCan(m_creature,SPELL_GUARDIAN_PASSIVE,CAST_AURA_NOT_PRESENT);
-    }
-
-    void JustReachedHome() override
-    {
-        m_creature->ForcedDespawn();
-    }
-
-    void EnterEvadeMode() override
-    {
-         m_creature->RemoveAurasDueToSpell(SPELL_BLOOD_TAP);
-
-        ScriptedAI::EnterEvadeMode();
-    }
-
-    void KilledUnit(Unit* /*victim*/) override
-    {
-        DoCastSpellIfCan(m_creature->GetVictim(), SPELL_BLOOD_TAP);
-    }
-
-    void UpdateAI(const uint32 diff) override
-    {
-        if (!m_creature->SelectHostileTarget() || !m_creature->GetVictim())
-            return;
-
-        if (m_checkCurrentVictimTimer < diff)
+        npc_icecrown_guardianAI(Creature* creature) : ScriptedAI(creature)
         {
-            // Get current victim GUID if not already assigned
-            if (!m_victimGuid && m_creature->GetVictim())
-                m_victimGuid = m_creature->GetVictim()->GetObjectGuid();
-
-            // If we changed our target: cast Blood Tap
-            if (m_victimGuid != m_creature->GetVictim()->GetObjectGuid())
-            {
-                DoCastSpellIfCan(m_creature->GetVictim(), SPELL_BLOOD_TAP);
-                m_victimGuid = m_creature->GetVictim()->GetObjectGuid();
-            }
-            m_checkCurrentVictimTimer = 2 * IN_MILLISECONDS;    // Check every 2 seconds that we still have the same target
+            m_instance = (ScriptedInstance*)creature->GetInstanceData();
+            Reset();
         }
-        else
-            m_checkCurrentVictimTimer -= diff;
 
-        DoMeleeAttackIfReady();
-    }
+        ScriptedInstance* m_instance;
+
+        ObjectGuid m_victimGuid;
+        uint32 m_checkCurrentVictimTimer;
+
+        void Reset() override
+        {
+            m_victimGuid.Clear();
+            m_checkCurrentVictimTimer = 2 * IN_MILLISECONDS;    // Check every 2 seconds that we still have the same target
+
+            DoCastSpellIfCan(m_creature,SPELL_GUARDIAN_PASSIVE,CAST_AURA_NOT_PRESENT);
+        }
+
+        void JustReachedHome() override
+        {
+            m_creature->ForcedDespawn();
+        }
+
+        void EnterEvadeMode() override
+        {
+             m_creature->RemoveAurasDueToSpell(SPELL_BLOOD_TAP);
+
+            ScriptedAI::EnterEvadeMode();
+        }
+
+        void KilledUnit(Unit* /*victim*/) override
+        {
+            DoCastSpellIfCan(m_creature->GetVictim(), SPELL_BLOOD_TAP);
+        }
+
+        void UpdateAI(const uint32 diff) override
+        {
+            if (!m_creature->SelectHostileTarget() || !m_creature->GetVictim())
+                return;
+
+            if (m_checkCurrentVictimTimer < diff)
+            {
+                // Get current victim GUID if not already assigned
+                if (!m_victimGuid && m_creature->GetVictim())
+                    m_victimGuid = m_creature->GetVictim()->GetObjectGuid();
+
+                // If we changed our target: cast Blood Tap
+                if (m_victimGuid != m_creature->GetVictim()->GetObjectGuid())
+                {
+                    DoCastSpellIfCan(m_creature->GetVictim(), SPELL_BLOOD_TAP);
+                    m_victimGuid = m_creature->GetVictim()->GetObjectGuid();
+                }
+                m_checkCurrentVictimTimer = 2 * IN_MILLISECONDS;    // Check every 2 seconds that we still have the same target
+            }
+            else
+                m_checkCurrentVictimTimer -= diff;
+
+            DoMeleeAttackIfReady();
+        }
+    };
+
+
+
 };
 
-UnitAI* GetAI_npc_icecrown_guardian(Creature* creature)
-{
-    return new npc_icecrown_guardianAI(creature);
-}
 
 // Summon one add (which type depends on spell)
 struct TriggerKTAdd : public SpellScript
@@ -715,7 +737,12 @@ struct GuardianPeriodic : public AuraScript
 
 void AddSC_boss_kelthuzad()
 {
+    new boss_kelthuzad();
+    new npc_icecrown_guardian();
 
+    RegisterSpellScript<TriggerKTAdd>("spell_trigger_KT_add");
+    RegisterSpellScript<ChainsKelThuzad>("spell_chains_kel_thuzad");
+    RegisterAuraScript<FrostBlast>("spell_kel_thuzad_frost_blast");
     RegisterAuraScript<GuardianPeriodic>("spell_icecrown_guardian_periodic");
     RegisterAuraScript<FrostBlast>("spell_kel_thuzad_frost_blast");
     RegisterSpellScript<ChainsKelThuzad>("spell_chains_kel_thuzad");

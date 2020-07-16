@@ -45,120 +45,132 @@ enum
 
     SPELL_TAUNT              = 29060        // Used by Deathknight Understudy
 };
-
-struct boss_razuviousAI : public ScriptedAI
+class boss_razuvious : public CreatureScript
 {
-    boss_razuviousAI(Creature* creature) : ScriptedAI(creature)
+public:
+    boss_razuvious() : CreatureScript("boss_razuvious") { }
+
+    UnitAI* GetAI(Creature* creature)
     {
-        m_instance = (instance_naxxramas*)creature->GetInstanceData();
-        Reset();
+        return new boss_razuviousAI(creature);
     }
 
-    instance_naxxramas* m_instance;
 
-    uint32 m_unbalancingStrikeTimer;
-    uint32 m_disruptingShoutTimer;
 
-    void Reset() override
+    struct boss_razuviousAI : public ScriptedAI
     {
-        m_unbalancingStrikeTimer = 30 * IN_MILLISECONDS;
-        m_disruptingShoutTimer   = 25 * IN_MILLISECONDS;
-    }
+        boss_razuviousAI(Creature* creature) : ScriptedAI(creature)
+        {
+            m_instance = (ScriptedInstance*)creature->GetInstanceData();
+            Reset();
+        }
 
-    void KilledUnit(Unit* /*victim*/) override
-    {
-        DoScriptText(SAY_SLAY, m_creature);
-    }
+        ScriptedInstance* m_instance;
 
-    void SpellHit(Unit* /*caster*/, const SpellEntry* spell) override
-    {
-        // Every time a Deathknight Understudy taunts Razuvious, he will yell its disappointment
-        if (spell->Id == SPELL_TAUNT)
+        uint32 m_unbalancingStrikeTimer;
+        uint32 m_disruptingShoutTimer;
+
+        void Reset() override
+        {
+            m_unbalancingStrikeTimer = 30 * IN_MILLISECONDS;
+            m_disruptingShoutTimer   = 25 * IN_MILLISECONDS;
+        }
+
+        void KilledUnit(Unit* /*victim*/) override
+        {
+            DoScriptText(SAY_SLAY, m_creature);
+        }
+
+        void SpellHit(Unit* /*caster*/, const SpellEntry* spell) override
+        {
+            // Every time a Deathknight Understudy taunts Razuvious, he will yell its disappointment
+            if (spell->Id == SPELL_TAUNT)
+            {
+                switch (urand(0, 3))
+                {
+                    case 0: DoScriptText(SAY_UNDERSTUDY_TAUNT_1, m_creature); break;
+                    case 1: DoScriptText(SAY_UNDERSTUDY_TAUNT_2, m_creature); break;
+                    case 2: DoScriptText(SAY_UNDERSTUDY_TAUNT_3, m_creature); break;
+                    case 3: DoScriptText(SAY_UNDERSTUDY_TAUNT_4, m_creature); break;
+                }
+            }
+        }
+
+        void SpellHitTarget(Unit* target, const SpellEntry* spell) override
+        {
+            // This emote happens only when Disrupting Shout hit a target with mana
+            if (spell->Id == SPELL_DISRUPTING_SHOUT && target->GetTypeId() == TYPEID_PLAYER)
+            {
+                if (((Player*)target)->GetPowerType() == POWER_MANA)
+                    DoScriptText(EMOTE_TRIUMPHANT_SHOOT, m_creature);
+            }
+        }
+
+        void JustDied(Unit* /*killer*/) override
+        {
+            DoScriptText(SAY_DEATH, m_creature);
+
+            DoCastSpellIfCan(m_creature, SPELL_HOPELESS, CAST_TRIGGERED);
+
+            if (m_instance)
+                m_instance->SetData(TYPE_RAZUVIOUS, DONE);
+        }
+
+        void Aggro(Unit* /*who*/) override
         {
             switch (urand(0, 3))
             {
-                case 0: DoScriptText(SAY_UNDERSTUDY_TAUNT_1, m_creature); break;
-                case 1: DoScriptText(SAY_UNDERSTUDY_TAUNT_2, m_creature); break;
-                case 2: DoScriptText(SAY_UNDERSTUDY_TAUNT_3, m_creature); break;
-                case 3: DoScriptText(SAY_UNDERSTUDY_TAUNT_4, m_creature); break;
+                // Yell texts on aggro were removed in patch 2.0 but the sounds remained
+                case 0: DoPlaySoundToSet(m_creature, SOUND_AGGRO1); break;
+                case 1: DoPlaySoundToSet(m_creature, SOUND_AGGRO2); break;
+                case 2: DoPlaySoundToSet(m_creature, SOUND_AGGRO3); break;
+                case 3: DoPlaySoundToSet(m_creature, SOUND_AGGRO4); break;
             }
-        }
-    }
 
-    void SpellHitTarget(Unit* target, const SpellEntry* spell) override
-    {
-        // This emote happens only when Disrupting Shout hit a target with mana
-        if (spell->Id == SPELL_DISRUPTING_SHOUT && target->GetTypeId() == TYPEID_PLAYER)
+            if (m_instance)
+                m_instance->SetData(TYPE_RAZUVIOUS, IN_PROGRESS);
+        }
+
+        void JustReachedHome() override
         {
-            if (((Player*)target)->GetPowerType() == POWER_MANA)
-                DoScriptText(EMOTE_TRIUMPHANT_SHOOT, m_creature);
+            if (m_instance)
+                m_instance->SetData(TYPE_RAZUVIOUS, FAIL);
         }
-    }
 
-    void JustDied(Unit* /*killer*/) override
-    {
-        DoScriptText(SAY_DEATH, m_creature);
-
-        DoCastSpellIfCan(m_creature, SPELL_HOPELESS, CAST_TRIGGERED);
-
-        if (m_instance)
-            m_instance->SetData(TYPE_RAZUVIOUS, DONE);
-    }
-
-    void Aggro(Unit* /*who*/) override
-    {
-        switch (urand(0, 3))
+        void UpdateAI(const uint32 diff) override
         {
-            // Yell texts on aggro were removed in patch 2.0 but the sounds remained
-            case 0: DoPlaySoundToSet(m_creature, SOUND_AGGRO1); break;
-            case 1: DoPlaySoundToSet(m_creature, SOUND_AGGRO2); break;
-            case 2: DoPlaySoundToSet(m_creature, SOUND_AGGRO3); break;
-            case 3: DoPlaySoundToSet(m_creature, SOUND_AGGRO4); break;
+            if (!m_creature->SelectHostileTarget() || !m_creature->GetVictim())
+                return;
+
+            // Unbalancing Strike
+            if (m_unbalancingStrikeTimer < diff)
+            {
+                if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_UNBALANCING_STRIKE) == CAST_OK)
+                    m_unbalancingStrikeTimer = 30 * IN_MILLISECONDS;
+            }
+            else
+                m_unbalancingStrikeTimer -= diff;
+
+            // Disrupting Shout
+            if (m_disruptingShoutTimer < diff)
+            {
+                if (DoCastSpellIfCan(m_creature, SPELL_DISRUPTING_SHOUT) == CAST_OK)
+                    m_disruptingShoutTimer = 25 * IN_MILLISECONDS;
+            }
+            else
+                m_disruptingShoutTimer -= diff;
+
+            DoMeleeAttackIfReady();
         }
+    };
 
-        if (m_instance)
-            m_instance->SetData(TYPE_RAZUVIOUS, IN_PROGRESS);
-    }
 
-    void JustReachedHome() override
-    {
-        if (m_instance)
-            m_instance->SetData(TYPE_RAZUVIOUS, FAIL);
-    }
 
-    void UpdateAI(const uint32 diff) override
-    {
-        if (!m_creature->SelectHostileTarget() || !m_creature->GetVictim())
-            return;
-
-        // Unbalancing Strike
-        if (m_unbalancingStrikeTimer < diff)
-        {
-            if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_UNBALANCING_STRIKE) == CAST_OK)
-                m_unbalancingStrikeTimer = 30 * IN_MILLISECONDS;
-        }
-        else
-            m_unbalancingStrikeTimer -= diff;
-
-        // Disrupting Shout
-        if (m_disruptingShoutTimer < diff)
-        {
-            if (DoCastSpellIfCan(m_creature, SPELL_DISRUPTING_SHOUT) == CAST_OK)
-                m_disruptingShoutTimer = 25 * IN_MILLISECONDS;
-        }
-        else
-            m_disruptingShoutTimer -= diff;
-
-        DoMeleeAttackIfReady();
-    }
 };
 
-UnitAI* GetAI_boss_razuvious(Creature* creature)
-{
-    return new boss_razuviousAI(creature);
-}
 
 void AddSC_boss_razuvious()
 {
+    new boss_razuvious();
 
 }

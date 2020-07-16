@@ -663,6 +663,256 @@ enum
 };
 
 
+struct npc_anchorite_baradaAI : public ScriptedAI, private DialogueHelper
+{
+    npc_anchorite_baradaAI(Creature* pCreature) : ScriptedAI(pCreature),
+        DialogueHelper(aExorcismDialogue)
+    {
+        Reset();
+    }
+
+    bool m_bEventComplete;
+    bool m_bEventInProgress;
+
+    uint32 m_uiResetTimer;
+
+    ObjectGuid m_colonelGuid;
+    ObjectGuid m_playerGuid;
+
+    void Reset() override
+    {
+        m_bEventComplete = false;
+        m_bEventInProgress = false;
+        m_uiResetTimer = 0;
+        m_playerGuid.Clear();
+        m_colonelGuid.Clear();
+    }
+
+    void AttackStart(Unit* pWho) override
+    {
+        // no attack during the exorcism
+        if (m_bEventInProgress)
+            return;
+
+        ScriptedAI::AttackStart(pWho);
+    }
+
+    void EnterEvadeMode() override
+    {
+        // no evade during the exorcism
+        if (m_bEventInProgress)
+            return;
+
+        ScriptedAI::EnterEvadeMode();
+    }
+
+    bool IsExorcismComplete() const { return m_bEventComplete; }
+
+    void ReceiveAIEvent(AIEventType eventType, Unit* /*pSender*/, Unit* pInvoker, uint32 /*uiMiscValue*/) override
+    {
+        if (!m_bEventInProgress && eventType == AI_EVENT_START_EVENT && pInvoker->GetTypeId() == TYPEID_PLAYER)
+        {
+            m_bEventInProgress = true;
+
+            m_playerGuid = pInvoker->GetObjectGuid();
+
+            // start the actual exorcism
+            if (Creature* pColonel = GetClosestCreatureWithEntry(m_creature, NPC_COLONEL_JULES, 15.0f))
+            {
+                m_colonelGuid = pColonel->GetObjectGuid();
+
+                if (npc_colonel_jules::npc_colonel_julesAI* julesAI = dynamic_cast<npc_colonel_jules::npc_colonel_julesAI*>(pColonel->AI()))
+                    julesAI->m_bReturnHome = false;
+            }
+
+            m_creature->SetStandState(UNIT_STAND_STATE_STAND);
+            m_creature->RemoveFlag(UNIT_NPC_FLAGS, UNIT_NPC_FLAG_GOSSIP);
+
+            StartNextDialogueText(SAY_EXORCISM_1);
+        }
+    }
+
+    void MovementInform(uint32 uiType, uint32 uiPointId) override
+    {
+        if (uiType != WAYPOINT_MOTION_TYPE)
+            return;
+
+        switch (uiPointId)
+        {
+        case 1:
+            // pause wp and resume dialogue
+            m_creature->addUnitState(UNIT_STAT_WAYPOINT_PAUSED);
+
+            if (Creature* pColonel = m_creature->GetMap()->GetCreature(m_colonelGuid))
+            {
+                m_creature->SetFacingToObject(pColonel);
+                pColonel->RemoveFlag(UNIT_NPC_FLAGS, UNIT_NPC_FLAG_GOSSIP);
+            }
+
+            StartNextDialogueText(TEXT_ID_POSSESSED);
+            break;
+        case 3:
+            // event completed - wait for player to get quest credit by gossip
+            if (Creature* pColonel = m_creature->GetMap()->GetCreature(m_colonelGuid))
+                m_creature->SetFacingToObject(pColonel);
+
+            m_creature->CastSpell(m_creature, SPELL_HEAL_SELF, TRIGGERED_OLD_TRIGGERED);
+            m_creature->GetMotionMaster()->Clear();
+            m_creature->SetStandState(UNIT_STAND_STATE_KNEEL);
+            m_creature->SetFlag(UNIT_NPC_FLAGS, UNIT_NPC_FLAG_GOSSIP);
+            m_bEventComplete = true;
+            m_uiResetTimer = 30000;
+            break;
+        }
+    }
+
+    void JustDidDialogueStep(int32 iEntry) override
+    {
+        switch (iEntry)
+        {
+        case SPELL_FLYING_SKULL_DESPAWN:
+            m_creature->SetStandState(UNIT_STAND_STATE_KNEEL);
+            break;
+        case QUEST_ID_EXORCISM:
+            m_creature->GetMotionMaster()->MoveWaypoint();
+            break;
+        case SPELL_BARADA_COMMANDS:
+            DoCastSpellIfCan(m_creature, SPELL_BARADA_COMMANDS);
+            m_creature->SetStandState(UNIT_STAND_STATE_KNEEL);
+            break;
+        case NPC_EXORCISM_LIGHTNING_CLOUD:
+            if (Creature* pColonel = m_creature->GetMap()->GetCreature(m_colonelGuid))
+                pColonel->SummonCreature(NPC_EXORCISM_LIGHTNING_CLOUD, -709.8715f, 2756.557f, 113.6571f, 4.747295f, TEMPSPAWN_TIMED_DESPAWN, 200000);
+            break;
+        case SPELL_BARADA_FALTERS:
+            DoCastSpellIfCan(m_creature, SPELL_BARADA_FALTERS);
+            m_creature->SetStandState(UNIT_STAND_STATE_KNEEL);
+            // start levitating
+            if (Creature* pColonel = m_creature->GetMap()->GetCreature(m_colonelGuid))
+            {
+                pColonel->SetLevitate(true);
+                pColonel->GetMotionMaster()->MovePoint(10, pColonel->GetPositionX(), pColonel->GetPositionY(), pColonel->GetPositionZ() + 2.0f);
+            }
+            break;
+        case SPELL_JULES_THREATENS_AURA:
+            if (Creature* pColonel = m_creature->GetMap()->GetCreature(m_colonelGuid))
+                pColonel->CastSpell(pColonel, SPELL_JULES_THREATENS_AURA, TRIGGERED_OLD_TRIGGERED);
+            break;
+        case SPELL_JULES_GOES_UPRIGHT:
+            if (Creature* pColonel = m_creature->GetMap()->GetCreature(m_colonelGuid))
+            {
+                pColonel->InterruptNonMeleeSpells(false);
+                pColonel->RemoveAurasDueToSpell(SPELL_JULES_GOES_PRONE);
+                pColonel->CastSpell(pColonel, SPELL_JULES_GOES_UPRIGHT, TRIGGERED_NONE);
+                pColonel->CastSpell(pColonel, SPELL_JULES_RELEASE_DARKNESS, TRIGGERED_OLD_TRIGGERED);
+            }
+            break;
+        case SPELL_JULES_VOMITS:
+            if (Creature* pColonel = m_creature->GetMap()->GetCreature(m_colonelGuid))
+            {
+                pColonel->CastSpell(pColonel, SPELL_JULES_VOMITS, TRIGGERED_OLD_TRIGGERED);
+                // begin jules movement
+                pColonel->GetMotionMaster()->MoveWaypoint();
+            }
+            break;
+        case NPC_ANCHORITE_BARADA:
+            DoScriptText(aAnchoriteTexts[urand(0, 6)], m_creature);
+            break;
+        case NPC_COLONEL_JULES:
+            if (Creature* pColonel = m_creature->GetMap()->GetCreature(m_colonelGuid))
+                DoScriptText(aColonelTexts[urand(0, 4)], pColonel);
+            break;
+        case NPC_BUBBLING_SLIMER_BUNNY:
+            if (Creature* pColonel = m_creature->GetMap()->GetCreature(m_colonelGuid))
+                if (npc_colonel_jules::npc_colonel_julesAI* julesAI = dynamic_cast<npc_colonel_jules::npc_colonel_julesAI*>(pColonel->AI()))
+                    julesAI->GoHome();
+            break;
+        case SAY_EXORCISM_7:
+            m_creature->RemoveAurasDueToSpell(SPELL_BARADA_COMMANDS);
+            m_creature->RemoveAurasDueToSpell(SPELL_BARADA_FALTERS);
+            break;
+        case NPC_FOUL_PURGE:
+            // resume wp movemnet
+            m_creature->clearUnitState(UNIT_STAT_WAYPOINT_PAUSED);
+            m_creature->SetStandState(UNIT_STAND_STATE_STAND);
+            break;
+        }
+    }
+
+    void JustDied(Unit* /*pKiller*/) override
+    {
+        if (m_bEventInProgress)
+        {
+            if (Creature* pColonel = m_creature->GetMap()->GetCreature(m_colonelGuid))
+                if (npc_colonel_jules::npc_colonel_julesAI* julesAI = dynamic_cast<npc_colonel_jules::npc_colonel_julesAI*>(pColonel->AI()))
+                    julesAI->EndEvent();
+
+            if (Player* pPlayer = m_creature->GetMap()->GetPlayer(m_playerGuid))
+                pPlayer->FailQuest(QUEST_ID_EXORCISM);
+        }
+        else
+            if (Creature* pColonel = GetClosestCreatureWithEntry(m_creature, NPC_COLONEL_JULES, 30.0f))
+                pColonel->GetMotionMaster()->MovePoint(1, -710.038f, 2750.877f, 103.85f);
+    }
+
+    Creature* GetSpeakerByEntry(uint32 uiEntry) override
+    {
+        switch (uiEntry)
+        {
+        case NPC_ANCHORITE_BARADA:      return m_creature;
+        case NPC_COLONEL_JULES:         return m_creature->GetMap()->GetCreature(m_colonelGuid);
+
+        default:
+            return nullptr;
+        }
+    }
+
+    void UpdateAI(const uint32 uiDiff) override
+    {
+        if (m_playerGuid && m_bEventInProgress)
+        {
+            bool m_reset = false;
+            if (Player* player = m_creature->GetMap()->GetPlayer(m_playerGuid))
+                m_reset = !player->IsActiveQuest(QUEST_ID_EXORCISM);
+            else
+                m_reset = true;
+
+            if (m_reset)
+            {
+                if (Creature* pColonel = m_creature->GetMap()->GetCreature(m_colonelGuid))
+                    if (npc_colonel_jules::npc_colonel_julesAI* julesAI = dynamic_cast<npc_colonel_jules::npc_colonel_julesAI*>(pColonel->AI()))
+                        julesAI->EndEvent();
+
+                if (m_creature->IsAlive())
+                    m_creature->ForcedDespawn();
+                m_creature->Respawn();
+
+                Reset();
+                return;
+            }
+        }
+
+        if (m_bEventInProgress)
+            DialogueUpdate(uiDiff);
+
+        if (m_uiResetTimer) // Remove finishability after some time
+        {
+            if (m_uiResetTimer <= uiDiff)
+            {
+                //Reset(); just calling reset was messing up his waypointing...
+                m_creature->ForcedDespawn();
+                m_creature->Respawn();
+            }
+            else
+                m_uiResetTimer -= uiDiff;
+        }
+
+        if (!m_creature->SelectHostileTarget() || !m_creature->GetVictim())
+            return;
+
+        DoMeleeAttackIfReady();
+    }
+};
 // Note: script is highly dependent on DBscript implementationclass npc_anchorite_barada : public CreatureScript
 {
 public:
@@ -685,7 +935,7 @@ public:
     {
         // check if quest is active but not completed
         if (pPlayer->IsCurrentQuest(QUEST_ID_EXORCISM, 1))
-            if (npc_anchorite_barada::npc_anchorite_baradaAI* baradaAI = dynamic_cast<npc_anchorite_barada::npc_anchorite_baradaAI*>(pCreature->AI()))
+            if (npc_anchorite_baradaAI* baradaAI = dynamic_cast<npc_anchorite_baradaAI*>(pCreature->AI()))
                 if (!baradaAI->m_bEventInProgress)
                     pPlayer->ADD_GOSSIP_ITEM_ID(GOSSIP_ICON_CHAT, GOSSIP_ITEM_EXORCISM, GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF + 1);
 
@@ -702,256 +952,6 @@ public:
 
 
 
-    struct npc_anchorite_baradaAI : public ScriptedAI, private DialogueHelper
-    {
-        npc_anchorite_baradaAI(Creature* pCreature) : ScriptedAI(pCreature),
-            DialogueHelper(aExorcismDialogue)
-        {
-            Reset();
-        }
-
-        bool m_bEventComplete;
-        bool m_bEventInProgress;
-
-        uint32 m_uiResetTimer;
-
-        ObjectGuid m_colonelGuid;
-        ObjectGuid m_playerGuid;
-
-        void Reset() override
-        {
-            m_bEventComplete = false;
-            m_bEventInProgress = false;
-            m_uiResetTimer = 0;
-            m_playerGuid.Clear();
-            m_colonelGuid.Clear();
-        }
-
-        void AttackStart(Unit* pWho) override
-        {
-            // no attack during the exorcism
-            if (m_bEventInProgress)
-                return;
-
-            ScriptedAI::AttackStart(pWho);
-        }
-
-        void EnterEvadeMode() override
-        {
-            // no evade during the exorcism
-            if (m_bEventInProgress)
-                return;
-
-            ScriptedAI::EnterEvadeMode();
-        }
-
-        bool IsExorcismComplete() const { return m_bEventComplete; }
-
-        void ReceiveAIEvent(AIEventType eventType, Unit* /*pSender*/, Unit* pInvoker, uint32 /*uiMiscValue*/) override
-        {
-            if (!m_bEventInProgress && eventType == AI_EVENT_START_EVENT && pInvoker->GetTypeId() == TYPEID_PLAYER)
-            {
-                m_bEventInProgress = true;
-
-                m_playerGuid = pInvoker->GetObjectGuid();
-
-                // start the actual exorcism
-                if (Creature* pColonel = GetClosestCreatureWithEntry(m_creature, NPC_COLONEL_JULES, 15.0f))
-                {
-                    m_colonelGuid = pColonel->GetObjectGuid();
-
-                    if (npc_colonel_jules::npc_colonel_julesAI* julesAI = dynamic_cast<npc_colonel_jules::npc_colonel_julesAI*>(pColonel->AI()))
-                        julesAI->m_bReturnHome = false;
-                }
-
-                m_creature->SetStandState(UNIT_STAND_STATE_STAND);
-                m_creature->RemoveFlag(UNIT_NPC_FLAGS, UNIT_NPC_FLAG_GOSSIP);
-
-                StartNextDialogueText(SAY_EXORCISM_1);
-            }
-        }
-
-        void MovementInform(uint32 uiType, uint32 uiPointId) override
-        {
-            if (uiType != WAYPOINT_MOTION_TYPE)
-                return;
-
-            switch (uiPointId)
-            {
-            case 1:
-                // pause wp and resume dialogue
-                m_creature->addUnitState(UNIT_STAT_WAYPOINT_PAUSED);
-
-                if (Creature* pColonel = m_creature->GetMap()->GetCreature(m_colonelGuid))
-                {
-                    m_creature->SetFacingToObject(pColonel);
-                    pColonel->RemoveFlag(UNIT_NPC_FLAGS, UNIT_NPC_FLAG_GOSSIP);
-                }
-
-                StartNextDialogueText(TEXT_ID_POSSESSED);
-                break;
-            case 3:
-                // event completed - wait for player to get quest credit by gossip
-                if (Creature* pColonel = m_creature->GetMap()->GetCreature(m_colonelGuid))
-                    m_creature->SetFacingToObject(pColonel);
-
-                m_creature->CastSpell(m_creature, SPELL_HEAL_SELF, TRIGGERED_OLD_TRIGGERED);
-                m_creature->GetMotionMaster()->Clear();
-                m_creature->SetStandState(UNIT_STAND_STATE_KNEEL);
-                m_creature->SetFlag(UNIT_NPC_FLAGS, UNIT_NPC_FLAG_GOSSIP);
-                m_bEventComplete = true;
-                m_uiResetTimer = 30000;
-                break;
-            }
-        }
-
-        void JustDidDialogueStep(int32 iEntry) override
-        {
-            switch (iEntry)
-            {
-            case SPELL_FLYING_SKULL_DESPAWN:
-                m_creature->SetStandState(UNIT_STAND_STATE_KNEEL);
-                break;
-            case QUEST_ID_EXORCISM:
-                m_creature->GetMotionMaster()->MoveWaypoint();
-                break;
-            case SPELL_BARADA_COMMANDS:
-                DoCastSpellIfCan(m_creature, SPELL_BARADA_COMMANDS);
-                m_creature->SetStandState(UNIT_STAND_STATE_KNEEL);
-                break;
-            case NPC_EXORCISM_LIGHTNING_CLOUD:
-                if (Creature* pColonel = m_creature->GetMap()->GetCreature(m_colonelGuid))
-                    pColonel->SummonCreature(NPC_EXORCISM_LIGHTNING_CLOUD, -709.8715f, 2756.557f, 113.6571f, 4.747295f, TEMPSPAWN_TIMED_DESPAWN, 200000);
-                break;
-            case SPELL_BARADA_FALTERS:
-                DoCastSpellIfCan(m_creature, SPELL_BARADA_FALTERS);
-                m_creature->SetStandState(UNIT_STAND_STATE_KNEEL);
-                // start levitating
-                if (Creature* pColonel = m_creature->GetMap()->GetCreature(m_colonelGuid))
-                {
-                    pColonel->SetLevitate(true);
-                    pColonel->GetMotionMaster()->MovePoint(10, pColonel->GetPositionX(), pColonel->GetPositionY(), pColonel->GetPositionZ() + 2.0f);
-                }
-                break;
-            case SPELL_JULES_THREATENS_AURA:
-                if (Creature* pColonel = m_creature->GetMap()->GetCreature(m_colonelGuid))
-                    pColonel->CastSpell(pColonel, SPELL_JULES_THREATENS_AURA, TRIGGERED_OLD_TRIGGERED);
-                break;
-            case SPELL_JULES_GOES_UPRIGHT:
-                if (Creature* pColonel = m_creature->GetMap()->GetCreature(m_colonelGuid))
-                {
-                    pColonel->InterruptNonMeleeSpells(false);
-                    pColonel->RemoveAurasDueToSpell(SPELL_JULES_GOES_PRONE);
-                    pColonel->CastSpell(pColonel, SPELL_JULES_GOES_UPRIGHT, TRIGGERED_NONE);
-                    pColonel->CastSpell(pColonel, SPELL_JULES_RELEASE_DARKNESS, TRIGGERED_OLD_TRIGGERED);
-                }
-                break;
-            case SPELL_JULES_VOMITS:
-                if (Creature* pColonel = m_creature->GetMap()->GetCreature(m_colonelGuid))
-                {
-                    pColonel->CastSpell(pColonel, SPELL_JULES_VOMITS, TRIGGERED_OLD_TRIGGERED);
-                    // begin jules movement
-                    pColonel->GetMotionMaster()->MoveWaypoint();
-                }
-                break;
-            case NPC_ANCHORITE_BARADA:
-                DoScriptText(aAnchoriteTexts[urand(0, 6)], m_creature);
-                break;
-            case NPC_COLONEL_JULES:
-                if (Creature* pColonel = m_creature->GetMap()->GetCreature(m_colonelGuid))
-                    DoScriptText(aColonelTexts[urand(0, 4)], pColonel);
-                break;
-            case NPC_BUBBLING_SLIMER_BUNNY:
-                if (Creature* pColonel = m_creature->GetMap()->GetCreature(m_colonelGuid))
-                    if (npc_colonel_jules::npc_colonel_julesAI* julesAI = dynamic_cast<npc_colonel_jules::npc_colonel_julesAI*>(pColonel->AI()))
-                        julesAI->GoHome();
-                break;
-            case SAY_EXORCISM_7:
-                m_creature->RemoveAurasDueToSpell(SPELL_BARADA_COMMANDS);
-                m_creature->RemoveAurasDueToSpell(SPELL_BARADA_FALTERS);
-                break;
-            case NPC_FOUL_PURGE:
-                // resume wp movemnet
-                m_creature->clearUnitState(UNIT_STAT_WAYPOINT_PAUSED);
-                m_creature->SetStandState(UNIT_STAND_STATE_STAND);
-                break;
-            }
-        }
-
-        void JustDied(Unit* /*pKiller*/) override
-        {
-            if (m_bEventInProgress)
-            {
-                if (Creature* pColonel = m_creature->GetMap()->GetCreature(m_colonelGuid))
-                    if (npc_colonel_jules::npc_colonel_julesAI* julesAI = dynamic_cast<npc_colonel_jules::npc_colonel_julesAI*>(pColonel->AI()))
-                        julesAI->EndEvent();
-
-                if (Player* pPlayer = m_creature->GetMap()->GetPlayer(m_playerGuid))
-                    pPlayer->FailQuest(QUEST_ID_EXORCISM);
-            }
-            else
-                if (Creature* pColonel = GetClosestCreatureWithEntry(m_creature, NPC_COLONEL_JULES, 30.0f))
-                    pColonel->GetMotionMaster()->MovePoint(1, -710.038f, 2750.877f, 103.85f);
-        }
-
-        Creature* GetSpeakerByEntry(uint32 uiEntry) override
-        {
-            switch (uiEntry)
-            {
-            case NPC_ANCHORITE_BARADA:      return m_creature;
-            case NPC_COLONEL_JULES:         return m_creature->GetMap()->GetCreature(m_colonelGuid);
-
-            default:
-                return nullptr;
-            }
-        }
-
-        void UpdateAI(const uint32 uiDiff) override
-        {
-            if (m_playerGuid && m_bEventInProgress)
-            {
-                bool m_reset = false;
-                if (Player* player = m_creature->GetMap()->GetPlayer(m_playerGuid))
-                    m_reset = !player->IsActiveQuest(QUEST_ID_EXORCISM);
-                else
-                    m_reset = true;
-
-                if (m_reset)
-                {
-                    if (Creature* pColonel = m_creature->GetMap()->GetCreature(m_colonelGuid))
-                        if (npc_colonel_jules::npc_colonel_julesAI* julesAI = dynamic_cast<npc_colonel_jules::npc_colonel_julesAI*>(pColonel->AI()))
-                            julesAI->EndEvent();
-
-                    if (m_creature->IsAlive())
-                        m_creature->ForcedDespawn();
-                    m_creature->Respawn();
-
-                    Reset();
-                    return;
-                }
-            }
-
-            if (m_bEventInProgress)
-                DialogueUpdate(uiDiff);
-
-            if (m_uiResetTimer) // Remove finishability after some time
-            {
-                if (m_uiResetTimer <= uiDiff)
-                {
-                    //Reset(); just calling reset was messing up his waypointing...
-                    m_creature->ForcedDespawn();
-                    m_creature->Respawn();
-                }
-                else
-                    m_uiResetTimer -= uiDiff;
-            }
-
-            if (!m_creature->SelectHostileTarget() || !m_creature->GetVictim())
-                return;
-
-            DoMeleeAttackIfReady();
-        }
-    };
 
 
 
@@ -981,7 +981,7 @@ public:
             if (!pAnchorite)
                 return true;
 
-            if (npc_anchorite_barada::npc_anchorite_baradaAI* pAnchoriteAI = dynamic_cast<npc_anchorite_barada::npc_anchorite_baradaAI*>(pAnchorite->AI()))
+            if (npc_anchorite_baradaAI* pAnchoriteAI = dynamic_cast<npc_anchorite_baradaAI*>(pAnchorite->AI()))
             {
                 // event complete - give credit and reset
                 if (pAnchoriteAI->IsExorcismComplete())

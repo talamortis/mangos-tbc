@@ -663,6 +663,133 @@ enum
 };
 
 
+struct npc_colonel_julesAI : public ScriptedAI
+{
+    npc_colonel_julesAI(Creature* pCreature) : ScriptedAI(pCreature) { Reset(); }
+
+    bool m_bReturnHome;
+    uint32 darknessReleasedCount;
+    uint32 darknessReleasedSpawnTimer;
+    std::vector<ObjectGuid> m_vSummonVector;
+    CreatureList lSlimeList;
+
+    void Reset() override
+    {
+        DespawnSummons();
+        m_vSummonVector.clear();
+        darknessReleasedCount = 0;
+        darknessReleasedSpawnTimer = 40000;
+    }
+
+    void UpdateAI(const uint32 uiDiff) override
+    {
+        if (darknessReleasedSpawnTimer <= uiDiff)
+        {
+            darknessReleasedSpawnTimer = 40000;
+            if (darknessReleasedCount > 0)
+                darknessReleasedCount--;
+        }
+        else
+            darknessReleasedSpawnTimer -= uiDiff;
+    }
+
+    void MovementInform(uint32 uiType, uint32 uiPointId) override
+    {
+        if (uiType != WAYPOINT_MOTION_TYPE)
+        {
+            if (uiType == POINT_MOTION_TYPE)
+                if (uiPointId == 10)
+                    m_creature->SetFacingTo(3.1f);
+
+            return;
+        }
+
+        if (m_bReturnHome)
+        {
+            if (uiPointId == 6)
+            {
+                m_creature->SetLevitate(false);
+                m_creature->GetMotionMaster()->Clear();
+                m_creature->SetFacingTo(1.46213f);
+                m_creature->RemoveAurasDueToSpell(SPELL_JULES_GOES_UPRIGHT);
+                m_creature->CastSpell(m_creature, SPELL_JULES_GOES_PRONE, TRIGGERED_OLD_TRIGGERED);
+
+                EndEvent();
+            }
+        }
+        else if (uiPointId == 4)
+            m_creature->GetMotionMaster()->SetNextWaypoint(0);
+    }
+
+    void JustSummoned(Creature* pSummoned) override
+    {
+        if (pSummoned->GetEntry() == NPC_DARKNESS_RELEASED)
+        {
+            if (darknessReleasedCount < 3 && m_creature->HasAura(SPELL_JULES_THREATENS_AURA))
+            {
+                darknessReleasedCount++;
+                pSummoned->AI()->SetCombatMovement(false);
+                if (Creature* pBarada = GetClosestCreatureWithEntry(m_creature, NPC_ANCHORITE_BARADA, 15.0f))
+                {
+                    pSummoned->AI()->AttackStart(pBarada);
+                    pSummoned->GetMotionMaster()->MoveRandomAroundPoint(pBarada->GetPositionX(), pBarada->GetPositionY(), pBarada->GetPositionZ(), 5.0f);
+                }
+            }
+            else
+            {
+                pSummoned->ForcedDespawn();
+                return;
+            }
+        }
+
+        m_vSummonVector.push_back(pSummoned->GetObjectGuid());
+    }
+
+    void SummonedCreatureJustDied(Creature* pSummoned) override
+    {
+        if (pSummoned->GetEntry() == NPC_DARKNESS_RELEASED)
+        {
+            pSummoned->CastSpell(pSummoned, SPELL_FLYING_SKULL_DESPAWN, TRIGGERED_OLD_TRIGGERED);
+            darknessReleasedCount--;
+        }
+
+        m_vSummonVector.erase(std::remove(m_vSummonVector.begin(), m_vSummonVector.end(), pSummoned->GetObjectGuid()), m_vSummonVector.end());
+    }
+
+    void DespawnSummons()
+    {
+        for (ObjectGuid& guid : m_vSummonVector)
+            if (Creature* summon = m_creature->GetMap()->GetCreature(guid))
+                summon->ForcedDespawn();
+
+        lSlimeList.clear();
+        GetCreatureListWithEntryInGrid(lSlimeList, m_creature, NPC_FOUL_PURGE, 40.0f);
+        for (auto& itr : lSlimeList)
+        {
+            if (itr->IsAlive())
+                itr->ForcedDespawn();
+        }
+    }
+
+    void GoHome()
+    {
+        DespawnSummons();
+        m_bReturnHome = true;
+        m_creature->GetMotionMaster()->SetNextWaypoint(5);
+        m_creature->RemoveAurasDueToSpell(SPELL_JULES_VOMITS);
+        m_creature->RemoveAurasDueToSpell(SPELL_JULES_THREATENS_AURA);
+        m_creature->RemoveAurasDueToSpell(SPELL_JULES_RELEASE_DARKNESS);
+    }
+
+    void EndEvent()
+    {
+        m_creature->SetFlag(UNIT_NPC_FLAGS, UNIT_NPC_FLAG_GOSSIP);
+
+        Reset();
+    }
+};
+
+
 struct npc_anchorite_baradaAI : public ScriptedAI, private DialogueHelper
 {
     npc_anchorite_baradaAI(Creature* pCreature) : ScriptedAI(pCreature),
@@ -721,7 +848,7 @@ struct npc_anchorite_baradaAI : public ScriptedAI, private DialogueHelper
             {
                 m_colonelGuid = pColonel->GetObjectGuid();
 
-                if (npc_colonel_jules::npc_colonel_julesAI* julesAI = dynamic_cast<npc_colonel_jules::npc_colonel_julesAI*>(pColonel->AI()))
+                if (npc_colonel_julesAI* julesAI = dynamic_cast<npc_colonel_julesAI*>(pColonel->AI()))
                     julesAI->m_bReturnHome = false;
             }
 
@@ -824,7 +951,7 @@ struct npc_anchorite_baradaAI : public ScriptedAI, private DialogueHelper
             break;
         case NPC_BUBBLING_SLIMER_BUNNY:
             if (Creature* pColonel = m_creature->GetMap()->GetCreature(m_colonelGuid))
-                if (npc_colonel_jules::npc_colonel_julesAI* julesAI = dynamic_cast<npc_colonel_jules::npc_colonel_julesAI*>(pColonel->AI()))
+                if (npc_colonel_julesAI* julesAI = dynamic_cast<npc_colonel_julesAI*>(pColonel->AI()))
                     julesAI->GoHome();
             break;
         case SAY_EXORCISM_7:
@@ -844,7 +971,7 @@ struct npc_anchorite_baradaAI : public ScriptedAI, private DialogueHelper
         if (m_bEventInProgress)
         {
             if (Creature* pColonel = m_creature->GetMap()->GetCreature(m_colonelGuid))
-                if (npc_colonel_jules::npc_colonel_julesAI* julesAI = dynamic_cast<npc_colonel_jules::npc_colonel_julesAI*>(pColonel->AI()))
+                if (npc_colonel_julesAI* julesAI = dynamic_cast<npc_colonel_julesAI*>(pColonel->AI()))
                     julesAI->EndEvent();
 
             if (Player* pPlayer = m_creature->GetMap()->GetPlayer(m_playerGuid))
@@ -880,7 +1007,7 @@ struct npc_anchorite_baradaAI : public ScriptedAI, private DialogueHelper
             if (m_reset)
             {
                 if (Creature* pColonel = m_creature->GetMap()->GetCreature(m_colonelGuid))
-                    if (npc_colonel_jules::npc_colonel_julesAI* julesAI = dynamic_cast<npc_colonel_jules::npc_colonel_julesAI*>(pColonel->AI()))
+                    if (npc_colonel_julesAI* julesAI = dynamic_cast<npc_colonel_julesAI*>(pColonel->AI()))
                         julesAI->EndEvent();
 
                 if (m_creature->IsAlive())
@@ -1009,135 +1136,10 @@ public:
 
 
 
-    struct npc_colonel_julesAI : public ScriptedAI
-    {
-        npc_colonel_julesAI(Creature* pCreature) : ScriptedAI(pCreature) { Reset(); }
-
-        bool m_bReturnHome;
-        uint32 darknessReleasedCount;
-        uint32 darknessReleasedSpawnTimer;
-        std::vector<ObjectGuid> m_vSummonVector;
-        CreatureList lSlimeList;
-
-        void Reset() override
-        {
-            DespawnSummons();
-            m_vSummonVector.clear();
-            darknessReleasedCount = 0;
-            darknessReleasedSpawnTimer = 40000;
-        }
-
-        void UpdateAI(const uint32 uiDiff) override
-        {
-            if (darknessReleasedSpawnTimer <= uiDiff)
-            {
-                darknessReleasedSpawnTimer = 40000;
-                if (darknessReleasedCount > 0)
-                    darknessReleasedCount--;
-            }
-            else
-                darknessReleasedSpawnTimer -= uiDiff;
-        }
-
-        void MovementInform(uint32 uiType, uint32 uiPointId) override
-        {
-            if (uiType != WAYPOINT_MOTION_TYPE)
-            {
-                if (uiType == POINT_MOTION_TYPE)
-                    if (uiPointId == 10)
-                        m_creature->SetFacingTo(3.1f);
-
-                return;
-            }
-
-            if (m_bReturnHome)
-            {
-                if (uiPointId == 6)
-                {
-                    m_creature->SetLevitate(false);
-                    m_creature->GetMotionMaster()->Clear();
-                    m_creature->SetFacingTo(1.46213f);
-                    m_creature->RemoveAurasDueToSpell(SPELL_JULES_GOES_UPRIGHT);
-                    m_creature->CastSpell(m_creature, SPELL_JULES_GOES_PRONE, TRIGGERED_OLD_TRIGGERED);
-
-                    EndEvent();
-                }
-            }
-            else if (uiPointId == 4)
-                m_creature->GetMotionMaster()->SetNextWaypoint(0);
-        }
-
-        void JustSummoned(Creature* pSummoned) override
-        {
-            if (pSummoned->GetEntry() == NPC_DARKNESS_RELEASED)
-            {
-                if (darknessReleasedCount < 3 && m_creature->HasAura(SPELL_JULES_THREATENS_AURA))
-                {
-                    darknessReleasedCount++;
-                    pSummoned->AI()->SetCombatMovement(false);
-                    if (Creature* pBarada = GetClosestCreatureWithEntry(m_creature, NPC_ANCHORITE_BARADA, 15.0f))
-                    {
-                        pSummoned->AI()->AttackStart(pBarada);
-                        pSummoned->GetMotionMaster()->MoveRandomAroundPoint(pBarada->GetPositionX(), pBarada->GetPositionY(), pBarada->GetPositionZ(), 5.0f);
-                    }
-                }
-                else
-                {
-                    pSummoned->ForcedDespawn();
-                    return;
-                }
-            }
-
-            m_vSummonVector.push_back(pSummoned->GetObjectGuid());
-        }
-
-        void SummonedCreatureJustDied(Creature* pSummoned) override
-        {
-            if (pSummoned->GetEntry() == NPC_DARKNESS_RELEASED)
-            {
-                pSummoned->CastSpell(pSummoned, SPELL_FLYING_SKULL_DESPAWN, TRIGGERED_OLD_TRIGGERED);
-                darknessReleasedCount--;
-            }
-
-            m_vSummonVector.erase(std::remove(m_vSummonVector.begin(), m_vSummonVector.end(), pSummoned->GetObjectGuid()), m_vSummonVector.end());
-        }
-
-        void DespawnSummons()
-        {
-            for (ObjectGuid& guid : m_vSummonVector)
-                if (Creature* summon = m_creature->GetMap()->GetCreature(guid))
-                    summon->ForcedDespawn();
-
-            lSlimeList.clear();
-            GetCreatureListWithEntryInGrid(lSlimeList, m_creature, NPC_FOUL_PURGE, 40.0f);
-            for (auto& itr : lSlimeList)
-            {
-                if (itr->IsAlive())
-                    itr->ForcedDespawn();
-            }
-        }
-
-        void GoHome()
-        {
-            DespawnSummons();
-            m_bReturnHome = true;
-            m_creature->GetMotionMaster()->SetNextWaypoint(5);
-            m_creature->RemoveAurasDueToSpell(SPELL_JULES_VOMITS);
-            m_creature->RemoveAurasDueToSpell(SPELL_JULES_THREATENS_AURA);
-            m_creature->RemoveAurasDueToSpell(SPELL_JULES_RELEASE_DARKNESS);
-        }
-
-        void EndEvent()
-        {
-            m_creature->SetFlag(UNIT_NPC_FLAGS, UNIT_NPC_FLAG_GOSSIP);
-
-            Reset();
-        }
-    };
-
 
 
 };
+
 
 
 static const DialogueEntry aExorcismDialogue[] =

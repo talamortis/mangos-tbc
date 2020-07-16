@@ -130,47 +130,5 @@ static const uint32 aGandlingEvents[MAX_EVENTS] = {EVENT_ID_POLKELT, EVENT_ID_TH
 
 typedef std::map<uint32, GandlingEventData> GandlingEventMap;
 
-class instance_scholomance : public ScriptedInstance
-{
-    public:
-        instance_scholomance(Map* pMap);
-        ~instance_scholomance() {}
-
-        void Initialize() override;
-
-        void OnCreatureEnterCombat(Creature* pCreature) override;
-        void OnCreatureEvade(Creature* pCreature);
-        void OnCreatureDeath(Creature* pCreature) override;
-
-        void OnCreatureCreate(Creature* pCreature) override;
-        void OnObjectCreate(GameObject* pGo) override;
-        void OnPlayerEnter(Player* pPlayer) override;
-
-        void HandlePortalEvent(uint32 uiEventId, uint32 uiData);
-        void HandleDawnGambitEvent();
-
-        void SetData(uint32 uiType, uint32 uiData) override;
-        uint32 GetData(uint32 uiType) const override;
-
-        void Update(const uint32 diff) override;
-
-        const char* Save() const override { return m_strInstData.c_str(); }
-        void Load(const char* chrIn) override;
-
-    private:
-        void DoSpawnGandlingIfCan(bool bByPlayerEnter);
-        void DoRespawnEntranceRoom(Player* pSummoner);
-
-        uint32 m_uiGambitTransformTimer;
-        uint32 m_auiEncounter[MAX_ENCOUNTER];
-        std::string m_strInstData;
-
-        uint32 m_uiGandlingEvent;
-        GandlingEventMap m_mGandlingData;
-
-        bool m_bIsRoomReset;
-        GuidSet m_sEntranceRoomGuids;
-        GuidSet m_sViewingRoomGuids;
-};
 
 #endif

@@ -1020,137 +1020,6 @@ enum
 
 static const uint32 aObeliskEntries[] = { 185193, 185195, 185196, 185197, 185198 };
 
-struct npc_obelisk_triggerAI : public ScriptedAI
-{
-    npc_obelisk_triggerAI(Creature* pCreature) : ScriptedAI(pCreature) { Reset(); }
-
-    // Active count (updates every 1sec)
-    uint8 m_uiActiveObelisk;
-
-    // Timers
-    uint32 m_uiActivateTimer;
-    uint32 m_uiCheckTimer;
-    uint32 m_uiBeamTimer;
-    uint32 m_uiResetTimer;
-
-    // Bool checks to prevent spam
-    bool m_uiSpawnBoss;
-    bool m_uiMarkForReset;
-
-    void Reset() override
-    {
-        m_uiActiveObelisk = 0;
-        m_uiCheckTimer = 1000;
-
-        m_uiActivateTimer = 30 * IN_MILLISECONDS;
-        m_uiBeamTimer = 5 * IN_MILLISECONDS;
-        m_uiResetTimer= 120 * IN_MILLISECONDS;
-
-        m_uiSpawnBoss = false;
-        m_uiMarkForReset = false;
-
-        std::list<GameObject*> lObelisk;
-        for (uint8 i = 0; i < countof(aObeliskEntries); ++i)
-            GetGameObjectListWithEntryInGrid(lObelisk, m_creature, aObeliskEntries[i], 100.0f);
-
-        for (std::list<GameObject*>::iterator itr = lObelisk.begin(); itr != lObelisk.end(); ++itr)
-        {
-            if ((*itr)->GetGoState() == GO_STATE_ACTIVE && (*itr)->GetLootState() == GO_ACTIVATED)
-            {
-                (*itr)->ResetDoorOrButton();
-            }
-        }
-    }
-
-    void UpdateAI(const uint32 uiDiff) override
-    {
-        if (m_uiCheckTimer)
-        {
-            if (m_uiCheckTimer <= uiDiff && m_uiActiveObelisk < 5)
-            {
-                m_uiActiveObelisk = 0;
-
-                std::list<GameObject*> lObelisk;
-                for (uint8 i = 0; i < countof(aObeliskEntries); ++i)
-                    GetGameObjectListWithEntryInGrid(lObelisk, m_creature, aObeliskEntries[i], 100.0f);
-
-                for (std::list<GameObject*>::iterator itr = lObelisk.begin(); itr != lObelisk.end(); ++itr)
-                {
-                    if ((*itr)->GetGoState() == GO_STATE_ACTIVE && (*itr)->GetLootState() == GO_ACTIVATED)
-                        ++m_uiActiveObelisk;
-                }
-
-                m_uiCheckTimer = 1000;
-            }
-            else
-                m_uiCheckTimer -= uiDiff;
-        }
-        
-        if (m_uiActiveObelisk == 5)
-        {
-            if (m_uiActivateTimer)
-            {
-                if (m_uiActivateTimer <= uiDiff && !m_uiSpawnBoss)
-                {
-                    Creature* m_uiDoomcryer = m_creature->SummonCreature(NPC_DOOMCRYER, m_creature->GetPositionX(), m_creature->GetPositionY(), 283.65f, 0.32f, TEMPSPAWN_TIMED_OOC_OR_DEAD_DESPAWN, 60000);
-
-                    if (m_uiDoomcryer)
-                        m_uiDoomcryer->GetMotionMaster()->MovePoint(1, 2882.60f, 4818.73f, 282.0f);
-
-                    std::list<Creature*> lBunny;
-                    GetCreatureListWithEntryInGrid(lBunny, m_creature, NPC_TRIGGER, 100.0f);
-                    for (std::list<Creature*>::iterator itr = lBunny.begin(); itr != lBunny.end(); ++itr)
-                        (*itr)->RemoveAllAuras();
-
-                    m_uiSpawnBoss = true;
-                    m_uiMarkForReset = true;
-                }
-                else
-                {
-                    if (m_uiBeamTimer && !m_uiSpawnBoss)
-                    {
-                        if (m_uiBeamTimer <= uiDiff)
-                        {
-                            std::list<Creature*> lBunny;
-                            GetCreatureListWithEntryInGrid(lBunny, m_creature, NPC_TRIGGER, 100.0f);
-                            for (std::list<Creature*>::iterator itr = lBunny.begin(); itr != lBunny.end(); ++itr)
-                            {
-                                std::list<GameObject*> lObelisk;
-                                for (uint8 i = 0; i < countof(aObeliskEntries); ++i)
-                                    GetGameObjectListWithEntryInGrid(lObelisk, (*itr), aObeliskEntries[i], 1.0f);
-
-                                if (!(*itr)->HasAura(SPELL_GREEN_BEAM) && lObelisk.begin() != lObelisk.end())
-                                {
-                                    (*itr)->CastSpell(m_creature, SPELL_GREEN_BEAM, TRIGGERED_OLD_TRIGGERED);
-                                    break;
-                                }
-                            }
-
-                            m_uiBeamTimer = 5 * IN_MILLISECONDS;
-
-                        }
-                        else
-                            m_uiBeamTimer -= uiDiff;
-                    }
-
-                    m_uiActivateTimer -= uiDiff;
-                }
-            }
-        }
-
-        if (m_uiMarkForReset)
-        {
-            if (m_uiResetTimer <= uiDiff)
-            {
-                Reset();
-            }
-            else
-                m_uiResetTimer -= uiDiff;
-
-        }
-
-    }
-};
 class npc_obelisk_trigger : public CreatureScript
 {
 public:
@@ -1162,6 +1031,137 @@ public:
     }
 
 
+    struct npc_obelisk_triggerAI : public ScriptedAI
+    {
+        npc_obelisk_triggerAI(Creature* pCreature) : ScriptedAI(pCreature) { Reset(); }
+
+        // Active count (updates every 1sec)
+        uint8 m_uiActiveObelisk;
+
+        // Timers
+        uint32 m_uiActivateTimer;
+        uint32 m_uiCheckTimer;
+        uint32 m_uiBeamTimer;
+        uint32 m_uiResetTimer;
+
+        // Bool checks to prevent spam
+        bool m_uiSpawnBoss;
+        bool m_uiMarkForReset;
+
+        void Reset() override
+        {
+            m_uiActiveObelisk = 0;
+            m_uiCheckTimer = 1000;
+
+            m_uiActivateTimer = 30 * IN_MILLISECONDS;
+            m_uiBeamTimer = 5 * IN_MILLISECONDS;
+            m_uiResetTimer = 120 * IN_MILLISECONDS;
+
+            m_uiSpawnBoss = false;
+            m_uiMarkForReset = false;
+
+            std::list<GameObject*> lObelisk;
+            for (uint8 i = 0; i < countof(aObeliskEntries); ++i)
+                GetGameObjectListWithEntryInGrid(lObelisk, m_creature, aObeliskEntries[i], 100.0f);
+
+            for (std::list<GameObject*>::iterator itr = lObelisk.begin(); itr != lObelisk.end(); ++itr)
+            {
+                if ((*itr)->GetGoState() == GO_STATE_ACTIVE && (*itr)->GetLootState() == GO_ACTIVATED)
+                {
+                    (*itr)->ResetDoorOrButton();
+                }
+            }
+        }
+
+        void UpdateAI(const uint32 uiDiff) override
+        {
+            if (m_uiCheckTimer)
+            {
+                if (m_uiCheckTimer <= uiDiff && m_uiActiveObelisk < 5)
+                {
+                    m_uiActiveObelisk = 0;
+
+                    std::list<GameObject*> lObelisk;
+                    for (uint8 i = 0; i < countof(aObeliskEntries); ++i)
+                        GetGameObjectListWithEntryInGrid(lObelisk, m_creature, aObeliskEntries[i], 100.0f);
+
+                    for (std::list<GameObject*>::iterator itr = lObelisk.begin(); itr != lObelisk.end(); ++itr)
+                    {
+                        if ((*itr)->GetGoState() == GO_STATE_ACTIVE && (*itr)->GetLootState() == GO_ACTIVATED)
+                            ++m_uiActiveObelisk;
+                    }
+
+                    m_uiCheckTimer = 1000;
+                }
+                else
+                    m_uiCheckTimer -= uiDiff;
+            }
+
+            if (m_uiActiveObelisk == 5)
+            {
+                if (m_uiActivateTimer)
+                {
+                    if (m_uiActivateTimer <= uiDiff && !m_uiSpawnBoss)
+                    {
+                        Creature* m_uiDoomcryer = m_creature->SummonCreature(NPC_DOOMCRYER, m_creature->GetPositionX(), m_creature->GetPositionY(), 283.65f, 0.32f, TEMPSPAWN_TIMED_OOC_OR_DEAD_DESPAWN, 60000);
+
+                        if (m_uiDoomcryer)
+                            m_uiDoomcryer->GetMotionMaster()->MovePoint(1, 2882.60f, 4818.73f, 282.0f);
+
+                        std::list<Creature*> lBunny;
+                        GetCreatureListWithEntryInGrid(lBunny, m_creature, NPC_TRIGGER, 100.0f);
+                        for (std::list<Creature*>::iterator itr = lBunny.begin(); itr != lBunny.end(); ++itr)
+                            (*itr)->RemoveAllAuras();
+
+                        m_uiSpawnBoss = true;
+                        m_uiMarkForReset = true;
+                    }
+                    else
+                    {
+                        if (m_uiBeamTimer && !m_uiSpawnBoss)
+                        {
+                            if (m_uiBeamTimer <= uiDiff)
+                            {
+                                std::list<Creature*> lBunny;
+                                GetCreatureListWithEntryInGrid(lBunny, m_creature, NPC_TRIGGER, 100.0f);
+                                for (std::list<Creature*>::iterator itr = lBunny.begin(); itr != lBunny.end(); ++itr)
+                                {
+                                    std::list<GameObject*> lObelisk;
+                                    for (uint8 i = 0; i < countof(aObeliskEntries); ++i)
+                                        GetGameObjectListWithEntryInGrid(lObelisk, (*itr), aObeliskEntries[i], 1.0f);
+
+                                    if (!(*itr)->HasAura(SPELL_GREEN_BEAM) && lObelisk.begin() != lObelisk.end())
+                                    {
+                                        (*itr)->CastSpell(m_creature, SPELL_GREEN_BEAM, TRIGGERED_OLD_TRIGGERED);
+                                        break;
+                                    }
+                                }
+
+                                m_uiBeamTimer = 5 * IN_MILLISECONDS;
+
+                            }
+                            else
+                                m_uiBeamTimer -= uiDiff;
+                        }
+
+                        m_uiActivateTimer -= uiDiff;
+                    }
+                }
+            }
+
+            if (m_uiMarkForReset)
+            {
+                if (m_uiResetTimer <= uiDiff)
+                {
+                    Reset();
+                }
+                else
+                    m_uiResetTimer -= uiDiff;
+
+            }
+
+        }
+    };
 
 };
 
@@ -1188,68 +1188,6 @@ enum
     SPELL_SUMMON_GRIMOIRE       = 39862,
     SPELL_SHADOWBOLT_VOLLEY     = 40070,
 };
-
-struct npc_vimgol_AI : public ScriptedAI
-{
-    bool m_uiEnrage;
-    uint32 m_uiVolleyTimer;
-    uint32 m_uiCastTimer;
-
-    npc_vimgol_AI(Creature* pCreature) : ScriptedAI(pCreature)
-    {
-        Reset();
-    }
-
-    void Reset() override
-    {
-        m_uiEnrage = false;
-        m_uiVolleyTimer = 5000;
-        m_uiCastTimer = 0;
-    }
-
-    void MovementInform(uint32 /*uiMovementType*/, uint32 /*uiData*/) override
-    {
-        m_creature->GetMotionMaster()->Clear();
-        m_creature->CastSpell(m_creature, SPELL_UNHOLY_GROWTH, TRIGGERED_NONE);
-        m_creature->GetMotionMaster()->MoveChase(m_creature->GetVictim());
-    }
-
-    void JustDied(Unit* /*pKiller*/) override
-    {
-        m_creature->CastSpell(m_creature, SPELL_SUMMON_GRIMOIRE, TRIGGERED_OLD_TRIGGERED);
-    }
-
-    void UpdateAI(const uint32 uiDiff) override
-    {
-        if (!m_creature->SelectHostileTarget() || !m_creature->GetVictim())
-            return;
-
-        if (!m_uiEnrage)
-        {
-            if (m_creature->GetHealthPercent() <= 50.0f)
-            {
-                m_uiEnrage = true;
-
-                if (Creature* pMiddleBunny = GetClosestCreatureWithEntry(m_creature, NPC_VIMGOL_MIDDLE_BUNNY, 60.0f))
-                {
-                    float x = pMiddleBunny->GetPositionX(), y = pMiddleBunny->GetPositionY(), z = pMiddleBunny->GetPositionZ();
-                    m_creature->UpdateAllowedPositionZ(x, y, z);
-                    m_creature->GetMotionMaster()->MovePoint(1, x, y, z);
-                }
-            }
-        }
-
-        if (m_uiVolleyTimer <= uiDiff)
-        {
-            DoCastSpellIfCan(m_creature, SPELL_SHADOWBOLT_VOLLEY);
-            m_uiVolleyTimer = 5000;
-        }
-        else
-            m_uiVolleyTimer -= uiDiff;
-
-        DoMeleeAttackIfReady();
-    }
-};
 class npc_vimgol : public CreatureScript
 {
 public:
@@ -1259,6 +1197,68 @@ public:
     {
         return new npc_vimgol_AI(pCreature);
     }
+
+    struct npc_vimgol_AI : public ScriptedAI
+    {
+        bool m_uiEnrage;
+        uint32 m_uiVolleyTimer;
+        uint32 m_uiCastTimer;
+
+        npc_vimgol_AI(Creature* pCreature) : ScriptedAI(pCreature)
+        {
+            Reset();
+        }
+
+        void Reset() override
+        {
+            m_uiEnrage = false;
+            m_uiVolleyTimer = 5000;
+            m_uiCastTimer = 0;
+        }
+
+        void MovementInform(uint32 /*uiMovementType*/, uint32 /*uiData*/) override
+        {
+            m_creature->GetMotionMaster()->Clear();
+            m_creature->CastSpell(m_creature, SPELL_UNHOLY_GROWTH, TRIGGERED_NONE);
+            m_creature->GetMotionMaster()->MoveChase(m_creature->GetVictim());
+        }
+
+        void JustDied(Unit* /*pKiller*/) override
+        {
+            m_creature->CastSpell(m_creature, SPELL_SUMMON_GRIMOIRE, TRIGGERED_OLD_TRIGGERED);
+        }
+
+        void UpdateAI(const uint32 uiDiff) override
+        {
+            if (!m_creature->SelectHostileTarget() || !m_creature->GetVictim())
+                return;
+
+            if (!m_uiEnrage)
+            {
+                if (m_creature->GetHealthPercent() <= 50.0f)
+                {
+                    m_uiEnrage = true;
+
+                    if (Creature* pMiddleBunny = GetClosestCreatureWithEntry(m_creature, NPC_VIMGOL_MIDDLE_BUNNY, 60.0f))
+                    {
+                        float x = pMiddleBunny->GetPositionX(), y = pMiddleBunny->GetPositionY(), z = pMiddleBunny->GetPositionZ();
+                        m_creature->UpdateAllowedPositionZ(x, y, z);
+                        m_creature->GetMotionMaster()->MovePoint(1, x, y, z);
+                    }
+                }
+            }
+
+            if (m_uiVolleyTimer <= uiDiff)
+            {
+                DoCastSpellIfCan(m_creature, SPELL_SHADOWBOLT_VOLLEY);
+                m_uiVolleyTimer = 5000;
+            }
+            else
+                m_uiVolleyTimer -= uiDiff;
+
+            DoMeleeAttackIfReady();
+        }
+    };
 
 
 
@@ -1808,152 +1808,6 @@ enum
     MODEL_WYRM_FROM_BEYOND  = 20476,
 };
 
-// This is a first attempt to implement GO type 30 behaviour
-struct go_aura_generator_000AI : public GameObjectAI
-{
-    go_aura_generator_000AI(GameObject* go) : GameObjectAI(go), m_auraSearchTimer(1000), m_spellInfo(sSpellTemplate.LookupEntry<SpellEntry>(SPELL_OSCILLATING_FREQUENCY_SCANNER)) {}
-
-    uint32 m_auraSearchTimer;
-    ObjectGuid m_player;
-    SpellEntry const* m_spellInfo;
-
-    void UpdateAI(const uint32 diff) override
-    {
-        if (m_auraSearchTimer <= diff)
-        {
-            m_auraSearchTimer = 1000;
-            if (Player* player = m_go->GetMap()->GetPlayer(m_player))
-            {
-                float x, y, z;
-                m_go->GetPosition(x, y, z);
-                auto bounds = player->GetSpellAuraHolderBounds(m_spellInfo->Id);
-                SpellAuraHolder* myHolder = nullptr;
-                for (auto itr = bounds.first; itr != bounds.second; ++itr)
-                {
-                    SpellAuraHolder* holder = (*itr).second;
-                    if (holder->GetCasterGuid() == m_go->GetObjectGuid())
-                    {
-                        myHolder = holder;
-                        break;
-                    }
-                }
-                bool isCloseEnough = player->GetDistance(x, y, z, DIST_CALC_COMBAT_REACH) < GetSpellRadius(sSpellRadiusStore.LookupEntry(m_spellInfo->EffectRadiusIndex[EFFECT_INDEX_0]));
-                if (!myHolder)
-                {
-                    if (isCloseEnough)
-                    {
-                        myHolder = CreateSpellAuraHolder(m_spellInfo, player, m_go);
-                        GameObjectAura* Aur = new GameObjectAura(m_spellInfo, EFFECT_INDEX_0, nullptr, nullptr, myHolder, player, m_go);
-                        myHolder->AddAura(Aur, EFFECT_INDEX_0);
-                        if (!player->AddSpellAuraHolder(myHolder))
-                            delete myHolder;
-                    }
-                }
-                else if (!isCloseEnough)
-                    player->RemoveSpellAuraHolder(myHolder);
-            }
-        }
-        else m_auraSearchTimer -= diff;
-    }
-};
-
-struct npc_frequency_scanner : public ScriptedAI
-{
-    npc_frequency_scanner(Creature* pCreature) : ScriptedAI(pCreature) { Reset(); }
-
-    uint32 m_uiOscillationFieldTimer;
-    uint32 m_uiAttackOwnerTimer;
-
-    ObjectGuid m_guidWyrm;
-
-    bool m_bAttack;
-
-    void Reset() override
-    {
-        m_uiOscillationFieldTimer = 0;
-        m_uiAttackOwnerTimer = 0;
-        m_bAttack = false;
-        SetReactState(REACT_PASSIVE);
-    }
-
-    void JustRespawned() override
-    {
-        m_creature->CastSpell(nullptr, SPELL_SUMMON_TOP_BUNNY_CASTER, TRIGGERED_NONE);
-        m_creature->CastSpell(nullptr, SPELL_SUMMON_AURA_GENERATOR_000, TRIGGERED_NONE);
-    }
-
-    void JustSummoned(Creature* creature) override
-    {
-        if (creature->GetEntry() == NPC_TOP_BUNNY)
-            creature->CastSpell(nullptr, SPELL_TOP_BUNNY_BEAM, TRIGGERED_NONE);
-    }
-
-    void JustSummoned(GameObject* go) override
-    {
-        static_cast<go_aura_generator_000AI*>(go->AI())->m_player = m_creature->GetSpawnerGuid();
-    }
-
-    void ReceiveAIEvent(AIEventType eventType, Unit* /*pSender*/, Unit* pInvoker, uint32 /*uiMiscValue*/) override
-    {
-        if (eventType == AI_EVENT_CUSTOM_A)
-        {
-            m_guidWyrm = pInvoker->GetObjectGuid();
-            pInvoker->CastSpell(nullptr, SPELL_SUMMON_SINGING_RIDGE_VOID_STORM, TRIGGERED_NONE);
-            m_uiAttackOwnerTimer = 3000;
-        }
-    }
-
-    void UpdateAI(const uint32 uiDiff) override
-    {
-        if (m_uiOscillationFieldTimer <= uiDiff)
-        {
-            m_uiOscillationFieldTimer = 2000;
-            m_creature->CastSpell(m_creature, SPELL_OSCILLATION_FIELD, TRIGGERED_NONE);
-        }
-        else
-            m_uiOscillationFieldTimer -= uiDiff;
-
-        if (m_uiAttackOwnerTimer)
-        {
-            if (m_uiAttackOwnerTimer <= uiDiff)
-            {
-                if (m_bAttack)
-                {
-                    m_uiAttackOwnerTimer = 0;
-                    if (Unit* owner = m_creature->GetSpawner())
-                        if (Creature* creature = m_creature->GetMap()->GetCreature(m_guidWyrm))
-                            creature->AI()->AttackStart(owner);
-                }
-                else
-                {
-                    m_uiAttackOwnerTimer = 1000;
-                    m_bAttack = true;
-                    if (Creature* creature = m_creature->GetMap()->GetCreature(m_guidWyrm))
-                    {
-                        creature->SetDisplayId(MODEL_WYRM_FROM_BEYOND);
-                        creature->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE);
-                        creature->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_PLAYER);
-                    }
-                }                
-            }
-            else
-                m_uiAttackOwnerTimer -= uiDiff;
-        }        
-    }
-};
-class npc_frequency_scanner : public CreatureScript
-{
-public:
-    npc_frequency_scanner() : CreatureScript("npc_frequency_scanner") { }
-
-    UnitAI* GetAI(Creature* creature)
-    {
-        return new npc_frequency_scanner(creature);
-    }
-
-
-
-};
 class go_aura_generator_000 : public GameObjectScript
 {
 public:
@@ -1964,9 +1818,155 @@ public:
         return new go_aura_generator_000AI(go);
     }
 
+    // This is a first attempt to implement GO type 30 behaviour
+    struct go_aura_generator_000AI : public GameObjectAI
+    {
+        go_aura_generator_000AI(GameObject* go) : GameObjectAI(go), m_auraSearchTimer(1000), m_spellInfo(sSpellTemplate.LookupEntry<SpellEntry>(SPELL_OSCILLATING_FREQUENCY_SCANNER)) {}
+
+        uint32 m_auraSearchTimer;
+        ObjectGuid m_player;
+        SpellEntry const* m_spellInfo;
+
+        void UpdateAI(const uint32 diff) override
+        {
+            if (m_auraSearchTimer <= diff)
+            {
+                m_auraSearchTimer = 1000;
+                if (Player* player = m_go->GetMap()->GetPlayer(m_player))
+                {
+                    float x, y, z;
+                    m_go->GetPosition(x, y, z);
+                    auto bounds = player->GetSpellAuraHolderBounds(m_spellInfo->Id);
+                    SpellAuraHolder* myHolder = nullptr;
+                    for (auto itr = bounds.first; itr != bounds.second; ++itr)
+                    {
+                        SpellAuraHolder* holder = (*itr).second;
+                        if (holder->GetCasterGuid() == m_go->GetObjectGuid())
+                        {
+                            myHolder = holder;
+                            break;
+                        }
+                    }
+                    bool isCloseEnough = player->GetDistance(x, y, z, DIST_CALC_COMBAT_REACH) < GetSpellRadius(sSpellRadiusStore.LookupEntry(m_spellInfo->EffectRadiusIndex[EFFECT_INDEX_0]));
+                    if (!myHolder)
+                    {
+                        if (isCloseEnough)
+                        {
+                            myHolder = CreateSpellAuraHolder(m_spellInfo, player, m_go);
+                            GameObjectAura* Aur = new GameObjectAura(m_spellInfo, EFFECT_INDEX_0, nullptr, nullptr, myHolder, player, m_go);
+                            myHolder->AddAura(Aur, EFFECT_INDEX_0);
+                            if (!player->AddSpellAuraHolder(myHolder))
+                                delete myHolder;
+                        }
+                    }
+                    else if (!isCloseEnough)
+                        player->RemoveSpellAuraHolder(myHolder);
+                }
+            }
+            else m_auraSearchTimer -= diff;
+        }
+    };
+
+};
+class npc_frequency_scanner : public CreatureScript
+{
+public:
+    npc_frequency_scanner() : CreatureScript("npc_frequency_scanner") { }
+
+    UnitAI* GetAI(Creature* creature)
+    {
+        return new npc_frequency_scannerAI(creature);
+    }
+
+
+    struct npc_frequency_scannerAI : public ScriptedAI
+    {
+        npc_frequency_scannerAI(Creature* pCreature) : ScriptedAI(pCreature) { Reset(); }
+
+        uint32 m_uiOscillationFieldTimer;
+        uint32 m_uiAttackOwnerTimer;
+
+        ObjectGuid m_guidWyrm;
+
+        bool m_bAttack;
+
+        void Reset() override
+        {
+            m_uiOscillationFieldTimer = 0;
+            m_uiAttackOwnerTimer = 0;
+            m_bAttack = false;
+            SetReactState(REACT_PASSIVE);
+        }
+
+        void JustRespawned() override
+        {
+            m_creature->CastSpell(nullptr, SPELL_SUMMON_TOP_BUNNY_CASTER, TRIGGERED_NONE);
+            m_creature->CastSpell(nullptr, SPELL_SUMMON_AURA_GENERATOR_000, TRIGGERED_NONE);
+        }
+
+        void JustSummoned(Creature* creature) override
+        {
+            if (creature->GetEntry() == NPC_TOP_BUNNY)
+                creature->CastSpell(nullptr, SPELL_TOP_BUNNY_BEAM, TRIGGERED_NONE);
+        }
+
+        void JustSummoned(GameObject* go) override
+        {
+            static_cast<go_aura_generator_000::go_aura_generator_000AI*>(go->AI())->m_player = m_creature->GetSpawnerGuid();
+        }
+
+        void ReceiveAIEvent(AIEventType eventType, Unit* /*pSender*/, Unit* pInvoker, uint32 /*uiMiscValue*/) override
+        {
+            if (eventType == AI_EVENT_CUSTOM_A)
+            {
+                m_guidWyrm = pInvoker->GetObjectGuid();
+                pInvoker->CastSpell(nullptr, SPELL_SUMMON_SINGING_RIDGE_VOID_STORM, TRIGGERED_NONE);
+                m_uiAttackOwnerTimer = 3000;
+            }
+        }
+
+        void UpdateAI(const uint32 uiDiff) override
+        {
+            if (m_uiOscillationFieldTimer <= uiDiff)
+            {
+                m_uiOscillationFieldTimer = 2000;
+                m_creature->CastSpell(m_creature, SPELL_OSCILLATION_FIELD, TRIGGERED_NONE);
+            }
+            else
+                m_uiOscillationFieldTimer -= uiDiff;
+
+            if (m_uiAttackOwnerTimer)
+            {
+                if (m_uiAttackOwnerTimer <= uiDiff)
+                {
+                    if (m_bAttack)
+                    {
+                        m_uiAttackOwnerTimer = 0;
+                        if (Unit* owner = m_creature->GetSpawner())
+                            if (Creature* creature = m_creature->GetMap()->GetCreature(m_guidWyrm))
+                                creature->AI()->AttackStart(owner);
+                    }
+                    else
+                    {
+                        m_uiAttackOwnerTimer = 1000;
+                        m_bAttack = true;
+                        if (Creature* creature = m_creature->GetMap()->GetCreature(m_guidWyrm))
+                        {
+                            creature->SetDisplayId(MODEL_WYRM_FROM_BEYOND);
+                            creature->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE);
+                            creature->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_PLAYER);
+                        }
+                    }
+                }
+                else
+                    m_uiAttackOwnerTimer -= uiDiff;
+            }
+        }
+    };
 
 
 };
+
 
 /*######
 ## npc_fel_cannon
@@ -2004,75 +2004,6 @@ enum
     NPC_EXPLOSION_BUNNY = 22502,
 };
 
-struct npc_fel_cannon : public Scripted_NoMovementAI
-{
-    npc_fel_cannon(Creature* pCreature) : Scripted_NoMovementAI(pCreature) { Reset(); }
-
-    uint32 m_uiCannonBlastTimer;
-
-    bool m_bMCed;
-    
-    void Reset() override
-    {
-        m_uiCannonBlastTimer = 1000;
-        m_bMCed = false;
-        m_creature->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE);
-    }
-
-    bool CanHandleCharm() override { return true; }
-
-    void SpellHit(Unit* /*pCaster*/, const SpellEntry* pSpell) override
-    {
-        if (pSpell->Id == SPELL_DEATHS_DOOR_FEL_CANNON)
-        {
-            m_bMCed = true;
-            if (Creature* target = GetClosestCreatureWithEntry(m_creature, NPC_DEATHS_DOOR_FEL_CANNON_TARGET_BUNNY, 100.f))
-            {
-                m_creature->SetFacingToObject(target);
-                m_creature->FixateTarget(target);
-            }
-
-            m_creature->RemoveFlag(UNIT_FIELD_FLAGS,UNIT_FLAG_NOT_SELECTABLE);
-
-            m_creature->GetCombatManager().SetLeashingDisable(true);
-        }
-    }
-
-    void MoveInLineOfSight(Unit* /*pWho*/) override {} // disable changing facing of any kind
-
-    void EnterEvadeMode() override
-    {
-        if (!m_bMCed)
-        {
-            Scripted_NoMovementAI::EnterEvadeMode();
-            m_creature->FixateTarget(nullptr);
-        }
-    }
-
-    void UpdateAI(const uint32 uiDiff) override
-    {
-        if (m_bMCed && !m_creature->HasCharmer())
-        {            
-            Scripted_NoMovementAI::EnterEvadeMode();
-            m_creature->FixateTarget(nullptr);
-            return;
-        }
-
-        if (!m_bMCed)
-        {
-            if (!m_creature->SelectHostileTarget() || !m_creature->GetVictim())
-                return;
-
-            if (m_uiCannonBlastTimer <= uiDiff)
-            {
-                m_uiCannonBlastTimer = 2500;
-                m_creature->CastSpell(m_creature->GetVictim(), SPELL_FEL_CANNON_BLAST, TRIGGERED_NONE);
-            }
-            else
-                m_uiCannonBlastTimer -= uiDiff;
-        }
-    }
-};
 class npc_fel_cannon : public CreatureScript
 {
 public:
@@ -2080,10 +2011,79 @@ public:
 
     UnitAI* GetAI(Creature* pCreature)
     {
-        return new npc_fel_cannon(pCreature);
+        return new npc_fel_cannonAI(pCreature);
     }
 
 
+    struct npc_fel_cannonAI : public Scripted_NoMovementAI
+    {
+        npc_fel_cannonAI(Creature* pCreature) : Scripted_NoMovementAI(pCreature) { Reset(); }
+
+        uint32 m_uiCannonBlastTimer;
+
+        bool m_bMCed;
+
+        void Reset() override
+        {
+            m_uiCannonBlastTimer = 1000;
+            m_bMCed = false;
+            m_creature->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE);
+        }
+
+        bool CanHandleCharm() override { return true; }
+
+        void SpellHit(Unit* /*pCaster*/, const SpellEntry* pSpell) override
+        {
+            if (pSpell->Id == SPELL_DEATHS_DOOR_FEL_CANNON)
+            {
+                m_bMCed = true;
+                if (Creature* target = GetClosestCreatureWithEntry(m_creature, NPC_DEATHS_DOOR_FEL_CANNON_TARGET_BUNNY, 100.f))
+                {
+                    m_creature->SetFacingToObject(target);
+                    m_creature->FixateTarget(target);
+                }
+
+                m_creature->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE);
+
+                m_creature->GetCombatManager().SetLeashingDisable(true);
+            }
+        }
+
+        void MoveInLineOfSight(Unit* /*pWho*/) override {} // disable changing facing of any kind
+
+        void EnterEvadeMode() override
+        {
+            if (!m_bMCed)
+            {
+                Scripted_NoMovementAI::EnterEvadeMode();
+                m_creature->FixateTarget(nullptr);
+            }
+        }
+
+        void UpdateAI(const uint32 uiDiff) override
+        {
+            if (m_bMCed && !m_creature->HasCharmer())
+            {
+                Scripted_NoMovementAI::EnterEvadeMode();
+                m_creature->FixateTarget(nullptr);
+                return;
+            }
+
+            if (!m_bMCed)
+            {
+                if (!m_creature->SelectHostileTarget() || !m_creature->GetVictim())
+                    return;
+
+                if (m_uiCannonBlastTimer <= uiDiff)
+                {
+                    m_uiCannonBlastTimer = 2500;
+                    m_creature->CastSpell(m_creature->GetVictim(), SPELL_FEL_CANNON_BLAST, TRIGGERED_NONE);
+                }
+                else
+                    m_uiCannonBlastTimer -= uiDiff;
+            }
+        }
+    };
 
 };
 
@@ -2114,60 +2114,70 @@ static float fireSpawns[14][3] =
     { 1973.351f,5299.629f,155.395f},
     { 1981.730f, 5315.390f, 156.600f }
 };
-
-struct npc_warp_gate : public Scripted_NoMovementAI
+class npc_warp_gate : public CreatureScript
 {
-    npc_warp_gate(Creature* pCreature) : Scripted_NoMovementAI(pCreature), m_resetTimer(0) { Reset(); }
+public:
+    npc_warp_gate() : CreatureScript("npc_warp_gate") { }
 
-    uint32 m_uiHitCounter;
-    uint32 m_uiSpawnImpTimer;
-    uint32 m_resetTimer;
-
-    ObjectGuid m_guidFelCannon;
-    ObjectGuid m_guidSmoke;
-
-    std::vector<ObjectGuid> m_vImpGuids;
-    
-    void Reset() override
+    UnitAI* GetAI(Creature* pCreature)
     {
-        m_uiHitCounter = 0;
-        m_uiSpawnImpTimer = 0;
-
-        for (ObjectGuid& guid : m_vImpGuids)
-            if (Creature* imp = m_creature->GetMap()->GetCreature(guid))
-                imp->ForcedDespawn(100);
-
-        m_vImpGuids.clear();
-
-        m_guidSmoke = ObjectGuid();
-
-        if (m_creature->IsAlive())
-        {
-            float x, y, z, ori;
-            m_creature->GetRespawnCoord(x, y, z, &ori);
-            m_creature->SetOrientation(ori);
-            m_creature->SetFacingTo(ori);
-        }
+        return new npc_warp_gateAI(pCreature);
     }
 
-    void SpellHit(Unit* pCaster, const SpellEntry* pSpell) override
-    {
-        if (pSpell->Id == SPELL_ARTILLERY_ON_THE_WARP_GATE)
-        {
-            if (!m_uiHitCounter)
-            {
-                if (m_resetTimer)
-                {
-                    m_resetTimer = 0;
-                    m_creature->GetInstanceData()->SetData(m_creature->GetEntry() == NPC_DEATHS_DOOR_NORTH_WARP_GATE ? TYPE_DEATHS_DOOR_NORTH : TYPE_DEATHS_DOOR_SOUTH, 0);
-                }
-                m_guidFelCannon = pCaster->GetObjectGuid();
-            }
-            
-            uint32 spellId;
 
-            switch (m_uiHitCounter)
+    struct npc_warp_gateAI : public Scripted_NoMovementAI
+    {
+        npc_warp_gateAI(Creature* pCreature) : Scripted_NoMovementAI(pCreature), m_resetTimer(0) { Reset(); }
+
+        uint32 m_uiHitCounter;
+        uint32 m_uiSpawnImpTimer;
+        uint32 m_resetTimer;
+
+        ObjectGuid m_guidFelCannon;
+        ObjectGuid m_guidSmoke;
+
+        std::vector<ObjectGuid> m_vImpGuids;
+
+        void Reset() override
+        {
+            m_uiHitCounter = 0;
+            m_uiSpawnImpTimer = 0;
+
+            for (ObjectGuid& guid : m_vImpGuids)
+                if (Creature* imp = m_creature->GetMap()->GetCreature(guid))
+                    imp->ForcedDespawn(100);
+
+            m_vImpGuids.clear();
+
+            m_guidSmoke = ObjectGuid();
+
+            if (m_creature->IsAlive())
             {
+                float x, y, z, ori;
+                m_creature->GetRespawnCoord(x, y, z, &ori);
+                m_creature->SetOrientation(ori);
+                m_creature->SetFacingTo(ori);
+            }
+        }
+
+        void SpellHit(Unit* pCaster, const SpellEntry* pSpell) override
+        {
+            if (pSpell->Id == SPELL_ARTILLERY_ON_THE_WARP_GATE)
+            {
+                if (!m_uiHitCounter)
+                {
+                    if (m_resetTimer)
+                    {
+                        m_resetTimer = 0;
+                        m_creature->GetInstanceData()->SetData(m_creature->GetEntry() == NPC_DEATHS_DOOR_NORTH_WARP_GATE ? TYPE_DEATHS_DOOR_NORTH : TYPE_DEATHS_DOOR_SOUTH, 0);
+                    }
+                    m_guidFelCannon = pCaster->GetObjectGuid();
+                }
+
+                uint32 spellId;
+
+                switch (m_uiHitCounter)
+                {
                 case 0:
                 case 1:
                 case 2:
@@ -2198,82 +2208,72 @@ struct npc_warp_gate : public Scripted_NoMovementAI
                         explosionBunny->CastSpell(nullptr, SPELL_EXPLOSION, TRIGGERED_NONE);
                     break;
                 }
-            }
-            uint32 i = m_creature->GetEntry() - NPC_DEATHS_DOOR_NORTH_WARP_GATE;
-            m_creature->CastSpell(fireSpawns[i * 7 + m_uiHitCounter][0], fireSpawns[i * 7 + m_uiHitCounter][1], fireSpawns[i * 7 + m_uiHitCounter][2], spellId, TRIGGERED_OLD_TRIGGERED);
-
-            m_uiHitCounter++;
-            m_creature->GetInstanceData()->SetData(m_creature->GetEntry() == NPC_DEATHS_DOOR_NORTH_WARP_GATE ? TYPE_DEATHS_DOOR_NORTH : TYPE_DEATHS_DOOR_SOUTH, m_uiHitCounter);
-            if (m_uiHitCounter == 7)
-            {
-                m_resetTimer = 30000;
-                Reset();
-            }
-        }
-    }
-
-    void JustSummoned(GameObject* pGo) override
-    {
-        if (pGo->GetEntry() == GO_SMOKE)
-            m_guidSmoke = pGo->GetObjectGuid();
-    }
-
-    void JustSummoned(Creature* pSummoned) override
-    {
-        if (pSummoned->GetEntry() == NPC_UNSTABLE_FEL_IMP)
-        {
-            m_vImpGuids.push_back(pSummoned->GetObjectGuid());
-            pSummoned->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE);
-            pSummoned->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_PLAYER);
-            if (Creature* cannon = m_creature->GetMap()->GetCreature(m_guidFelCannon))
-            {
-                pSummoned->AI()->AttackStart(cannon);
-            }
-        }
-    }
-
-    void UpdateAI(const uint32 uiDiff) override
-    {
-        if (m_uiHitCounter)
-        {
-            Creature* cannon = m_creature->GetMap()->GetCreature(m_guidFelCannon);
-            if (!cannon || !cannon->HasCharmer())
-            {
-                Reset();
-                return;
-            }
-
-            if (m_uiSpawnImpTimer <= uiDiff)
-            {
+                }
                 uint32 i = m_creature->GetEntry() - NPC_DEATHS_DOOR_NORTH_WARP_GATE;
-                if (m_creature->SummonCreature(NPC_UNSTABLE_FEL_IMP, impSpawns[i][0], impSpawns[i][1], impSpawns[i][2], impSpawns[i][3], TEMPSPAWN_TIMED_OOC_OR_DEAD_DESPAWN, 20000, true, true))
-                    m_uiSpawnImpTimer = 3000;
+                m_creature->CastSpell(fireSpawns[i * 7 + m_uiHitCounter][0], fireSpawns[i * 7 + m_uiHitCounter][1], fireSpawns[i * 7 + m_uiHitCounter][2], spellId, TRIGGERED_OLD_TRIGGERED);
+
+                m_uiHitCounter++;
+                m_creature->GetInstanceData()->SetData(m_creature->GetEntry() == NPC_DEATHS_DOOR_NORTH_WARP_GATE ? TYPE_DEATHS_DOOR_NORTH : TYPE_DEATHS_DOOR_SOUTH, m_uiHitCounter);
+                if (m_uiHitCounter == 7)
+                {
+                    m_resetTimer = 30000;
+                    Reset();
+                }
             }
-            else
-                m_uiSpawnImpTimer -= uiDiff;
         }
 
-        if (m_resetTimer)
+        void JustSummoned(GameObject* pGo) override
         {
-            if (m_resetTimer <= uiDiff)
-            {
-                m_creature->GetInstanceData()->SetData(m_creature->GetEntry() == NPC_DEATHS_DOOR_NORTH_WARP_GATE ? TYPE_DEATHS_DOOR_NORTH : TYPE_DEATHS_DOOR_SOUTH, 0);
-                m_resetTimer = 0;
-            }
-            else m_resetTimer -= uiDiff;
+            if (pGo->GetEntry() == GO_SMOKE)
+                m_guidSmoke = pGo->GetObjectGuid();
         }
-    }
-};
-class npc_warp_gate : public CreatureScript
-{
-public:
-    npc_warp_gate() : CreatureScript("npc_warp_gate") { }
 
-    UnitAI* GetAI(Creature* pCreature)
-    {
-        return new npc_warp_gate(pCreature);
-    }
+        void JustSummoned(Creature* pSummoned) override
+        {
+            if (pSummoned->GetEntry() == NPC_UNSTABLE_FEL_IMP)
+            {
+                m_vImpGuids.push_back(pSummoned->GetObjectGuid());
+                pSummoned->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE);
+                pSummoned->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_PLAYER);
+                if (Creature* cannon = m_creature->GetMap()->GetCreature(m_guidFelCannon))
+                {
+                    pSummoned->AI()->AttackStart(cannon);
+                }
+            }
+        }
 
+        void UpdateAI(const uint32 uiDiff) override
+        {
+            if (m_uiHitCounter)
+            {
+                Creature* cannon = m_creature->GetMap()->GetCreature(m_guidFelCannon);
+                if (!cannon || !cannon->HasCharmer())
+                {
+                    Reset();
+                    return;
+                }
+
+                if (m_uiSpawnImpTimer <= uiDiff)
+                {
+                    uint32 i = m_creature->GetEntry() - NPC_DEATHS_DOOR_NORTH_WARP_GATE;
+                    if (m_creature->SummonCreature(NPC_UNSTABLE_FEL_IMP, impSpawns[i][0], impSpawns[i][1], impSpawns[i][2], impSpawns[i][3], TEMPSPAWN_TIMED_OOC_OR_DEAD_DESPAWN, 20000, true, true))
+                        m_uiSpawnImpTimer = 3000;
+                }
+                else
+                    m_uiSpawnImpTimer -= uiDiff;
+            }
+
+            if (m_resetTimer)
+            {
+                if (m_resetTimer <= uiDiff)
+                {
+                    m_creature->GetInstanceData()->SetData(m_creature->GetEntry() == NPC_DEATHS_DOOR_NORTH_WARP_GATE ? TYPE_DEATHS_DOOR_NORTH : TYPE_DEATHS_DOOR_SOUTH, 0);
+                    m_resetTimer = 0;
+                }
+                else m_resetTimer -= uiDiff;
+            }
+        }
+    };
 
 
 };
@@ -2995,28 +2995,6 @@ enum
 {
     POINT_PLAYER_POSITION = 1,
 };
-
-struct npc_spirit_prisoner_of_bladespire : public ScriptedAI
-{
-    npc_spirit_prisoner_of_bladespire(Creature* pCreature) : ScriptedAI(pCreature) { Reset(); }
-
-    void Reset() override {}
-
-    void ReceiveAIEvent(AIEventType eventType, Unit* /*pSender*/, Unit* /*pInvoker*/, uint32 /*uiMiscValue*/) override
-    {
-        if (eventType == AI_EVENT_CUSTOM_A)
-        {
-            if (Unit* spawner = m_creature->GetSpawner())
-                m_creature->GetMotionMaster()->MovePoint(POINT_PLAYER_POSITION, spawner->GetPositionX(), spawner->GetPositionY(), spawner->GetPositionZ());
-        }
-    }
-
-    void MovementInform(uint32 uiMovementType, uint32 uiData) override
-    {
-        if (uiMovementType == POINT_MOTION_TYPE && uiData == POINT_PLAYER_POSITION)
-            m_creature->ForcedDespawn();
-    }
-};
 class npc_spirit_prisoner_of_bladespire : public CreatureScript
 {
 public:
@@ -3024,8 +3002,30 @@ public:
 
     UnitAI* GetAI(Creature* pCreature)
     {
-        return new npc_spirit_prisoner_of_bladespire(pCreature);
+        return new npc_spirit_prisoner_of_bladespireAI(pCreature);
     }
+
+    struct npc_spirit_prisoner_of_bladespireAI : public ScriptedAI
+    {
+        npc_spirit_prisoner_of_bladespireAI(Creature* pCreature) : ScriptedAI(pCreature) { Reset(); }
+
+        void Reset() override {}
+
+        void ReceiveAIEvent(AIEventType eventType, Unit* /*pSender*/, Unit* /*pInvoker*/, uint32 /*uiMiscValue*/) override
+        {
+            if (eventType == AI_EVENT_CUSTOM_A)
+            {
+                if (Unit* spawner = m_creature->GetSpawner())
+                    m_creature->GetMotionMaster()->MovePoint(POINT_PLAYER_POSITION, spawner->GetPositionX(), spawner->GetPositionY(), spawner->GetPositionZ());
+            }
+        }
+
+        void MovementInform(uint32 uiMovementType, uint32 uiData) override
+        {
+            if (uiMovementType == POINT_MOTION_TYPE && uiData == POINT_PLAYER_POSITION)
+                m_creature->ForcedDespawn();
+        }
+    };
 
 
 
@@ -3045,30 +3045,40 @@ enum
 
     ORB_TRIGGER_01 = 20666,
 };
-
-struct npc_deadsoul_orb : public ScriptedAI
+class npc_deadsoul_orb : public CreatureScript
 {
-    npc_deadsoul_orb(Creature* pCreature) : ScriptedAI(pCreature)
+public:
+    npc_deadsoul_orb() : CreatureScript("npc_deadsoul_orb") { }
+
+    UnitAI* GetAI(Creature* pCreature)
     {
-        Reset();
-        m_creature->SetActiveObjectState(true); // Need to be active since the area is so large they might get unloaded on the way to the destination
-        nextTrigger = WAYPOINT_TRIGGER_1;
-        pointCount = 1;
-        MoveToNextTrigger();
+        return new npc_deadsoul_orbAI(pCreature);
     }
 
-    uint32 nextTrigger;
-    uint8 pointCount;
 
-    void Reset() override { }
-
-    void MovementInform(uint32 uiMovementType, uint32 uiData) override
+    struct npc_deadsoul_orbAI : public ScriptedAI
     {
-        if (uiMovementType != POINT_MOTION_TYPE)
-            return;
-
-        switch (uiData)
+        npc_deadsoul_orbAI(Creature* pCreature) : ScriptedAI(pCreature)
         {
+            Reset();
+            m_creature->SetActiveObjectState(true); // Need to be active since the area is so large they might get unloaded on the way to the destination
+            nextTrigger = WAYPOINT_TRIGGER_1;
+            pointCount = 1;
+            MoveToNextTrigger();
+        }
+
+        uint32 nextTrigger;
+        uint8 pointCount;
+
+        void Reset() override { }
+
+        void MovementInform(uint32 uiMovementType, uint32 uiData) override
+        {
+            if (uiMovementType != POINT_MOTION_TYPE)
+                return;
+
+            switch (uiData)
+            {
             case 1:
             {
                 nextTrigger = WAYPOINT_TRIGGER_2;
@@ -3112,36 +3122,26 @@ struct npc_deadsoul_orb : public ScriptedAI
                 }
                 m_creature->ForcedDespawn();
             }
-        }
-    }
-
-    void MoveToNextTrigger()
-    {
-        if (pointCount == 6)
-            m_creature->GetMotionMaster()->MovePoint(pointCount, 2809.716f, 5250.526f, 274.4666f);
-        else
-        {
-            if (Creature* waypointTrigger = GetClosestCreatureWithEntry(m_creature, nextTrigger, 95))
-            {
-                m_creature->GetMotionMaster()->MovePoint(pointCount, waypointTrigger->GetPositionX(), waypointTrigger->GetPositionY(), waypointTrigger->GetPositionZ());
             }
+        }
+
+        void MoveToNextTrigger()
+        {
+            if (pointCount == 6)
+                m_creature->GetMotionMaster()->MovePoint(pointCount, 2809.716f, 5250.526f, 274.4666f);
             else
             {
-                m_creature->ForcedDespawn(3000);
+                if (Creature* waypointTrigger = GetClosestCreatureWithEntry(m_creature, nextTrigger, 95))
+                {
+                    m_creature->GetMotionMaster()->MovePoint(pointCount, waypointTrigger->GetPositionX(), waypointTrigger->GetPositionY(), waypointTrigger->GetPositionZ());
+                }
+                else
+                {
+                    m_creature->ForcedDespawn(3000);
+                }
             }
         }
-    }
-};
-class npc_deadsoul_orb : public CreatureScript
-{
-public:
-    npc_deadsoul_orb() : CreatureScript("npc_deadsoul_orb") { }
-
-    UnitAI* GetAI(Creature* pCreature)
-    {
-        return new npc_deadsoul_orb(pCreature);
-    }
-
+    };
 
 
 };
@@ -3647,142 +3647,145 @@ enum RangerActions
     RANGER_COMBAT_ACTION_WHIRLWIND,
     RANGER_COMBAT_ACTION_MAX,
 };
-class npc_skyguard_lieutenant : public CreatureScript
+
+
+struct npc_skyguard_rangerAI : public ScriptedAI, public CombatActions
+{
+    npc_skyguard_rangerAI(Creature* creature) : ScriptedAI(creature), CombatActions(RANGER_COMBAT_ACTION_MAX), m_spawnId(PATH_ID_DISMOUNT) // implicit default for lieutenant
+    {
+        AddCombatAction(RANGER_COMBAT_ACTION_WHIRLWIND, 0u);
+        Reset();
+    }
+
+    uint32 m_spawnId;
+
+    void Reset() override
+    {
+        for (uint32 i = 0; i < RANGER_COMBAT_ACTION_MAX; ++i)
+            SetActionReadyStatus(i, false);
+
+        ResetTimer(RANGER_COMBAT_ACTION_WHIRLWIND, GetInitialActionTimer(RANGER_COMBAT_ACTION_WHIRLWIND));
+    }
+
+    uint32 GetInitialActionTimer(uint32 id)
+    {
+        switch (id)
+        {
+        case RANGER_COMBAT_ACTION_WHIRLWIND: return urand(15000, 30000);
+        default: return 0; // never occurs but for compiler
+        }
+    }
+
+    uint32 GetSubsequentActionTimer(uint32 id)
+    {
+        switch (id)
+        {
+        case RANGER_COMBAT_ACTION_WHIRLWIND: return urand(15000, 30000);
+        default: return 0; // never occurs but for compiler
+        }
+    }
+
+    void ReceiveAIEvent(AIEventType eventType, Unit* /*sender*/, Unit* /*invoker*/, uint32 miscValue) override
+    {
+        if (eventType == AI_EVENT_CUSTOM_A)
+            m_spawnId = miscValue; // map passes which spawn this is
+    }
+
+    void MovementInform(uint32 movementType, uint32 data) override
+    {
+        if (movementType == WAYPOINT_MOTION_TYPE)
+        {
+            switch (m_creature->GetMotionMaster()->GetPathId())
+            {
+            case PATH_ID_BIG_PATH:
+            {
+                if (data == POINT_DISMOUNT)
+                {
+                    m_creature->GetMotionMaster()->Clear(false, true);
+                    m_creature->SetHover(false);
+                    m_creature->SetLevitate(false);
+                    m_creature->Unmount();
+                    m_creature->GetMotionMaster()->MoveWaypoint(m_spawnId);
+                    if (m_creature->GetEntry() == NPC_SKYGUARD_LIEUTENANT)
+                        m_creature->GetMap()->GetInstanceData()->SetData(TYPE_BASHIR, 0);
+                }
+                break;
+            }
+            default:
+            {
+                if (data == POINT_FINAL)
+                {
+                    m_creature->GetMotionMaster()->Clear(false, true);
+                    m_creature->GetMotionMaster()->MoveIdle();
+                }
+                break;
+            }
+            }
+        }
+    }
+
+    void ExecuteActions() override
+    {
+        if (!CanExecuteCombatAction())
+            return;
+
+        for (uint32 i = 0; i < RANGER_COMBAT_ACTION_MAX; ++i)
+        {
+            if (GetActionReadyStatus(i))
+            {
+                switch (i)
+                {
+                case RANGER_COMBAT_ACTION_WHIRLWIND:
+                {
+                    if (DoCastSpellIfCan(nullptr, SPELL_WHIRLWIND) == CAST_OK)
+                    {
+                        ResetTimer(i, GetSubsequentActionTimer(i));
+                        SetActionReadyStatus(i, false);
+                        return;
+                    }
+                    continue;
+                }
+                }
+            }
+        }
+    }
+
+    void UpdateAI(const uint32 diff)
+    {
+        if (!m_creature->SelectHostileTarget() || !m_creature->GetVictim())
+            return;
+
+        UpdateTimers(diff, m_creature->IsInCombat());
+        ExecuteActions();
+
+        DoMeleeAttackIfReady();
+    }
+};class npc_skyguard_lieutenant : public CreatureScript
 {
 public:
     npc_skyguard_lieutenant() : CreatureScript("npc_skyguard_lieutenant") { }
+
+    UnitAI* GetAI(Creature* creature)
+    {
+        return new npc_skyguard_rangerAI(creature);
+    }
+
+};
 class npc_skyguard_ranger : public CreatureScript
 {
 public:
     npc_skyguard_ranger() : CreatureScript("npc_skyguard_ranger") { }
 
-        UnitAI* GetAI(Creature* creature)
-        {
-            return new npc_skyguard_rangerAI(creature);
-        }
+    UnitAI* GetAI(Creature* creature)
+    {
+        return new npc_skyguard_rangerAI(creature);
+    }
 
 
 
-        struct npc_skyguard_rangerAI : public ScriptedAI, public CombatActions
-        {
-            npc_skyguard_rangerAI(Creature* creature) : ScriptedAI(creature), CombatActions(RANGER_COMBAT_ACTION_MAX), m_spawnId(PATH_ID_DISMOUNT) // implicit default for lieutenant
-            {
-                AddCombatAction(RANGER_COMBAT_ACTION_WHIRLWIND, 0u);
-                Reset();
-            }
-
-            uint32 m_spawnId;
-
-            void Reset() override
-            {
-                for (uint32 i = 0; i < RANGER_COMBAT_ACTION_MAX; ++i)
-                    SetActionReadyStatus(i, false);
-
-                ResetTimer(RANGER_COMBAT_ACTION_WHIRLWIND, GetInitialActionTimer(RANGER_COMBAT_ACTION_WHIRLWIND));
-            }
-
-            uint32 GetInitialActionTimer(uint32 id)
-            {
-                switch (id)
-                {
-                    case RANGER_COMBAT_ACTION_WHIRLWIND: return urand(15000, 30000);
-                    default: return 0; // never occurs but for compiler
-                }
-            }
-
-            uint32 GetSubsequentActionTimer(uint32 id)
-            {
-                switch (id)
-                {
-                    case RANGER_COMBAT_ACTION_WHIRLWIND: return urand(15000, 30000);
-                    default: return 0; // never occurs but for compiler
-                }
-            }
-
-            void ReceiveAIEvent(AIEventType eventType, Unit* /*sender*/, Unit* /*invoker*/, uint32 miscValue) override
-            {
-                if (eventType == AI_EVENT_CUSTOM_A)
-                    m_spawnId = miscValue; // map passes which spawn this is
-            }
-
-            void MovementInform(uint32 movementType, uint32 data) override
-            {
-                if (movementType == WAYPOINT_MOTION_TYPE)
-                {
-                    switch (m_creature->GetMotionMaster()->GetPathId())
-                    {
-                        case PATH_ID_BIG_PATH:
-                        {
-                            if (data == POINT_DISMOUNT)
-                            {
-                                m_creature->GetMotionMaster()->Clear(false, true);
-                                m_creature->SetHover(false);
-                                m_creature->SetLevitate(false);
-                                m_creature->Unmount();
-                                m_creature->GetMotionMaster()->MoveWaypoint(m_spawnId);
-                                if (m_creature->GetEntry() == NPC_SKYGUARD_LIEUTENANT)
-                                    m_creature->GetMap()->GetInstanceData()->SetData(TYPE_BASHIR, 0);
-                            }
-                            break;
-                        }
-                        default:
-                        {
-                            if (data == POINT_FINAL)
-                            {
-                                m_creature->GetMotionMaster()->Clear(false, true);
-                                m_creature->GetMotionMaster()->MoveIdle();
-                            }
-                            break;
-                        }
-                    }
-                }
-            }
-
-            void ExecuteActions() override
-            {
-                if (!CanExecuteCombatAction())
-                    return;
-
-                for (uint32 i = 0; i < RANGER_COMBAT_ACTION_MAX; ++i)
-                {
-                    if (GetActionReadyStatus(i))
-                    {
-                        switch (i)
-                        {
-                            case RANGER_COMBAT_ACTION_WHIRLWIND:
-                            {
-                                if (DoCastSpellIfCan(nullptr, SPELL_WHIRLWIND) == CAST_OK)
-                                {
-                                    ResetTimer(i, GetSubsequentActionTimer(i));
-                                    SetActionReadyStatus(i, false);
-                                    return;
-                                }
-                                continue;
-                            }
-                        }
-                    }
-                }
-            }
-
-            void UpdateAI(const uint32 diff)
-            {
-                if (!m_creature->SelectHostileTarget() || !m_creature->GetVictim())
-                    return;
-
-                UpdateTimers(diff, m_creature->IsInCombat());
-                ExecuteActions();
-
-                DoMeleeAttackIfReady();
-            }
-        };
-
-
-
-    };
 
 
 };
-
 
 enum BashirVendors
 {

@@ -1619,72 +1619,7 @@ enum
     //	NPC_NAZGREL = 3230
 };
 
-// 16819/force-commander-danath-trollbane
-struct npc_danath_trollbaneAI : public ScriptedAI
-{
-    npc_danath_trollbaneAI(Creature* pCreature) : ScriptedAI(pCreature) { Reset(); }
 
-    bool    m_bYelling = false; // if true, someone turned in the quest
-    bool    m_bOnYell2 = false; // to avoid yelling the first line again
-
-    uint32  m_uiYell1DelayRemaining = 0;
-    uint32  m_uiYell2DelayRemaining = 0;
-
-    ObjectGuid  m_guidInvoker;
-
-    void Reset() override
-    {
-        m_bYelling = false;
-        m_bOnYell2 = false;
-        m_uiYell1DelayRemaining = 0;
-        m_uiYell2DelayRemaining = 0;
-    }
-
-    void UpdateAI(const uint32 uiDiff) override
-    {
-        if (m_bYelling) // if yelling...
-        {
-            // Handle 1st yell
-            if (!m_bOnYell2 && m_uiYell1DelayRemaining < uiDiff)
-            {
-                if (Unit* invoker = m_creature->GetMap()->GetUnit(m_guidInvoker))
-                    DoScriptText(YELL_TROLLBANE_1, m_creature, invoker);
-                m_bOnYell2 = true;
-            }
-            else
-                m_uiYell1DelayRemaining -= uiDiff;
-
-            // Handle 2nd yell
-            if (m_bOnYell2 && m_uiYell2DelayRemaining < uiDiff)
-            {
-                DoScriptText(YELL_TROLLBANE_2, m_creature);
-                m_bYelling = false;
-                m_bOnYell2 = false;
-
-                // Mount Magtheridon's Head (update object)
-                if (GameObject* goHead = GetClosestGameObjectWithEntry(m_creature, OBJECT_MAGTHERIDONS_HEAD, 100.0f))
-                    if (Unit* invoker = m_creature->GetMap()->GetUnit(m_guidInvoker))
-                        goHead->Use(invoker);
-            }
-            else
-                m_uiYell2DelayRemaining -= uiDiff;
-        }
-
-        DoMeleeAttackIfReady(); // be sure to fight back if in combat
-    }
-
-    void ReceiveAIEvent(AIEventType eventType, Unit* pSender, Unit* pInvoker, uint32 /*miscValue*/) override
-    {
-        if (eventType == AI_EVENT_START_EVENT && pSender == m_creature) // sanity check
-            if (!m_bYelling) // don't override anything if yelling already...
-            {
-                m_uiYell1DelayRemaining = YELL_1_DELAY;
-                m_uiYell2DelayRemaining = YELL_2_DELAY;
-                m_guidInvoker = pInvoker->GetObjectGuid();
-                m_bYelling = true;
-            }
-    }
-};
 class npc_danath_trollbane : public CreatureScript
 {
 public:
@@ -1701,7 +1636,72 @@ public:
         return true;
     }
 
+    // 16819/force-commander-danath-trollbane
+    struct npc_danath_trollbaneAI : public ScriptedAI
+    {
+        npc_danath_trollbaneAI(Creature* pCreature) : ScriptedAI(pCreature) { Reset(); }
 
+        bool    m_bYelling = false; // if true, someone turned in the quest
+        bool    m_bOnYell2 = false; // to avoid yelling the first line again
+
+        uint32  m_uiYell1DelayRemaining = 0;
+        uint32  m_uiYell2DelayRemaining = 0;
+
+        ObjectGuid  m_guidInvoker;
+
+        void Reset() override
+        {
+            m_bYelling = false;
+            m_bOnYell2 = false;
+            m_uiYell1DelayRemaining = 0;
+            m_uiYell2DelayRemaining = 0;
+        }
+
+        void UpdateAI(const uint32 uiDiff) override
+        {
+            if (m_bYelling) // if yelling...
+            {
+                // Handle 1st yell
+                if (!m_bOnYell2 && m_uiYell1DelayRemaining < uiDiff)
+                {
+                    if (Unit* invoker = m_creature->GetMap()->GetUnit(m_guidInvoker))
+                        DoScriptText(YELL_TROLLBANE_1, m_creature, invoker);
+                    m_bOnYell2 = true;
+                }
+                else
+                    m_uiYell1DelayRemaining -= uiDiff;
+
+                // Handle 2nd yell
+                if (m_bOnYell2 && m_uiYell2DelayRemaining < uiDiff)
+                {
+                    DoScriptText(YELL_TROLLBANE_2, m_creature);
+                    m_bYelling = false;
+                    m_bOnYell2 = false;
+
+                    // Mount Magtheridon's Head (update object)
+                    if (GameObject* goHead = GetClosestGameObjectWithEntry(m_creature, OBJECT_MAGTHERIDONS_HEAD, 100.0f))
+                        if (Unit* invoker = m_creature->GetMap()->GetUnit(m_guidInvoker))
+                            goHead->Use(invoker);
+                }
+                else
+                    m_uiYell2DelayRemaining -= uiDiff;
+            }
+
+            DoMeleeAttackIfReady(); // be sure to fight back if in combat
+        }
+
+        void ReceiveAIEvent(AIEventType eventType, Unit* pSender, Unit* pInvoker, uint32 /*miscValue*/) override
+        {
+            if (eventType == AI_EVENT_START_EVENT && pSender == m_creature) // sanity check
+                if (!m_bYelling) // don't override anything if yelling already...
+                {
+                    m_uiYell1DelayRemaining = YELL_1_DELAY;
+                    m_uiYell2DelayRemaining = YELL_2_DELAY;
+                    m_guidInvoker = pInvoker->GetObjectGuid();
+                    m_bYelling = true;
+                }
+        }
+    };
 
     UnitAI* GetAI_danath_trollbane(Creature* pCreature)
     {
@@ -1712,75 +1712,6 @@ public:
 
 };
 
-
-// 3230/nazgrel
-struct npc_nazgrelAI : public ScriptedAI
-{
-    npc_nazgrelAI(Creature* pCreature) : ScriptedAI(pCreature) { Reset(); }
-
-    bool    m_bYelling = false;
-    bool    m_bOnYell2 = false;
-
-    uint32  m_uiYell1DelayRemaining = 0;
-    uint32  m_uiYell2DelayRemaining = 0;
-
-    ObjectGuid  m_guidInvoker;
-
-    void Reset() override
-    {
-        m_bYelling = false;
-        m_bOnYell2 = false;
-        m_uiYell1DelayRemaining = 0;
-        m_uiYell2DelayRemaining = 0;
-    }
-
-    void UpdateAI(const uint32 uiDiff) override
-    {
-        if (m_bYelling) // if yelling...
-        {
-            // Handle 1st yell
-            if (!m_bOnYell2 && m_uiYell1DelayRemaining < uiDiff)
-            {
-                if (Unit* invoker = m_creature->GetMap()->GetUnit(m_guidInvoker))
-                    DoScriptText(YELL_NAZGREL_1, m_creature, invoker);
-                m_bOnYell2 = true;
-            }
-            else
-                m_uiYell1DelayRemaining -= uiDiff;
-
-            // Handle 2nd yell
-            if (m_bOnYell2 && m_uiYell2DelayRemaining < uiDiff)
-            {
-                DoScriptText(YELL_NAZGREL_2, m_creature);
-                m_bYelling = false;
-                m_bOnYell2 = false;
-
-                // Mount Magtheridon's Head (update object)
-                if (GameObject* goHead = GetClosestGameObjectWithEntry(m_creature, OBJECT_MAGTHERIDONS_HEAD, 100.0f))
-                    if (Unit* invoker = m_creature->GetMap()->GetUnit(m_guidInvoker))
-                        goHead->Use(invoker);
-            }
-            else
-                m_uiYell2DelayRemaining -= uiDiff;
-        }
-
-        DoMeleeAttackIfReady();
-    }
-
-    void ReceiveAIEvent(AIEventType eventType, Unit* pSender, Unit* pInvoker, uint32 /*miscValue*/) override
-    {
-        if (eventType == AI_EVENT_START_EVENT && pSender == m_creature) // sanity check
-        {
-            if (!m_bYelling) // don't override anything if yelling already...
-            {
-                m_uiYell1DelayRemaining = YELL_1_DELAY;
-                m_uiYell2DelayRemaining = YELL_2_DELAY;
-                m_bYelling = true;
-                m_guidInvoker = pInvoker->GetObjectGuid();
-            }
-        }
-    }
-};
 
 // 16819/force-commander-danath-trollbaneclass npc_nazgrel : public CreatureScript
 {
@@ -1795,6 +1726,75 @@ public:
         return true;
     }
 
+
+    // 3230/nazgrel
+    struct npc_nazgrelAI : public ScriptedAI
+    {
+        npc_nazgrelAI(Creature* pCreature) : ScriptedAI(pCreature) { Reset(); }
+
+        bool    m_bYelling = false;
+        bool    m_bOnYell2 = false;
+
+        uint32  m_uiYell1DelayRemaining = 0;
+        uint32  m_uiYell2DelayRemaining = 0;
+
+        ObjectGuid  m_guidInvoker;
+
+        void Reset() override
+        {
+            m_bYelling = false;
+            m_bOnYell2 = false;
+            m_uiYell1DelayRemaining = 0;
+            m_uiYell2DelayRemaining = 0;
+        }
+
+        void UpdateAI(const uint32 uiDiff) override
+        {
+            if (m_bYelling) // if yelling...
+            {
+                // Handle 1st yell
+                if (!m_bOnYell2 && m_uiYell1DelayRemaining < uiDiff)
+                {
+                    if (Unit* invoker = m_creature->GetMap()->GetUnit(m_guidInvoker))
+                        DoScriptText(YELL_NAZGREL_1, m_creature, invoker);
+                    m_bOnYell2 = true;
+                }
+                else
+                    m_uiYell1DelayRemaining -= uiDiff;
+
+                // Handle 2nd yell
+                if (m_bOnYell2 && m_uiYell2DelayRemaining < uiDiff)
+                {
+                    DoScriptText(YELL_NAZGREL_2, m_creature);
+                    m_bYelling = false;
+                    m_bOnYell2 = false;
+
+                    // Mount Magtheridon's Head (update object)
+                    if (GameObject* goHead = GetClosestGameObjectWithEntry(m_creature, OBJECT_MAGTHERIDONS_HEAD, 100.0f))
+                        if (Unit* invoker = m_creature->GetMap()->GetUnit(m_guidInvoker))
+                            goHead->Use(invoker);
+                }
+                else
+                    m_uiYell2DelayRemaining -= uiDiff;
+            }
+
+            DoMeleeAttackIfReady();
+        }
+
+        void ReceiveAIEvent(AIEventType eventType, Unit* pSender, Unit* pInvoker, uint32 /*miscValue*/) override
+        {
+            if (eventType == AI_EVENT_START_EVENT && pSender == m_creature) // sanity check
+            {
+                if (!m_bYelling) // don't override anything if yelling already...
+                {
+                    m_uiYell1DelayRemaining = YELL_1_DELAY;
+                    m_uiYell2DelayRemaining = YELL_2_DELAY;
+                    m_bYelling = true;
+                    m_guidInvoker = pInvoker->GetObjectGuid();
+                }
+            }
+        }
+    };
 
 
     UnitAI* GetAI_nazgrel(Creature* pCreature)

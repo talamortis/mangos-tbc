@@ -24,178 +24,7 @@ EndScriptData */
 #include "AI/ScriptDevAI/include/sc_common.h"
 #include "the_eye.h"
 
-instance_the_eye::instance_the_eye(Map* pMap) : ScriptedInstance(pMap),
-    m_uiKaelthasEventPhase(0)
-{
-    Initialize();
-}
 
-void instance_the_eye::Initialize()
-{
-    memset(&m_auiEncounter, 0, sizeof(m_auiEncounter));
-}
-
-bool instance_the_eye::IsEncounterInProgress() const
-{
-    for (uint32 i : m_auiEncounter)
-    {
-        if (i == IN_PROGRESS)
-            return true;
-    }
-
-    return false;
-}
-
-void instance_the_eye::OnCreatureCreate(Creature* pCreature)
-{
-    switch (pCreature->GetEntry())
-    {
-        case NPC_ALAR:
-        case NPC_THALADRED:
-        case NPC_TELONICUS:
-        case NPC_CAPERNIAN:
-        case NPC_SANGUINAR:
-        case NPC_KAELTHAS:
-            m_npcEntryGuidStore[pCreature->GetEntry()] = pCreature->GetObjectGuid();
-            break;
-        case NPC_WORLD_TRIGGER_LARGE:
-            m_npcEntryGuidCollection[pCreature->GetEntry()].push_back(pCreature->GetObjectGuid());
-            break;
-    }
-}
-
-void instance_the_eye::OnCreatureRespawn(Creature* creature)
-{
-    switch (creature->GetEntry())
-    {
-        case NPC_EMBER_OF_ALAR:
-            if (Creature* alar = GetSingleCreatureFromStorage(NPC_ALAR))
-                alar->AI()->SendAIEvent(AI_EVENT_CUSTOM_B, creature, alar);
-            break;
-    }
-}
-
-void instance_the_eye::OnObjectCreate(GameObject* pGo)
-{
-    switch (pGo->GetEntry())
-    {
-        case GO_ARCANE_DOOR_HORIZ_3:
-        case GO_ARCANE_DOOR_HORIZ_4:
-        case GO_KAEL_STATUE_LEFT:
-        case GO_KAEL_STATUE_RIGHT:
-        case GO_BRIDGE_WINDOW:
-            m_goEntryGuidStore[pGo->GetEntry()] = pGo->GetObjectGuid();
-            break;
-        case GO_RAID_DOOR_3:
-        case GO_RAID_DOOR_4:
-        case GO_ARCANE_DOOR_VERT_3:
-        case GO_ARCANE_DOOR_VERT_4:
-            m_goEntryGuidStore[pGo->GetEntry()] = pGo->GetObjectGuid();
-            if (CheckDoorOpening())
-                pGo->SetGoState(GO_STATE_ACTIVE);
-            break;
-    }
-}
-
-void instance_the_eye::SetData(uint32 uiType, uint32 uiData)
-{
-    switch (uiType)
-    {
-        case TYPE_ALAR:
-        case TYPE_SOLARIAN:
-        case TYPE_VOIDREAVER:
-            m_auiEncounter[uiType] = uiData;
-            if (CheckDoorOpening())
-                OpenDoors();
-            break;
-        case TYPE_KAELTHAS:
-            // Don't set the same data twice
-            if (m_auiEncounter[uiType] == uiData)
-                break;
-            DoUseDoorOrButton(GO_ARCANE_DOOR_HORIZ_3);
-            DoUseDoorOrButton(GO_ARCANE_DOOR_HORIZ_4);
-            if (uiData == FAIL)
-            {
-                if (GameObject* pGo = GetSingleGameObjectFromStorage(GO_KAEL_STATUE_LEFT))
-                    pGo->ResetDoorOrButton();
-                if (GameObject* pGo = GetSingleGameObjectFromStorage(GO_KAEL_STATUE_RIGHT))
-                    pGo->ResetDoorOrButton();
-                if (GameObject* pGo = GetSingleGameObjectFromStorage(GO_BRIDGE_WINDOW))
-                    pGo->ResetDoorOrButton();
-
-                // Respawn or reset the advisors
-                for (unsigned int aAdvisor : aAdvisors)
-                {
-                    if (Creature* pTemp = GetSingleCreatureFromStorage(aAdvisor))
-                    {
-                        if (!pTemp->IsAlive())
-                            pTemp->Respawn();
-                        else
-                            pTemp->AI()->EnterEvadeMode();
-                    }
-                }
-            }
-            m_auiEncounter[uiType] = uiData;
-            break;
-    }
-
-    if (uiData == DONE || uiData == SPECIAL)
-    {
-        OUT_SAVE_INST_DATA;
-
-        std::ostringstream saveStream;
-        saveStream << m_auiEncounter[0] << " " << m_auiEncounter[1] << " " << m_auiEncounter[2] << " "
-            << m_auiEncounter[3];
-
-        m_strInstData = saveStream.str();
-
-        SaveToDB();
-        OUT_SAVE_INST_DATA_COMPLETE;
-    }
-}
-
-void instance_the_eye::Load(const char* chrIn)
-{
-    if (!chrIn)
-    {
-        OUT_LOAD_INST_DATA_FAIL;
-        return;
-    }
-
-    OUT_LOAD_INST_DATA(chrIn);
-
-    std::istringstream loadStream(chrIn);
-    loadStream >> m_auiEncounter[TYPE_ALAR] >> m_auiEncounter[TYPE_SOLARIAN] >> m_auiEncounter[TYPE_VOIDREAVER] >> m_auiEncounter[TYPE_KAELTHAS];
-
-    for (uint8 i = 0; i < MAX_ENCOUNTER; ++i)
-    {
-        if (m_auiEncounter[i] == IN_PROGRESS)
-            m_auiEncounter[i] = NOT_STARTED;
-    }
-
-    OUT_LOAD_INST_DATA_COMPLETE;
-}
-
-uint32 instance_the_eye::GetData(uint32 uiType) const
-{
-    if (uiType < MAX_ENCOUNTER)
-        return m_auiEncounter[uiType];
-
-    return 0;
-}
-
-bool instance_the_eye::CheckDoorOpening() const
-{
-    return m_auiEncounter[TYPE_ALAR] == DONE && m_auiEncounter[TYPE_SOLARIAN] == DONE && m_auiEncounter[TYPE_VOIDREAVER] == DONE;
-}
-
-void instance_the_eye::OpenDoors()
-{
-    DoUseDoorOrButton(GO_RAID_DOOR_3);
-    DoUseDoorOrButton(GO_RAID_DOOR_4);
-    DoUseDoorOrButton(GO_ARCANE_DOOR_VERT_3);
-    DoUseDoorOrButton(GO_ARCANE_DOOR_VERT_4);
-}
 class instance_the_eye : public InstanceMapScript
 {
 public:
@@ -203,9 +32,189 @@ public:
 
     InstanceData* GetInstanceScript(Map* pMap) const override
     {
-        return new instance_the_eye(pMap);
+        return new instance_the_eyeAI(pMap);
     }
 
+    struct instance_the_eyeAI : public ScriptedInstance
+    {
+        instance_the_eyeAI(Map* pMap) : ScriptedInstance(pMap),
+            m_uiKaelthasEventPhase(0)
+        {
+            Initialize();
+        }
+        // Save needed for doors
+        const char* Save() const override { return m_strInstData.c_str(); }
+        uint32 m_auiEncounter[MAX_ENCOUNTER];
+        std::string m_strInstData;
+
+        uint32 m_uiKaelthasEventPhase;
+        void Initialize()
+        {
+            memset(&m_auiEncounter, 0, sizeof(m_auiEncounter));
+        }
+
+        bool IsEncounterInProgress() const
+        {
+            for (uint32 i : m_auiEncounter)
+            {
+                if (i == IN_PROGRESS)
+                    return true;
+            }
+
+            return false;
+        }
+
+        void OnCreatureCreate(Creature* pCreature)
+        {
+            switch (pCreature->GetEntry())
+            {
+            case NPC_ALAR:
+            case NPC_THALADRED:
+            case NPC_TELONICUS:
+            case NPC_CAPERNIAN:
+            case NPC_SANGUINAR:
+            case NPC_KAELTHAS:
+                m_npcEntryGuidStore[pCreature->GetEntry()] = pCreature->GetObjectGuid();
+                break;
+            case NPC_WORLD_TRIGGER_LARGE:
+                m_npcEntryGuidCollection[pCreature->GetEntry()].push_back(pCreature->GetObjectGuid());
+                break;
+            }
+        }
+
+        void OnCreatureRespawn(Creature* creature)
+        {
+            switch (creature->GetEntry())
+            {
+            case NPC_EMBER_OF_ALAR:
+                if (Creature* alar = GetSingleCreatureFromStorage(NPC_ALAR))
+                    alar->AI()->SendAIEvent(AI_EVENT_CUSTOM_B, creature, alar);
+                break;
+            }
+        }
+
+        void OnObjectCreate(GameObject* pGo)
+        {
+            switch (pGo->GetEntry())
+            {
+            case GO_ARCANE_DOOR_HORIZ_3:
+            case GO_ARCANE_DOOR_HORIZ_4:
+            case GO_KAEL_STATUE_LEFT:
+            case GO_KAEL_STATUE_RIGHT:
+            case GO_BRIDGE_WINDOW:
+                m_goEntryGuidStore[pGo->GetEntry()] = pGo->GetObjectGuid();
+                break;
+            case GO_RAID_DOOR_3:
+            case GO_RAID_DOOR_4:
+            case GO_ARCANE_DOOR_VERT_3:
+            case GO_ARCANE_DOOR_VERT_4:
+                m_goEntryGuidStore[pGo->GetEntry()] = pGo->GetObjectGuid();
+                if (CheckDoorOpening())
+                    pGo->SetGoState(GO_STATE_ACTIVE);
+                break;
+            }
+        }
+
+        void SetData(uint32 uiType, uint32 uiData)
+        {
+            switch (uiType)
+            {
+            case TYPE_ALAR:
+            case TYPE_SOLARIAN:
+            case TYPE_VOIDREAVER:
+                m_auiEncounter[uiType] = uiData;
+                if (CheckDoorOpening())
+                    OpenDoors();
+                break;
+            case TYPE_KAELTHAS:
+                // Don't set the same data twice
+                if (m_auiEncounter[uiType] == uiData)
+                    break;
+                DoUseDoorOrButton(GO_ARCANE_DOOR_HORIZ_3);
+                DoUseDoorOrButton(GO_ARCANE_DOOR_HORIZ_4);
+                if (uiData == FAIL)
+                {
+                    if (GameObject* pGo = GetSingleGameObjectFromStorage(GO_KAEL_STATUE_LEFT))
+                        pGo->ResetDoorOrButton();
+                    if (GameObject* pGo = GetSingleGameObjectFromStorage(GO_KAEL_STATUE_RIGHT))
+                        pGo->ResetDoorOrButton();
+                    if (GameObject* pGo = GetSingleGameObjectFromStorage(GO_BRIDGE_WINDOW))
+                        pGo->ResetDoorOrButton();
+
+                    // Respawn or reset the advisors
+                    for (unsigned int aAdvisor : aAdvisors)
+                    {
+                        if (Creature* pTemp = GetSingleCreatureFromStorage(aAdvisor))
+                        {
+                            if (!pTemp->IsAlive())
+                                pTemp->Respawn();
+                            else
+                                pTemp->AI()->EnterEvadeMode();
+                        }
+                    }
+                }
+                m_auiEncounter[uiType] = uiData;
+                break;
+            }
+
+            if (uiData == DONE || uiData == SPECIAL)
+            {
+                OUT_SAVE_INST_DATA;
+
+                std::ostringstream saveStream;
+                saveStream << m_auiEncounter[0] << " " << m_auiEncounter[1] << " " << m_auiEncounter[2] << " "
+                    << m_auiEncounter[3];
+
+                m_strInstData = saveStream.str();
+
+                SaveToDB();
+                OUT_SAVE_INST_DATA_COMPLETE;
+            }
+        }
+
+        void Load(const char* chrIn)
+        {
+            if (!chrIn)
+            {
+                OUT_LOAD_INST_DATA_FAIL;
+                return;
+            }
+
+            OUT_LOAD_INST_DATA(chrIn);
+
+            std::istringstream loadStream(chrIn);
+            loadStream >> m_auiEncounter[TYPE_ALAR] >> m_auiEncounter[TYPE_SOLARIAN] >> m_auiEncounter[TYPE_VOIDREAVER] >> m_auiEncounter[TYPE_KAELTHAS];
+
+            for (uint8 i = 0; i < MAX_ENCOUNTER; ++i)
+            {
+                if (m_auiEncounter[i] == IN_PROGRESS)
+                    m_auiEncounter[i] = NOT_STARTED;
+            }
+
+            OUT_LOAD_INST_DATA_COMPLETE;
+        }
+
+        uint32 GetData(uint32 uiType) const
+        {
+            if (uiType < MAX_ENCOUNTER)
+                return m_auiEncounter[uiType];
+
+            return 0;
+        }
+
+        bool CheckDoorOpening() const
+        {
+            return m_auiEncounter[TYPE_ALAR] == DONE && m_auiEncounter[TYPE_SOLARIAN] == DONE && m_auiEncounter[TYPE_VOIDREAVER] == DONE;
+        }
+
+        void OpenDoors()
+        {
+            DoUseDoorOrButton(GO_RAID_DOOR_3);
+            DoUseDoorOrButton(GO_RAID_DOOR_4);
+            DoUseDoorOrButton(GO_ARCANE_DOOR_VERT_3);
+            DoUseDoorOrButton(GO_ARCANE_DOOR_VERT_4);
+        }
+    };
 
 
 

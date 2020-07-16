@@ -41,34 +41,5 @@ enum
 
 static const uint32 aAdvisors[MAX_ADVISORS] = {NPC_CAPERNIAN, NPC_SANGUINAR, NPC_TELONICUS, NPC_THALADRED};
 
-class instance_the_eye : public ScriptedInstance
-{
-    public:
-        instance_the_eye(Map* pMap);
-
-        void Initialize() override;
-        bool IsEncounterInProgress() const override;
-
-        void OnCreatureCreate(Creature* pCreature) override;
-        void OnCreatureRespawn(Creature* creature) override;
-        void OnObjectCreate(GameObject* pGo) override;
-
-        void SetData(uint32 uiType, uint32 uiData) override;
-        uint32 GetData(uint32 uiType) const override;
-
-        // checks whether to open the doors preventing Kael access
-        bool CheckDoorOpening() const;
-        void OpenDoors();
-
-        // Save needed for doors
-        const char* Save() const override { return m_strInstData.c_str(); }
-        void Load(const char* chrIn) override;
-
-    private:
-        uint32 m_auiEncounter[MAX_ENCOUNTER];
-        std::string m_strInstData;
-
-        uint32 m_uiKaelthasEventPhase;
-};
 
 #endif

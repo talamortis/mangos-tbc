@@ -30,33 +30,4 @@ enum
     SPELL_BANISH            = 30231,                        // spell is handled in creature_template_addon;
 };
 
-class instance_shadow_labyrinth : public ScriptedInstance
-{
-    public:
-        instance_shadow_labyrinth(Map* pMap);
-
-        void Initialize() override;
-
-        void OnObjectCreate(GameObject* pGo) override;
-        void OnCreatureCreate(Creature* pCreature) override;
-
-        void OnCreatureDeath(Creature* pCreature) override;
-
-        void SetData(uint32 uiType, uint32 uiData) override;
-        uint32 GetData(uint32 uiType) const override;
-
-        void SetData64(uint32 uiType, uint64 uiGuid) override;
-
-        const char* Save() const override { return m_strInstData.c_str(); }
-        void Load(const char* chrIn) override;
-
-        bool IsHellmawUnbanished() const { return m_sRitualistsAliveGUIDSet.empty(); }
-
-    private:
-        uint32 m_auiEncounter[MAX_ENCOUNTER];
-        std::string m_strInstData;
-
-        GuidSet m_sRitualistsAliveGUIDSet;
-};
-
 #endif

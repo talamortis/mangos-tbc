@@ -54,14 +54,14 @@ public:
     {
         boss_ambassador_hellmawAI(Creature* pCreature) : ScriptedAI(pCreature)
         {
-            m_pInstance = (instance_shadow_labyrinth*)pCreature->GetInstanceData();
+            m_pInstance = (ScriptedInstance*)pCreature->GetInstanceData();
             m_bIsRegularMode = pCreature->GetMap()->IsRegularDifficulty();
             m_creature->SetCanEnterCombat(false);
             SetReactState(REACT_PASSIVE);
             Reset();
         }
 
-        instance_shadow_labyrinth* m_pInstance;
+        ScriptedInstance* m_pInstance;
         bool m_bIsRegularMode;
 
         uint32 m_uiBanishTimer;

@@ -44,39 +44,5 @@ enum
     AREATRIGGER_ANTUSUL             = 1447,
 };
 
-class instance_zulfarrak : public ScriptedInstance
-{
-    public:
-        instance_zulfarrak(Map* pMap);
-        ~instance_zulfarrak() {}
-
-        void Initialize() override;
-
-        void OnCreatureEnterCombat(Creature* pCreature) override;
-        void OnCreatureEvade(Creature* pCreature);
-        void OnCreatureDeath(Creature* pCreature) override;
-
-        void OnCreatureCreate(Creature* pCreature) override;
-        void OnObjectCreate(GameObject* pGo) override;
-
-        void SetData(uint32 uiType, uint32 uiData) override;
-        uint32 GetData(uint32 uiType) const override;
-
-        void GetShallowGravesGuidList(GuidList& lList) const { lList = m_lShallowGravesGuidList; }
-
-        const char* Save() const override { return m_strInstData.c_str(); }
-        void Load(const char* chrIn) override;
-
-        void Update(const uint32 diff) override;
-
-    protected:
-        uint32 m_auiEncounter[MAX_ENCOUNTER];
-        std::string m_strInstData;
-
-        GuidList m_lShallowGravesGuidList;
-        GuidList m_lPyramidTrollsGuidList;
-
-        uint32 m_uiPyramidEventTimer;
-};
 
 #endif

@@ -107,135 +107,6 @@ const uint32 npcStasisEntry[] =
 {
     22825, 20888, 22827, 22826, 22828
 };
-
-struct npc_ethereum_prisonerAI : public ScriptedAI, public CombatActions
-{
-    npc_ethereum_prisonerAI(Creature* creature) : ScriptedAI(creature), CombatActions(0)
-    {
-        AddCustomAction(PRISONER_ATTACK, true, [&]
-        {
-            m_creature->SetImmuneToNPC(false);
-            m_creature->SetImmuneToPlayer(false);
-            m_creature->setFaction(FACTION_HOSTILE);
-            Player* player = m_creature->GetMap()->GetPlayer(m_playerGuid);
-            switch (m_creature->GetEntry()) // Group mobs have texts, only have text for one atm
-            {
-                case NPC_TRELOPADES: DoScriptText(urand(0, 1) ? SAY_TRELOPADES_AGGRO_1 : SAY_TRELOPADES_AGGRO_2, m_creature, player); break;
-                default: break;
-            }
-            if (player)
-                AttackStart(player);
-        });
-        AddCustomAction(PRISONER_TALK, true, [&]
-        {
-            if (Player* player = m_creature->GetMap()->GetPlayer(m_playerGuid))
-                DoScriptText(GetTextId(), m_creature, player);
-            ResetTimer(PRISONER_CAST, 6000);
-        });
-        AddCustomAction(PRISONER_CAST, true, [&]
-        {
-            if (Player* player = m_creature->GetMap()->GetPlayer(m_playerGuid))
-                DoCastSpellIfCan(player, GetSpellId());
-            m_creature->ForcedDespawn(2000);
-        });
-        JustRespawned();
-    }
-
-    void JustRespawned() override
-    {
-        DoCastSpellIfCan(nullptr, SPELL_C_C_D, (CAST_AURA_NOT_PRESENT | CAST_TRIGGERED));
-        DoCastSpellIfCan(nullptr, SPELL_PURPLE_BANISH_STATE, (CAST_AURA_NOT_PRESENT | CAST_TRIGGERED));
-        if (m_stasisGuid)
-            if (GameObject* stasis = m_creature->GetMap()->GetGameObject(m_stasisGuid))
-                stasis->ResetDoorOrButton();
-    }
-
-    ObjectGuid m_playerGuid;
-    ObjectGuid m_stasisGuid;
-
-    void StartEvent(Player* player, GameObject* go, StasisType type)
-    {
-        m_playerGuid = player->GetObjectGuid();
-        if (go)
-            m_stasisGuid = go->GetObjectGuid();
-        m_creature->RemoveAurasDueToSpell(SPELL_C_C_D);
-        m_creature->RemoveAurasDueToSpell(SPELL_PURPLE_BANISH_STATE);
-        uint32 newEntry;
-        switch (type)
-        {
-            case EVENT_PRISON: newEntry = npcPrisonEntry[urand(0, countof(npcPrisonEntry) - 1)]; break;
-            case EVENT_PRISON_ALPHA: newEntry = NPC_THUK; break;
-            case EVENT_PRISON_GROUP: newEntry = npcStasisEntry[urand(0, countof(npcStasisEntry) - 1)]; break;
-        }
-        m_creature->UpdateEntry(newEntry);
-        switch (newEntry)
-        {
-            case NPC_FORGOSH:
-                DoCastSpellIfCan(nullptr, SPELL_SHADOWFORM_1, (CAST_AURA_NOT_PRESENT | CAST_TRIGGERED));
-                DoCastSpellIfCan(nullptr, SPELL_SHADOWFORM_2, (CAST_AURA_NOT_PRESENT | CAST_TRIGGERED));
-                break;
-        }
-        if (m_creature->IsEnemy(player))
-            ResetTimer(PRISONER_ATTACK, 1000);
-        else
-            ResetTimer(PRISONER_TALK, 3500);
-    }
-
-    void Reset() override
-    {
-
-    }
-
-    int32 GetTextId()
-    {
-        int32 textId = 0;
-        if (FactionTemplateEntry const* pFaction = m_creature->GetFactionTemplateEntry())
-        {
-            switch (pFaction->faction)
-            {
-                case FACTION_LC:   textId = SAY_LC;    break;
-                case FACTION_SHAT: textId = SAY_SHAT;  break;
-                case FACTION_CE:   textId = SAY_CE;    break;
-                case FACTION_CON:  textId = SAY_CON;   break;
-                case FACTION_KT:   textId = SAY_KT;    break;
-                case FACTION_SPOR: textId = SAY_SPOR;  break;
-            }
-        }
-        return textId;
-    }
-
-    uint32 GetSpellId()
-    {
-        uint32 spellId = 0;
-        if (FactionTemplateEntry const* pFaction = m_creature->GetFactionTemplateEntry())
-        {
-            switch (pFaction->faction)
-            {
-                case FACTION_LC:   spellId = SPELL_REP_LC;   break;
-                case FACTION_SHAT: spellId = SPELL_REP_SHAT; break;
-                case FACTION_CE:   spellId = SPELL_REP_CE;   break;
-                case FACTION_CON:  spellId = SPELL_REP_CON;  break;
-                case FACTION_KT:   spellId = SPELL_REP_KT;   break;
-                case FACTION_SPOR: spellId = SPELL_REP_SPOR; break;
-            }
-        }
-        return spellId;
-    }
-
-    void ExecuteActions() override {}
-
-    void UpdateAI(const uint32 diff) override
-    {
-        UpdateTimers(diff, m_creature->IsInCombat());
-
-        if (!m_creature->SelectHostileTarget() || !m_creature->GetVictim())
-            return;
-
-        ExecuteActions();
-
-        DoMeleeAttackIfReady();
-    }
-};
 class npc_ethereum_prisoner : public CreatureScript
 {
 public:
@@ -246,7 +117,134 @@ public:
         return new npc_ethereum_prisonerAI(creature);
     }
 
+    struct npc_ethereum_prisonerAI : public ScriptedAI, public CombatActions
+    {
+        npc_ethereum_prisonerAI(Creature* creature) : ScriptedAI(creature), CombatActions(0)
+        {
+            AddCustomAction(PRISONER_ATTACK, true, [&]
+            {
+                m_creature->SetImmuneToNPC(false);
+                m_creature->SetImmuneToPlayer(false);
+                m_creature->setFaction(FACTION_HOSTILE);
+                Player* player = m_creature->GetMap()->GetPlayer(m_playerGuid);
+                switch (m_creature->GetEntry()) // Group mobs have texts, only have text for one atm
+                {
+                case NPC_TRELOPADES: DoScriptText(urand(0, 1) ? SAY_TRELOPADES_AGGRO_1 : SAY_TRELOPADES_AGGRO_2, m_creature, player); break;
+                default: break;
+                }
+                if (player)
+                    AttackStart(player);
+            });
+            AddCustomAction(PRISONER_TALK, true, [&]
+            {
+                if (Player* player = m_creature->GetMap()->GetPlayer(m_playerGuid))
+                    DoScriptText(GetTextId(), m_creature, player);
+                ResetTimer(PRISONER_CAST, 6000);
+            });
+            AddCustomAction(PRISONER_CAST, true, [&]
+            {
+                if (Player* player = m_creature->GetMap()->GetPlayer(m_playerGuid))
+                    DoCastSpellIfCan(player, GetSpellId());
+                m_creature->ForcedDespawn(2000);
+            });
+            JustRespawned();
+        }
 
+        void JustRespawned() override
+        {
+            DoCastSpellIfCan(nullptr, SPELL_C_C_D, (CAST_AURA_NOT_PRESENT | CAST_TRIGGERED));
+            DoCastSpellIfCan(nullptr, SPELL_PURPLE_BANISH_STATE, (CAST_AURA_NOT_PRESENT | CAST_TRIGGERED));
+            if (m_stasisGuid)
+                if (GameObject* stasis = m_creature->GetMap()->GetGameObject(m_stasisGuid))
+                    stasis->ResetDoorOrButton();
+        }
+
+        ObjectGuid m_playerGuid;
+        ObjectGuid m_stasisGuid;
+
+        void StartEvent(Player* player, GameObject* go, StasisType type)
+        {
+            m_playerGuid = player->GetObjectGuid();
+            if (go)
+                m_stasisGuid = go->GetObjectGuid();
+            m_creature->RemoveAurasDueToSpell(SPELL_C_C_D);
+            m_creature->RemoveAurasDueToSpell(SPELL_PURPLE_BANISH_STATE);
+            uint32 newEntry;
+            switch (type)
+            {
+            case EVENT_PRISON: newEntry = npcPrisonEntry[urand(0, countof(npcPrisonEntry) - 1)]; break;
+            case EVENT_PRISON_ALPHA: newEntry = NPC_THUK; break;
+            case EVENT_PRISON_GROUP: newEntry = npcStasisEntry[urand(0, countof(npcStasisEntry) - 1)]; break;
+            }
+            m_creature->UpdateEntry(newEntry);
+            switch (newEntry)
+            {
+            case NPC_FORGOSH:
+                DoCastSpellIfCan(nullptr, SPELL_SHADOWFORM_1, (CAST_AURA_NOT_PRESENT | CAST_TRIGGERED));
+                DoCastSpellIfCan(nullptr, SPELL_SHADOWFORM_2, (CAST_AURA_NOT_PRESENT | CAST_TRIGGERED));
+                break;
+            }
+            if (m_creature->IsEnemy(player))
+                ResetTimer(PRISONER_ATTACK, 1000);
+            else
+                ResetTimer(PRISONER_TALK, 3500);
+        }
+
+        void Reset() override
+        {
+
+        }
+
+        int32 GetTextId()
+        {
+            int32 textId = 0;
+            if (FactionTemplateEntry const* pFaction = m_creature->GetFactionTemplateEntry())
+            {
+                switch (pFaction->faction)
+                {
+                case FACTION_LC:   textId = SAY_LC;    break;
+                case FACTION_SHAT: textId = SAY_SHAT;  break;
+                case FACTION_CE:   textId = SAY_CE;    break;
+                case FACTION_CON:  textId = SAY_CON;   break;
+                case FACTION_KT:   textId = SAY_KT;    break;
+                case FACTION_SPOR: textId = SAY_SPOR;  break;
+                }
+            }
+            return textId;
+        }
+
+        uint32 GetSpellId()
+        {
+            uint32 spellId = 0;
+            if (FactionTemplateEntry const* pFaction = m_creature->GetFactionTemplateEntry())
+            {
+                switch (pFaction->faction)
+                {
+                case FACTION_LC:   spellId = SPELL_REP_LC;   break;
+                case FACTION_SHAT: spellId = SPELL_REP_SHAT; break;
+                case FACTION_CE:   spellId = SPELL_REP_CE;   break;
+                case FACTION_CON:  spellId = SPELL_REP_CON;  break;
+                case FACTION_KT:   spellId = SPELL_REP_KT;   break;
+                case FACTION_SPOR: spellId = SPELL_REP_SPOR; break;
+                }
+            }
+            return spellId;
+        }
+
+        void ExecuteActions() override {}
+
+        void UpdateAI(const uint32 diff) override
+        {
+            UpdateTimers(diff, m_creature->IsInCombat());
+
+            if (!m_creature->SelectHostileTarget() || !m_creature->GetVictim())
+                return;
+
+            ExecuteActions();
+
+            DoMeleeAttackIfReady();
+        }
+    };
 
 };
 class go_ethereum_prison : public GameObjectScript
@@ -258,7 +256,7 @@ public:
     {
         if (Creature* prisoner = GetClosestCreatureWithEntry(go, NPC_PRISONER, 1.f))
         {
-            npc_ethereum_prisonerAI* ai = static_cast<npc_ethereum_prisonerAI*>(prisoner->AI());
+            npc_ethereum_prisoner::npc_ethereum_prisonerAI* ai = static_cast<npc_ethereum_prisoner::npc_ethereum_prisonerAI*>(prisoner->AI());
             ai->StartEvent(player, go, EVENT_PRISON);
         }
 
@@ -281,7 +279,7 @@ public:
     {
         if (Creature* prisoner = GetClosestCreatureWithEntry(go, NPC_PRISONER_GROUP, 1.f))
         {
-            npc_ethereum_prisonerAI* ai = static_cast<npc_ethereum_prisonerAI*>(prisoner->AI());
+            npc_ethereum_prisoner::npc_ethereum_prisonerAI* ai = static_cast<npc_ethereum_prisoner::npc_ethereum_prisonerAI*>(prisoner->AI());
             ai->StartEvent(player, go, EVENT_PRISON_GROUP);
         }
 
@@ -300,7 +298,7 @@ public:
     {
         if (Creature* prisoner = GetClosestCreatureWithEntry(go, NPC_PRISONER_GROUP, 1.f))
         {
-            npc_ethereum_prisonerAI* ai = static_cast<npc_ethereum_prisonerAI*>(prisoner->AI());
+            npc_ethereum_prisoner::npc_ethereum_prisonerAI* ai = static_cast<npc_ethereum_prisoner::npc_ethereum_prisonerAI*>(prisoner->AI());
             ai->StartEvent(player, go, EVENT_PRISON_ALPHA);
         }
 
@@ -424,51 +422,61 @@ enum BellHourlyObjects
     GO_KARAZHAN_BELL = 182064
 };
 
-struct go_ai_bell : public GameObjectAI
+class go_bells : public CreatureScript
 {
-    go_ai_bell(GameObject* go) : GameObjectAI(go), m_uiBellTolls(0), m_uiBellSound(GetBellSound(go)), m_uiBellTimer(0), m_playTo(GetBellZoneOrArea(go))
+public:
+    go_bells() : CreatureScript("go_bells") { }
+
+    GameObjectAI* GetAI(GameObject* go)
     {
-        m_go->SetNotifyOnEventState(true);
-        m_go->SetActiveObjectState(true);
+        return new go_ai_bellAI(go);
     }
 
-    uint32 m_uiBellTolls;
-    uint32 m_uiBellSound;
-    uint32 m_uiBellTimer;
-    PlayPacketSettings m_playTo;
-
-    uint32 GetBellSound(GameObject* pGo) const
+    struct go_ai_bellAI : public GameObjectAI
     {
-        uint32 soundId = 0;
-        switch (pGo->GetEntry())
+        go_ai_bellAI(GameObject* go) : GameObjectAI(go), m_uiBellTolls(0), m_uiBellSound(GetBellSound(go)), m_uiBellTimer(0), m_playTo(GetBellZoneOrArea(go))
         {
+            m_go->SetNotifyOnEventState(true);
+            m_go->SetActiveObjectState(true);
+        }
+
+        uint32 m_uiBellTolls;
+        uint32 m_uiBellSound;
+        uint32 m_uiBellTimer;
+        PlayPacketSettings m_playTo;
+
+        uint32 GetBellSound(GameObject* pGo) const
+        {
+            uint32 soundId = 0;
+            switch (pGo->GetEntry())
+            {
             case GO_HORDE_BELL:
                 switch (pGo->GetAreaId())
                 {
-                    case UNDERCITY_AREA:
-                    case BRILL_AREA:
-                    case TARREN_MILL_AREA:
-                        soundId = BELLTOLLTRIBAL;
-                        break;
-                    default:
-                        soundId = BELLTOLLHORDE;
-                        break;
+                case UNDERCITY_AREA:
+                case BRILL_AREA:
+                case TARREN_MILL_AREA:
+                    soundId = BELLTOLLTRIBAL;
+                    break;
+                default:
+                    soundId = BELLTOLLHORDE;
+                    break;
                 }
                 break;
             case GO_ALLIANCE_BELL:
             {
                 switch (pGo->GetAreaId())
                 {
-                    case IRONFORGE_1_AREA:
-                    case IRONFORGE_2_AREA:
-                        soundId = BELLTOLLDWARFGNOME;
-                        break;
-                    case DARNASSUS_AREA:
-                        soundId = BELLTOLLNIGHTELF;
-                        break;
-                    default:
-                        soundId = BELLTOLLALLIANCE;
-                        break;
+                case IRONFORGE_1_AREA:
+                case IRONFORGE_2_AREA:
+                    soundId = BELLTOLLDWARFGNOME;
+                    break;
+                case DARNASSUS_AREA:
+                    soundId = BELLTOLLNIGHTELF;
+                    break;
+                default:
+                    soundId = BELLTOLLALLIANCE;
+                    break;
                 }
                 break;
             }
@@ -477,85 +485,75 @@ struct go_ai_bell : public GameObjectAI
                 break;
             default:
                 return 0;
+            }
+            return soundId;
         }
-        return soundId;
-    }
 
-    PlayPacketSettings GetBellZoneOrArea(GameObject* pGo) const
-    {
-        PlayPacketSettings playTo = PLAY_AREA;
-        switch (pGo->GetEntry())
+        PlayPacketSettings GetBellZoneOrArea(GameObject* pGo) const
         {
+            PlayPacketSettings playTo = PLAY_AREA;
+            switch (pGo->GetEntry())
+            {
             case GO_HORDE_BELL:
                 switch (pGo->GetAreaId())
                 {
-                    case UNDERCITY_AREA:
-                        playTo = PLAY_ZONE;
-                        break;
+                case UNDERCITY_AREA:
+                    playTo = PLAY_ZONE;
+                    break;
                 }
                 break;
             case GO_ALLIANCE_BELL:
             {
                 switch (pGo->GetAreaId())
                 {
-                    case DARNASSUS_AREA:
-                    case IRONFORGE_2_AREA:
-                        playTo = PLAY_ZONE;
-                        break;
+                case DARNASSUS_AREA:
+                case IRONFORGE_2_AREA:
+                    playTo = PLAY_ZONE;
+                    break;
                 }
                 break;
             }
             case GO_KARAZHAN_BELL:
                 playTo = PLAY_ZONE;
                 break;
+            }
+            return playTo;
         }
-        return playTo;
-    }
 
-    void OnEventHappened(uint16 event_id, bool activate, bool resume) override
-    {
-        if (event_id == EVENT_ID_BELLS && activate && !resume)
+        void OnEventHappened(uint16 event_id, bool activate, bool resume) override
         {
-            time_t curTime = time(nullptr);
-            tm localTm = *localtime(&curTime);
-            m_uiBellTolls = (localTm.tm_hour + 11) % 12;
-
-            if (m_uiBellTolls)
-                m_uiBellTimer = 3000;
-
-            m_go->GetMap()->PlayDirectSoundToMap(m_uiBellSound, m_go->GetAreaId());
-        }
-    }
-
-    void UpdateAI(const uint32 uiDiff) override
-    {
-        if (m_uiBellTimer)
-        {
-            if (m_uiBellTimer <= uiDiff)
+            if (event_id == EVENT_ID_BELLS && activate && !resume)
             {
-                m_go->PlayDirectSound(m_uiBellSound, PlayPacketParameters(PLAY_AREA, m_go->GetAreaId()));
+                time_t curTime = time(nullptr);
+                tm localTm = *localtime(&curTime);
+                m_uiBellTolls = (localTm.tm_hour + 11) % 12;
 
-                m_uiBellTolls--;
                 if (m_uiBellTolls)
                     m_uiBellTimer = 3000;
-                else
-                    m_uiBellTimer = 0;
+
+                m_go->GetMap()->PlayDirectSoundToMap(m_uiBellSound, m_go->GetAreaId());
             }
-            else
-                m_uiBellTimer -= uiDiff;
         }
-    }
-};
-class go_bells : public CreatureScript
-{
-public:
-    go_bells() : CreatureScript("go_bells") { }
 
-    GameObjectAI* GetAI(GameObject* go)
-    {
-        return new go_ai_bell(go);
-    }
+        void UpdateAI(const uint32 uiDiff) override
+        {
+            if (m_uiBellTimer)
+            {
+                if (m_uiBellTimer <= uiDiff)
+                {
+                    m_go->PlayDirectSound(m_uiBellSound, PlayPacketParameters(PLAY_AREA, m_go->GetAreaId()));
 
+                    m_uiBellTolls--;
+                    if (m_uiBellTolls)
+                        m_uiBellTimer = 3000;
+                    else
+                        m_uiBellTimer = 0;
+                }
+                else
+                    m_uiBellTimer -= uiDiff;
+            }
+        }
+    };
 
 
 };
@@ -569,26 +567,6 @@ enum
     MUSIC_DARKMOON_FAIRE_MUSIC = 8440
 };
 
-struct go_ai_dmf_music : public GameObjectAI
-{
-    go_ai_dmf_music(GameObject* go) : GameObjectAI(go)
-    {
-        m_uiMusicTimer = 5000;
-    }
-
-    uint32 m_uiMusicTimer;
-
-    void UpdateAI(const uint32 uiDiff) override
-    {
-        if (m_uiMusicTimer <= uiDiff)
-        {
-            m_go->PlayMusic(MUSIC_DARKMOON_FAIRE_MUSIC);
-            m_uiMusicTimer = 5000;
-        }
-        else
-            m_uiMusicTimer -= uiDiff;
-    }
-};
 class go_darkmoon_faire_music : public CreatureScript
 {
 public:
@@ -596,9 +574,29 @@ public:
 
     GameObjectAI* GetAI(GameObject* go)
     {
-        return new go_ai_dmf_music(go);
+        return new go_ai_dmf_musicAI(go);
     }
 
+    struct go_ai_dmf_musicAI : public GameObjectAI
+    {
+        go_ai_dmf_musicAI(GameObject* go) : GameObjectAI(go)
+        {
+            m_uiMusicTimer = 5000;
+        }
+
+        uint32 m_uiMusicTimer;
+
+        void UpdateAI(const uint32 uiDiff) override
+        {
+            if (m_uiMusicTimer <= uiDiff)
+            {
+                m_go->PlayMusic(MUSIC_DARKMOON_FAIRE_MUSIC);
+                m_uiMusicTimer = 5000;
+            }
+            else
+                m_uiMusicTimer -= uiDiff;
+        }
+    };
 
 
 };
@@ -649,23 +647,34 @@ enum BrewfestMusicEvents
     EVENT_BM_START_MUSIC    = 2
 };
 
-struct go_brewfest_music : public GameObjectAI
+
+class go_brewfest_music : public GameObjectScript
 {
-    go_brewfest_music(GameObject* go) : GameObjectAI(go), m_zoneTeam(GetZoneAlignment(go)), m_rand(0)
+public:
+    go_brewfest_music() : GameObjectScript("go_brewfest_music") { }
+
+    GameObjectAI* GetAIgo_brewfest_music(GameObject* go)
     {
-        m_musicSelectTimer = 1000;
-        m_musicStartTimer = 1000;
+        return new go_brewfest_musicAI(go);
     }
 
-    Team m_zoneTeam;
-    int32 m_musicSelectTimer;
-    int32 m_musicStartTimer;
-    uint32 m_rand;
-
-    Team GetZoneAlignment(GameObject* go) const
+    struct go_brewfest_musicAI : public GameObjectAI
     {
-        switch (go->GetAreaId())
+        go_brewfest_musicAI(GameObject* go) : GameObjectAI(go), m_zoneTeam(GetZoneAlignment(go)), m_rand(0)
         {
+            m_musicSelectTimer = 1000;
+            m_musicStartTimer = 1000;
+        }
+
+        Team m_zoneTeam;
+        int32 m_musicSelectTimer;
+        int32 m_musicStartTimer;
+        uint32 m_rand;
+
+        Team GetZoneAlignment(GameObject* go) const
+        {
+            switch (go->GetAreaId())
+            {
             case IRONFORGE_1:
             case IRONFORGE_2:
             case STORMWIND:
@@ -681,13 +690,13 @@ struct go_brewfest_music : public GameObjectAI
             default:
             case SHATTRATH:
                 return TEAM_NONE;
+            }
         }
-    }
 
-    void PlayAllianceMusic()
-    {
-        switch (m_rand)
+        void PlayAllianceMusic()
         {
+            switch (m_rand)
+            {
             case 0:
                 m_go->PlayMusic(EVENT_BREWFESTDWARF01);
                 break;
@@ -697,13 +706,13 @@ struct go_brewfest_music : public GameObjectAI
             case 2:
                 m_go->PlayMusic(EVENT_BREWFESTDWARF03);
                 break;
+            }
         }
-    }
 
-    void PlayHordeMusic()
-    {
-        switch (m_rand)
+        void PlayHordeMusic()
         {
+            switch (m_rand)
+            {
             case 0:
                 m_go->PlayMusic(EVENT_BREWFESTGOBLIN01);
                 break;
@@ -713,31 +722,31 @@ struct go_brewfest_music : public GameObjectAI
             case 2:
                 m_go->PlayMusic(EVENT_BREWFESTGOBLIN03);
                 break;
-        }
-    }
-
-    void UpdateAI(const uint32 diff) override
-    {
-        if (!IsHolidayActive(HOLIDAY_BREWFEST)) // Check if Brewfest is active
-            return;
-
-        m_musicSelectTimer -= diff;
-
-        if (m_musicSelectTimer <= 0)
-        {
-            m_rand = urand(0, 2); // Select random music sample
-            m_musicSelectTimer = 20000; // TODO: Needs investigation. Original TC code was a CF.
+            }
         }
 
-        m_musicStartTimer -= diff;
-
-        if (m_musicStartTimer <= 0)
+        void UpdateAI(const uint32 diff) override
         {
-            switch (m_zoneTeam)
+            if (!IsHolidayActive(HOLIDAY_BREWFEST)) // Check if Brewfest is active
+                return;
+
+            m_musicSelectTimer -= diff;
+
+            if (m_musicSelectTimer <= 0)
             {
+                m_rand = urand(0, 2); // Select random music sample
+                m_musicSelectTimer = 20000; // TODO: Needs investigation. Original TC code was a CF.
+            }
+
+            m_musicStartTimer -= diff;
+
+            if (m_musicStartTimer <= 0)
+            {
+                switch (m_zoneTeam)
+                {
                 case TEAM_NONE:
                     m_go->GetMap()->ExecuteDistWorker(m_go, m_go->GetVisibilityData().GetVisibilityDistance(),
-                    [&](Player * player)
+                        [&](Player * player)
                     {
                         if (player->GetTeam() == ALLIANCE)
                             PlayAllianceMusic();
@@ -753,22 +762,11 @@ struct go_brewfest_music : public GameObjectAI
                     break;
                 default:
                     break;
+                }
+                m_musicStartTimer = 5000;
             }
-            m_musicStartTimer = 5000;
         }
-    }
-};
-class go_brewfest_music : public GameObjectScript
-{
-public:
-    go_brewfest_music() : GameObjectScript("go_brewfest_music") { }
-
-    GameObjectAI* GetAIgo_brewfest_music(GameObject* go)
-    {
-        return new go_brewfest_music(go);
-    }
-
-
+    };
 
 };
 
@@ -787,36 +785,6 @@ enum MidsummerMusicEvents
     EVENT_MM_START_MUSIC = 1
 };
 
-struct go_midsummer_music : public GameObjectAI
-{
-    go_midsummer_music(GameObject* go) : GameObjectAI(go)
-    {
-        m_musicTimer = 1000;
-    }
-
-    uint32 m_musicTimer;
-
-    void UpdateAI(const uint32 diff) override
-    {
-        if (!IsHolidayActive(HOLIDAY_FIRE_FESTIVAL))
-            return;
-
-        if (m_musicTimer <= diff)
-        {
-            m_go->GetMap()->ExecuteDistWorker(m_go, m_go->GetVisibilityData().GetVisibilityDistance(),
-            [&](Player * player)
-            {
-                if (player->GetTeam() == ALLIANCE)
-                    m_go->PlayMusic(EVENTMIDSUMMERFIREFESTIVAL_A, PlayPacketParameters(PLAY_TARGET, player));
-                else
-                    m_go->PlayMusic(EVENTMIDSUMMERFIREFESTIVAL_H, PlayPacketParameters(PLAY_TARGET, player));
-            });
-            m_musicTimer = 5000;
-        }
-        else
-            m_musicTimer -= diff;
-    }
-};
 class go_midsummer_music : public GameObjectScript
 {
 public:
@@ -824,8 +792,38 @@ public:
 
     GameObjectAI* GetAIgo_midsummer_music(GameObject* go)
     {
-        return new go_midsummer_music(go);
+        return new go_midsummer_musicAI(go);
     }
+    struct go_midsummer_musicAI : public GameObjectAI
+    {
+        go_midsummer_musicAI(GameObject* go) : GameObjectAI(go)
+        {
+            m_musicTimer = 1000;
+        }
+
+        uint32 m_musicTimer;
+
+        void UpdateAI(const uint32 diff) override
+        {
+            if (!IsHolidayActive(HOLIDAY_FIRE_FESTIVAL))
+                return;
+
+            if (m_musicTimer <= diff)
+            {
+                m_go->GetMap()->ExecuteDistWorker(m_go, m_go->GetVisibilityData().GetVisibilityDistance(),
+                    [&](Player * player)
+                {
+                    if (player->GetTeam() == ALLIANCE)
+                        m_go->PlayMusic(EVENTMIDSUMMERFIREFESTIVAL_A, PlayPacketParameters(PLAY_TARGET, player));
+                    else
+                        m_go->PlayMusic(EVENTMIDSUMMERFIREFESTIVAL_H, PlayPacketParameters(PLAY_TARGET, player));
+                });
+                m_musicTimer = 5000;
+            }
+            else
+                m_musicTimer -= diff;
+        }
+    };
 
 
 
@@ -845,29 +843,7 @@ enum PirateDayMusicEvents
     EVENT_PDM_START_MUSIC = 1
 };
 
-struct go_pirate_day_music : public GameObjectAI
-{
-    go_pirate_day_music(GameObject* go) : GameObjectAI(go)
-    {
-        m_musicTimer = 1000;
-    }
 
-    uint32 m_musicTimer;
-
-    void UpdateAI(const uint32 diff) override
-    {
-        if (!IsHolidayActive(HOLIDAY_PIRATES_DAY))
-            return;
-
-        if (m_musicTimer <= diff)
-        {
-            m_go->PlayMusic(MUSIC_PIRATE_DAY_MUSIC);
-            m_musicTimer = 5000;
-        }
-        else
-            m_musicTimer -= diff;
-    }
-};
 class go_pirate_day_music : public GameObjectScript
 {
 public:
@@ -875,10 +851,32 @@ public:
 
     GameObjectAI* GetAIgo_pirate_day_music(GameObject* go)
     {
-        return new go_pirate_day_music(go);
+        return new go_pirate_day_musicAI(go);
     }
 
+    struct go_pirate_day_musicAI : public GameObjectAI
+    {
+        go_pirate_day_musicAI(GameObject* go) : GameObjectAI(go)
+        {
+            m_musicTimer = 1000;
+        }
 
+        uint32 m_musicTimer;
+
+        void UpdateAI(const uint32 diff) override
+        {
+            if (!IsHolidayActive(HOLIDAY_PIRATES_DAY))
+                return;
+
+            if (m_musicTimer <= diff)
+            {
+                m_go->PlayMusic(MUSIC_PIRATE_DAY_MUSIC);
+                m_musicTimer = 5000;
+            }
+            else
+                m_musicTimer -= diff;
+        }
+    };
 
 };
 
@@ -917,17 +915,27 @@ enum
     GO_AIR_ELEMENTAL_RIFT       = 179667,
 };
 
-struct go_elemental_rift : public GameObjectAI
+class go_elemental_rift : public CreatureScript
 {
-    go_elemental_rift(GameObject* go) : GameObjectAI(go), m_uiElementalTimer(urand(0, 30 * IN_MILLISECONDS)) {}
+public:
+    go_elemental_rift() : CreatureScript("go_elemental_rift") { }
 
-    uint32 m_uiElementalTimer;
-
-    void DoRespawnElementalsIfCan()
+    GameObjectAI* GetAI(GameObject* go)
     {
-        uint32 elementalEntry;
-        switch (m_go->GetEntry())
+        return new go_elemental_riftAI(go);
+    }
+
+    struct go_elemental_riftAI : public GameObjectAI
+    {
+        go_elemental_riftAI(GameObject* go) : GameObjectAI(go), m_uiElementalTimer(urand(0, 30 * IN_MILLISECONDS)) {}
+
+        uint32 m_uiElementalTimer;
+
+        void DoRespawnElementalsIfCan()
         {
+            uint32 elementalEntry;
+            switch (m_go->GetEntry())
+            {
             case GO_EARTH_ELEMENTAL_RIFT:
                 elementalEntry = NPC_THUNDERING_INVADER;
                 break;
@@ -942,45 +950,35 @@ struct go_elemental_rift : public GameObjectAI
                 break;
             default:
                 return;
+            }
+
+            CreatureList lElementalList;
+            GetCreatureListWithEntryInGrid(lElementalList, m_go, elementalEntry, 35.0f);
+            // Do nothing if at least three elementals are found nearby
+            if (lElementalList.size() >= 3)
+                return;
+
+            // Spawn an elemental at a random point
+            float fX, fY, fZ;
+            m_go->GetRandomPoint(m_go->GetPositionX(), m_go->GetPositionY(), m_go->GetPositionZ(), 25.0f, fX, fY, fZ);
+            m_go->SummonCreature(elementalEntry, fX, fY, fZ, 0, TEMPSPAWN_DEAD_DESPAWN, 0);
         }
 
-        CreatureList lElementalList;
-        GetCreatureListWithEntryInGrid(lElementalList, m_go, elementalEntry, 35.0f);
-        // Do nothing if at least three elementals are found nearby
-        if (lElementalList.size() >= 3)
-            return;
-
-        // Spawn an elemental at a random point
-        float fX, fY, fZ;
-        m_go->GetRandomPoint(m_go->GetPositionX(), m_go->GetPositionY(), m_go->GetPositionZ(), 25.0f, fX, fY, fZ);
-        m_go->SummonCreature(elementalEntry, fX, fY, fZ, 0, TEMPSPAWN_DEAD_DESPAWN, 0);
-    }
-
-    void UpdateAI(const uint32 uiDiff) override
-    {
-        // Do nothing if not spawned
-        if (!m_go->IsSpawned())
-            return;
-
-        if (m_uiElementalTimer <= uiDiff)
+        void UpdateAI(const uint32 uiDiff) override
         {
-            DoRespawnElementalsIfCan();
-            m_uiElementalTimer = 30 * IN_MILLISECONDS;
+            // Do nothing if not spawned
+            if (!m_go->IsSpawned())
+                return;
+
+            if (m_uiElementalTimer <= uiDiff)
+            {
+                DoRespawnElementalsIfCan();
+                m_uiElementalTimer = 30 * IN_MILLISECONDS;
+            }
+            else
+                m_uiElementalTimer -= uiDiff;
         }
-        else
-            m_uiElementalTimer -= uiDiff;
-    }
-};
-class go_elemental_rift : public CreatureScript
-{
-public:
-    go_elemental_rift() : CreatureScript("go_elemental_rift") { }
-
-    GameObjectAI* GetAI(GameObject* go)
-    {
-        return new go_elemental_rift(go);
-    }
-
+    };
 
 
 };
@@ -989,36 +987,24 @@ public:
 public:
     go_transpolyporter_bb() : GameObjectScript("go_transpolyporter_bb") { }
 
-    std::OnTrapSearch<bool(Unit*)> OnTrapSearch = &TrapTargetSearch; override
+    //old std::function<bool(Unit*)> function = &TrapTargetSearch;
+    //new std::function<bool(Unit*)>* OnTrapSearch(GameObject* go);
 
-    enum
-    {
-        SPELL_BOMBING_RUN_DUMMY_SUMMON = 40181, // Bombing Run: Summon Bombing Run Target Dummy - missing serverside cast by GO
-        NPC_BOMBING_RUN_TARGET_BUNNY   = 23118,
-    };
+    std::function<bool(Unit*)> OnTrapSearch = &TrapTargetSearch;
 
-
+    //pNewScript = new Script;
+    //pNewScript->Name = "go_transpolyporter_bb";
+    //pNewScript->pTrapSearching = &function;
+    //pNewScript->RegisterSelf();
 
 };
 
-// This script is a substitution of casting 40181 by this very GO
-struct go_fel_cannonball_stack_trap : public GameObjectAI
+
+
+enum
 {
-    go_fel_cannonball_stack_trap(GameObject* go) : GameObjectAI(go) {}
-
-    ObjectGuid m_bunny;
-
-    void JustSpawned() override
-    {
-        Creature* bunny = m_go->SummonCreature(NPC_BOMBING_RUN_TARGET_BUNNY, m_go->GetPositionX(), m_go->GetPositionY(), m_go->GetPositionZ(), m_go->GetOrientation(), TEMPSPAWN_MANUAL_DESPAWN, 0);
-        m_bunny = bunny->GetObjectGuid();
-    }
-
-    void JustDespawned() override
-    {
-        if (Creature* bunny = m_go->GetMap()->GetCreature(m_bunny))
-            static_cast<TemporarySpawn*>(bunny)->UnSummon();
-    }
+    SPELL_BOMBING_RUN_DUMMY_SUMMON = 40181, // Bombing Run: Summon Bombing Run Target Dummy - missing serverside cast by GO
+    NPC_BOMBING_RUN_TARGET_BUNNY = 23118,
 };
 class go_fel_cannonball_stack_trap : public CreatureScript
 {
@@ -1027,10 +1013,28 @@ public:
 
     GameObjectAI* GetAI(GameObject* go)
     {
-        return new go_fel_cannonball_stack_trap(go);
+        return new go_fel_cannonball_stack_trapAI(go);
     }
 
+    // This script is a substitution of casting 40181 by this very GO
+    struct go_fel_cannonball_stack_trapAI : public GameObjectAI
+    {
+        go_fel_cannonball_stack_trapAI(GameObject* go) : GameObjectAI(go) {}
 
+        ObjectGuid m_bunny;
+
+        void JustSpawned() override
+        {
+            Creature* bunny = m_go->SummonCreature(NPC_BOMBING_RUN_TARGET_BUNNY, m_go->GetPositionX(), m_go->GetPositionY(), m_go->GetPositionZ(), m_go->GetOrientation(), TEMPSPAWN_MANUAL_DESPAWN, 0);
+            m_bunny = bunny->GetObjectGuid();
+        }
+
+        void JustDespawned() override
+        {
+            if (Creature* bunny = m_go->GetMap()->GetCreature(m_bunny))
+                static_cast<TemporarySpawn*>(bunny)->UnSummon();
+        }
+    };
 
 };
 
@@ -1049,26 +1053,7 @@ enum
     GO_NEFARIAN_A                   = 179882,
 };
 
-struct go_dragon_head : public GameObjectAI
-{
-    go_dragon_head(GameObject* go) : GameObjectAI(go) {}
 
-    void JustSpawned() override
-    {
-        uint32 npcEntry = 0;
-        switch (m_go->GetEntry())
-        {
-            case GO_ONYXIA_H: npcEntry = NPC_OVERLORD_RUNTHAK; break;
-            case GO_ONYXIA_A: npcEntry = NPC_MAJOR_MATTINGLY; break;
-            case GO_NEFARIAN_H: npcEntry = NPC_HIGH_OVERLORD_SAURFANG; break;
-            case GO_NEFARIAN_A: npcEntry = NPC_FIELD_MARSHAL_AFRASIABI; break;
-        }
-
-        Unit* caster = GetClosestCreatureWithEntry(m_go, npcEntry, 30.f);
-        if (caster)
-            caster->CastSpell(nullptr, SPELL_RALLYING_CRY_OF_THE_DRAGONSLAYER, TRIGGERED_OLD_TRIGGERED);
-    }
-};
 class go_dragon_head : public CreatureScript
 {
 public:
@@ -1076,10 +1061,29 @@ public:
 
     GameObjectAI* GetAI(GameObject* go)
     {
-        return new go_dragon_head(go);
+        return new go_dragon_headAI(go);
     }
 
+    struct go_dragon_headAI : public GameObjectAI
+    {
+        go_dragon_headAI(GameObject* go) : GameObjectAI(go) {}
 
+        void JustSpawned() override
+        {
+            uint32 npcEntry = 0;
+            switch (m_go->GetEntry())
+            {
+            case GO_ONYXIA_H: npcEntry = NPC_OVERLORD_RUNTHAK; break;
+            case GO_ONYXIA_A: npcEntry = NPC_MAJOR_MATTINGLY; break;
+            case GO_NEFARIAN_H: npcEntry = NPC_HIGH_OVERLORD_SAURFANG; break;
+            case GO_NEFARIAN_A: npcEntry = NPC_FIELD_MARSHAL_AFRASIABI; break;
+            }
+
+            Unit* caster = GetClosestCreatureWithEntry(m_go, npcEntry, 30.f);
+            if (caster)
+                caster->CastSpell(nullptr, SPELL_RALLYING_CRY_OF_THE_DRAGONSLAYER, TRIGGERED_OLD_TRIGGERED);
+        }
+    };
 
 };
 
@@ -1090,19 +1094,6 @@ enum
     NPC_THRALL = 4949,
 };
 
-struct go_unadorned_spike : public GameObjectAI
-{
-    go_unadorned_spike(GameObject* go) : GameObjectAI(go) {}
-
-    void OnLootStateChange() override
-    {
-        if (m_go->GetLootState() != GO_ACTIVATED)
-            return;
-
-        if (Creature* thrall = GetClosestCreatureWithEntry(m_go, NPC_THRALL, 30.f))
-            thrall->CastSpell(nullptr, SPELL_WARCHIEFS_BLESSING, TRIGGERED_OLD_TRIGGERED);
-    }
-};
 class go_unadorned_spike : public CreatureScript
 {
 public:
@@ -1110,9 +1101,22 @@ public:
 
     GameObjectAI* GetAI(GameObject* go)
     {
-        return new go_unadorned_spike(go);
+        return new go_unadorned_spikeAI(go);
     }
 
+    struct go_unadorned_spikeAI : public GameObjectAI
+    {
+        go_unadorned_spikeAI(GameObject* go) : GameObjectAI(go) {}
+
+        void OnLootStateChange() override
+        {
+            if (m_go->GetLootState() != GO_ACTIVATED)
+                return;
+
+            if (Creature* thrall = GetClosestCreatureWithEntry(m_go, NPC_THRALL, 30.f))
+                thrall->CastSpell(nullptr, SPELL_WARCHIEFS_BLESSING, TRIGGERED_OLD_TRIGGERED);
+        }
+    };
 
 
 };

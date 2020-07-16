@@ -1459,10 +1459,10 @@ enum
 
     MAX_FLAREUP_STACKS              = 8,
 };
-class npc_living_flare : public CreatureScript
+class npc_living_flare : public CreatureScript, public SpellAuraScript
 {
 public:
-    npc_living_flare() : CreatureScript("npc_living_flare") { }
+    npc_living_flare() : CreatureScript("npc_living_flare"), SpellAuraScript("npc_living_flare") { }
 
     bool OnAuraDummy(const Aura* pAura, bool bApply) override
     {
@@ -1853,10 +1853,10 @@ enum SedaiActions : uint32
     SEDAI_ACTION_SEDAI_MOVE_2,
     SEDAI_ACTION_SEDAI_START_ATTACK,
 };
-class npc_vindicator_sedai : public CreatureScript
+class npc_vindicator_sedai : public CreatureScript, public ObjectScript
 {
 public:
-    npc_vindicator_sedai() : CreatureScript("npc_vindicator_sedai") { }
+    npc_vindicator_sedai() : CreatureScript("npc_vindicator_sedai"), ObjectScript("npc_vindicator_sedai") { }
 
     bool OnProcessEvent(uint32 /*eventId*/, Object* source, Object* /*target*/, bool /*isStart*/) override
     {

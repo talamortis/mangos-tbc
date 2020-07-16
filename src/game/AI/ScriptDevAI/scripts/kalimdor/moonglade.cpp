@@ -895,7 +895,7 @@ public:
                                 pTyrande->ForcedDespawn(9000);
                             }
                             if (Creature* pRemulos = m_creature->GetMap()->GetCreature(m_remulosGuid))
-                                ((npc_keeper_remulosAI*)pRemulos->AI())->DoHandleOutro(m_creature);
+                                ((npc_keeper_remulos::npc_keeper_remulosAI*)pRemulos->AI())->DoHandleOutro(m_creature);
                             m_creature->HandleEmote(EMOTE_ONESHOT_BOW);
                             m_creature->ForcedDespawn(2000);
                             break;

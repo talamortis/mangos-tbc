@@ -2389,7 +2389,7 @@ public:
         {
             // pre 2.3
             Creature* illidan = GetClosestCreatureWithEntry(go, NPC_ILLIDAN_STORMRAGE, 5.f);
-            if (illidan && static_cast<boss_illidan_stormrageAI*>(illidan->AI())->m_phase != PHASE_4_DEMON && !static_cast<boss_illidan_stormrageAI*>(illidan->AI())->GetCombatScriptStatus())
+            if (illidan && static_cast<boss_illidan_stormrage::boss_illidan_stormrageAI*>(illidan->AI())->m_phase != PHASE_4_DEMON && !static_cast<boss_illidan_stormrage::boss_illidan_stormrageAI*>(illidan->AI())->GetCombatScriptStatus())
             {
                 trapTrigger->CastSpell(nullptr, SPELL_CAGE_TRAP_DUMMY, TRIGGERED_OLD_TRIGGERED);
                 trapTrigger->ForcedDespawn(15000);

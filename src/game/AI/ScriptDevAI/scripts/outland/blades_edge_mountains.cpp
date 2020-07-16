@@ -1748,10 +1748,10 @@ enum
     // NPC_WHISPER_RAVEN_GOD_TEMPLATE  = 21851,
     NPC_VISION_RAVEN_GOD_TEMPLATE   = 21861,
 };
-class mobs_grishna_arrakoa : public CreatureScript
+class mobs_grishna_arrakoa : public AreaTriggerScript
 {
 public:
-    mobs_grishna_arrakoa() : CreatureScript("mobs_grishna_arrakoa") { }
+    mobs_grishna_arrakoa() : AreaTriggerScript("mobs_grishna") { }
 
     bool OnTrigger(Player* pPlayer, AreaTriggerEntry const* pAt) override
     {

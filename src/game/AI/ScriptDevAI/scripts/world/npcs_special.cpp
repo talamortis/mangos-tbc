@@ -1227,7 +1227,7 @@ public:
 ## npc_burster_worm
 ######*/
 
-enum npc_burster_worm
+enum npc_burster_wormEnum
 {
     // visual and idle spells
     SPELL_TUNNEL_BORE_PASSIVE           = 29147,                // added by c_t_a
@@ -1525,7 +1525,7 @@ public:
 ## npc_aoe_damage_trigger
 ######*/
 
-enum npc_aoe_damage_trigger
+enum npc_aoe_damage_triggerEnum
 {
     // trigger npcs
     NPC_VOID_ZONE = 16697,

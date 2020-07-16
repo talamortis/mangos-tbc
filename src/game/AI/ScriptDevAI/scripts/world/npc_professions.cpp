@@ -283,6 +283,203 @@ void ProfessionUnlearnSpells(Player* pPlayer, uint32 type)
     }
 }
 
+void SendActionMenu(Player* pPlayer, Creature* pCreature, uint32 uiAction)
+{
+    switch (uiAction)
+    {
+    case GOSSIP_ACTION_TRADE:
+        pPlayer->SEND_VENDORLIST(pCreature->GetObjectGuid());
+        break;
+    case GOSSIP_ACTION_TRAIN:
+        pPlayer->SEND_TRAINERLIST(pCreature->GetObjectGuid());
+        break;
+        // Learn Armor/Weapon
+    case GOSSIP_ACTION_INFO_DEF + 1:
+        if (!pPlayer->HasSpell(S_ARMOR))
+        {
+            pPlayer->CastSpell(pPlayer, S_LEARN_ARMOR, TRIGGERED_OLD_TRIGGERED);
+            // pCreature->CastSpell(pPlayer, S_REP_ARMOR, TRIGGERED_OLD_TRIGGERED);
+        }
+        pPlayer->CLOSE_GOSSIP_MENU();
+        break;
+    case GOSSIP_ACTION_INFO_DEF + 2:
+        if (!pPlayer->HasSpell(S_WEAPON))
+        {
+            pPlayer->CastSpell(pPlayer, S_LEARN_WEAPON, TRIGGERED_OLD_TRIGGERED);
+            // pCreature->CastSpell(pPlayer, S_REP_WEAPON, TRIGGERED_OLD_TRIGGERED);
+        }
+        pPlayer->CLOSE_GOSSIP_MENU();
+        break;
+        // Unlearn Armor/Weapon
+    case GOSSIP_ACTION_INFO_DEF + 3:
+        if (HasWeaponSub(pPlayer))
+        {
+            // unknown textID (TALK_MUST_UNLEARN_WEAPON)
+            pPlayer->SEND_GOSSIP_MENU(pPlayer->GetGossipTextId(pCreature), pCreature->GetObjectGuid());
+        }
+        else if (EquippedOk(pPlayer, S_UNLEARN_WEAPON))
+        {
+            if (pPlayer->GetMoney() >= uint32(GetUnlearnCostLow(pPlayer)))
+            {
+                pPlayer->CastSpell(pPlayer, S_UNLEARN_WEAPON, TRIGGERED_OLD_TRIGGERED);
+                ProfessionUnlearnSpells(pPlayer, S_UNLEARN_WEAPON);
+                pPlayer->ModifyMoney(-GetUnlearnCostLow(pPlayer));
+                pCreature->CastSpell(pPlayer, S_REP_ARMOR, TRIGGERED_OLD_TRIGGERED);
+                pPlayer->CLOSE_GOSSIP_MENU();
+            }
+            else
+                pPlayer->SendBuyError(BUY_ERR_NOT_ENOUGHT_MONEY, pCreature, 0, 0);
+        }
+        else
+        {
+            pPlayer->SendEquipError(EQUIP_ERR_CANT_DO_RIGHT_NOW, nullptr, nullptr);
+            pPlayer->CLOSE_GOSSIP_MENU();
+        }
+        break;
+    case GOSSIP_ACTION_INFO_DEF + 4:
+        if (EquippedOk(pPlayer, S_UNLEARN_ARMOR))
+        {
+            if (pPlayer->GetMoney() >= uint32(GetUnlearnCostLow(pPlayer)))
+            {
+                pPlayer->CastSpell(pPlayer, S_UNLEARN_ARMOR, TRIGGERED_OLD_TRIGGERED);
+                ProfessionUnlearnSpells(pPlayer, S_UNLEARN_ARMOR);
+                pPlayer->ModifyMoney(-GetUnlearnCostLow(pPlayer));
+                pCreature->CastSpell(pPlayer, S_REP_WEAPON, TRIGGERED_OLD_TRIGGERED);
+            }
+            else
+                pPlayer->SendBuyError(BUY_ERR_NOT_ENOUGHT_MONEY, pCreature, 0, 0);
+        }
+        else
+            pPlayer->SendEquipError(EQUIP_ERR_CANT_DO_RIGHT_NOW, nullptr, nullptr);
+        pPlayer->CLOSE_GOSSIP_MENU();
+        break;
+        // Learn Hammer/Axe/Sword
+    case GOSSIP_ACTION_INFO_DEF + 5:
+        pPlayer->CastSpell(pPlayer, S_LEARN_HAMMER, TRIGGERED_OLD_TRIGGERED);
+        pPlayer->CLOSE_GOSSIP_MENU();
+        break;
+    case GOSSIP_ACTION_INFO_DEF + 6:
+        pPlayer->CastSpell(pPlayer, S_LEARN_AXE, TRIGGERED_OLD_TRIGGERED);
+        pPlayer->CLOSE_GOSSIP_MENU();
+        break;
+    case GOSSIP_ACTION_INFO_DEF + 7:
+        pPlayer->CastSpell(pPlayer, S_LEARN_SWORD, TRIGGERED_OLD_TRIGGERED);
+        pPlayer->CLOSE_GOSSIP_MENU();
+        break;
+        // Unlearn Hammer/Axe/Sword
+    case GOSSIP_ACTION_INFO_DEF + 8:
+        if (EquippedOk(pPlayer, S_UNLEARN_HAMMER))
+        {
+            if (pPlayer->GetMoney() >= uint32(GetUnlearnCostMedium(pPlayer)))
+            {
+                pPlayer->CastSpell(pPlayer, S_UNLEARN_HAMMER, TRIGGERED_OLD_TRIGGERED);
+                ProfessionUnlearnSpells(pPlayer, S_UNLEARN_HAMMER);
+                pPlayer->ModifyMoney(-GetUnlearnCostMedium(pPlayer));
+            }
+            else
+                pPlayer->SendBuyError(BUY_ERR_NOT_ENOUGHT_MONEY, pCreature, 0, 0);
+        }
+        else
+            pPlayer->SendEquipError(EQUIP_ERR_CANT_DO_RIGHT_NOW, nullptr, nullptr);
+        pPlayer->CLOSE_GOSSIP_MENU();
+        break;
+    case GOSSIP_ACTION_INFO_DEF + 9:
+        if (EquippedOk(pPlayer, S_UNLEARN_AXE))
+        {
+            if (pPlayer->GetMoney() >= uint32(GetUnlearnCostMedium(pPlayer)))
+            {
+                pPlayer->CastSpell(pPlayer, S_UNLEARN_AXE, TRIGGERED_OLD_TRIGGERED);
+                ProfessionUnlearnSpells(pPlayer, S_UNLEARN_AXE);
+                pPlayer->ModifyMoney(-GetUnlearnCostMedium(pPlayer));
+            }
+            else
+                pPlayer->SendBuyError(BUY_ERR_NOT_ENOUGHT_MONEY, pCreature, 0, 0);
+        }
+        else
+            pPlayer->SendEquipError(EQUIP_ERR_CANT_DO_RIGHT_NOW, nullptr, nullptr);
+        pPlayer->CLOSE_GOSSIP_MENU();
+        break;
+    case GOSSIP_ACTION_INFO_DEF + 10:
+        if (EquippedOk(pPlayer, S_UNLEARN_SWORD))
+        {
+            if (pPlayer->GetMoney() >= uint32(GetUnlearnCostMedium(pPlayer)))
+            {
+                pPlayer->CastSpell(pPlayer, S_UNLEARN_SWORD, TRIGGERED_OLD_TRIGGERED);
+                ProfessionUnlearnSpells(pPlayer, S_UNLEARN_SWORD);
+                pPlayer->ModifyMoney(-GetUnlearnCostMedium(pPlayer));
+            }
+            else
+                pPlayer->SendBuyError(BUY_ERR_NOT_ENOUGHT_MONEY, pCreature, 0, 0);
+        }
+        else
+            pPlayer->SendEquipError(EQUIP_ERR_CANT_DO_RIGHT_NOW, nullptr, nullptr);
+        pPlayer->CLOSE_GOSSIP_MENU();
+        break;
+    }
+}
+
+void SendConfirmLearn(Player* pPlayer, Creature* pCreature, uint32 uiAction)
+{
+    if (uiAction)
+    {
+        uint32 eCreature = pCreature->GetEntry();
+        switch (eCreature)
+        {
+        case 11191:
+            pPlayer->ADD_GOSSIP_ITEM(GOSSIP_ICON_CHAT, GOSSIP_LEARN_HAMMER, GOSSIP_SENDER_CHECK, uiAction);
+            // unknown textID (TALK_HAMMER_LEARN)
+            pPlayer->SEND_GOSSIP_MENU(pPlayer->GetGossipTextId(pCreature), pCreature->GetObjectGuid());
+            break;
+        case 11192:
+            pPlayer->ADD_GOSSIP_ITEM(GOSSIP_ICON_CHAT, GOSSIP_LEARN_AXE, GOSSIP_SENDER_CHECK, uiAction);
+            // unknown textID (TALK_AXE_LEARN)
+            pPlayer->SEND_GOSSIP_MENU(pPlayer->GetGossipTextId(pCreature), pCreature->GetObjectGuid());
+            break;
+        case 11193:
+            pPlayer->ADD_GOSSIP_ITEM(GOSSIP_ICON_CHAT, GOSSIP_LEARN_SWORD, GOSSIP_SENDER_CHECK, uiAction);
+            // unknown textID (TALK_SWORD_LEARN)
+            pPlayer->SEND_GOSSIP_MENU(pPlayer->GetGossipTextId(pCreature), pCreature->GetObjectGuid());
+            break;
+        }
+    }
+}
+
+void SendConfirmUnlearn(Player* pPlayer, Creature* pCreature, uint32 uiAction)
+{
+    if (uiAction)
+    {
+        uint32 eCreature = pCreature->GetEntry();
+        switch (eCreature)
+        {
+        case 11146:                                     // Ironus Coldsteel
+        case 11178:                                     // Borgosh Corebender
+        case 5164:                                      // Grumnus Steelshaper
+        case 11177:                                     // Okothos Ironrager
+            pPlayer->ADD_GOSSIP_ITEM_EXTENDED(0, GOSSIP_UNLEARN_SMITH_SPEC, GOSSIP_SENDER_CHECK, uiAction, BOX_UNLEARN_ARMORORWEAPON, GetUnlearnCostLow(pPlayer), false);
+            // unknown textID (TALK_UNLEARN_AXEORWEAPON)
+            pPlayer->SEND_GOSSIP_MENU(pPlayer->GetGossipTextId(pCreature), pCreature->GetObjectGuid());
+            break;
+
+        case 11191:
+            pPlayer->ADD_GOSSIP_ITEM_EXTENDED(0, GOSSIP_UNLEARN_HAMMER, GOSSIP_SENDER_CHECK, uiAction, BOX_UNLEARN_WEAPON_SPEC, GetUnlearnCostMedium(pPlayer), false);
+            // unknown textID (TALK_HAMMER_UNLEARN)
+            pPlayer->SEND_GOSSIP_MENU(pPlayer->GetGossipTextId(pCreature), pCreature->GetObjectGuid());
+            break;
+        case 11192:
+            pPlayer->ADD_GOSSIP_ITEM_EXTENDED(0, GOSSIP_UNLEARN_AXE, GOSSIP_SENDER_CHECK, uiAction, BOX_UNLEARN_WEAPON_SPEC, GetUnlearnCostMedium(pPlayer), false);
+            // unknown textID (TALK_AXE_UNLEARN)
+            pPlayer->SEND_GOSSIP_MENU(pPlayer->GetGossipTextId(pCreature), pCreature->GetObjectGuid());
+            break;
+        case 11193:
+            pPlayer->ADD_GOSSIP_ITEM_EXTENDED(0, GOSSIP_UNLEARN_SWORD, GOSSIP_SENDER_CHECK, uiAction, BOX_UNLEARN_WEAPON_SPEC, GetUnlearnCostMedium(pPlayer), false);
+            // unknown textID (TALK_SWORD_UNLEARN)
+            pPlayer->SEND_GOSSIP_MENU(pPlayer->GetGossipTextId(pCreature), pCreature->GetObjectGuid());
+            break;
+        }
+    }
+}
+
+
 /*###
 # start menues blacksmith
 ###*/
@@ -377,203 +574,6 @@ public:
 
 
 };
-
-void SendActionMenu_npc_prof_blacksmith(Player* pPlayer, Creature* pCreature, uint32 uiAction)
-{
-    switch (uiAction)
-    {
-        case GOSSIP_ACTION_TRADE:
-            pPlayer->SEND_VENDORLIST(pCreature->GetObjectGuid());
-            break;
-        case GOSSIP_ACTION_TRAIN:
-            pPlayer->SEND_TRAINERLIST(pCreature->GetObjectGuid());
-            break;
-        // Learn Armor/Weapon
-        case GOSSIP_ACTION_INFO_DEF + 1:
-            if (!pPlayer->HasSpell(S_ARMOR))
-            {
-                pPlayer->CastSpell(pPlayer, S_LEARN_ARMOR, TRIGGERED_OLD_TRIGGERED);
-                // pCreature->CastSpell(pPlayer, S_REP_ARMOR, TRIGGERED_OLD_TRIGGERED);
-            }
-            pPlayer->CLOSE_GOSSIP_MENU();
-            break;
-        case GOSSIP_ACTION_INFO_DEF + 2:
-            if (!pPlayer->HasSpell(S_WEAPON))
-            {
-                pPlayer->CastSpell(pPlayer, S_LEARN_WEAPON, TRIGGERED_OLD_TRIGGERED);
-                // pCreature->CastSpell(pPlayer, S_REP_WEAPON, TRIGGERED_OLD_TRIGGERED);
-            }
-            pPlayer->CLOSE_GOSSIP_MENU();
-            break;
-        // Unlearn Armor/Weapon
-        case GOSSIP_ACTION_INFO_DEF + 3:
-            if (HasWeaponSub(pPlayer))
-            {
-                // unknown textID (TALK_MUST_UNLEARN_WEAPON)
-                pPlayer->SEND_GOSSIP_MENU(pPlayer->GetGossipTextId(pCreature), pCreature->GetObjectGuid());
-            }
-            else if (EquippedOk(pPlayer, S_UNLEARN_WEAPON))
-            {
-                if (pPlayer->GetMoney() >= uint32(GetUnlearnCostLow(pPlayer)))
-                {
-                    pPlayer->CastSpell(pPlayer, S_UNLEARN_WEAPON, TRIGGERED_OLD_TRIGGERED);
-                    ProfessionUnlearnSpells(pPlayer, S_UNLEARN_WEAPON);
-                    pPlayer->ModifyMoney(-GetUnlearnCostLow(pPlayer));
-                    pCreature->CastSpell(pPlayer, S_REP_ARMOR, TRIGGERED_OLD_TRIGGERED);
-                    pPlayer->CLOSE_GOSSIP_MENU();
-                }
-                else
-                    pPlayer->SendBuyError(BUY_ERR_NOT_ENOUGHT_MONEY, pCreature, 0, 0);
-            }
-            else
-            {
-                pPlayer->SendEquipError(EQUIP_ERR_CANT_DO_RIGHT_NOW, nullptr, nullptr);
-                pPlayer->CLOSE_GOSSIP_MENU();
-            }
-            break;
-        case GOSSIP_ACTION_INFO_DEF + 4:
-            if (EquippedOk(pPlayer, S_UNLEARN_ARMOR))
-            {
-                if (pPlayer->GetMoney() >= uint32(GetUnlearnCostLow(pPlayer)))
-                {
-                    pPlayer->CastSpell(pPlayer, S_UNLEARN_ARMOR, TRIGGERED_OLD_TRIGGERED);
-                    ProfessionUnlearnSpells(pPlayer, S_UNLEARN_ARMOR);
-                    pPlayer->ModifyMoney(-GetUnlearnCostLow(pPlayer));
-                    pCreature->CastSpell(pPlayer, S_REP_WEAPON, TRIGGERED_OLD_TRIGGERED);
-                }
-                else
-                    pPlayer->SendBuyError(BUY_ERR_NOT_ENOUGHT_MONEY, pCreature, 0, 0);
-            }
-            else
-                pPlayer->SendEquipError(EQUIP_ERR_CANT_DO_RIGHT_NOW, nullptr, nullptr);
-            pPlayer->CLOSE_GOSSIP_MENU();
-            break;
-        // Learn Hammer/Axe/Sword
-        case GOSSIP_ACTION_INFO_DEF + 5:
-            pPlayer->CastSpell(pPlayer, S_LEARN_HAMMER, TRIGGERED_OLD_TRIGGERED);
-            pPlayer->CLOSE_GOSSIP_MENU();
-            break;
-        case GOSSIP_ACTION_INFO_DEF + 6:
-            pPlayer->CastSpell(pPlayer, S_LEARN_AXE, TRIGGERED_OLD_TRIGGERED);
-            pPlayer->CLOSE_GOSSIP_MENU();
-            break;
-        case GOSSIP_ACTION_INFO_DEF + 7:
-            pPlayer->CastSpell(pPlayer, S_LEARN_SWORD, TRIGGERED_OLD_TRIGGERED);
-            pPlayer->CLOSE_GOSSIP_MENU();
-            break;
-        // Unlearn Hammer/Axe/Sword
-        case GOSSIP_ACTION_INFO_DEF + 8:
-            if (EquippedOk(pPlayer, S_UNLEARN_HAMMER))
-            {
-                if (pPlayer->GetMoney() >= uint32(GetUnlearnCostMedium(pPlayer)))
-                {
-                    pPlayer->CastSpell(pPlayer, S_UNLEARN_HAMMER, TRIGGERED_OLD_TRIGGERED);
-                    ProfessionUnlearnSpells(pPlayer, S_UNLEARN_HAMMER);
-                    pPlayer->ModifyMoney(-GetUnlearnCostMedium(pPlayer));
-                }
-                else
-                    pPlayer->SendBuyError(BUY_ERR_NOT_ENOUGHT_MONEY, pCreature, 0, 0);
-            }
-            else
-                pPlayer->SendEquipError(EQUIP_ERR_CANT_DO_RIGHT_NOW, nullptr, nullptr);
-            pPlayer->CLOSE_GOSSIP_MENU();
-            break;
-        case GOSSIP_ACTION_INFO_DEF + 9:
-            if (EquippedOk(pPlayer, S_UNLEARN_AXE))
-            {
-                if (pPlayer->GetMoney() >= uint32(GetUnlearnCostMedium(pPlayer)))
-                {
-                    pPlayer->CastSpell(pPlayer, S_UNLEARN_AXE, TRIGGERED_OLD_TRIGGERED);
-                    ProfessionUnlearnSpells(pPlayer, S_UNLEARN_AXE);
-                    pPlayer->ModifyMoney(-GetUnlearnCostMedium(pPlayer));
-                }
-                else
-                    pPlayer->SendBuyError(BUY_ERR_NOT_ENOUGHT_MONEY, pCreature, 0, 0);
-            }
-            else
-                pPlayer->SendEquipError(EQUIP_ERR_CANT_DO_RIGHT_NOW, nullptr, nullptr);
-            pPlayer->CLOSE_GOSSIP_MENU();
-            break;
-        case GOSSIP_ACTION_INFO_DEF + 10:
-            if (EquippedOk(pPlayer, S_UNLEARN_SWORD))
-            {
-                if (pPlayer->GetMoney() >= uint32(GetUnlearnCostMedium(pPlayer)))
-                {
-                    pPlayer->CastSpell(pPlayer, S_UNLEARN_SWORD, TRIGGERED_OLD_TRIGGERED);
-                    ProfessionUnlearnSpells(pPlayer, S_UNLEARN_SWORD);
-                    pPlayer->ModifyMoney(-GetUnlearnCostMedium(pPlayer));
-                }
-                else
-                    pPlayer->SendBuyError(BUY_ERR_NOT_ENOUGHT_MONEY, pCreature, 0, 0);
-            }
-            else
-                pPlayer->SendEquipError(EQUIP_ERR_CANT_DO_RIGHT_NOW, nullptr, nullptr);
-            pPlayer->CLOSE_GOSSIP_MENU();
-            break;
-    }
-}
-
-void SendConfirmLearn_npc_prof_blacksmith(Player* pPlayer, Creature* pCreature, uint32 uiAction)
-{
-    if (uiAction)
-    {
-        uint32 eCreature = pCreature->GetEntry();
-        switch (eCreature)
-        {
-            case 11191:
-                pPlayer->ADD_GOSSIP_ITEM(GOSSIP_ICON_CHAT, GOSSIP_LEARN_HAMMER, GOSSIP_SENDER_CHECK, uiAction);
-                // unknown textID (TALK_HAMMER_LEARN)
-                pPlayer->SEND_GOSSIP_MENU(pPlayer->GetGossipTextId(pCreature), pCreature->GetObjectGuid());
-                break;
-            case 11192:
-                pPlayer->ADD_GOSSIP_ITEM(GOSSIP_ICON_CHAT, GOSSIP_LEARN_AXE,    GOSSIP_SENDER_CHECK, uiAction);
-                // unknown textID (TALK_AXE_LEARN)
-                pPlayer->SEND_GOSSIP_MENU(pPlayer->GetGossipTextId(pCreature), pCreature->GetObjectGuid());
-                break;
-            case 11193:
-                pPlayer->ADD_GOSSIP_ITEM(GOSSIP_ICON_CHAT, GOSSIP_LEARN_SWORD,  GOSSIP_SENDER_CHECK, uiAction);
-                // unknown textID (TALK_SWORD_LEARN)
-                pPlayer->SEND_GOSSIP_MENU(pPlayer->GetGossipTextId(pCreature), pCreature->GetObjectGuid());
-                break;
-        }
-    }
-}
-
-void SendConfirmUnlearn_npc_prof_blacksmith(Player* pPlayer, Creature* pCreature, uint32 uiAction)
-{
-    if (uiAction)
-    {
-        uint32 eCreature = pCreature->GetEntry();
-        switch (eCreature)
-        {
-            case 11146:                                     // Ironus Coldsteel
-            case 11178:                                     // Borgosh Corebender
-            case 5164:                                      // Grumnus Steelshaper
-            case 11177:                                     // Okothos Ironrager
-                pPlayer->ADD_GOSSIP_ITEM_EXTENDED(0, GOSSIP_UNLEARN_SMITH_SPEC, GOSSIP_SENDER_CHECK, uiAction, BOX_UNLEARN_ARMORORWEAPON, GetUnlearnCostLow(pPlayer), false);
-                // unknown textID (TALK_UNLEARN_AXEORWEAPON)
-                pPlayer->SEND_GOSSIP_MENU(pPlayer->GetGossipTextId(pCreature), pCreature->GetObjectGuid());
-                break;
-
-            case 11191:
-                pPlayer->ADD_GOSSIP_ITEM_EXTENDED(0, GOSSIP_UNLEARN_HAMMER, GOSSIP_SENDER_CHECK, uiAction,    BOX_UNLEARN_WEAPON_SPEC, GetUnlearnCostMedium(pPlayer), false);
-                // unknown textID (TALK_HAMMER_UNLEARN)
-                pPlayer->SEND_GOSSIP_MENU(pPlayer->GetGossipTextId(pCreature), pCreature->GetObjectGuid());
-                break;
-            case 11192:
-                pPlayer->ADD_GOSSIP_ITEM_EXTENDED(0, GOSSIP_UNLEARN_AXE, GOSSIP_SENDER_CHECK, uiAction,       BOX_UNLEARN_WEAPON_SPEC, GetUnlearnCostMedium(pPlayer), false);
-                // unknown textID (TALK_AXE_UNLEARN)
-                pPlayer->SEND_GOSSIP_MENU(pPlayer->GetGossipTextId(pCreature), pCreature->GetObjectGuid());
-                break;
-            case 11193:
-                pPlayer->ADD_GOSSIP_ITEM_EXTENDED(0, GOSSIP_UNLEARN_SWORD, GOSSIP_SENDER_CHECK, uiAction,     BOX_UNLEARN_WEAPON_SPEC, GetUnlearnCostMedium(pPlayer), false);
-                // unknown textID (TALK_SWORD_UNLEARN)
-                pPlayer->SEND_GOSSIP_MENU(pPlayer->GetGossipTextId(pCreature), pCreature->GetObjectGuid());
-                break;
-        }
-    }
-}
-
 
 /*bool QuestComplete_npc_prof_blacksmith(Player* pPlayer, Creature* pCreature, const Quest* pQuest)
 {
@@ -770,6 +770,6 @@ void AddSC_npc_professions()
 {
     new npc_prof_blacksmith();
     new npc_prof_leather();
-    new go_soothsaying_for_dummies();
+    //new go_soothsaying_for_dummies();
 
 }

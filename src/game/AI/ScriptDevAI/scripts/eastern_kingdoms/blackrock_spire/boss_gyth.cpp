@@ -53,11 +53,11 @@ public:
     {
         boss_gythAI(Creature* pCreature) : ScriptedAI(pCreature)
         {
-            m_pInstance = (instance_blackrock_spire*) pCreature->GetInstanceData();
+            m_pInstance = (ScriptedInstance*) pCreature->GetInstanceData();
             Reset();
         }
 
-        instance_blackrock_spire* m_pInstance;
+        ScriptedInstance* m_pInstance;
 
         uint32 uiCorrosiveAcidTimer;
         uint32 uiFreezeTimer;

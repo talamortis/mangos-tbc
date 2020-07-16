@@ -81,14 +81,14 @@ enum EmperorActions
 
 struct boss_twin_emperorsAI : public CombatAI
 {
-    boss_twin_emperorsAI(Creature* creature, uint32 actionCount) : CombatAI(creature, actionCount), m_instance(static_cast<instance_temple_of_ahnqiraj*>(creature->GetInstanceData()))
+    boss_twin_emperorsAI(Creature* creature, uint32 actionCount) : CombatAI(creature, actionCount), m_instance(static_cast<ScriptedInstance*>(creature->GetInstanceData()))
     {
         AddCombatAction(EMPEROR_BERSERK, 15u * MINUTE * IN_MILLISECONDS);
         AddCombatAction(EMPEROR_BUG_ABILITY, urand(7000, 14000));
         AddCustomAction(EMPEROR_TELEPORT_DELAY, true, [&]() { HandleDelayedAttack(); });
     }
 
-    instance_temple_of_ahnqiraj* m_instance;
+    ScriptedInstance* m_instance;
 
     // Workaround for the shared health pool
     void DamageTaken(Unit* /*doneBy*/, uint32& damage, DamageEffectType /*damagetype*/, SpellEntry const* spellInfo) override
@@ -191,7 +191,10 @@ enum VeknilashActions
 public:
     boss_veknilash() : CreatureScript("boss_veknilash") { }
 
-
+    UnitAI* GetAI(Creature* creature)
+    {
+        return new boss_veknilashAI(creature);
+    }
     struct boss_veknilashAI : public boss_twin_emperorsAI
     {
         boss_veknilashAI(Creature* creature) : boss_twin_emperorsAI(creature, VEKNILASH_ACTION_MAX)
@@ -293,6 +296,10 @@ enum VeklorActions
 public:
     boss_veklor() : CreatureScript("boss_veklor") { }
 
+    UnitAI* GetAI(Creature* creature)
+    {
+        return new boss_veklorAI(creature);
+    }
 
     struct boss_veklorAI : public boss_twin_emperorsAI
     {

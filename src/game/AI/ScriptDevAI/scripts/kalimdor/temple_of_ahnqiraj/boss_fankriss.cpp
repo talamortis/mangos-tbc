@@ -63,7 +63,10 @@ enum FankrissActions
 {
 public:
     boss_fankriss() : CreatureScript("boss_fankriss") { }
-
+    UnitAI* GetAI(Creature* creature)
+    {
+        return new boss_fankrissAI(creature);
+    }
 
     struct boss_fankrissAI : public CombatAI
     {

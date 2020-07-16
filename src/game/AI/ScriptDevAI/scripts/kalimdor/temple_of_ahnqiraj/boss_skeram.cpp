@@ -57,264 +57,276 @@ enum SkeramActions
     SKERAM_BLINK_DELAY,
     SKERAM_INIT_IMAGES,
 };
-
-struct boss_skeramAI : public CombatAI
+class boss_skeram : public CreatureScript
 {
-    boss_skeramAI(Creature* creature) : CombatAI(creature, SKERAM_ACTION_MAX), m_instance(static_cast<ScriptedInstance*>(creature->GetInstanceData())), m_isImage(!m_creature->GetSpawnerGuid().IsEmpty())
+public:
+    boss_skeram() : CreatureScript("boss_skeram") { }
+
+    UnitAI* GetAI(Creature* pCreature)
     {
-        if (!m_isImage)
+        return new boss_skeramAI(pCreature);
+    }
+    struct boss_skeramAI : public CombatAI
+    {
+        boss_skeramAI(Creature* creature) : CombatAI(creature, SKERAM_ACTION_MAX), m_instance(static_cast<ScriptedInstance*>(creature->GetInstanceData())), m_isImage(!m_creature->GetSpawnerGuid().IsEmpty())
         {
-            AddTimerlessCombatAction(SKERAM_SPLIT, true);
-            AddCombatAction(SKERAM_BLINK, 30000, 45000);
-            AddCustomAction(SKERAM_INIT_IMAGES, true, [&]() { HandleInitImages(); });
+            if (!m_isImage)
+            {
+                AddTimerlessCombatAction(SKERAM_SPLIT, true);
+                AddCombatAction(SKERAM_BLINK, 30000, 45000);
+                AddCustomAction(SKERAM_INIT_IMAGES, true, [&]() { HandleInitImages(); });
+            }
+            AddCombatAction(SKERAM_ARCANE_EXPLOSION, 6000, 12000);
+            AddCombatAction(SKERAM_TRUE_FULFILMENT, uint32(15) * IN_MILLISECONDS);
+            AddCombatAction(SKERAM_EARTH_SHOCK, 1200u);
+            AddCustomAction(SKERAM_BLINK_DELAY, true, [&]() { HandleBlinkDelay(); });
         }
-        AddCombatAction(SKERAM_ARCANE_EXPLOSION, 6000, 12000);
-        AddCombatAction(SKERAM_TRUE_FULFILMENT, uint32(15) * IN_MILLISECONDS);
-        AddCombatAction(SKERAM_EARTH_SHOCK, 1200u);
-        AddCustomAction(SKERAM_BLINK_DELAY, true, [&]() { HandleBlinkDelay(); });
-    }
 
-    ScriptedInstance* m_instance;
+        ScriptedInstance* m_instance;
 
-    std::vector<uint32> m_teleports;
-    uint8 m_teleportCounter;
+        std::vector<uint32> m_teleports;
+        uint8 m_teleportCounter;
 
-    uint8 m_maxMeleeAllowed;
+        uint8 m_maxMeleeAllowed;
 
-    float m_hpCheck;
+        float m_hpCheck;
 
-    bool m_isImage;
+        bool m_isImage;
 
-    int32 m_rangeCheckState;
+        int32 m_rangeCheckState;
 
-    GuidVector m_images;
+        GuidVector m_images;
 
-    void Reset() override
-    {
-        CombatAI::Reset();
-        m_hpCheck               = 75.0f;
-
-        m_teleports              = { SPELL_TELEPORT_1, SPELL_TELEPORT_2, SPELL_TELEPORT_3 };
-        m_teleportCounter        = 0;
-
-        m_maxMeleeAllowed        = 0;
-    }
-
-    void JustRespawned() override
-    {
-        CombatAI::JustRespawned();
-        if (m_isImage)
-            StopAttacking();
-        DoCastSpellIfCan(nullptr, SPELL_BIRTH);
-    }
-
-    void KilledUnit(Unit* /*victim*/) override
-    {
-        DoScriptText(SAY_SLAY, m_creature);
-    }
-
-    void JustDied(Unit* /*killer*/) override
-    {
-        if (!m_isImage)
+        void Reset() override
         {
-            DoScriptText(SAY_DEATH, m_creature);
+            CombatAI::Reset();
+            m_hpCheck               = 75.0f;
+
+            m_teleports              = { SPELL_TELEPORT_1, SPELL_TELEPORT_2, SPELL_TELEPORT_3 };
+            m_teleportCounter        = 0;
+
+            m_maxMeleeAllowed        = 0;
+        }
+
+        void JustRespawned() override
+        {
+            CombatAI::JustRespawned();
+            if (m_isImage)
+                StopAttacking();
+            DoCastSpellIfCan(nullptr, SPELL_BIRTH);
+        }
+
+        void KilledUnit(Unit* /*victim*/) override
+        {
+            DoScriptText(SAY_SLAY, m_creature);
+        }
+
+        void JustDied(Unit* /*killer*/) override
+        {
+            if (!m_isImage)
+            {
+                DoScriptText(SAY_DEATH, m_creature);
+
+                if (m_instance)
+                    m_instance->SetData(TYPE_SKERAM, DONE);
+
+                DespawnGuids(m_images);
+            }
+            // Else despawn to avoid looting
+            else
+                m_creature->ForcedDespawn(1);
+        }
+
+        void Aggro(Unit* /*who*/) override
+        {
+            // Prophet Skeram will only cast Arcane Explosion if a given number of players are in melee range
+            // Initial value was 4+ but it was changed in patch 1.12 to be less dependant on raid
+            // We assume value is number of players / 10 (raid of 40 people in Classic -> value of 4)
+            m_maxMeleeAllowed = m_instance->instance->GetPlayers().getSize() / 10 + 1;
+
+            if (m_isImage)
+                return;
+
+            DoScriptText(SAY_AGGRO, m_creature);
 
             if (m_instance)
-                m_instance->SetData(TYPE_SKERAM, DONE);
-
-            DespawnGuids(m_images);
+                m_instance->SetData(TYPE_SKERAM, IN_PROGRESS);
         }
-        // Else despawn to avoid looting
-        else
-            m_creature->ForcedDespawn(1);
-    }
 
-    void Aggro(Unit* /*who*/) override
-    {
-        // Prophet Skeram will only cast Arcane Explosion if a given number of players are in melee range
-        // Initial value was 4+ but it was changed in patch 1.12 to be less dependant on raid
-        // We assume value is number of players / 10 (raid of 40 people in Classic -> value of 4)
-        m_maxMeleeAllowed = m_instance->instance->GetPlayers().getSize() / 10 + 1;
-
-        if (m_isImage)
-            return;
-
-        DoScriptText(SAY_AGGRO, m_creature);
-
-        if (m_instance)
-            m_instance->SetData(TYPE_SKERAM, IN_PROGRESS);
-    }
-
-    void JustReachedHome() override
-    {
-        if (m_instance)
-            m_instance->SetData(TYPE_SKERAM, FAIL);
-
-        if (m_isImage)
-            m_creature->ForcedDespawn();
-    }
-
-    void JustSummoned(Creature* summoned) override
-    {
-        if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0))
-            summoned->AI()->AttackStart(target);
-
-        m_images.push_back(summoned->GetObjectGuid());
-    }
-
-    void StopAttacking()
-    {
-        SetCombatScriptStatus(true);
-        SetMeleeEnabled(false);
-        SetCombatMovement(false);
-        m_creature->SetTarget(nullptr);
-    }
-
-    // Wrapper to handle the image teleport
-    void DoTeleport(bool attacking)
-    {
-        if (!m_instance)
-            return;
-
-        uint32 teleportSpellID = 0;
-        if (m_isImage)
+        void JustReachedHome() override
         {
-            // Get an available teleport location from original boss
-            if (Creature* prophet = m_instance->GetSingleCreatureFromStorage(NPC_SKERAM))
-            {
-                if (boss_skeram::boss_skeramAI* skeramAI = dynamic_cast<boss_skeram::boss_skeramAI*>(prophet->AI()))
-                    teleportSpellID = skeramAI->GetAvailableTeleport();
-            }
+            if (m_instance)
+                m_instance->SetData(TYPE_SKERAM, FAIL);
+
+            if (m_isImage)
+                m_creature->ForcedDespawn();
         }
-        else
-            teleportSpellID = m_teleports[0];
 
-        // Teleport, reset thread (and restore visibility if needed)
-        DoCastSpellIfCan(nullptr, teleportSpellID);
-        DoResetThreat();
-        ClearMark();
-        m_creature->RemoveAllAuras();
-
-        if (attacking)
-            StopAttacking();
-
-        ResetTimer(SKERAM_BLINK_DELAY, 2000);
-    }
-
-    void HandleBlinkDelay()
-    {
-        SetCombatScriptStatus(false);
-        SetMeleeEnabled(true);
-        SetCombatMovement(true);
-    }
-
-    uint32 GetAvailableTeleport()
-    {
-        // Only original boss can give teleport location
-        if (m_isImage)
-            return 0;
-
-        if (m_teleportCounter < m_teleports.size())
-            return m_teleports[m_teleportCounter++];
-
-        return 0;
-    }
-
-    void ClearMark()
-    {
-        if (m_instance)
+        void JustSummoned(Creature* summoned) override
         {
-            if (Player* player = m_instance->GetPlayerInMap(true, false)) // we assume only one group in raid
+            if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0))
+                summoned->AI()->AttackStart(target);
+
+            m_images.push_back(summoned->GetObjectGuid());
+        }
+
+        void StopAttacking()
+        {
+            SetCombatScriptStatus(true);
+            SetMeleeEnabled(false);
+            SetCombatMovement(false);
+            m_creature->SetTarget(nullptr);
+        }
+
+        // Wrapper to handle the image teleport
+        void DoTeleport(bool attacking)
+        {
+            if (!m_instance)
+                return;
+
+            uint32 teleportSpellID = 0;
+            if (m_isImage)
             {
-                if (Group* group = player->GetGroup())
+                // Get an available teleport location from original boss
+                if (Creature* prophet = m_instance->GetSingleCreatureFromStorage(NPC_SKERAM))
                 {
-                    group->SetTargetIcon(7, m_creature->GetObjectGuid()); // set to none
+                    if (boss_skeram::boss_skeramAI* skeramAI = dynamic_cast<boss_skeram::boss_skeramAI*>(prophet->AI()))
+                        teleportSpellID = skeramAI->GetAvailableTeleport();
                 }
             }
+            else
+                teleportSpellID = m_teleports[0];
+
+            // Teleport, reset thread (and restore visibility if needed)
+            DoCastSpellIfCan(nullptr, teleportSpellID);
+            DoResetThreat();
+            ClearMark();
+            m_creature->RemoveAllAuras();
+
+            if (attacking)
+                StopAttacking();
+
+            ResetTimer(SKERAM_BLINK_DELAY, 2000);
         }
-    }
 
-    void HandleInitImages()
-    {
-        std::random_shuffle(m_teleports.begin(), m_teleports.end()); // Shuffle the teleport spells to ensure that boss and images have a different location assigned randomly
-        m_teleportCounter = 1;
-        DoCastSpellIfCan(nullptr, SPELL_INITIALIZE_IMAGES, CAST_TRIGGERED);
-        DoTeleport(false);
-        ResetCombatAction(SKERAM_BLINK, urand(30000, 40000));
-    }
-
-    void ExecuteAction(uint32 action) override
-    {
-        switch (action)
+        void HandleBlinkDelay()
         {
-            case SKERAM_SPLIT:
+            SetCombatScriptStatus(false);
+            SetMeleeEnabled(true);
+            SetCombatMovement(true);
+        }
+
+        uint32 GetAvailableTeleport()
+        {
+            // Only original boss can give teleport location
+            if (m_isImage)
+                return 0;
+
+            if (m_teleportCounter < m_teleports.size())
+                return m_teleports[m_teleportCounter++];
+
+            return 0;
+        }
+
+        void ClearMark()
+        {
+            if (m_instance)
             {
-                // Summon images at 75%, 50% and 25%
-                if (m_creature->GetHealthPercent() < m_hpCheck)
+                if (Player* player = m_instance->GetPlayerInMap(true, false)) // we assume only one group in raid
                 {
-                    DespawnGuids(m_images);
-                    if (DoCastSpellIfCan(m_creature, SPELL_SUMMON_IMAGES) == CAST_OK)
+                    if (Group* group = player->GetGroup())
                     {
-                        m_hpCheck -= 25.0f;
-                        StopAttacking();
-                        // Teleport shortly after the images are summoned and set invisible to clear the selection (Workaround alert!!!)
-                        ResetTimer(SKERAM_INIT_IMAGES, 1500);
+                        group->SetTargetIcon(7, m_creature->GetObjectGuid()); // set to none
                     }
                 }
-                break;
-            }
-            case SKERAM_ARCANE_EXPLOSION:
-            {
-                // Arcane Explosion is done if more than a set number of people are in melee range
-                PlayerList meleePlayerList;
-                float meleeRange = m_creature->GetCombinedCombatReach(m_creature->GetVictim(), true);
-                GetPlayerListWithEntryInWorld(meleePlayerList, m_creature, meleeRange);
-                if (meleePlayerList.size() >= m_maxMeleeAllowed)
-                {
-                    if (DoCastSpellIfCan(m_creature, SPELL_ARCANE_EXPLOSION) == CAST_OK)
-                        ResetCombatAction(action, urand(8, 18) * IN_MILLISECONDS);
-                }
-                else // Recheck in 1 second
-                    ResetCombatAction(action, 1 * IN_MILLISECONDS);
-                break;
-            }
-            case SKERAM_TRUE_FULFILMENT:
-            {
-                if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_NEAREST_BY, 1, SPELL_TRUE_FULFILLMENT, SELECT_FLAG_PLAYER))
-                    if (DoCastSpellIfCan(target, SPELL_TRUE_FULFILLMENT) == CAST_OK)
-                        ResetCombatAction(action, urand(20, 30) * IN_MILLISECONDS);
-                break;
-            }
-            case SKERAM_BLINK:
-            {
-                std::random_shuffle(m_teleports.begin(), m_teleports.end());    // Shuffle the teleport spells to ensure that boss and images have a different location assigned randomly
-                m_teleportCounter = 1;
-                DoTeleport(true);
-                for (auto guid : m_images)
-                    if (Creature* image = m_creature->GetMap()->GetCreature(guid))
-                        static_cast<boss_skeramAI*>(image->AI())->DoTeleport(true);
-                ResetCombatAction(action, urand(10, 30) * IN_MILLISECONDS);
-                break;
-            }
-            case SKERAM_EARTH_SHOCK:
-            {
-                uint32 timer = 500;
-                // If victim exists we have a target in melee range
-                if (m_creature->GetVictim() && m_creature->CanReachWithMeleeAttack(m_creature->GetVictim()))
-                    m_rangeCheckState = -1;
-                // Spam Waterbolt spell when not tanked
-                else
-                {
-                    ++m_rangeCheckState;
-                    if (m_rangeCheckState > 1)
-                        if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_EARTH_SHOCK) == CAST_OK)
-                            timer = 2500;
-                }
-                ResetCombatAction(action, timer);
-                break;
             }
         }
-    }
+
+        void HandleInitImages()
+        {
+            std::random_shuffle(m_teleports.begin(), m_teleports.end()); // Shuffle the teleport spells to ensure that boss and images have a different location assigned randomly
+            m_teleportCounter = 1;
+            DoCastSpellIfCan(nullptr, SPELL_INITIALIZE_IMAGES, CAST_TRIGGERED);
+            DoTeleport(false);
+            ResetCombatAction(SKERAM_BLINK, urand(30000, 40000));
+        }
+
+        void ExecuteAction(uint32 action) override
+        {
+            switch (action)
+            {
+                case SKERAM_SPLIT:
+                {
+                    // Summon images at 75%, 50% and 25%
+                    if (m_creature->GetHealthPercent() < m_hpCheck)
+                    {
+                        DespawnGuids(m_images);
+                        if (DoCastSpellIfCan(m_creature, SPELL_SUMMON_IMAGES) == CAST_OK)
+                        {
+                            m_hpCheck -= 25.0f;
+                            StopAttacking();
+                            // Teleport shortly after the images are summoned and set invisible to clear the selection (Workaround alert!!!)
+                            ResetTimer(SKERAM_INIT_IMAGES, 1500);
+                        }
+                    }
+                    break;
+                }
+                case SKERAM_ARCANE_EXPLOSION:
+                {
+                    // Arcane Explosion is done if more than a set number of people are in melee range
+                    PlayerList meleePlayerList;
+                    float meleeRange = m_creature->GetCombinedCombatReach(m_creature->GetVictim(), true);
+                    GetPlayerListWithEntryInWorld(meleePlayerList, m_creature, meleeRange);
+                    if (meleePlayerList.size() >= m_maxMeleeAllowed)
+                    {
+                        if (DoCastSpellIfCan(m_creature, SPELL_ARCANE_EXPLOSION) == CAST_OK)
+                            ResetCombatAction(action, urand(8, 18) * IN_MILLISECONDS);
+                    }
+                    else // Recheck in 1 second
+                        ResetCombatAction(action, 1 * IN_MILLISECONDS);
+                    break;
+                }
+                case SKERAM_TRUE_FULFILMENT:
+                {
+                    if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_NEAREST_BY, 1, SPELL_TRUE_FULFILLMENT, SELECT_FLAG_PLAYER))
+                        if (DoCastSpellIfCan(target, SPELL_TRUE_FULFILLMENT) == CAST_OK)
+                            ResetCombatAction(action, urand(20, 30) * IN_MILLISECONDS);
+                    break;
+                }
+                case SKERAM_BLINK:
+                {
+                    std::random_shuffle(m_teleports.begin(), m_teleports.end());    // Shuffle the teleport spells to ensure that boss and images have a different location assigned randomly
+                    m_teleportCounter = 1;
+                    DoTeleport(true);
+                    for (auto guid : m_images)
+                        if (Creature* image = m_creature->GetMap()->GetCreature(guid))
+                            static_cast<boss_skeramAI*>(image->AI())->DoTeleport(true);
+                    ResetCombatAction(action, urand(10, 30) * IN_MILLISECONDS);
+                    break;
+                }
+                case SKERAM_EARTH_SHOCK:
+                {
+                    uint32 timer = 500;
+                    // If victim exists we have a target in melee range
+                    if (m_creature->GetVictim() && m_creature->CanReachWithMeleeAttack(m_creature->GetVictim()))
+                        m_rangeCheckState = -1;
+                    // Spam Waterbolt spell when not tanked
+                    else
+                    {
+                        ++m_rangeCheckState;
+                        if (m_rangeCheckState > 1)
+                            if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_EARTH_SHOCK) == CAST_OK)
+                                timer = 2500;
+                    }
+                    ResetCombatAction(action, timer);
+                    break;
+                }
+            }
+        }
+    };
+
+
+
 };
 
 struct TrueFulfillment : public AuraScript
@@ -385,9 +397,10 @@ struct TeleportImage : public SpellScript
 
 void AddSC_boss_skeram()
 {
+    new boss_skeram();
 
-    RegisterSpellScript<InitializeImage>("spell_initialize_image");
-    RegisterSpellScript<TeleportImage>("spell_teleport_image");
-    RegisterSpellScript<InitializeImages>("spell_initialize_images");
     RegisterAuraScript<TrueFulfillment>("spell_true_fulfillment");
+    RegisterSpellScript<InitializeImages>("spell_initialize_images");
+    RegisterSpellScript<TeleportImage>("spell_teleport_image");
+    RegisterSpellScript<InitializeImage>("spell_initialize_image");
 }

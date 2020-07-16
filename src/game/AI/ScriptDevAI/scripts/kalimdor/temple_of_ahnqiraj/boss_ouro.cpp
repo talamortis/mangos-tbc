@@ -82,6 +82,10 @@ enum OuroActions
 public:
     npc_ouro_trigger() : CreatureScript("npc_ouro_trigger") { }
 
+    UnitAI* GetAI(Creature* creature)
+    {
+        return new npc_ouro_triggerAI(creature);
+    }
 
     struct npc_ouro_triggerAI : public ScriptedAI // needs to be before Ouro for compilation reasons
     {
@@ -113,6 +117,10 @@ public:
 public:
     boss_ouro() : CreatureScript("boss_ouro") { }
 
+    UnitAI* GetAI(Creature* creature)
+    {
+        return new boss_ouroAI(creature);
+    }
 
     struct boss_ouroAI : public CombatAI
     {
@@ -237,7 +245,7 @@ public:
                     if (m_creature->GetUInt32Value(UNIT_CREATED_BY_SPELL))
                     {
                         if (Creature* trigger = GetClosestCreatureWithEntry(m_creature, NPC_OURO_TRIGGER, 100.f)) // if not sufficient in the future, do using SPELL_SET_OURO_HEALTH
-                            m_creature->SetHealthPercent(static_cast<npc_ouro_triggerAI*>(trigger->AI())->m_ouroHealth);
+                            m_creature->SetHealthPercent(static_cast<npc_ouro_trigger::npc_ouro_triggerAI*>(trigger->AI())->m_ouroHealth);
                     }
                     else
                     {
@@ -325,6 +333,10 @@ public:
 public:
     npc_ouro_spawner() : CreatureScript("npc_ouro_spawner") { }
 
+    UnitAI* GetAI(Creature* creature)
+    {
+        return new npc_ouro_spawnerAI(creature);
+    }
 
     struct npc_ouro_spawnerAI : public Scripted_NoMovementAI
     {
@@ -368,6 +380,10 @@ public:
 public:
     npc_ouro_mound() : CreatureScript("npc_ouro_mound") { }
 
+    UnitAI* GetAI(Creature* creature)
+    {
+        return new npc_ouro_moundAI(creature);
+    }
 
     struct npc_ouro_moundAI : public ScriptedAI, public TimerManager
     {
@@ -429,42 +445,52 @@ enum OuroScarabActions
     OURO_SCARAB_ACTION_MAX,
     OURO_SCARAB_DELAYED_ATTACK,
 };
-
-// TODO: verify 20477
-struct OuroScarab : public CombatAI
+class npc_ouro_scarab : public CreatureScript
 {
-    OuroScarab(Creature* creature) : CombatAI(creature, OURO_SCARAB_ACTION_MAX)
+public:
+    npc_ouro_scarab() : CreatureScript("npc_ouro_scarab") { }
+
+    UnitAI* GetAI(Creature* creature)
     {
-        SetReactState(REACT_DEFENSIVE);
-        AddCustomAction(OURO_SCARAB_DELAYED_ATTACK, 4000u, [&]() {HandleDelayedAttack(); });
+        return new npc_ouro_scarabAI(creature);
     }
 
-    void JustRespawned() override
+    // TODO: verify 20477
+    struct npc_ouro_scarabAI : public CombatAI
     {
-        CombatAI::JustRespawned();
-        m_creature->SetCorpseDelay(5);
-    }
-
-    void HandleDelayedAttack()
-    {
-        SetReactState(REACT_AGGRESSIVE);
-        m_creature->SetInCombatWithZone();
-        if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0))
+        npc_ouro_scarabAI(Creature* creature) : CombatAI(creature, OURO_SCARAB_ACTION_MAX)
         {
-            m_creature->AddThreat(target, 1000000.f);
-            AttackStart(target);
+            SetReactState(REACT_DEFENSIVE);
+            AddCustomAction(OURO_SCARAB_DELAYED_ATTACK, 4000u, [&]() {HandleDelayedAttack(); });
         }
-    }
 
-    void EnterEvadeMode() override
-    {
-        ScriptedAI::EnterEvadeMode();
-        m_creature->ForcedDespawn(1000); // despawn on wipe
-    }
+        void JustRespawned() override
+        {
+            CombatAI::JustRespawned();
+            m_creature->SetCorpseDelay(5);
+        }
 
-    void ExecuteAction(uint32 /*action*/) override
-    {
-    }
+        void HandleDelayedAttack()
+        {
+            SetReactState(REACT_AGGRESSIVE);
+            m_creature->SetInCombatWithZone();
+            if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0))
+            {
+                m_creature->AddThreat(target, 1000000.f);
+                AttackStart(target);
+            }
+        }
+
+        void EnterEvadeMode() override
+        {
+            ScriptedAI::EnterEvadeMode();
+            m_creature->ForcedDespawn(1000); // despawn on wipe
+        }
+
+        void ExecuteAction(uint32 /*action*/) override
+        {
+        }
+    };
 };
 
 struct PeriodicScarabTrigger : public AuraScript

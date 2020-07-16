@@ -108,6 +108,11 @@ public:
     boss_viscidus() : CreatureScript("boss_viscidus") { }
 
 
+    UnitAI* GetAI(Creature* creature)
+    {
+        return new boss_viscidusAI(creature);
+    }
+
     struct boss_viscidusAI : public CombatAI
     {
         boss_viscidusAI(Creature* creature) : CombatAI(creature, VISCIDUS_ACTION_MAX), m_instance(static_cast<ScriptedInstance*>(creature->GetInstanceData()))

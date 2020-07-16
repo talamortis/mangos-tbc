@@ -43,129 +43,51 @@ enum
 
     MAX_BUDDY                       = 4
 };
-
-struct npc_anubisath_sentinelAI : public ScriptedAI
+class mob_anubisath_sentinel : public CreatureScript
 {
-    npc_anubisath_sentinelAI(Creature* creature) : ScriptedAI(creature)
+public:
+    mob_anubisath_sentinel() : CreatureScript("mob_anubisath_sentinel") { }
+
+    UnitAI* GetAI_npc_anubisath_sentinel(Creature* creature)
     {
-        m_assistList.clear();
-        Reset();
+        return new npc_anubisath_sentinelAI(creature);
     }
 
-    uint32 m_myAbility;
-    bool m_isEnraged;
-    std::vector<uint32> m_abilities;
 
-    GuidList m_assistList;
 
-    void Reset() override
+    struct npc_anubisath_sentinelAI : public ScriptedAI
     {
-        m_myAbility = 0;
-        m_isEnraged = false;
-        m_abilities = { SPELL_PERIODIC_MANA_BURN, SPELL_MENDING, SPELL_PERIODIC_SHADOW_STORM, SPELL_PERIODIC_THUNDERCLAP, SPELL_MORTAL_STRIKE, SPELL_FIRE_ARCANE_REFLECT, SPELL_SHADOW_FROST_REFLECT, SPELL_PERIODIC_KNOCK_AWAY, SPELL_THORNS };
-    }
-
-    void GetAIInformation(ChatHandler& reader) override
-    {
-        if (m_assistList.empty())
-            reader.PSendSysMessage("Anubisath Sentinel - group not assigned, will be assigned OnAggro");
-        if (m_assistList.size() == MAX_BUDDY)
-            reader.PSendSysMessage("Anubisath Sentinel - proper group found, own ability is %u", m_myAbility);
-        else
-            reader.PSendSysMessage("Anubisath Sentinel - not correct number of mobs for group found. Number found %u, should be %u", uint32(m_assistList.size()), MAX_BUDDY);
-    }
-
-    void JustReachedHome() override
-    {
-        for (GuidList::const_iterator itr = m_assistList.begin(); itr != m_assistList.end(); ++itr)
+        npc_anubisath_sentinelAI(Creature* creature) : ScriptedAI(creature)
         {
-            if (*itr == m_creature->GetObjectGuid())
-                continue;
-
-            if (Creature* buddy = m_creature->GetMap()->GetCreature(*itr))
-            {
-                if (buddy->IsDead())
-                    buddy->Respawn();
-            }
-        }
-    }
-
-    void Aggro(Unit* who) override
-    {
-        if (!m_myAbility)
-        {
-            std::random_shuffle(m_abilities.begin(), m_abilities.end());    // shuffle the abilities, they will be set to the current creature and its siblings
-            SetAbility();
-            InitSentinelsNear(who);
-        }
-        
-        // Find all buddies
-        if (m_assistList.empty())
-        {
-            CreatureList assistList;
-            GetCreatureListWithEntryInGrid(assistList, m_creature, m_creature->GetEntry(), 80.0f);
-
-            for (auto& iter : assistList)
-                m_assistList.push_back(iter->GetObjectGuid());
-
-            if (m_assistList.size() != MAX_BUDDY)
-                script_error_log("npc_anubisath_sentinel for %s found too few/too many buddies, expected %u.", m_creature->GetGuidStr().c_str(), MAX_BUDDY);
-        }
-    }
-
-    void JustDied(Unit* /*killer*/) override
-    {
-        DoTransferAbility();
-    }
-
-    void SetAbility(bool forced=false, uint32 abilityId=0)
-    {
-        if (m_myAbility) // Do not set ability if already force set by the first Anubisath Sentinel to get aggro
-            return;
-
-        // This Anubisath Sentinel is the first one to set his ability as it is the one that got initial aggro
-        // Pick the first ability in the (randomised) list of abilities
-        if (!forced)
-            m_myAbility = m_abilities[0];
-        // This Anubisath Sentinel is forced to set his ability by the first sentinel to get aggro
-        // Check that the requested ability is valid
-        else if (std::find(m_abilities.begin(), m_abilities.end(), abilityId) != m_abilities.end())
-            m_myAbility = abilityId;
-        else
-        {
-            script_error_log("npc_anubisath_sentinel for %s: request illegal spell ID as ability %u.", m_creature->GetGuidStr().c_str(), abilityId);
-            return;
+            m_assistList.clear();
+            Reset();
         }
 
-        DoCastSpellIfCan(m_creature, m_myAbility, CAST_TRIGGERED);
-    }
+        uint32 m_myAbility;
+        bool m_isEnraged;
+        std::vector<uint32> m_abilities;
 
-    void DoTransferAbility()
-    {
-        bool hasDoneEmote = false;
-        for (GuidList::const_iterator itr = m_assistList.begin(); itr != m_assistList.end(); ++itr)
+        GuidList m_assistList;
+
+        void Reset() override
         {
-            if (Creature* buddy = m_creature->GetMap()->GetCreature(*itr))
-            {
-                if (*itr == m_creature->GetObjectGuid() || !buddy->IsAlive())
-                    continue;
-
-                if (!hasDoneEmote)
-                {
-                    DoScriptText(EMOTE_SHARE_POWERS, m_creature);
-                    hasDoneEmote = true;
-                }
-                m_creature->CastSpell(buddy, SPELL_TRANSFER_POWER, TRIGGERED_OLD_TRIGGERED);
-                DoCastSpellIfCan(buddy, m_myAbility, CAST_TRIGGERED);
-            }
+            m_myAbility = 0;
+            m_isEnraged = false;
+            m_abilities = { SPELL_PERIODIC_MANA_BURN, SPELL_MENDING, SPELL_PERIODIC_SHADOW_STORM, SPELL_PERIODIC_THUNDERCLAP, SPELL_MORTAL_STRIKE, SPELL_FIRE_ARCANE_REFLECT, SPELL_SHADOW_FROST_REFLECT, SPELL_PERIODIC_KNOCK_AWAY, SPELL_THORNS };
         }
-    }
 
-    void InitSentinelsNear(Unit* target)
-    {
-        if (!m_assistList.empty())
+        void GetAIInformation(ChatHandler& reader) override
         {
-            int8 buddyCount = 1;
+            if (m_assistList.empty())
+                reader.PSendSysMessage("Anubisath Sentinel - group not assigned, will be assigned OnAggro");
+            if (m_assistList.size() == MAX_BUDDY)
+                reader.PSendSysMessage("Anubisath Sentinel - proper group found, own ability is %u", m_myAbility);
+            else
+                reader.PSendSysMessage("Anubisath Sentinel - not correct number of mobs for group found. Number found %u, should be %u", uint32(m_assistList.size()), MAX_BUDDY);
+        }
+
+        void JustReachedHome() override
+        {
             for (GuidList::const_iterator itr = m_assistList.begin(); itr != m_assistList.end(); ++itr)
             {
                 if (*itr == m_creature->GetObjectGuid())
@@ -173,43 +95,133 @@ struct npc_anubisath_sentinelAI : public ScriptedAI
 
                 if (Creature* buddy = m_creature->GetMap()->GetCreature(*itr))
                 {
-                    if (buddy->IsAlive())
+                    if (buddy->IsDead())
+                        buddy->Respawn();
+                }
+            }
+        }
+
+        void Aggro(Unit* who) override
+        {
+            if (!m_myAbility)
+            {
+                std::random_shuffle(m_abilities.begin(), m_abilities.end());    // shuffle the abilities, they will be set to the current creature and its siblings
+                SetAbility();
+                InitSentinelsNear(who);
+            }
+        
+            // Find all buddies
+            if (m_assistList.empty())
+            {
+                CreatureList assistList;
+                GetCreatureListWithEntryInGrid(assistList, m_creature, m_creature->GetEntry(), 80.0f);
+
+                for (auto& iter : assistList)
+                    m_assistList.push_back(iter->GetObjectGuid());
+
+                if (m_assistList.size() != MAX_BUDDY)
+                    script_error_log("npc_anubisath_sentinel for %s found too few/too many buddies, expected %u.", m_creature->GetGuidStr().c_str(), MAX_BUDDY);
+            }
+        }
+
+        void JustDied(Unit* /*killer*/) override
+        {
+            DoTransferAbility();
+        }
+
+        void SetAbility(bool forced=false, uint32 abilityId=0)
+        {
+            if (m_myAbility) // Do not set ability if already force set by the first Anubisath Sentinel to get aggro
+                return;
+
+            // This Anubisath Sentinel is the first one to set his ability as it is the one that got initial aggro
+            // Pick the first ability in the (randomised) list of abilities
+            if (!forced)
+                m_myAbility = m_abilities[0];
+            // This Anubisath Sentinel is forced to set his ability by the first sentinel to get aggro
+            // Check that the requested ability is valid
+            else if (std::find(m_abilities.begin(), m_abilities.end(), abilityId) != m_abilities.end())
+                m_myAbility = abilityId;
+            else
+            {
+                script_error_log("npc_anubisath_sentinel for %s: request illegal spell ID as ability %u.", m_creature->GetGuidStr().c_str(), abilityId);
+                return;
+            }
+
+            DoCastSpellIfCan(m_creature, m_myAbility, CAST_TRIGGERED);
+        }
+
+        void DoTransferAbility()
+        {
+            bool hasDoneEmote = false;
+            for (GuidList::const_iterator itr = m_assistList.begin(); itr != m_assistList.end(); ++itr)
+            {
+                if (Creature* buddy = m_creature->GetMap()->GetCreature(*itr))
+                {
+                    if (*itr == m_creature->GetObjectGuid() || !buddy->IsAlive())
+                        continue;
+
+                    if (!hasDoneEmote)
                     {
-                        npc_anubisath_sentinelAI* buddyAI = static_cast<npc_anubisath_sentinelAI*>(buddy->AI());
-                        buddyAI->SetAbility(true, m_abilities[buddyCount]);
-                        ++buddyCount;
-                        buddy->AI()->AttackStart(target);
+                        DoScriptText(EMOTE_SHARE_POWERS, m_creature);
+                        hasDoneEmote = true;
+                    }
+                    m_creature->CastSpell(buddy, SPELL_TRANSFER_POWER, TRIGGERED_OLD_TRIGGERED);
+                    DoCastSpellIfCan(buddy, m_myAbility, CAST_TRIGGERED);
+                }
+            }
+        }
+
+        void InitSentinelsNear(Unit* target)
+        {
+            if (!m_assistList.empty())
+            {
+                int8 buddyCount = 1;
+                for (GuidList::const_iterator itr = m_assistList.begin(); itr != m_assistList.end(); ++itr)
+                {
+                    if (*itr == m_creature->GetObjectGuid())
+                        continue;
+
+                    if (Creature* buddy = m_creature->GetMap()->GetCreature(*itr))
+                    {
+                        if (buddy->IsAlive())
+                        {
+                            npc_anubisath_sentinelAI* buddyAI = static_cast<npc_anubisath_sentinelAI*>(buddy->AI());
+                            buddyAI->SetAbility(true, m_abilities[buddyCount]);
+                            ++buddyCount;
+                            buddy->AI()->AttackStart(target);
                         
+                        }
                     }
                 }
             }
         }
-    }
 
-    void UpdateAI(const uint32 /*uiDiff*/) override
-    {
-        if (!m_creature->SelectHostileTarget() || !m_creature->GetVictim())
-            return;
-
-        if (!m_isEnraged && m_creature->GetHealthPercent() < 30.0f)
+        void UpdateAI(const uint32 /*uiDiff*/) override
         {
-            if (DoCastSpellIfCan(m_creature, SPELL_ENRAGE) == CAST_OK)
-            {
-                DoScriptText(EMOTE_GENERIC_FRENZY, m_creature);
-                m_isEnraged = true;
-            }
-        }
+            if (!m_creature->SelectHostileTarget() || !m_creature->GetVictim())
+                return;
 
-        DoMeleeAttackIfReady();
-    }
+            if (!m_isEnraged && m_creature->GetHealthPercent() < 30.0f)
+            {
+                if (DoCastSpellIfCan(m_creature, SPELL_ENRAGE) == CAST_OK)
+                {
+                    DoScriptText(EMOTE_GENERIC_FRENZY, m_creature);
+                    m_isEnraged = true;
+                }
+            }
+
+            DoMeleeAttackIfReady();
+        }
+    };
+
+
+
 };
 
-UnitAI* GetAI_npc_anubisath_sentinel(Creature* creature)
-{
-    return new npc_anubisath_sentinelAI(creature);
-}
 
 void AddSC_mob_anubisath_sentinel()
 {
+    new mob_anubisath_sentinel();
 
 }

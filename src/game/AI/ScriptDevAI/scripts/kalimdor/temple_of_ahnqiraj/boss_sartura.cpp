@@ -55,8 +55,10 @@ enum SarturaActions
 {
 public:
     boss_sartura() : CreatureScript("boss_sartura") { }
-
-
+    UnitAI* GetAI(Creature* creature)
+    {
+        return new boss_sarturaAI(creature);
+    }
     struct boss_sarturaAI : public CombatAI
     {
         boss_sarturaAI(Creature* creature) : CombatAI(creature, SARTURA_ACTION_MAX), m_instance(static_cast<ScriptedInstance*>(creature->GetInstanceData()))

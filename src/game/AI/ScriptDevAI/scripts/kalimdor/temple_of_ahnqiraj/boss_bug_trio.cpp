@@ -193,50 +193,64 @@ enum KriActions
     KRI_THRASH,
     KRI_ACTION_MAX,
 };
-
-struct boss_kriAI : public boss_silithidRoyaltyAI
+class boss_kri : public CreatureScript
 {
-    boss_kriAI(Creature* creature) : boss_silithidRoyaltyAI(creature, KRI_ACTION_MAX), m_instance(static_cast<ScriptedInstance*>(creature->GetInstanceData()))
+public:
+    boss_kri() : CreatureScript("boss_kri") { }
+
+
+    UnitAI* GetAI(Creature* pCreature)
     {
-        AddCombatAction(KRI_CLEAVE, 4000, 8000);
-        AddCombatAction(KRI_TOXIC_VOLLEY, 6000, 30000);
-        AddCombatAction(KRI_THRASH, 6u * IN_MILLISECONDS);
+        return new boss_kriAI(pCreature);
     }
 
-    ScriptedInstance* m_instance;
-
-    void Reset() override
+    struct boss_kriAI : public boss_silithidRoyaltyAI
     {
-        boss_silithidRoyaltyAI::Reset();
-        m_deathAbility     = SPELL_SUMMON_CLOUD;
-
-        m_creature->SetStandState(UNIT_STAND_STATE_STAND);
-    }
-
-    void ExecuteAction(uint32 action) override
-    {
-        switch (action)
+        boss_kriAI(Creature* creature) : boss_silithidRoyaltyAI(creature, KRI_ACTION_MAX), m_instance(static_cast<ScriptedInstance*>(creature->GetInstanceData()))
         {
-            case KRI_CLEAVE:
+            AddCombatAction(KRI_CLEAVE, 4000, 8000);
+            AddCombatAction(KRI_TOXIC_VOLLEY, 6000, 30000);
+            AddCombatAction(KRI_THRASH, 6u * IN_MILLISECONDS);
+        }
+
+        ScriptedInstance* m_instance;
+
+        void Reset() override
+        {
+            boss_silithidRoyaltyAI::Reset();
+            m_deathAbility     = SPELL_SUMMON_CLOUD;
+
+            m_creature->SetStandState(UNIT_STAND_STATE_STAND);
+        }
+
+        void ExecuteAction(uint32 action) override
+        {
+            switch (action)
             {
-                if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_CLEAVE) == CAST_OK)
-                    ResetCombatAction(action, urand(5, 12) * IN_MILLISECONDS);
-                break;
-            }
-            case KRI_TOXIC_VOLLEY:
-            {
-                if (DoCastSpellIfCan(nullptr, SPELL_TOXIC_VOLLEY) == CAST_OK)
-                    ResetCombatAction(action, urand(15, 25) * IN_MILLISECONDS);
-                break;
-            }
-            case KRI_THRASH:
-            {
-                if (DoCastSpellIfCan(nullptr, SPELL_THRASH) == CAST_OK)
-                    ResetCombatAction(action, urand(2, 6) * IN_MILLISECONDS);
-                break;
+                case KRI_CLEAVE:
+                {
+                    if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_CLEAVE) == CAST_OK)
+                        ResetCombatAction(action, urand(5, 12) * IN_MILLISECONDS);
+                    break;
+                }
+                case KRI_TOXIC_VOLLEY:
+                {
+                    if (DoCastSpellIfCan(nullptr, SPELL_TOXIC_VOLLEY) == CAST_OK)
+                        ResetCombatAction(action, urand(15, 25) * IN_MILLISECONDS);
+                    break;
+                }
+                case KRI_THRASH:
+                {
+                    if (DoCastSpellIfCan(nullptr, SPELL_THRASH) == CAST_OK)
+                        ResetCombatAction(action, urand(2, 6) * IN_MILLISECONDS);
+                    break;
+                }
             }
         }
-    }
+    };
+
+
+
 };
 
 enum VemActions
@@ -246,53 +260,67 @@ enum VemActions
     VEM_KNOCK_DOWN,
     VEM_ACTION_MAX,
 };
-
-struct boss_vemAI : public boss_silithidRoyaltyAI
+class boss_vem : public CreatureScript
 {
-    boss_vemAI(Creature* creature) : boss_silithidRoyaltyAI(creature, VEM_ACTION_MAX), m_instance(static_cast<ScriptedInstance*>(creature->GetInstanceData()))
+public:
+    boss_vem() : CreatureScript("boss_vem") { }
+
+
+    UnitAI* GetAI(Creature* pCreature)
     {
-        AddCombatAction(VEM_CHARGE, urand(15, 27) * IN_MILLISECONDS);
-        AddCombatAction(VEM_KNOCK_AWAY, urand(10, 20) * IN_MILLISECONDS);
-        AddCombatAction(VEM_KNOCK_DOWN, urand(5, 8) * IN_MILLISECONDS);
+        return new boss_vemAI(pCreature);
     }
 
-    ScriptedInstance* m_instance;
-
-    void Reset() override
+    struct boss_vemAI : public boss_silithidRoyaltyAI
     {
-        boss_silithidRoyaltyAI::Reset();
-        m_deathAbility     = SPELL_VENGEANCE;
-
-        m_creature->SetStandState(UNIT_STAND_STATE_STAND);
-
-        m_creature->SetWalk(false);
-    }
-
-    void ExecuteAction(uint32 action) override
-    {
-        switch (action)
+        boss_vemAI(Creature* creature) : boss_silithidRoyaltyAI(creature, VEM_ACTION_MAX), m_instance(static_cast<ScriptedInstance*>(creature->GetInstanceData()))
         {
-            case VEM_CHARGE:
+            AddCombatAction(VEM_CHARGE, urand(15, 27) * IN_MILLISECONDS);
+            AddCombatAction(VEM_KNOCK_AWAY, urand(10, 20) * IN_MILLISECONDS);
+            AddCombatAction(VEM_KNOCK_DOWN, urand(5, 8) * IN_MILLISECONDS);
+        }
+
+        ScriptedInstance* m_instance;
+
+        void Reset() override
+        {
+            boss_silithidRoyaltyAI::Reset();
+            m_deathAbility     = SPELL_VENGEANCE;
+
+            m_creature->SetStandState(UNIT_STAND_STATE_STAND);
+
+            m_creature->SetWalk(false);
+        }
+
+        void ExecuteAction(uint32 action) override
+        {
+            switch (action)
             {
-                if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, SPELL_CHARGE, SELECT_FLAG_NOT_IN_MELEE_RANGE | SELECT_FLAG_PLAYER))
-                    if (DoCastSpellIfCan(target, SPELL_CHARGE) == CAST_OK)
-                        ResetCombatAction(action, urand(8, 16) * IN_MILLISECONDS);
-                break;
-            }
-            case VEM_KNOCK_AWAY:
-            {
-                if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_KNOCK_AWAY) == CAST_OK)
-                    ResetCombatAction(action, urand(10, 20) * IN_MILLISECONDS);
-                break;
-            }
-            case VEM_KNOCK_DOWN:
-            {
-                if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_KNOCKDOWN) == CAST_OK)
-                    ResetCombatAction(action, urand(15, 20) * IN_MILLISECONDS);
-                break;
+                case VEM_CHARGE:
+                {
+                    if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, SPELL_CHARGE, SELECT_FLAG_NOT_IN_MELEE_RANGE | SELECT_FLAG_PLAYER))
+                        if (DoCastSpellIfCan(target, SPELL_CHARGE) == CAST_OK)
+                            ResetCombatAction(action, urand(8, 16) * IN_MILLISECONDS);
+                    break;
+                }
+                case VEM_KNOCK_AWAY:
+                {
+                    if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_KNOCK_AWAY) == CAST_OK)
+                        ResetCombatAction(action, urand(10, 20) * IN_MILLISECONDS);
+                    break;
+                }
+                case VEM_KNOCK_DOWN:
+                {
+                    if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_KNOCKDOWN) == CAST_OK)
+                        ResetCombatAction(action, urand(15, 20) * IN_MILLISECONDS);
+                    break;
+                }
             }
         }
-    }
+    };
+
+
+
 };
 
 enum YaujActions
@@ -303,79 +331,96 @@ enum YaujActions
     YAUJ_RAVAGE,
     YAUJ_ACTION_MAX,
 };
-
-struct boss_yaujAI : public boss_silithidRoyaltyAI
+class boss_yauj : public CreatureScript
 {
-    boss_yaujAI(Creature* creature) : boss_silithidRoyaltyAI(creature, YAUJ_ACTION_MAX), m_instance(static_cast<ScriptedInstance*>(creature->GetInstanceData()))
+public:
+    boss_yauj() : CreatureScript("boss_yauj") { }
+
+
+    UnitAI* GetAI(Creature* pCreature)
     {
-        AddCombatAction(YAUJ_HEAL, urand(20, 30) * IN_MILLISECONDS);
-        AddCombatAction(YAUJ_DISPEL, urand(10, 30) * IN_MILLISECONDS);
-        AddCombatAction(YAUJ_FEAR, urand(12, 24) * IN_MILLISECONDS);
-        AddCombatAction(YAUJ_RAVAGE, 12u * IN_MILLISECONDS);
+        return new boss_yaujAI(pCreature);
     }
 
-    ScriptedInstance* m_instance;
-
-    void Reset() override
+    struct boss_yaujAI : public boss_silithidRoyaltyAI
     {
-        boss_silithidRoyaltyAI::Reset();
-        m_deathAbility    = SPELL_SUMMON_BROOD;
-
-        m_creature->SetStandState(UNIT_STAND_STATE_STAND);
-    }
-
-    void JustSummoned(Creature* summoned) override
-    {
-        if (summoned->GetEntry() == NPC_YAUJ_BROOD)
+        boss_yaujAI(Creature* creature) : boss_silithidRoyaltyAI(creature, YAUJ_ACTION_MAX), m_instance(static_cast<ScriptedInstance*>(creature->GetInstanceData()))
         {
-            summoned->SetInCombatWithZone();
-            if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, nullptr, SELECT_FLAG_PLAYER))
-            {
-                m_creature->AddThreat(target, 1000000.f);
-                AttackStart(target);
-            }
+            AddCombatAction(YAUJ_HEAL, urand(20, 30) * IN_MILLISECONDS);
+            AddCombatAction(YAUJ_DISPEL, urand(10, 30) * IN_MILLISECONDS);
+            AddCombatAction(YAUJ_FEAR, urand(12, 24) * IN_MILLISECONDS);
+            AddCombatAction(YAUJ_RAVAGE, 12u * IN_MILLISECONDS);
         }
-    }
 
-    void ExecuteAction(uint32 action) override
-    {
-        switch (action)
+        ScriptedInstance* m_instance;
+
+        void Reset() override
         {
-            case YAUJ_HEAL:
+            boss_silithidRoyaltyAI::Reset();
+            m_deathAbility    = SPELL_SUMMON_BROOD;
+
+            m_creature->SetStandState(UNIT_STAND_STATE_STAND);
+        }
+
+        void JustSummoned(Creature* summoned) override
+        {
+            if (summoned->GetEntry() == NPC_YAUJ_BROOD)
             {
-                if (m_creature->GetHealthPercent() < 100.0f)
-                    if (DoCastSpellIfCan(m_creature, SPELL_HEAL) == CAST_OK)
-                        ResetCombatAction(action, urand(10, 30) * IN_MILLISECONDS);
-                break;
-            }
-            case YAUJ_FEAR:
-            {
-                if (DoCastSpellIfCan(nullptr, SPELL_FEAR) == CAST_OK)
+                summoned->SetInCombatWithZone();
+                if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, nullptr, SELECT_FLAG_PLAYER))
                 {
-                    DoResetThreat();
-                    ResetCombatAction(action, 20 * IN_MILLISECONDS);
+                    m_creature->AddThreat(target, 1000000.f);
+                    AttackStart(target);
                 }
-                break;
-            }
-            case YAUJ_RAVAGE:
-            {
-                if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_RAVAGE) == CAST_OK)
-                    ResetCombatAction(action, urand(10, 15) * IN_MILLISECONDS);
-                break;
-            }
-            case YAUJ_DISPEL:
-            {
-                CreatureList targets = DoFindFriendlyCC(50.0f);
-                if (Creature* target = targets.empty() ? nullptr : *(targets.begin()))
-                    if (DoCastSpellIfCan(target, SPELL_DISPEL) == CAST_OK)
-                        ResetCombatAction(action, urand(10000, 15000));
-                break;
             }
         }
-    }
+
+        void ExecuteAction(uint32 action) override
+        {
+            switch (action)
+            {
+                case YAUJ_HEAL:
+                {
+                    if (m_creature->GetHealthPercent() < 100.0f)
+                        if (DoCastSpellIfCan(m_creature, SPELL_HEAL) == CAST_OK)
+                            ResetCombatAction(action, urand(10, 30) * IN_MILLISECONDS);
+                    break;
+                }
+                case YAUJ_FEAR:
+                {
+                    if (DoCastSpellIfCan(nullptr, SPELL_FEAR) == CAST_OK)
+                    {
+                        DoResetThreat();
+                        ResetCombatAction(action, 20 * IN_MILLISECONDS);
+                    }
+                    break;
+                }
+                case YAUJ_RAVAGE:
+                {
+                    if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_RAVAGE) == CAST_OK)
+                        ResetCombatAction(action, urand(10, 15) * IN_MILLISECONDS);
+                    break;
+                }
+                case YAUJ_DISPEL:
+                {
+                    CreatureList targets = DoFindFriendlyCC(50.0f);
+                    if (Creature* target = targets.empty() ? nullptr : *(targets.begin()))
+                        if (DoCastSpellIfCan(target, SPELL_DISPEL) == CAST_OK)
+                            ResetCombatAction(action, urand(10000, 15000));
+                    break;
+                }
+            }
+        }
+    };
+
+
+
 };
 
 void AddSC_bug_trio()
 {
+    new boss_kri();
+    new boss_vem();
+    new boss_yauj();
 
 }

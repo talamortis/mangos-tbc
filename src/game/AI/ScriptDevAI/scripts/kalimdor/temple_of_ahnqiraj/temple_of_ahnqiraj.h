@@ -79,41 +79,5 @@ enum
 // Prophecies yelled by Propher Skeram before he is engaged
 static const uint32 sound_skeram_prophecy[] = { 8616, 8621, 8619, 8620, 8618 };
 
-class instance_temple_of_ahnqiraj : public ScriptedInstance, private DialogueHelper
-{
-    public:
-        instance_temple_of_ahnqiraj(Map* pMap);
-        ~instance_temple_of_ahnqiraj() {}
-
-        void Initialize() override;
-
-        bool IsEncounterInProgress() const override;
-
-        void OnCreatureCreate(Creature* creature) override;
-        void OnObjectCreate(GameObject* pGo) override;
-        void OnCreatureRespawn(Creature* creature) override;
-
-        void SetData(uint32 uiType, uint32 uiData) override;
-        uint32 GetData(uint32 uiType) const override;
-
-        void DoHandleTempleAreaTrigger(uint32 triggerId, Player* player);
-
-        const char* Save() const override { return m_strInstData.c_str(); }
-        void Load(const char* chrIn) override;
-
-        void Update(uint32 uiDiff) override;
-
-    private:
-        uint32 m_auiEncounter[MAX_ENCOUNTER];
-        std::string m_strInstData;
-
-        uint8 m_uiBugTrioDeathCount;
-        uint32 m_uiCthunWhisperTimer;
-        uint32 m_uiSkeramProphecyTimer;
-
-        GuidVector m_bugTrioSpawns;
-
-        void JustDidDialogueStep(int32 entry) override;
-};
 
 #endif

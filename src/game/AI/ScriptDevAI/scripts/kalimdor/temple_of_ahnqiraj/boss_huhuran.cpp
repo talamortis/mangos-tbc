@@ -54,6 +54,10 @@ enum HuhuranActions
 public:
     boss_huhuran() : CreatureScript("boss_huhuran") { }
 
+    UnitAI* GetAI(Creature* creature)
+    {
+        return new boss_huhuranAI(creature);
+    }
 
     struct boss_huhuranAI : public CombatAI
     {

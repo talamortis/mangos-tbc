@@ -28,39 +28,44 @@ enum
     SAY_HI  = -1999925
 };
 
-bool AreaTrigger_at_example(Player* pPlayer, AreaTriggerEntry const* /*pAt*/)
-{
-    DoScriptText(SAY_HI, pPlayer);
-    return true;
-}
-
 extern void LoadDatabase();
-bool ItemUse_example_item(Player* /*pPlayer*/, Item* /*pItem*/, SpellCastTargets const& /*scTargets*/)
-{
-    LoadDatabase();
-    return true;
-}
 
-bool GOUse_example_go_teleporter(Player* pPlayer, GameObject* /*pGo*/)
+class at_example : public AreaTriggerScript
 {
-    pPlayer->TeleportTo(0, 1807.07f, 336.105f, 70.3975f, 0.0f);
-    return false;
-}
+public:
+    at_example() : AreaTriggerScript("at_example") { }
+    bool OnTrigger(Player* pPlayer, AreaTriggerEntry const* atEntry) override
+    {
+        DoScriptText(SAY_HI, pPlayer);
+        return true;
+    }
+};
+
+class example_item : public ItemScript
+{
+public:
+    example_item() : ItemScript("example_item") { }
+    bool OnItemUse(Player* pPlayer, Item* pItem, SpellCastTargets const& targets) override
+    { 
+         LoadDatabase();
+         return true;
+    }
+};
+
+class example_go_teleporter : public GameObjectScript
+{
+public:
+    example_go_teleporter() : GameObjectScript("example_go_teleporter") { }
+    bool OnGameObjectUse(Player* pPlayer, GameObject* pGo) override
+    { 
+        pPlayer->TeleportTo(0, 1807.07f, 336.105f, 70.3975f, 0.0f);
+        return false;
+    }
+};
 
 void AddSC_example_misc()
 {
-    Script* pNewScript = new Script;
-    pNewScript->Name = "at_example";
-    pNewScript->pAreaTrigger = &AreaTrigger_at_example;
-    pNewScript->RegisterSelf(false);
-
-    pNewScript = new Script;
-    pNewScript->Name = "example_item";
-    pNewScript->pItemUse = &ItemUse_example_item;
-    pNewScript->RegisterSelf(false);
-
-    pNewScript = new Script;
-    pNewScript->Name = "example_go_teleporter";
-    pNewScript->pGOUse = &GOUse_example_go_teleporter;
-    pNewScript->RegisterSelf(false);
+    new at_example();
+    new example_item();
+    new example_go_teleporter();
 }

@@ -64,6 +64,7 @@
 #include "Loot/LootMgr.h"
 #include "World/WorldStateDefines.h"
 #include "World/WorldState.h"
+#include "AI/ScriptDevAI/ScriptDevMgr.h"
 
 #ifdef BUILD_PLAYERBOT
 #include "PlayerBot/Base/PlayerbotAI.h"
@@ -2589,6 +2590,8 @@ void Player::GiveXP(uint32 xp, Creature* victim, float groupRate)
         return;
 
     uint32 level = getLevel();
+
+    sScriptDevMgr.OnGivePlayerXP(this, xp, victim);
 
     // XP to money conversion processed in Player::RewardQuest
     if (level >= GetMaxAttainableLevel())

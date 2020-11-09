@@ -2591,8 +2591,6 @@ void Player::GiveXP(uint32 xp, Creature* victim, float groupRate)
 
     uint32 level = getLevel();
 
-    sScriptDevMgr.OnGivePlayerXP(this, xp, victim);
-
     // XP to money conversion processed in Player::RewardQuest
     if (level >= GetMaxAttainableLevel())
         return;
@@ -2604,6 +2602,8 @@ void Player::GiveXP(uint32 xp, Creature* victim, float groupRate)
 
     // XP resting bonus for kill
     uint32 rested_bonus_xp = victim ? GetXPRestBonus(xp) : 0;
+
+    sScriptDevMgr.OnGivePlayerXP(this, xp, victim);
 
     SendLogXPGain(xp, victim, rested_bonus_xp, groupRate);
 

@@ -26,6 +26,7 @@
 #include "Loot/LootMgr.h"
 #include "Entities/Object.h"
 #include "Groups/Group.h"
+#include "AI/ScriptDevAI/ScriptDevMgr.h"
 
 void WorldSession::HandleAutostoreLootItemOpcode(WorldPacket& recv_data)
 {
@@ -62,12 +63,15 @@ void WorldSession::HandleAutostoreLootItemOpcode(WorldPacket& recv_data)
     }
 
     InventoryResult result = loot->SendItem(_player, lootItem);
+    Item* item = _player->GetItemByGuid(lguid);
 
     if (result == EQUIP_ERR_OK && lguid.IsItem())
     {
-        if (Item* item = _player->GetItemByGuid(lguid))
+        if (item)
             item->SetLootState(ITEM_LOOT_CHANGED);
     }
+
+    sScriptDevMgr.OnLootItem(_player, item, lootItem->count, item->GetGUIDLow());
 }
 
 void WorldSession::HandleLootMoneyOpcode(WorldPacket& /*recv_data*/)
@@ -82,6 +86,7 @@ void WorldSession::HandleLootMoneyOpcode(WorldPacket& /*recv_data*/)
         return;
     }
 
+    sScriptDevMgr.OnLootMoney(_player, pLoot->GetGoldAmount());
     pLoot->SendGold(_player);
 }
 

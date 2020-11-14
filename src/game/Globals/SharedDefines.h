@@ -2579,4 +2579,11 @@ enum MovementEvent
     EVENT_JUMP   = 10001, // TODO: Implement knockback using this
 };
 
+enum DungeonDifficulty
+{
+    DIFFICULTY_NORMAL = 0,
+    DIFFICULTY_HEROIC = 1,
+    TOTAL_DIFFICULTIES
+};
+
 #endif

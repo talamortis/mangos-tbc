@@ -83,7 +83,6 @@ ScriptDevMgr::~ScriptDevMgr()
 #undef SCR_CLEAR
 }
 
-
 /* #############################################
    #                PlayerScripts
    #
@@ -97,6 +96,201 @@ void ScriptDevMgr::OnPlayerLogin(Player* player)
 void ScriptDevMgr::OnGivePlayerXP(Player* player, uint32& amount, Creature* victim)
 {
     FOREACH_SCRIPT(PlayerScript)->OnGiveXP(player, amount, victim);
+}
+
+void ScriptDevMgr::OnLootMoney(Player* player, uint32 amount)
+{
+    FOREACH_SCRIPT(PlayerScript)->OnLootMoney(player, amount);
+}
+
+void ScriptDevMgr::OnBeforePlayerUpdate(Player* player, uint32 p_time)
+{
+    FOREACH_SCRIPT(PlayerScript)->OnBeforeUpdate(player, p_time);
+}
+
+void ScriptDevMgr::OnLootItem(Player* player, Item* item, uint32 count, uint64 lootGUID)
+{
+    FOREACH_SCRIPT(PlayerScript)->OnLootItem(player, item, count, lootGUID);
+}
+
+void ScriptDevMgr::OnCreateItem(Player* player, Item* item, uint32 count)
+{
+    FOREACH_SCRIPT(PlayerScript)->OnCreateItem(player, item, count);
+}
+
+void ScriptDevMgr::OnQuestRewardItem(Player* player, Item* item, uint32 count)
+{
+    FOREACH_SCRIPT(PlayerScript)->OnQuestRewardItem(player, item, count);
+}
+
+void ScriptDevMgr::OnPlayerLoadFromDB(Player* player)
+{
+    FOREACH_SCRIPT(PlayerScript)->OnPlayerLoadFromDB(player);
+}
+
+void ScriptDevMgr::OnPVPKill(Player* killer, Player* killed)
+{
+    FOREACH_SCRIPT(PlayerScript)->OnPVPKill(killer, killed);
+}
+
+void ScriptDevMgr::OnCreatureKill(Player* killer, Creature* killed)
+{
+    FOREACH_SCRIPT(PlayerScript)->OnCreatureKill(killer, killed);
+}
+
+void ScriptDevMgr::OnPlayerKilledByCreature(Creature* killer, Player* killed)
+{
+    FOREACH_SCRIPT(PlayerScript)->OnPlayerKilledByCreature(killer, killed);
+}
+
+void ScriptDevMgr::OnPlayerLevelChanged(Player* player, uint8 oldLevel, uint8 newLevel)
+{
+    FOREACH_SCRIPT(PlayerScript)->OnLevelChanged(player, oldLevel, newLevel);
+}
+
+void ScriptDevMgr::OnPlayerFreeTalentPointsChanged(Player* player, uint32 points)
+{
+    FOREACH_SCRIPT(PlayerScript)->OnFreeTalentPointsChanged(player, points);
+}
+
+void ScriptDevMgr::OnPlayerTalentsReset(Player* player, bool noCost)
+{
+    FOREACH_SCRIPT(PlayerScript)->OnTalentsReset(player, noCost);
+}
+
+void ScriptDevMgr::OnPlayerMoneyChanged(Player* player, int32& amount)
+{
+    FOREACH_SCRIPT(PlayerScript)->OnMoneyChanged(player, amount);
+}
+
+void ScriptDevMgr::OnPlayerMoneyLimit(Player* player, int32 amount)
+{
+    FOREACH_SCRIPT(PlayerScript)->OnMoneyLimit(player, amount);
+}
+
+void ScriptDevMgr::OnPlayerReputationChange(Player* player, uint32 factionID, int32& standing, bool incremental)
+{
+    FOREACH_SCRIPT(PlayerScript)->OnReputationChange(player, factionID, standing, incremental);
+}
+
+void ScriptDevMgr::OnPlayerDuelRequest(Player* target, Player* challenger)
+{
+    FOREACH_SCRIPT(PlayerScript)->OnDuelRequest(target, challenger);
+}
+
+void ScriptDevMgr::OnPlayerDuelStart(Player* player1, Player* player2)
+{
+    FOREACH_SCRIPT(PlayerScript)->OnDuelStart(player1, player2);
+}
+
+void ScriptDevMgr::OnPlayerDuelEnd(Player* winner, Player* loser, DuelCompleteType type)
+{
+    FOREACH_SCRIPT(PlayerScript)->OnDuelEnd(winner, loser, type);
+}
+
+void ScriptDevMgr::OnPlayerChat(Player* player, uint32 type, uint32 lang, std::string& msg)
+{
+    FOREACH_SCRIPT(PlayerScript)->OnChat(player, type, lang, msg);
+}
+
+void ScriptDevMgr::OnPlayerChat(Player* player, uint32 type, uint32 lang, std::string& msg, Player* receiver)
+{
+    FOREACH_SCRIPT(PlayerScript)->OnChat(player, type, lang, msg, receiver);
+}
+
+void ScriptDevMgr::OnPlayerChat(Player* player, uint32 type, uint32 lang, std::string& msg, Group* group)
+{
+    FOREACH_SCRIPT(PlayerScript)->OnChat(player, type, lang, msg, group);
+}
+
+void ScriptDevMgr::OnPlayerChat(Player* player, uint32 type, uint32 lang, std::string& msg, Guild* guild)
+{
+    FOREACH_SCRIPT(PlayerScript)->OnChat(player, type, lang, msg, guild);
+}
+
+void ScriptDevMgr::OnPlayerChat(Player* player, uint32 type, uint32 lang, std::string& msg, Channel* channel)
+{
+    FOREACH_SCRIPT(PlayerScript)->OnChat(player, type, lang, msg, channel);
+}
+
+void ScriptDevMgr::OnPlayerEmote(Player* player, uint32 emote)
+{
+    FOREACH_SCRIPT(PlayerScript)->OnEmote(player, emote);
+}
+
+void ScriptDevMgr::OnPlayerTextEmote(Player* player, uint32 textEmote, uint32 emoteNum, ObjectGuid guid)
+{
+    FOREACH_SCRIPT(PlayerScript)->OnTextEmote(player, textEmote, emoteNum, guid);
+}
+
+void ScriptDevMgr::OnPlayerSpellCast(Player* player, Spell* spell, bool skipCheck)
+{
+    FOREACH_SCRIPT(PlayerScript)->OnSpellCast(player, spell, skipCheck);
+}
+
+void ScriptDevMgr::OnPlayerCompleteQuest(Player* player, Quest const* quest)
+{
+    FOREACH_SCRIPT(PlayerScript)->OnPlayerCompleteQuest(player, quest);
+}
+
+void ScriptDevMgr::OnPlayerLogout(Player* player)
+{
+    FOREACH_SCRIPT(PlayerScript)->OnLogout(player);
+}
+
+void ScriptDevMgr::OnPlayerCreate(Player* player)
+{
+    FOREACH_SCRIPT(PlayerScript)->OnCreate(player);
+}
+
+void ScriptDevMgr::OnPlayerDelete(ObjectGuid guid, uint32 accountId)
+{
+    FOREACH_SCRIPT(PlayerScript)->OnDelete(guid, accountId);
+}
+
+void ScriptDevMgr::OnPlayerFailedDelete(ObjectGuid guid, uint32 accountId)
+{
+    FOREACH_SCRIPT(PlayerScript)->OnFailedDelete(guid, accountId);
+}
+
+void ScriptDevMgr::OnPlayerSave(Player* player)
+{
+    FOREACH_SCRIPT(PlayerScript)->OnSave(player);
+}
+
+void ScriptDevMgr::OnPlayerBindToInstance(Player* player, DungeonDifficulty difficulty, uint32 mapid, bool permanent, uint8 extendState)
+{
+    FOREACH_SCRIPT(PlayerScript)->OnBindToInstance(player, difficulty, mapid, permanent, extendState);
+}
+
+void ScriptDevMgr::OnPlayerUpdateZone(Player* player, uint32 newZone, uint32 newArea)
+{
+    FOREACH_SCRIPT(PlayerScript)->OnUpdateZone(player, newZone, newArea);
+}
+
+void ScriptDevMgr::OnQuestStatusChange(Player* player, uint32 questId)
+{
+    FOREACH_SCRIPT(PlayerScript)->OnQuestStatusChange(player, questId);
+}
+
+void ScriptDevMgr::OnGossipSelect(Player* player, uint32 menu_id, uint32 sender, uint32 action)
+{
+    FOREACH_SCRIPT(PlayerScript)->OnGossipSelect(player, menu_id, sender, action);
+}
+
+void ScriptDevMgr::OnGossipSelectCode(Player* player, uint32 menu_id, uint32 sender, uint32 action, const char* code)
+{
+    FOREACH_SCRIPT(PlayerScript)->OnGossipSelectCode(player, menu_id, sender, action, code);
+}
+
+void ScriptDevMgr::OnPlayerRepop(Player* player)
+{
+    FOREACH_SCRIPT(PlayerScript)->OnPlayerRepop(player);
+}
+
+void ScriptDevMgr::OnQuestObjectiveProgress(Player* player, Quest const* quest, uint32 objectiveIndex, uint16 progress)
+{
+    FOREACH_SCRIPT(PlayerScript)->OnQuestObjectiveProgress(player, quest, objectiveIndex, progress);
 }
 
 PlayerScript::PlayerScript(const char* name)

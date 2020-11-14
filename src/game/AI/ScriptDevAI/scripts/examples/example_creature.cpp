@@ -284,7 +284,7 @@ public:
 
     void OnGiveXP(Player* p, uint32& amount, Creature* victim) override
     {
-        p->Say("Hook Works as intended!", LANG_UNIVERSAL);
+        ChatHandler(p).PSendSysMessage("You have been awarded %u XP", amount);
     }
 
     void OnLogin(Player* player) override

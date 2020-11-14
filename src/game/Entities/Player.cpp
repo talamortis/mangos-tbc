@@ -1356,6 +1356,8 @@ void Player::Update(const uint32 diff)
     if (WorldSession* session = GetSession())
         session->m_ticketSquelchTimer.Update(diff);
 
+    sScriptDevMgr.OnBeforePlayerUpdate(this, diff);
+
     // Undelivered mail
     if (m_nextMailDelivereTime && m_nextMailDelivereTime <= time(nullptr))
     {
@@ -10365,6 +10367,7 @@ Item* Player::_StoreItem(uint16 pos, Item* pItem, uint32 count, bool clone, bool
         AddEnchantmentDurations(pItem);
         AddItemDurations(pItem);
         sScriptDevAIMgr.OnItemLoot(this, pItem, true);
+        sScriptDevMgr.OnLootItem(this, pItem, count, pItem->GetGUIDLow());
 
         // at place into not appropriate slot (bank, for example) remove aura
         ApplyItemOnStoreSpell(pItem, IsEquipmentPos(pItem->GetBagSlot(), pItem->GetSlot()) || IsInventoryPos(pItem->GetBagSlot(), pItem->GetSlot()));

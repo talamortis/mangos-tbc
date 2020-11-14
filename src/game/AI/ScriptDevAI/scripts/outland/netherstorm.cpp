@@ -39,6 +39,7 @@ EndContentData */
 #include "AI/ScriptDevAI/base/escort_ai.h"
 #include "AI/ScriptDevAI/base/pet_ai.h"
 #include "AI/ScriptDevAI/scripts/outland/world_outland.h"
+#include "Spells/Scripts/SpellScript.h"
 
 /*######
 ## npc_manaforge_control_console
@@ -1184,7 +1185,11 @@ enum
 
     NPC_THADELL          = 20464,
     NPC_TORMENTED_SOUL   = 20512,
-    NPC_SEVERED_SPIRIT   = 19881
+    NPC_SEVERED_SPIRIT   = 19881,
+
+    SAY_ESCORT_1         = -1015100,
+    SAY_ESCORT_2         = -1015101,
+    SAY_THADELL          = -1015102
 };
 
 struct npc_bessyAI : public npc_escortAI
@@ -1196,27 +1201,28 @@ struct npc_bessyAI : public npc_escortAI
         switch (uiPointId)
         {
             case 4:
-                m_creature->SummonCreature(NPC_TORMENTED_SOUL, 2449.67f, 2183.11f, 96.85f, 6.20f, TEMPSPAWN_TIMED_OOC_OR_DEAD_DESPAWN, 25000);
-                m_creature->SummonCreature(NPC_TORMENTED_SOUL, 2449.53f, 2184.43f, 96.36f, 6.27f, TEMPSPAWN_TIMED_OOC_OR_DEAD_DESPAWN, 25000);
-                m_creature->SummonCreature(NPC_TORMENTED_SOUL, 2449.85f, 2186.34f, 97.57f, 6.08f, TEMPSPAWN_TIMED_OOC_OR_DEAD_DESPAWN, 25000);
+                DoScriptText(SAY_ESCORT_2, m_creature);
+                if (Creature* pSpirit = m_creature->SummonCreature(NPC_SEVERED_SPIRIT, 2438.142f, 2200.449f, 101.5952f, 4.63704f, TEMPSPAWN_TIMED_OOC_OR_DEAD_DESPAWN, 25000, false, true))
+                    pSpirit->GetMotionMaster()->MoveWaypoint(1);
                 break;
             case 8:
-                m_creature->SummonCreature(NPC_SEVERED_SPIRIT, 2309.64f, 2186.24f, 92.25f, 6.06f, TEMPSPAWN_TIMED_OOC_OR_DEAD_DESPAWN, 25000);
-                m_creature->SummonCreature(NPC_SEVERED_SPIRIT, 2309.25f, 2183.46f, 91.75f, 6.22f, TEMPSPAWN_TIMED_OOC_OR_DEAD_DESPAWN, 25000);
+                if (Creature* pSpirit = m_creature->SummonCreature(NPC_SEVERED_SPIRIT, 2279.846f, 2188.402f, 91.61183f, 6.22683f, TEMPSPAWN_TIMED_OOC_OR_DEAD_DESPAWN, 25000, false, true))
+                    pSpirit->GetMotionMaster()->MoveWaypoint(2);
                 break;
             case 13:
+                if (Creature* pThadell = GetClosestCreatureWithEntry(m_creature, NPC_THADELL, 20.0f))
+                    DoScriptText(SAY_THADELL, pThadell);
+
                 if (Player* pPlayer = GetPlayerForEscort())
                     pPlayer->RewardPlayerAndGroupAtEventExplored(QUEST_COWS_COME_HOME, m_creature);
                 break;
         }
     }
 
-    void JustSummoned(Creature* pSummoned) override
+    void Reset() override
     {
-        pSummoned->AI()->AttackStart(m_creature);
+        m_creature->SetWalk(true);
     }
-
-    void Reset() override {}
 };
 
 bool QuestAccept_npc_bessy(Player* pPlayer, Creature* pCreature, const Quest* pQuest)
@@ -1225,8 +1231,10 @@ bool QuestAccept_npc_bessy(Player* pPlayer, Creature* pCreature, const Quest* pQ
     {
         pCreature->SetFactionTemporary(FACTION_ESCORT_N_NEUTRAL_ACTIVE, TEMPFACTION_RESTORE_RESPAWN | TEMPFACTION_TOGGLE_NON_ATTACKABLE);
 
+        DoScriptText(SAY_ESCORT_1, pCreature);
+
         if (npc_bessyAI* pBessyAI = dynamic_cast<npc_bessyAI*>(pCreature->AI()))
-            pBessyAI->Start(true, pPlayer, pQuest);
+            pBessyAI->Start(false, pPlayer, pQuest);
     }
     return true;
 }
@@ -1406,7 +1414,10 @@ struct npc_zeppitAI : public ScriptedPetAI
 {
     npc_zeppitAI(Creature* pCreature) : ScriptedPetAI(pCreature) { Reset(); }
 
-    void Reset() override { }
+    void Reset() override
+    {
+        SetReactState(REACT_PASSIVE);
+    }
 
     void OwnerKilledUnit(Unit* pVictim) override
     {
@@ -1444,13 +1455,15 @@ enum
     SAY_FINISH_1                    = -1000899,
     SAY_FINISH_2                    = -1000900,
 
+    SPELL_SPAWN                     = 12980,
+
     // SPELL_ETHEREAL_TELEPORT         = 34427,
     SPELL_PROTECTORATE              = 35679,                // dummy aura applied on player
 
     NPC_NEXUS_STALKER               = 20474,
     NPC_ARCHON                      = 20458,
 
-    FACTION_FRIENDLY                = 35,
+    FACTION_ESCORT                  = 1795,
 
     QUEST_ID_DELIVERING_MESSAGE     = 10406,
 };
@@ -1462,12 +1475,15 @@ struct npc_protectorate_demolitionistAI : public npc_escortAI
     uint32 m_uiEventTimer;
     uint8 m_uiEventStage;
 
+    bool m_spawnAnim;
+
     void Reset() override
     {
         if (!HasEscortState(STATE_ESCORT_ESCORTING))
         {
             m_uiEventTimer = 0;
             m_uiEventStage = 0;
+            m_spawnAnim = false;
         }
     }
 
@@ -1491,7 +1507,7 @@ struct npc_protectorate_demolitionistAI : public npc_escortAI
             {
                 if (m_creature->IsWithinDistInMap(pWho, 10.0f))
                 {
-                    m_creature->SetFactionTemporary(FACTION_FRIENDLY, TEMPFACTION_RESTORE_RESPAWN);
+                    m_creature->SetFactionTemporary(FACTION_ESCORT, TEMPFACTION_RESTORE_RESPAWN);
                     Start(false, (Player*)pWho);
                 }
             }
@@ -1544,6 +1560,12 @@ struct npc_protectorate_demolitionistAI : public npc_escortAI
 
     void UpdateEscortAI(const uint32 uiDiff) override
     {
+        if (!m_spawnAnim)
+        {
+            DoCastSpellIfCan(nullptr, SPELL_SPAWN);
+            m_spawnAnim = true;
+        }
+
         if (m_uiEventTimer)
         {
             if (m_uiEventTimer <= uiDiff)
@@ -1602,6 +1624,8 @@ enum
 
     NPC_COMMANDER_AMEER             = 20448,
 
+    NPC_ETHEREUM_GLADIATOR          = 20854,
+
     QUEST_ID_ESCAPE_STAGING_GROUNDS = 10425,
 };
 
@@ -1616,6 +1640,23 @@ struct npc_captured_vanguardAI : public npc_escortAI
     {
         m_uiGlaiveTimer = urand(4000, 8000);
         m_uiHamstringTimer = urand(8000, 13000);
+    }
+
+    void JustRespawned() override
+    {
+        if (Creature* gladiator = GetClosestCreatureWithEntry(m_creature, NPC_ETHEREUM_GLADIATOR, 50.f, true))
+        {
+            gladiator->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_NPC);
+            gladiator->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_PLAYER);
+            AttackStart(gladiator);
+        }
+    }
+
+    void JustDied(Unit* killer) override
+    {
+        npc_escortAI::JustDied(killer);
+        if (Creature* gladiator = GetClosestCreatureWithEntry(m_creature, NPC_ETHEREUM_GLADIATOR, 50.f, true))
+            gladiator->ForcedDespawn();
     }
 
     void JustReachedHome() override
@@ -3158,6 +3199,7 @@ struct npc_adyen_the_lightwardenAI : public ScriptedAI
 {
     npc_adyen_the_lightwardenAI(Creature* creature) : ScriptedAI(creature), m_crusaderStrikeTimer(0), m_hammerOfJusticeTimer(0), m_eventStarted(false)
     {
+        m_creature->GetCombatManager().SetLeashingDisable(true);
     }
 
     ObjectGuid m_playerGuid;
@@ -3643,6 +3685,7 @@ struct npc_kaylaan_the_lostAI : public ScriptedAI
 {
     npc_kaylaan_the_lostAI(Creature* creature) : ScriptedAI(creature), m_deathPrevented(false), m_avengersShieldTimer(0), m_burningLightTimer(0), m_healTimer(0), m_holySlamTimer(0)
     {
+        m_creature->GetCombatManager().SetLeashingDisable(true);
     }
 
     bool m_deathPrevented;
@@ -3673,7 +3716,7 @@ struct npc_kaylaan_the_lostAI : public ScriptedAI
             target->RemoveAurasDueToSpell(SPELL_PERMANENT_FEIGN_DEATH);
     }
 
-    void DamageTaken(Unit* /*killer*/, uint32& damage, DamageEffectType /*damagetype*/, SpellEntry const* /*spellInfo*/) override
+    void DamageTaken(Unit* /*dealer*/, uint32& damage, DamageEffectType /*damagetype*/, SpellEntry const* /*spellInfo*/) override
     {
         if (damage < m_creature->GetHealth())
             return;
@@ -3818,16 +3861,6 @@ struct npc_kaylaan_the_lostAI : public ScriptedAI
     }
 };
 
-UnitAI* Getnpc_adyen_the_lightwardenAI(Creature* creature)
-{
-    return new npc_adyen_the_lightwardenAI(creature);
-}
-
-UnitAI* Getnpc_kaylaan_the_lostAI(Creature* creature)
-{
-    return new npc_kaylaan_the_lostAI(creature);
-}
-
 bool AreaTrigger_at_socrethar_seat(Player* player, AreaTriggerEntry const* /*at*/)
 {
     if (player->IsCurrentQuest(QUEST_DEATHBLOW_TO_THE_LEGION))
@@ -3878,6 +3911,51 @@ bool GossipSelect_npc_adyen_the_lightwarden(Player* player, Creature* creature, 
     }
     return false;
 }
+
+struct Soulbind : public SpellScript
+{
+    void OnEffectExecute(Spell* spell, SpellEffectIndex /*effIdx*/) const override
+    {
+        Unit* caster = spell->GetCaster();
+        Unit* target = spell->GetUnitTarget();
+        if (!target)
+            return;
+
+        caster->CastSpell(target, 36141, TRIGGERED_OLD_TRIGGERED); // spell id is in spell effect value
+    }
+};
+
+struct UltraDeconsolodationZapper : public SpellScript
+{
+    void OnEffectExecute(Spell* spell, SpellEffectIndex effIdx) const override
+    {
+        if (effIdx != EFFECT_INDEX_2)
+            return;
+
+        Unit* target = spell->GetUnitTarget();
+        if (!target)
+            return;
+
+        target->CastSpell(nullptr, 34427, TRIGGERED_OLD_TRIGGERED); // Ethereal Teleport
+    }
+};
+
+enum
+{
+    NPC_BOOM = 20284,
+    NPC_BOOM_BOT = 19692,
+};
+
+struct ThrowBoomsDoom : public SpellScript
+{
+    bool OnCheckTarget(const Spell* /*spell*/, GameObject* target, SpellEffectIndex /*eff*/) const
+    {
+        // prevent exploit of killing anything else
+        if (target->GetEntry() != NPC_BOOM && target->GetEntry() != NPC_BOOM_BOT)
+            return false;
+        return true;
+    }
+};
 
 void AddSC_netherstorm()
 {
@@ -3989,13 +4067,17 @@ void AddSC_netherstorm()
 
     pNewScript = new Script;
     pNewScript->Name = "npc_adyen_the_lightwarden";
-    pNewScript->GetAI = &Getnpc_adyen_the_lightwardenAI;
+    pNewScript->GetAI = &GetNewAIInstance<npc_adyen_the_lightwardenAI>;
     pNewScript->pGossipHello = &GossipHello_npc_adyen_the_lightwarden;
     pNewScript->pGossipSelect = &GossipSelect_npc_adyen_the_lightwarden;
     pNewScript->RegisterSelf();
 
     pNewScript = new Script;
     pNewScript->Name = "npc_kaylaan_the_lost";
-    pNewScript->GetAI = &Getnpc_kaylaan_the_lostAI;
+    pNewScript->GetAI = &GetNewAIInstance<npc_kaylaan_the_lostAI>;
     pNewScript->RegisterSelf();
+
+    RegisterSpellScript<Soulbind>("spell_soulbind");
+    RegisterSpellScript<UltraDeconsolodationZapper>("spell_ultra_deconsolodation_zapper");
+    RegisterSpellScript<ThrowBoomsDoom>("spell_throw_booms_doom");
 }

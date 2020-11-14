@@ -26,7 +26,7 @@
 #include "Grids/CellImpl.h"
 #include "Spells/SpellMgr.h"
 #include "World/World.h"
-#include <float.h>
+#include <limits>
 
 static_assert(MAXIMAL_AI_EVENT_EVENTAI <= 32, "Maximal 32 AI_EVENTs supported with EventAI");
 
@@ -40,9 +40,11 @@ UnitAI::UnitAI(Unit* unit) :
     m_combatMovementStarted(false),
     m_dismountOnAggro(true),
     m_meleeEnabled(true),
+    m_selfRooted(false),
     m_reactState(REACT_AGGRESSIVE),
     m_combatScriptHappening(false),
-    m_currentAIOrder(ORDER_NONE)
+    m_currentAIOrder(ORDER_NONE),
+    m_currentSpell(nullptr)
 {
 }
 
@@ -115,29 +117,9 @@ CanCastResult UnitAI::CanCastSpell(Unit* target, const SpellEntry* spellInfo, bo
     // If not triggered, we check
     if (!isTriggered)
     {
-        // State does not allow
-        if (m_unit->hasUnitState(UNIT_STAT_CAN_NOT_REACT_OR_LOST_CONTROL))
-            return CAST_FAIL_STATE;
+        if (target && !Spell::CheckTargetCreatureType(target, spellInfo))
+            return CAST_FAIL_OTHER;
 
-        if (spellInfo->PreventionType == SPELL_PREVENTION_TYPE_SILENCE && m_unit->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_SILENCED))
-            return CAST_FAIL_STATE;
-
-        if (spellInfo->PreventionType == SPELL_PREVENTION_TYPE_PACIFY && m_unit->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PACIFIED))
-            return CAST_FAIL_STATE;
-
-        // Check for power (also done by Spell::CheckCast())
-        if (m_unit->GetPower((Powers)spellInfo->powerType) < Spell::CalculatePowerCost(spellInfo, m_unit))
-            return CAST_FAIL_POWER;
-
-        if (target && !IsIgnoreLosSpellCast(spellInfo) && !m_unit->IsWithinLOSInMap(target, true) && m_unit != target)
-            return CAST_FAIL_NOT_IN_LOS;
-
-        if (m_unit->HasGCD(spellInfo))
-            return CAST_FAIL_COOLDOWN;
-
-        if (!m_unit->IsSpellReady(*spellInfo))
-            return CAST_FAIL_COOLDOWN;
-        
         // already active next melee swing spell
         if (IsNextMeleeSwingSpell(spellInfo))
             if (Spell* autorepeatSpell = m_unit->GetCurrentSpell(CURRENT_AUTOREPEAT_SPELL))
@@ -215,6 +197,18 @@ CanCastResult UnitAI::DoCastSpellIfCan(Unit* target, uint32 spellId, uint32 cast
                         return CAST_FAIL_TOO_FAR;
                     case SPELL_FAILED_TOO_CLOSE:
                         return CAST_FAIL_TOO_CLOSE;
+                    case SPELL_FAILED_LINE_OF_SIGHT:
+                        return CAST_FAIL_NOT_IN_LOS;
+                    case SPELL_FAILED_PACIFIED:
+                    case SPELL_FAILED_SILENCED:
+                        return CAST_FAIL_STATE;
+                    case SPELL_FAILED_NOT_READY:
+                        return CAST_FAIL_COOLDOWN;
+                    case SPELL_FAILED_NO_POWER:
+                        return CAST_FAIL_POWER;
+                    case SPELL_FAILED_CASTER_AURASTATE: // valid - doesnt need logging
+                    case SPELL_FAILED_BAD_TARGETS:
+                        return CAST_FAIL_OTHER;
                 }
                 sLog.outBasic("DoCastSpellIfCan by %s attempt to cast spell %u but spell failed due to unknown result %u.", m_unit->GetObjectGuid().GetString().c_str(), spellId, result);
                 return CAST_FAIL_OTHER;
@@ -298,8 +292,9 @@ void UnitAI::OnSpellCastStateChange(Spell const* spell, bool state, WorldObject*
         return;
 
     // Creature should always stop before it will cast a non-instant spell
-    if ((spell->GetCastTime() && spellInfo->InterruptFlags & SPELL_INTERRUPT_FLAG_MOVEMENT) || (IsChanneledSpell(spellInfo) && spellInfo->ChannelInterruptFlags & CHANNEL_FLAG_MOVEMENT))
-        m_unit->StopMoving();
+    if (state)
+        if ((spell->GetCastTime() && spellInfo->InterruptFlags & SPELL_INTERRUPT_FLAG_MOVEMENT) || (IsChanneledSpell(spellInfo) && spellInfo->ChannelInterruptFlags & CHANNEL_FLAG_MOVEMENT))
+            m_unit->StopMoving();
 
     bool forceTarget = false;
 
@@ -672,23 +667,32 @@ void UnitAI::DistancingEnded()
     SetCombatScriptStatus(false);
 }
 
-void UnitAI::AttackClosestEnemy()
+void UnitAI::AttackSpecificEnemy(std::function<void(Unit*, Unit*&)> check)
 {
-    Unit* closestEnemy = nullptr;
-    float distance = FLT_MAX;
+    Unit* chosenEnemy = nullptr;
+    float distance = std::numeric_limits<float>::max();
     ThreatList const& list = m_unit->getThreatManager().getThreatList();
     for (auto& data : list)
     {
         Unit* enemy = data->getTarget();
+        check(enemy, chosenEnemy);
+    }
+
+    AttackStart(chosenEnemy);
+}
+
+void UnitAI::AttackClosestEnemy()
+{
+    float distance = std::numeric_limits<float>::max();
+    AttackSpecificEnemy([&](Unit* enemy, Unit*& closestEnemy)
+    {
         float curDistance = enemy->GetDistance(m_unit, true, DIST_CALC_NONE);
         if (!closestEnemy || curDistance < distance)
         {
             closestEnemy = enemy;
             distance = curDistance;
         }
-    }
-
-    AttackStart(closestEnemy);
+    });
 }
 
 void UnitAI::SetRootSelf(bool apply, bool combatOnly)

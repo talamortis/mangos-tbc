@@ -120,8 +120,11 @@ enum
     SAY_WOLF_WELCOME                = -1000498,
 
     SPELL_ANCESTRAL_WOLF_BUFF       = 29981,
+    SPELL_SELF_SNARE                = 30011, // Quest - Ancestral Spirit Wolf Self Snare, casted on self shortly after spawn (purpose unknown)
 
-    NPC_RYGA                        = 17123
+    NPC_RYGA                        = 17123,
+
+    SOUND_HOWL                      = 1018,
 };
 
 struct npc_ancestral_wolfAI : public npc_escortAI
@@ -133,6 +136,7 @@ struct npc_ancestral_wolfAI : public npc_escortAI
         else
             script_error_log("npc_ancestral_wolf can not obtain owner or owner is not a player.");
 
+        SetReactState(REACT_PASSIVE);
         Reset();
     }
 
@@ -156,6 +160,7 @@ struct npc_ancestral_wolfAI : public npc_escortAI
                 DoScriptText(EMOTE_WOLF_HOWL, m_creature);
                 break;
             case 51:
+                m_creature->PlayDistanceSound(SOUND_HOWL);
                 Creature* pRyga = GetClosestCreatureWithEntry(m_creature, NPC_RYGA, 30.0f);
                 if (pRyga && pRyga->IsAlive() && !pRyga->IsInCombat())
                     DoScriptText(SAY_WOLF_WELCOME, pRyga);
@@ -476,6 +481,7 @@ struct npc_fel_guard_houndAI : public ScriptedPetAI
     {
         m_uiPoodadTimer = 0;
         m_bIsPooActive  = false;
+        SetReactState(REACT_PASSIVE);
     }
 
     void MovementInform(uint32 uiMoveType, uint32 uiPointId) override
@@ -1767,7 +1773,7 @@ struct npc_vindicator_sedaiAI : public ScriptedAI, public CombatActions
 
         AddCustomAction(SEDAI_ACTION_FELORC_SPAWN_ATTACK, true, [&]()
         {
-            if (Creature* orc = m_creature->SummonCreature(NPC_FEL_ORC, 258.168854f, 4109.307617f, 91.639290f, 2.644194f, TEMPSPAWN_CORPSE_TIMED_DESPAWN, 4000, true))
+            if (Creature* orc = m_creature->SummonCreature(NPC_FEL_ORC, 258.168854f, 4109.307617f, 91.639290f, 2.644194f, TEMPSPAWN_TIMED_DESPAWN, 60000, true))
             {
                 m_felOrc = orc->GetObjectGuid();
                 if (Creature* maghar = m_creature->GetMap()->GetCreature(m_maghar))
@@ -1776,7 +1782,7 @@ struct npc_vindicator_sedaiAI : public ScriptedAI, public CombatActions
                     maghar->AI()->AttackStart(orc);
                 }
             }
-            if (Creature* orc = m_creature->SummonCreature(NPC_FEL_ORC, 256.429932f, 4105.590820f, 90.982086f, 2.734515f, TEMPSPAWN_CORPSE_TIMED_DESPAWN, 4000, true))
+            if (Creature* orc = m_creature->SummonCreature(NPC_FEL_ORC, 256.429932f, 4105.590820f, 90.982086f, 2.734515f, TEMPSPAWN_TIMED_DESPAWN, 60000, true))
             {
                 m_felOrcTwo = orc->GetObjectGuid();
                 if (Creature* maghar = m_creature->GetMap()->GetCreature(m_magharTwo))
@@ -2034,6 +2040,7 @@ struct npc_laughing_skullAI : public ScriptedAI
     npc_laughing_skullAI(Creature* creature) : ScriptedAI(creature)
     {
         SetReactState(REACT_DEFENSIVE);
+        creature->GetCombatManager().SetLeashingDisable(true);
         Reset();
     }
 
@@ -2097,6 +2104,196 @@ bool ProcessEventId_sedai_vision(uint32 /*eventId*/, Object* source, Object* /*t
         return true;
     }
 }
+
+struct KaliriNest : public GameObjectAI
+{
+    using GameObjectAI::GameObjectAI;
+    void OnLootStateChange() override
+    {
+        if (m_go->GetLootState() == GO_JUST_DEACTIVATED)
+        {
+            m_go->SetForcedDespawn();
+            if (GameObjectData const* data = sObjectMgr.GetGOData(m_go->GetObjectGuid().GetCounter()))
+                m_go->SetRespawnDelay(data->GetRandomRespawnTime());
+        }
+    }
+};
+
+enum
+{
+    NPC_GRYPHON_BRIGADIER_SOUTH         = 21170,
+    NPC_GRYPHON_BRIGADIER_NORTH         = 22404,
+    NPC_GRYPHON_BRIGADIER_FORGE         = 22405,
+    NPC_GRYPHON_BRIGADIER_FOOTHILL      = 22406,
+
+    NPC_CREDIT_MARKER_SOUTH             = 21182,
+    NPC_CREDIT_MARKER_NORTH             = 22401,
+    NPC_CREDIT_MARKER_FORGE             = 22402,
+    NPC_CREDIT_MARKER_FOOTHILL          = 22403,
+
+    NPC_CREDIT_MARKER_THEY_MUST_BURN    = 21173, // summons the Gryphon NPCs - 2 spawn locations
+
+    SPELL_SUMMON_BRIGADIER_SOUTH        = 36302,
+    SPELL_SUMMON_BRIGADIER_NORTH        = 39106,
+    SPELL_SUMMON_BRIGADIER_FORGE        = 39107,
+    SPELL_SUMMON_BRIGADIER_FOOTHILL     = 39108,
+
+    COUNT_SPAWNS                        = 4,
+};
+
+struct go_smoke_beacon : public GameObjectAI
+{
+    go_smoke_beacon(GameObject* go) : GameObjectAI(go) { m_uiCustomAnimTimer = 250; m_uiAnimCount = 0; }
+
+    uint32 m_uiCustomAnimTimer;
+    uint8 m_uiAnimCount;
+
+    void UpdateAI(const uint32 uiDiff) override
+    {
+        if (!m_go->IsSpawned())
+            return;
+
+        if (m_uiAnimCount < 8)
+        {
+            if (m_uiCustomAnimTimer <= uiDiff)
+            {
+                m_go->SendGameObjectCustomAnim(m_go->GetObjectGuid(), 3);
+                m_uiCustomAnimTimer = 1000;
+                m_uiAnimCount++;
+            }
+            else
+                m_uiCustomAnimTimer -= uiDiff;
+        }
+    }
+};
+
+GameObjectAI* GetAI_go_smoke_beacon(GameObject* go)
+{
+    return new go_smoke_beacon(go);
+}
+
+struct npc_credit_marker_they_must_burnAI : public ScriptedAI
+{
+    npc_credit_marker_they_must_burnAI(Creature* pCreature) : ScriptedAI(pCreature) { Reset(); }
+
+    uint32 m_uiSummonTimer;
+    uint32 m_uiSpawnCounter;
+    uint32 m_uiCreditMarker;
+
+    void Reset() override
+    {
+        m_uiSummonTimer = 0;
+        m_uiCreditMarker = 0;
+        m_uiSpawnCounter = 0;
+    }
+
+    void SummonBombers(uint32 creditMarker)
+    {
+        m_uiSummonTimer = 1000;
+        m_uiCreditMarker = creditMarker;
+        m_uiSpawnCounter = 0;
+    }
+
+    void JustSummoned(Creature* pSummoned) override
+    {
+        switch (pSummoned->GetEntry())
+        {
+            case NPC_GRYPHON_BRIGADIER_SOUTH:
+            case NPC_GRYPHON_BRIGADIER_FOOTHILL:
+                pSummoned->GetMotionMaster()->MoveWaypoint(urand(0, 3));
+                break;
+            case NPC_GRYPHON_BRIGADIER_NORTH:
+                pSummoned->GetMotionMaster()->MoveWaypoint(urand(0, 2));
+                break;
+            case NPC_GRYPHON_BRIGADIER_FORGE:
+                pSummoned->GetMotionMaster()->MoveWaypoint();
+                break;
+        }
+    }
+
+    void UpdateAI(const uint32 uiDiff) override
+    {
+        if (m_uiSpawnCounter < COUNT_SPAWNS)
+        {
+            if (m_uiSummonTimer <= uiDiff)
+            {
+                switch (m_uiCreditMarker)
+                {
+                    case NPC_CREDIT_MARKER_SOUTH:
+                        m_creature->CastSpell(nullptr, SPELL_SUMMON_BRIGADIER_SOUTH, TRIGGERED_OLD_TRIGGERED);
+                        break;
+                    case NPC_CREDIT_MARKER_NORTH:
+                        m_creature->CastSpell(nullptr, SPELL_SUMMON_BRIGADIER_NORTH, TRIGGERED_OLD_TRIGGERED);
+                        break;
+                    case NPC_CREDIT_MARKER_FORGE:
+                        m_creature->CastSpell(nullptr, SPELL_SUMMON_BRIGADIER_FORGE, TRIGGERED_OLD_TRIGGERED);
+                        break;
+                    case NPC_CREDIT_MARKER_FOOTHILL:
+                        m_creature->CastSpell(nullptr, SPELL_SUMMON_BRIGADIER_FOOTHILL, TRIGGERED_OLD_TRIGGERED);
+                        break;
+                }
+                m_uiSummonTimer = 1000;
+                m_uiSpawnCounter++;
+            }
+            else
+                m_uiSummonTimer -= uiDiff;
+        }
+        else
+        {
+            Reset();
+        }
+    }
+};
+
+UnitAI* GetAI_npc_credit_marker_they_must_burn(Creature* pCreature)
+{
+    return new npc_credit_marker_they_must_burnAI(pCreature);
+}
+
+struct SummonSmokeBeacon : public SpellScript
+{
+    void OnEffectExecute(Spell* spell, SpellEffectIndex effIdx) const override
+    {
+        if (effIdx != EFFECT_INDEX_2)
+            return;
+
+        if (Unit* unitTarget = spell->GetUnitTarget())
+        {
+            if (Creature* summoner = GetClosestCreatureWithEntry(unitTarget, NPC_CREDIT_MARKER_THEY_MUST_BURN, 250.f))
+            {
+                if (npc_credit_marker_they_must_burnAI* summonerAI = dynamic_cast<npc_credit_marker_they_must_burnAI*>(summoner->AI()))
+                {
+                    summonerAI->SummonBombers(unitTarget->GetEntry());
+                }
+            }
+        }
+    }
+};
+
+enum
+{
+    FACTION_SCARAB_HOSTILE = 14,
+};
+
+struct CursedScarabPeriodicTrigger : public SpellScript
+{
+    void OnEffectExecute(Spell* spell, SpellEffectIndex /*effIdx*/) const override
+    {
+        Unit* target = spell->GetUnitTarget();
+        if (target && target->getFaction() != FACTION_SCARAB_HOSTILE && urand(0, 10) == 0)
+            target->setFaction(FACTION_SCARAB_HOSTILE);
+    }
+};
+
+struct CursedScarabDespawnPeriodicTrigger : public SpellScript
+{
+    void OnEffectExecute(Spell* spell, SpellEffectIndex /*effIdx*/) const override
+    {
+        Unit* target = spell->GetUnitTarget();
+        if (target && target->IsCreature())
+            static_cast<Creature*>(target)->ForcedDespawn();
+    }
+};
 
 void AddSC_hellfire_peninsula()
 {
@@ -2185,4 +2382,23 @@ void AddSC_hellfire_peninsula()
     pNewScript->Name = "npc_maghar_escort";
     pNewScript->GetAI = &GetAI_npc_maghar_escort;
     pNewScript->RegisterSelf();
+
+    pNewScript = new Script;
+    pNewScript->Name = "go_kaliri_nest";
+    pNewScript->GetGameObjectAI = &GetNewAIInstance<KaliriNest>;
+    pNewScript->RegisterSelf();
+
+    pNewScript = new Script;
+    pNewScript->Name = "go_smoke_beacon";
+    pNewScript->GetGameObjectAI = &GetAI_go_smoke_beacon;
+    pNewScript->RegisterSelf();
+
+    pNewScript = new Script;
+    pNewScript->Name = "npc_credit_marker_they_must_burn";
+    pNewScript->GetAI = &GetAI_npc_credit_marker_they_must_burn;
+    pNewScript->RegisterSelf();
+
+    RegisterSpellScript<SummonSmokeBeacon>("spell_summon_smoke_beacon");
+    RegisterSpellScript<CursedScarabPeriodicTrigger>("spell_cursed_scarab_periodic");
+    RegisterSpellScript<CursedScarabDespawnPeriodicTrigger>("spell_cursed_scarab_despawn_periodic");
 }

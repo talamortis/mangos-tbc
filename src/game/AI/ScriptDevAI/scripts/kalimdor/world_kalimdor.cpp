@@ -61,6 +61,7 @@ struct world_map_kalimdor : public ScriptedMap
         for (auto& riftList : m_aElementalRiftGUIDs)
             riftList.clear();
         m_uiDronesTimer = 0;
+        memset(&m_encounter, 0, sizeof(m_encounter));
     }
 
     void OnCreatureCreate(Creature* pCreature) override
@@ -75,6 +76,7 @@ struct world_map_kalimdor : public ScriptedMap
             case NPC_PRINCESS_TEMPESTRIA:
             case NPC_THE_WINDREAVER:
             case NPC_BARON_CHARR:
+            case NPC_HIGHLORD_KRUUL:
                 m_npcEntryGuidStore[pCreature->GetEntry()] = pCreature->GetObjectGuid();
                 break;
         }

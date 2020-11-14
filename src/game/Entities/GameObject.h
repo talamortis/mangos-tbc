@@ -177,7 +177,7 @@ struct GameObjectInfo
             uint32 large;                                   //13
             uint32 openTextID;                              //14 can be used to replace castBarCaption?
             uint32 closeTextID;                             //15
-            uint32 losOK;                                   //16 isBattlegroundObject
+            uint32 isPvPObject;                             //16 flags used only in battlegrounds
             uint32 allowMounted;                            //17
             uint32 floatingTooltip;                         //18
             uint32 gossipID;                                //19
@@ -833,6 +833,8 @@ class GameObject : public WorldObject
         GameObjectAI* AI() const { return m_AI.get(); }
 
         GameObjectModel* m_model;
+
+        bool _IsWithinDist(WorldObject const* obj, float dist2compare, bool is3D) const override;
 
         bool IsAtInteractDistance(Position const& pos, float radius) const;
         bool IsAtInteractDistance(Player const* player, uint32 maxRange = 0) const;

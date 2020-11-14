@@ -42,6 +42,7 @@
 #include <deque>
 #include <algorithm>
 #include <cstdarg>
+#include <iostream>
 
 #ifdef BUILD_PLAYERBOT
 #include "PlayerBot/Base/PlayerbotMgr.h"
@@ -93,8 +94,8 @@ WorldSession::WorldSession(uint32 id, WorldSocket* sock, AccountTypes sec, uint8
     LookingForGroup_auto_join(false), LookingForGroup_auto_add(true), m_muteTime(mute_time),
     _player(nullptr), m_Socket(sock ? sock->shared<WorldSocket>() : nullptr),
     m_requestSocket(nullptr), m_sessionState(WORLD_SESSION_STATE_CREATED),
-    _security(sec), _accountId(id), m_expansion(expansion), _logoutTime(0),
-    m_inQueue(false), m_playerLoading(false), m_playerLogout(false), m_playerRecentlyLogout(false), m_playerSave(true),
+    _security(sec), _accountId(id), m_expansion(expansion), _logoutTime(0), m_playerSave(true),
+    m_inQueue(false), m_playerLoading(false), m_playerLogout(false), m_playerRecentlyLogout(false),
     m_sessionDbcLocale(sWorld.GetAvailableDbcLocale(locale)), m_sessionDbLocaleIndex(sObjectMgr.GetIndexForLocale(locale)),
     m_latency(0), m_tutorialState(TUTORIALDATA_UNCHANGED),
     m_timeSyncClockDeltaQueue(6), m_timeSyncClockDelta(0), m_pendingTimeSyncRequests(), m_timeSyncNextCounter(0), m_timeSyncTimer(0) {}
@@ -169,11 +170,18 @@ char const* WorldSession::GetPlayerName() const
     return GetPlayer() ? GetPlayer()->GetName() : "<none>";
 }
 
+void WorldSession::SetPlayer(Player* plr, uint32 playerGuid)
+{
+    _player = plr;
+    if (plr)
+        m_GUIDLow = playerGuid;
+}
+
 void WorldSession::SetExpansion(uint8 expansion)
 {
     m_expansion = expansion;
     if (_player)
-        _player->OnExpansionChange(expansion);
+        _player->OnExpansionChange();
     SendAuthOk(); // this is a hack but does what we need - resets expansion setting in client
 }
 
@@ -239,6 +247,7 @@ void WorldSession::SendPacket(WorldPacket const& packet, bool forcedSend /*= fal
 /// Add an incoming packet to the queue
 void WorldSession::QueuePacket(std::unique_ptr<WorldPacket> new_packet)
 {
+    sWorld.IncrementOpcodeCounter(new_packet->GetOpcode());
     std::lock_guard<std::mutex> guard(m_recvQueueLock);
     m_recvQueue.push_back(std::move(new_packet));
 }
@@ -263,14 +272,20 @@ void WorldSession::LogUnprocessedTail(WorldPacket const& packet) const
 /// Update the WorldSession (triggered by World update)
 bool WorldSession::Update(uint32 diff, PacketFilter& updater)
 {
-    std::lock_guard<std::mutex> guard(m_recvQueueLock);
+    GetMessager().Execute(this);
+
+    std::deque<std::unique_ptr<WorldPacket>> recvQueueCopy;
+    {
+        std::lock_guard<std::mutex> guard(m_recvQueueLock);
+        std::swap(recvQueueCopy, m_recvQueue);
+    }
 
     ///- Retrieve packets from the receive queue and call the appropriate handlers
     /// not process packets if socket already closed
-    while (m_Socket && !m_Socket->IsClosed() && !m_recvQueue.empty())
+    while (m_Socket && !m_Socket->IsClosed() && !recvQueueCopy.empty())
     {
-        auto const packet = std::move(m_recvQueue.front());
-        m_recvQueue.pop_front();
+        auto const packet = std::move(recvQueueCopy.front());
+        recvQueueCopy.pop_front();
 
         /*#if 1
         sLog.outError( "MOEP: %s (0x%.4X)",
@@ -546,7 +561,7 @@ void WorldSession::LogoutPlayer()
             if (BattleGroundQueueTypeId bgQueueTypeId = _player->GetBattleGroundQueueTypeId(i))
             {
                 _player->RemoveBattleGroundQueueId(bgQueueTypeId);
-                sBattleGroundMgr.m_BattleGroundQueues[ bgQueueTypeId ].RemovePlayer(_player->GetObjectGuid(), true);
+                sBattleGroundMgr.m_battleGroundQueues[ bgQueueTypeId ].RemovePlayer(_player->GetObjectGuid(), true);
             }
         }
 
@@ -603,8 +618,11 @@ void WorldSession::LogoutPlayer()
             group->UpdatePlayerOnlineStatus(_player, false);
 
         ///- Broadcast a logout message to the player's friends
-        sSocialMgr.SendFriendStatus(_player, FRIEND_OFFLINE, _player->GetObjectGuid(), true);
-        sSocialMgr.RemovePlayerSocial(_player->GetGUIDLow());
+        if (_player->GetSocial()) // might not yet be initialized
+        {
+            sSocialMgr.SendFriendStatus(_player, FRIEND_OFFLINE, _player->GetObjectGuid(), true);
+            sSocialMgr.RemovePlayerSocial(_player->GetGUIDLow());
+        }
 
         // GM ticket notification
         sTicketMgr.OnPlayerOnlineState(*_player, false);
@@ -629,7 +647,7 @@ void WorldSession::LogoutPlayer()
             Map::DeleteFromWorld(_player);
         }
 
-        SetPlayer(nullptr);                                    // deleted in Remove/DeleteFromWorld call
+        SetPlayer(nullptr, 0);                                    // deleted in Remove/DeleteFromWorld call
 
         ///- Send the 'logout complete' packet to the client
         WorldPacket data(SMSG_LOGOUT_COMPLETE, 0);
@@ -658,8 +676,15 @@ void WorldSession::LogoutPlayer()
 }
 
 /// Kick a player out of the World
-void WorldSession::KickPlayer()
+void WorldSession::KickPlayer(bool save, bool inPlace)
 {
+    m_playerSave = save;
+    if (inPlace)
+    {
+        LogoutPlayer();
+        return;
+    }
+
 #ifdef BUILD_PLAYERBOT
     if (!_player)
         return;
@@ -826,6 +851,106 @@ void WorldSession::SendAuthWaitQue(uint32 position) const
     }
 }
 
+void WorldSession::LoadGlobalAccountData()
+{
+    LoadAccountData(
+        CharacterDatabase.PQuery("SELECT type, time, data FROM account_data WHERE account='%u'", GetAccountId()),
+        GLOBAL_CACHE_MASK
+    );
+}
+
+void WorldSession::LoadAccountData(QueryResult* result, uint32 mask)
+{
+    for (uint32 i = 0; i < NUM_ACCOUNT_DATA_TYPES; ++i)
+        if (mask & (1 << i))
+            m_accountData[i] = AccountData();
+
+    if (!result)
+        return;
+
+    do
+    {
+        Field* fields = result->Fetch();
+
+        uint32 type = fields[0].GetUInt32();
+        if (type >= NUM_ACCOUNT_DATA_TYPES)
+        {
+            sLog.outError("Table `%s` have invalid account data type (%u), ignore.",
+                mask == GLOBAL_CACHE_MASK ? "account_data" : "character_account_data", type);
+            continue;
+        }
+
+        if ((mask & (1 << type)) == 0)
+        {
+            sLog.outError("Table `%s` have non appropriate for table  account data type (%u), ignore.",
+                mask == GLOBAL_CACHE_MASK ? "account_data" : "character_account_data", type);
+            continue;
+        }
+
+        m_accountData[type].Time = time_t(fields[1].GetUInt64());
+        m_accountData[type].Data = fields[2].GetCppString();
+    } while (result->NextRow());
+
+    delete result;
+}
+
+void WorldSession::SetAccountData(AccountDataType type, time_t time_, const std::string& data)
+{
+    if ((1 << type) & GLOBAL_CACHE_MASK)
+    {
+        uint32 acc = GetAccountId();
+
+        static SqlStatementID delId;
+        static SqlStatementID insId;
+
+        CharacterDatabase.BeginTransaction();
+
+        SqlStatement stmt = CharacterDatabase.CreateStatement(delId, "DELETE FROM account_data WHERE account=? AND type=?");
+        stmt.PExecute(acc, uint32(type));
+
+        stmt = CharacterDatabase.CreateStatement(insId, "INSERT INTO account_data VALUES (?,?,?,?)");
+        stmt.PExecute(acc, uint32(type), uint64(time_), data.c_str());
+
+        CharacterDatabase.CommitTransaction();
+    }
+    else
+    {
+        // _player can be nullptr and packet received after logout but m_GUID still store correct guid
+        if (!m_GUIDLow)
+            return;
+
+        static SqlStatementID delId;
+        static SqlStatementID insId;
+
+        CharacterDatabase.BeginTransaction();
+
+        SqlStatement stmt = CharacterDatabase.CreateStatement(delId, "DELETE FROM character_account_data WHERE guid=? AND type=?");
+        stmt.PExecute(m_GUIDLow, uint32(type));
+
+        stmt = CharacterDatabase.CreateStatement(insId, "INSERT INTO character_account_data VALUES (?,?,?,?)");
+        stmt.PExecute(m_GUIDLow, uint32(type), uint64(time_), data.c_str());
+
+        CharacterDatabase.CommitTransaction();
+    }
+
+    m_accountData[type].Time = time_;
+    m_accountData[type].Data = data;
+}
+
+const uint8 emptyArray[16] = { 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 };
+
+void WorldSession::SendAccountDataTimes(uint32 /*mask*/)
+{
+    // unknown identifier on TBC - if sent all 0 - client only sends
+    // if sent all 1 - client requests everything
+    // probably needs to be some sort of client unique identifier I was not able to reverse
+    bool configValue = sWorld.getConfig(CONFIG_BOOL_ACCOUNT_DATA);
+    WorldPacket data(SMSG_ACCOUNT_DATA_TIMES, 128);
+    for (int i = 0; i < 32; ++i)
+        data << uint32(configValue);
+    SendPacket(data);
+}
+
 void WorldSession::LoadTutorialsData()
 {
     for (unsigned int& m_Tutorial : m_Tutorials)
@@ -958,6 +1083,14 @@ void WorldSession::SynchronizeMovement(MovementInfo &movementInfo)
     }
     else
         movementInfo.UpdateTime((uint32)movementTime);
+}
+
+std::deque<uint32> WorldSession::GetOpcodeHistory()
+{
+    if (m_Socket)
+        return m_Socket->GetOpcodeHistory();
+    else
+        return std::deque<uint32>();
 }
 
 void WorldSession::SendAuthOk() const

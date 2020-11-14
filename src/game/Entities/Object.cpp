@@ -790,23 +790,22 @@ void Object::ClearUpdateMask(bool remove)
     }
 }
 
-bool Object::LoadValues(const char* data)
+void Object::_LoadIntoDataField(const char* data, uint32 startOffset, uint32 count)
 {
-    if (!m_uint32Values) _InitValues();
+    if (!data)
+        return;
 
     Tokens tokens = StrSplit(data, " ");
 
-    if (tokens.size() != m_valuesCount)
-        return false;
+    if (tokens.size() != count)
+        return;
 
-    Tokens::iterator iter;
-    int index;
-    for (iter = tokens.begin(), index = 0; index < m_valuesCount; ++iter, ++index)
+    Tokens::const_iterator iter;
+    uint32 index;
+    for (iter = tokens.begin(), index = 0; index < count; ++iter, ++index)
     {
-        m_uint32Values[index] = std::stoul(*iter);
+        m_uint32Values[startOffset + index] = atol((*iter).c_str());
     }
-
-    return true;
 }
 
 void Object::_SetUpdateBits(UpdateMask* updateMask, Player* /*target*/) const
@@ -1119,9 +1118,9 @@ void Object::ForceValuesUpdateAtIndex(uint16 index)
 
 WorldObject::WorldObject() :
     m_transportInfo(nullptr), m_isOnEventNotified(false),
-    m_currMap(nullptr), m_mapId(0),
-    m_InstanceId(0), m_isActiveObject(false), m_visibilityData(this),
-    m_debugFlags(0)
+    m_visibilityData(this), m_currMap(nullptr),
+    m_mapId(0), m_InstanceId(0),
+    m_isActiveObject(false), m_debugFlags(0)
 {
 }
 
@@ -1415,7 +1414,7 @@ float WorldObject::GetAngleAt(float x, float y, float ox, float oy)
 
 float WorldObject::GetAngle(float x, float y) const
 {
-    return GetAngleAt(GetPositionX(), GetPositionY(), x, y);
+    return m_position.GetAngle(x, y);
 }
 
 float WorldObject::GetAngleAt(float x, float y, const WorldObject* obj) const
@@ -1676,12 +1675,12 @@ namespace MaNGOS
     {
         public:
             MonsterChatBuilder(WorldObject const& obj, ChatMsg msgtype, MangosStringLocale const* textData, Language language, Unit const* target)
-                : i_object(obj), i_msgtype(msgtype), i_textData(textData), i_language(language), i_target(target) {}
+                : i_object(obj), i_msgtype(msgtype), i_textData(textData), i_language(language), i_target(target), m_gender(obj.IsUnit() ? Gender(static_cast<Unit const&>(obj).getGender()) : GENDER_MALE) {}
             void operator()(WorldPacket& data, int32 loc_idx)
             {
                 char const* text = nullptr;
                 if (BroadcastText const* bct = i_textData->broadcastText)
-                    text = bct->GetText(loc_idx).data();
+                    text = bct->GetText(loc_idx, m_gender).data();
                 else
                 {
                     if ((int32)i_textData->Content.size() > loc_idx + 1 && !i_textData->Content[loc_idx + 1].empty())
@@ -1700,6 +1699,7 @@ namespace MaNGOS
             MangosStringLocale const* i_textData;
             Language i_language;
             Unit const* i_target;
+            Gender m_gender;
     };
 }                                                           // namespace MaNGOS
 
@@ -2394,8 +2394,10 @@ bool WorldObject::IsSpellReady(SpellEntry const& spellEntry, ItemPrototype const
         }
     }
 
-    if (m_cooldownMap.FindBySpellId(spellEntry.Id) != m_cooldownMap.end())
-        return false;
+    auto itr = m_cooldownMap.FindBySpellId(spellEntry.Id);
+    if (itr != m_cooldownMap.end())
+        if (!itemProto || itemProto->ItemId == (*itr).second.get()->GetItemId())
+            return false;
 
     if (spellCategory && m_cooldownMap.FindByCategory(spellCategory) != m_cooldownMap.end())
         return false;
@@ -2645,6 +2647,7 @@ int32 WorldObject::CalculateSpellEffectValue(Unit const* target, SpellEntry cons
                 case SPELL_AURA_PERIODIC_LEECH:
                     //   SPELL_AURA_PERIODIC_DAMAGE_PERCENT: excluded, abs values only
                 case SPELL_AURA_POWER_BURN_MANA:
+                case SPELL_AURA_PERIODIC_TRIGGER_SPELL_WITH_VALUE:
                     damage = true;
             }
         }
@@ -2678,4 +2681,14 @@ int32 WorldObject::CalculateSpellEffectValue(Unit const* target, SpellEntry cons
     }
 
     return value;
+}
+
+float Position::GetAngle(const float x, const float y) const
+{
+    float dx = x - GetPositionX();
+    float dy = y - GetPositionY();
+
+    float ang = atan2(dy, dx);                              // returns value between -Pi..Pi
+    ang = (ang >= 0) ? ang : 2 * M_PI_F + ang;
+    return ang;
 }

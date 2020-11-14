@@ -751,6 +751,15 @@ void ObjectMgr::ConvertCreatureAddonAuras(CreatureDataAddon* addon, char const* 
             continue;
         }
 
+        if (SpellCastTimesEntry const* spellCastTimeEntry = sSpellCastTimesStore.LookupEntry(AdditionalSpellInfo->CastingTimeIndex))
+        {
+            if (spellCastTimeEntry->CastTime > 0)
+            {
+                sLog.outErrorDb("Creature (%s: %u) has spell %u defined in `auras` field in `%s, but spell has cast time. Use it in AI instead.", guidEntryStr, addon->guidOrEntry, cAura, table);
+                continue;
+            }
+        }
+
         // TODO: Remove LogFilter check after more research
         if (!sLog.HasLogFilter(LOG_FILTER_DB_STRICTED_CHECK) && !IsOnlySelfTargeting(AdditionalSpellInfo))
         {
@@ -7648,6 +7657,7 @@ void ObjectMgr::LoadBroadcastTextLocales()
         int idx = GetOrNewIndexForLocale(locale);
         if (idx >= 0)
         {
+            ++idx;
             if (bct.maleText.size() <= size_t(idx))
             {
                 bct.maleText.resize(idx + 1);
@@ -9621,7 +9631,6 @@ void ObjectMgr::LoadCreatureTemplateSpells()
 
             templateSpells.entry = fields[0].GetUInt32();
             templateSpells.setId = fields[1].GetUInt32();
-            templateSpells.spells[CREATURE_MAX_SPELLS];
             for (uint32 i = 0; i < CREATURE_MAX_SPELLS; ++i)
                 templateSpells.spells[i] = fields[2 + i].GetUInt32();
 

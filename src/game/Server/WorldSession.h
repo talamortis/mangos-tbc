@@ -29,6 +29,7 @@
 #include "AuctionHouse/AuctionHouseMgr.h"
 #include "Entities/Item.h"
 #include "WorldSocket.h"
+#include "Multithreading/Messager.h"
 
 #include <map>
 #include <deque>
@@ -58,6 +59,30 @@ class MovementInfo;
 class WorldSession;
 
 struct OpcodeHandler;
+
+enum AccountDataType
+{
+    GLOBAL_CONFIG_CACHE             = 0,                    // 0x01 g
+    PER_CHARACTER_CONFIG_CACHE      = 1,                    // 0x02 p
+    GLOBAL_BINDINGS_CACHE           = 2,                    // 0x04 g
+    PER_CHARACTER_BINDINGS_CACHE    = 3,                    // 0x08 p
+    GLOBAL_MACROS_CACHE             = 4,                    // 0x10 g
+    PER_CHARACTER_MACROS_CACHE      = 5,                    // 0x20 p
+    PER_CHARACTER_LAYOUT_CACHE      = 6,                    // 0x40 p
+    PER_CHARACTER_CHAT_CACHE        = 7,                    // 0x80 p
+    NUM_ACCOUNT_DATA_TYPES          = 8
+};
+
+#define GLOBAL_CACHE_MASK           0x15
+#define PER_CHARACTER_CACHE_MASK    0xEA
+
+struct AccountData
+{
+    AccountData() : Time(0), Data("") {}
+
+    time_t Time;
+    std::string Data;
+};
 
 enum PartyOperation
 {
@@ -218,7 +243,7 @@ class WorldSession
 #else
         const std::string GetRemoteAddress() const { return m_Socket ? m_Socket->GetRemoteAddress() : "disconnected"; }
 #endif
-        void SetPlayer(Player* plr) { _player = plr; }
+        void SetPlayer(Player* plr, uint32 playerGuid);
         uint8 GetExpansion() const { return m_expansion; }
         void SetExpansion(uint8 expansion);
 
@@ -247,7 +272,7 @@ class WorldSession
         }
 
         void LogoutPlayer();
-        void KickPlayer();
+        void KickPlayer(bool save = false, bool inPlace = false); // inplace variable needed for shutdown
 
         void QueuePacket(std::unique_ptr<WorldPacket> new_packet);
 
@@ -289,6 +314,12 @@ class WorldSession
         void SendStableResult(uint8 res) const;
         bool CheckStableMaster(ObjectGuid guid) const;
 
+        // Account Data
+        AccountData* GetAccountData(AccountDataType type) { return &m_accountData[type]; }
+        void SetAccountData(AccountDataType type, time_t time_, const std::string& data);
+        void SendAccountDataTimes(uint32 mask);
+        void LoadGlobalAccountData();
+        void LoadAccountData(QueryResult* result, uint32 mask);
         void LoadTutorialsData();
         void SendTutorialsData();
         void SaveTutorialsData();
@@ -723,7 +754,7 @@ class WorldSession
         void HandleBattleGroundPlayerPositionsOpcode(WorldPacket& recv_data);
         void HandlePVPLogDataOpcode(WorldPacket& recv_data);
         void HandleBattlefieldStatusOpcode(WorldPacket& recv_data);
-        void HandleBattleFieldPortOpcode(WorldPacket& recv_data);
+        void HandleBattlefieldPortOpcode(WorldPacket& recv_data);
         void HandleBattlefieldListOpcode(WorldPacket& recv_data);
         void HandleLeaveBattlefieldOpcode(WorldPacket& recv_data);
         void HandleBattlemasterJoinArena(WorldPacket& recv_data);
@@ -801,6 +832,11 @@ class WorldSession
 
         // Movement
         void SynchronizeMovement(MovementInfo &movementInfo);
+
+        std::deque<uint32> GetOpcodeHistory();
+
+        Messager<WorldSession>& GetMessager() { return m_messager; }
+
     private:
         // Additional private opcode handlers
         void HandleComplainMail(WorldPacket& recv_data);
@@ -818,6 +854,7 @@ class WorldSession
         void LogUnexpectedOpcode(WorldPacket const& packet, const char* reason) const;
         void LogUnprocessedTail(WorldPacket const& packet) const;
 
+        uint32 m_GUIDLow;                                   // set logged or recently logout player (while m_playerRecentlyLogout set)
         Player* _player;
         std::shared_ptr<WorldSocket> m_Socket;              // socket pointer is owned by the network thread which created it
         std::shared_ptr<WorldSocket> m_requestSocket;       // a new socket for this session is requested (double connection)
@@ -836,6 +873,7 @@ class WorldSession
         LocaleConstant m_sessionDbcLocale;
         int m_sessionDbLocaleIndex;
         uint32 m_latency;
+        AccountData m_accountData[NUM_ACCOUNT_DATA_TYPES];
         uint32 m_Tutorials[8];
         TutorialDataState m_tutorialState;
 
@@ -854,6 +892,8 @@ class WorldSession
 
         std::mutex m_recvQueueLock;
         std::deque<std::unique_ptr<WorldPacket>> m_recvQueue;
+
+        Messager<WorldSession> m_messager;
 };
 #endif
 /// @}

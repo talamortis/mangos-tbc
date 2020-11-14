@@ -47,6 +47,7 @@
 #include "PlayerDefines.h"
 
 #include <list>
+#include <array>
 
 enum SpellInterruptFlags
 {
@@ -305,6 +306,8 @@ enum TriggerCastFlags : uint32
     TRIGGERED_IGNORE_GCD                        = 0x00000200,   // Ignores GCD - to be used in spell scripts
     TRIGGERED_IGNORE_COSTS                      = 0x00000400,   // Ignores spell costs
     TRIGGERED_IGNORE_COOLDOWNS                  = 0x00000800,   // Ignores cooldowns
+    TRIGGERED_IGNORE_CURRENT_CASTED_SPELL       = 0x00001000,   // Ignores concurrent casts and is not set as currently executed
+    TRIGGERED_HIDE_CAST_IN_COMBAT_LOG           = 0x00002000,   // Sends cast flag for ignoring combat log display - used for many procs - default behaviour for triggered by aura
     TRIGGERED_FULL_MASK                         = 0xFFFFFFFF
 };
 
@@ -618,6 +621,7 @@ enum MovementFlags
     MOVEFLAG_LEVITATING         = 0x00000400,
     MOVEFLAG_ROOT               = 0x00000800,
     MOVEFLAG_FALLING            = 0x00001000,
+    MOVEFLAG_JUMPING            = 0x00002000,               // XXX CHECK THIS!
     MOVEFLAG_FALLINGFAR         = 0x00004000,
     MOVEFLAG_SWIMMING           = 0x00200000,               // appears with fly flag also
     MOVEFLAG_ASCENDING          = 0x00400000,               // swim up also
@@ -786,7 +790,7 @@ enum DiminishingLevels
  */
 struct DiminishingReturn
 {
-    DiminishingReturn(DiminishingGroup group, uint32 t, uint32 count, uint32 duration)
+    DiminishingReturn(DiminishingGroup group, uint32 t, uint32 count)
         : DRGroup(group), stack(0), hitTime(t), hitCount(count)
     {}
 
@@ -1007,7 +1011,8 @@ struct ProcExecutionData
 
     // Scripting data
     uint32 triggeredSpellId;
-    int32 basepoints[MAX_EFFECT_INDEX] = { 0, 0, 0 };
+    std::array<int32, MAX_EFFECT_INDEX> basepoints = { 0, 0, 0 };
+    bool procOnce;
 
     ProcExecutionData(ProcSystemArguments& data, bool isVictim);
 };
@@ -1153,6 +1158,12 @@ struct CharmInfo
         UnitAI* GetAI() const { return m_ai; }
         CombatData* GetCombatData() const { return m_combatData; };
 
+        void SetCharmStartPosition(Position const& position) { m_charmStartPosition = position; }
+        Position const& GetCharmStartPosition() { return m_charmStartPosition; }
+
+        void SetWalk(bool walk) { m_walk = walk; }
+        bool GetWalk() const { return m_walk; }
+
     private:
         Unit*               m_unit;
         UnitAI*             m_ai;
@@ -1172,6 +1183,9 @@ struct CharmInfo
         float               m_stayPosY;
         float               m_stayPosZ;
         float               m_stayPosO;
+
+        Position            m_charmStartPosition;
+        bool                m_walk;
 };
 
 // used in CallForAllControlledUnits/CheckAllControlledUnits
@@ -1253,7 +1267,7 @@ class Unit : public WorldObject
          * that DiminishingGroup
          * @param group The group to increase the level for by one
          */
-        void IncrDiminishing(DiminishingGroup group, uint32 duration, bool pvp);
+        void IncrDiminishing(DiminishingGroup group, bool pvp);
         /**
          * Calculates how long the duration of a spell should be considering
          * diminishing returns, ie, if the Level passed in is DIMINISHING_LEVEL_IMMUNE
@@ -1551,6 +1565,7 @@ class Unit : public WorldObject
 
         bool CanAttackOnSight(Unit const* target) const; // Used in MoveInLineOfSight checks
         bool CanAssistInCombatAgainst(Unit const* who, Unit const* enemy) const;
+        bool CanJoinInAttacking(Unit const* enemy) const;
 
         bool IsImmuneToNPC() const { return HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_NPC); }
         void SetImmuneToNPC(bool state);
@@ -1619,7 +1634,7 @@ class Unit : public WorldObject
 
         SpellMissInfo MeleeSpellHitResult(Unit* pVictim, SpellEntry const* spell, uint32* heartbeatResistChance = nullptr);
         SpellMissInfo MagicSpellHitResult(Unit* pVictim, SpellEntry const* spell, SpellSchoolMask schoolMask, uint32* heartbeatResistChance = nullptr);
-        SpellMissInfo SpellHitResult(Unit* pVictim, SpellEntry const* spell, uint8 effectMask, bool reflectable = false, uint32* heartbeatResistChance = nullptr);
+        SpellMissInfo SpellHitResult(Unit* pVictim, SpellEntry const* spell, uint8 effectMask, bool reflectable = false, bool reflected = false, uint32* heartbeatResistChance = nullptr);
 
         bool CanDualWield() const { return m_canDualWield; }
         virtual void SetCanDualWield(bool value) { m_canDualWield = value; }
@@ -1768,7 +1783,7 @@ class Unit : public WorldObject
         void EngageInCombatWith(Unit* enemy);
         void EngageInCombatWithAggressor(Unit* aggressor);
         void ClearInCombat();
-        void HandleExitCombat();
+        void HandleExitCombat(bool pvpCombat = false);
 
         SpellAuraHolderBounds GetSpellAuraHolderBounds(uint32 spell_id)
         {
@@ -1881,6 +1896,8 @@ class Unit : public WorldObject
         bool IsLevitating() const { return m_movementInfo.HasMovementFlag(MOVEFLAG_LEVITATING); }
         bool IsWalking() const { return m_movementInfo.HasMovementFlag(MOVEFLAG_WALK_MODE); }
         bool IsRooted() const { return m_movementInfo.HasMovementFlag(MOVEFLAG_ROOT); }
+        bool IsJumping() const { return m_movementInfo.HasMovementFlag(MOVEFLAG_JUMPING); }
+        bool IsFalling() const { return m_movementInfo.HasMovementFlag(MOVEFLAG_FALLING); }
 
         virtual void SetLevitate(bool /*enabled*/) {}
         virtual void SetSwim(bool /*enabled*/) {}
@@ -2266,8 +2283,8 @@ class Unit : public WorldObject
 
         bool IsTriggeredAtSpellProcEvent(ProcExecutionData& data, SpellAuraHolder* holder, SpellProcEventEntry const*& spellProcEvent);
         // only to be used in proc handlers - basepoints is expected to be a MAX_EFFECT_INDEX sized array
-        SpellAuraProcResult TriggerProccedSpell(Unit* target, int32* basepoints, uint32 triggeredSpellId, Item* castItem, Aura* triggeredByAura, uint32 cooldown);
-        SpellAuraProcResult TriggerProccedSpell(Unit* target, int32* basepoints, SpellEntry const* spellInfo, Item* castItem, Aura* triggeredByAura, uint32 cooldown);
+        SpellAuraProcResult TriggerProccedSpell(Unit* target, std::array<int32, MAX_EFFECT_INDEX>& basepoints, uint32 triggeredSpellId, Item* castItem, Aura* triggeredByAura, uint32 cooldown);
+        SpellAuraProcResult TriggerProccedSpell(Unit* target, std::array<int32, MAX_EFFECT_INDEX>& basepoints, SpellEntry const* spellInfo, Item* castItem, Aura* triggeredByAura, uint32 cooldown);
         // Aura proc handlers
         SpellAuraProcResult HandleDummyAuraProc(ProcExecutionData& data);
         SpellAuraProcResult HandleHasteAuraProc(ProcExecutionData& data);
@@ -2438,7 +2455,7 @@ class Unit : public WorldObject
         void Uncharm(Unit* charmed, uint32 spellId = 0);
 
         // Combat prevention
-        bool CanEnterCombat() { return m_canEnterCombat && !GetCombatManager().IsEvadingHome(); }
+        bool CanEnterCombat() const { return m_canEnterCombat && !GetCombatManager().IsEvadingHome(); }
         void SetCanEnterCombat(bool can) { m_canEnterCombat = can; }
 
         void SetIgnoreRangedTargets(bool state) { m_ignoreRangedTargets = state; }
@@ -2452,8 +2469,6 @@ class Unit : public WorldObject
 
         virtual UnitAI* AI() { return nullptr; }
         virtual CombatData* GetCombatData() { return m_combatData; }
-
-        virtual void AddCooldown(SpellEntry const& spellEntry, ItemPrototype const* itemProto = nullptr, bool permanent = false, uint32 forcedDuration = 0) override;
 
         virtual void SetBaseWalkSpeed(float speed) { m_baseSpeedWalk = speed; }
         virtual void SetBaseRunSpeed(float speed) { m_baseSpeedRun = speed; }
@@ -2480,6 +2495,18 @@ class Unit : public WorldObject
         void RegisterOverrideScriptAura(Aura* aura, uint32 id, bool apply);
         void RegisterScriptedLocationAura(Aura* aura, AuraScriptLocation location, bool apply); // Spell scripting - requires correctly set spell_affect
         std::vector<Aura*>& GetScriptedLocationAuras(AuraScriptLocation location) { return m_scriptedLocations[location]; }
+
+        uint8 GetComboPoints() const { return m_comboPoints; }
+        ObjectGuid const& GetComboTargetGuid() const { return m_comboTargetGuid; }
+
+        void AddComboPoints(Unit* target, int8 count);
+        void ClearComboPoints();
+
+        void RegisterScalingAura(Aura* aura, bool apply);
+        void UpdateScalingAuras();
+
+        uint32 GetDamageDoneByOthers() { return m_damageByOthers; }
+        uint32 GetModifierXpBasedOnDamageReceived(uint32 xp);
 
     protected:
 
@@ -2521,6 +2548,7 @@ class Unit : public WorldObject
         SpellAuraHolderList m_deletedHolders;
         std::map<uint32, Aura*> m_classScripts;
         std::vector<Aura*> m_scriptedLocations[SCRIPT_LOCATION_MAX];
+        std::vector<Aura*> m_scalingAuras;
 
         // Store Auras for which the target must be tracked
         TrackedAuraTargetMap m_trackedAuraTargets[MAX_TRACKED_AURA_TYPES];
@@ -2656,6 +2684,11 @@ class Unit : public WorldObject
 
         uint64 m_auraUpdateMask;
 
+        ObjectGuid m_comboTargetGuid;
+        int8 m_comboPoints;
+
+        uint32 m_damageByOthers;
+
     private:                                                // Error traps for some wrong args using
         // this will catch and prevent build for any cases when all optional args skipped and instead triggered used non boolean type
         // no bodies expected for this declarations
@@ -2756,7 +2789,7 @@ bool Unit::CheckAllControlledUnits(Func const& func, uint32 controlledMask) cons
 
 // Helper for targets nearest to the spell target
 // The spell target is always first unless there is a target at _completely_ the same position (unbelievable case)
-struct TargetDistanceOrderNear : public std::binary_function<Unit const, Unit const, bool>
+struct TargetDistanceOrderNear
 {
     Unit const* m_mainTarget;
     DistanceCalculation m_distcalc;
@@ -2771,7 +2804,7 @@ struct TargetDistanceOrderNear : public std::binary_function<Unit const, Unit co
 
 // Helper for targets furthest away to the spell target
 // The spell target is always first unless there is a target at _completely_ the same position (unbelievable case)
-struct TargetDistanceOrderFarAway : public std::binary_function<Unit const, Unit const, bool>
+struct TargetDistanceOrderFarAway
 {
     Unit const* m_mainTarget;
     DistanceCalculation m_distcalc;
@@ -2783,7 +2816,7 @@ struct TargetDistanceOrderFarAway : public std::binary_function<Unit const, Unit
     }
 };
 
-struct LowestHPNearestOrder : public std::binary_function<Unit const, Unit const, bool>
+struct LowestHPNearestOrder
 {
     Unit const* m_mainTarget;
     DistanceCalculation m_distcalc;

@@ -42,7 +42,8 @@
 #include "Loot/LootMgr.h"
 #include "Cinematics/CinematicMgr.h"
 
-#include<vector>
+#include <functional>
+#include <vector>
 
 struct Mail;
 class Channel;
@@ -735,6 +736,7 @@ enum PlayerLoginQueryIndex
     PLAYER_LOGIN_QUERY_LOADGUILD,
     PLAYER_LOGIN_QUERY_LOADARENAINFO,
     PLAYER_LOGIN_QUERY_LOADBGDATA,
+    PLAYER_LOGIN_QUERY_LOADACCOUNTDATA,
     PLAYER_LOGIN_QUERY_LOADSKILLS,
     PLAYER_LOGIN_QUERY_LOADMAILS,
     PLAYER_LOGIN_QUERY_LOADMAILEDITEMS,
@@ -998,7 +1000,7 @@ class Player : public Unit
 
         void InitStatsForLevel(bool reapplyMods = false);
         uint32 GetMaxAttainableLevel() const { return GetUInt32Value(PLAYER_FIELD_MAX_LEVEL); }
-        void OnExpansionChange(uint32 expansion);
+        void OnExpansionChange();
 
         // Played Time Stuff
         time_t m_logintime;
@@ -1029,7 +1031,7 @@ class Player : public Unit
         * \param: ObjectGuid interactObj > object that interact with this player
         **/
         void DoInteraction(ObjectGuid const& interactObjGuid);
-        RestType GetRestType() const { return rest_type; }
+        RestType GetRestType() const { return m_restType; }
         void SetRestType(RestType n_r_type, uint32 areaTriggerId = 0);
 
         time_t GetTimeInnEnter() const { return time_inn_enter; }
@@ -1434,14 +1436,7 @@ class Player : public Unit
         ObjectGuid const& GetSelectionGuid() const override { return m_curSelectionGuid; }
         void SetSelectionGuid(ObjectGuid guid) override { m_curSelectionGuid = guid; SetTargetGuid(guid); }
 
-        uint8 GetComboPoints() const { return m_comboPoints; }
-        ObjectGuid const& GetComboTargetGuid() const { return m_comboTargetGuid; }
-
-        void AddComboPoints(Unit* target, int8 count);
-        void ClearComboPoints();
         void SendComboPoints() const;
-
-        bool AttackStop(bool targetSwitch = false, bool includingCast = false, bool includingCombo = false) override;
 
         void SendMailResult(uint32 mailId, MailResponseType mailAction, MailResponseResult mailError, uint32 equipError = 0, uint32 item_guid = 0, uint32 item_count = 0) const;
         void SendNewMail() const;
@@ -1638,12 +1633,6 @@ class Player : public Unit
         bool UpdateGatherSkill(uint32 SkillId, uint32 SkillValue, uint32 RedLevel, uint32 Multiplicator = 1);
         bool UpdateFishingSkill();
 
-        uint32 GetBaseDefenseSkillValue() const { return GetSkillValueBase(SKILL_DEFENSE); }
-        uint32 GetBaseWeaponSkillValue(WeaponAttackType attType) const;
-
-        uint32 GetPureDefenseSkillValue() const { return GetSkillValuePure(SKILL_DEFENSE); }
-        uint32 GetPureWeaponSkillValue(WeaponAttackType attType) const;
-
         float GetHealthBonusFromStamina() const;
         float GetManaBonusFromIntellect() const;
 
@@ -1758,6 +1747,7 @@ class Player : public Unit
         void UpdateDefense();
         void UpdateWeaponSkill(WeaponAttackType attType);
         void UpdateCombatSkills(Unit* pVictim, WeaponAttackType attType, bool defence);
+        uint16 GetWeaponSkillIdForAttack(WeaponAttackType attType) const;
 
         SkillRaceClassInfoEntry const* GetSkillInfo(uint16 id, std::function<bool (SkillRaceClassInfoEntry const&)> filterfunc = nullptr) const;
         bool HasSkill(uint16 id) const;
@@ -1779,6 +1769,7 @@ class Player : public Unit
         void UpdateSkillTrainedSpells(uint16 id, uint16 currVal);                                   // learns/unlearns spells dependent on a skill
         void UpdateSpellTrainedSkills(uint32 spellId, bool apply);                                  // learns/unlearns skills dependent on a spell
         void LearnDefaultSkills();
+
         virtual uint32 GetSpellRank(SpellEntry const* spellInfo) override;
 
         WorldLocation& GetTeleportDest() { return m_teleport_dest; }
@@ -1805,6 +1796,26 @@ class Player : public Unit
         void RewardPlayerAndGroupAtCast(WorldObject* pRewardSource, uint32 spellid = 0);
         void RewardPlayerAndGroupAtEventExplored(uint32 questId, WorldObject const* pEventObject);
         bool isHonorOrXPTarget(Unit* pVictim) const;
+
+        template<typename T>
+        bool CheckForGroup(T functor) const
+        {
+            if (Group const* group = GetGroup())
+            {
+                for (GroupReference const* ref = group->GetFirstMember(); ref != nullptr; ref = ref->next())
+                {
+                    Player const* member = ref->getSource();
+                    if (member && functor(member))
+                        return true;
+                }
+            }
+            else
+            {
+                if (functor(this))
+                    return true;
+            }
+            return false;
+        }
 
         ReputationMgr&       GetReputationMgr()       { return m_reputationMgr; }
         ReputationMgr const& GetReputationMgr() const { return m_reputationMgr; }
@@ -2123,7 +2134,7 @@ class Player : public Unit
         void UnsummonPetTemporaryIfAny();
         void UnsummonPetIfAny();
         void ResummonPetTemporaryUnSummonedIfAny();
-        bool IsPetNeedBeTemporaryUnsummoned() const;
+        bool IsPetNeedBeTemporaryUnsummoned(Pet* pet) const;
 
         void SendCinematicStart(uint32 CinematicSequenceId);
 
@@ -2183,7 +2194,7 @@ class Player : public Unit
         bool HasTitle(uint32 bitIndex) const;
         bool HasTitle(CharTitlesEntry const* title) const { return HasTitle(title->bit_index); }
         void SetTitle(uint32 titleId, bool lost = false);
-        void SetTitle(CharTitlesEntry const* title, bool lost = false);
+        void SetTitle(CharTitlesEntry const* title, bool lost = false, bool send = true);
 
         void SendMessageToPlayer(std::string const& message) const; // debugging purposes
 
@@ -2361,9 +2372,6 @@ class Player : public Unit
         uint32 m_ExtraFlags;
         ObjectGuid m_curSelectionGuid;
 
-        ObjectGuid m_comboTargetGuid;
-        int8 m_comboPoints;
-
         QuestStatusMap mQuestStatus;
 
         SkillStatusMap mSkillStatus;
@@ -2428,7 +2436,7 @@ class Player : public Unit
         time_t time_inn_enter;
         uint32 inn_trigger_id;
         float m_rest_bonus;
-        RestType rest_type;
+        RestType m_restType;
         //////////////////// Rest System/////////////////////
 
         // Transports

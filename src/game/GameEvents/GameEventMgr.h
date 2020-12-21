@@ -61,7 +61,7 @@ struct GameEventData
     uint32 eventGroup;
     std::string description;
 
-    bool isValid() const { return length > 0; }
+    bool isValid() const { return scheduleType == GAME_EVENT_SCHEDULE_SERVERSIDE || length > 0; }
 };
 
 struct GameEventCreatureData
@@ -104,7 +104,7 @@ class GameEventMgr
         uint32 Update(ActiveEvents const* activeAtShutdown = nullptr);
         bool IsValidEvent(uint16 event_id) const { return event_id < m_gameEvents.size() && m_gameEvents[event_id].isValid(); }
         bool IsActiveEvent(uint16 event_id) const { return (m_activeEvents.find(event_id) != m_activeEvents.end()); }
-        bool IsActiveHoliday(HolidayIds id);
+        bool IsActiveHoliday(HolidayIds id) const; // TODO: Make thread safe
         uint32 Initialize();
         void StartEvent(uint16 event_id, bool overwrite = false, bool resume = false);
         void StopEvent(uint16 event_id, bool overwrite = false);

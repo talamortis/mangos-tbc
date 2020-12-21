@@ -215,7 +215,7 @@ namespace MMAP
                 if (!(lheader.flags & MAP_LIQUID_NO_TYPE))
                 {
                     if (fread(liquid_entry, sizeof(liquid_entry), 1, mapFile) == 1 &&
-                        fread(liquid_flags, sizeof(liquid_flags), 1, mapFile) == 1)
+                            fread(liquid_flags, sizeof(liquid_flags), 1, mapFile) == 1)
                         liquid_type_loaded = true;
                 }
                 else
@@ -577,7 +577,7 @@ namespace MMAP
             if (!instanceTrees[mapID])
                 break;
 
-            ModelInstance* models = NULL;
+            ModelInstance* models = nullptr;
             uint32 count = 0;
             instanceTrees[mapID]->getModelInstances(models, count);
 
@@ -614,7 +614,7 @@ namespace MMAP
                     vector<Vector3> tempVertices;
                     vector<Vector3> transformedVertices;
                     vector<MeshTriangle> tempTriangles;
-                    WmoLiquid* liquid = NULL;
+                    WmoLiquid* liquid = nullptr;
 
                     (*it).getMeshData(tempVertices, tempTriangles, liquid);
 
@@ -818,7 +818,7 @@ namespace MMAP
     void TerrainBuilder::loadOffMeshConnections(uint32 mapID, uint32 tileX, uint32 tileY, MeshData& meshData, const char* offMeshFilePath)
     {
         // no meshfile input given?
-        if (offMeshFilePath == NULL)
+        if (offMeshFilePath == nullptr)
             return;
 
         FILE* fp = fopen(offMeshFilePath, "rb");

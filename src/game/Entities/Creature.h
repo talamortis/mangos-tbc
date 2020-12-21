@@ -23,7 +23,6 @@
 #include "Entities/Unit.h"
 #include "Globals/SharedDefines.h"
 #include "Server/DBCEnums.h"
-#include "Grids/Cell.h"
 #include "Util.h"
 
 #include <list>
@@ -215,6 +214,27 @@ struct EquipmentInfoRaw
     uint32  equipslot[3];
 };
 
+enum SpawnFlags
+{
+    SPAWN_FLAG_RUN_ON_SPAWN = 0x01,
+    SPAWN_FLAG_HOVER        = 0x02,
+};
+
+struct CreatureSpawnTemplate
+{
+    uint32 entry;
+    int64 unitFlags;
+    uint32 faction;
+    uint32 modelId;
+    uint32 equipmentId;
+    uint32 curHealth;
+    uint32 curMana;
+    uint32 spawnFlags;
+
+    bool IsRunning() const { return (spawnFlags & SPAWN_FLAG_RUN_ON_SPAWN) != 0; }
+    bool IsHovering() const { return (spawnFlags & SPAWN_FLAG_HOVER) != 0; }
+};
+
 // from `creature` table
 struct CreatureData
 {
@@ -235,10 +255,11 @@ struct CreatureData
     bool  is_dead;
     uint8 movementType;
     uint8 spawnMask;
-    uint16 gameEvent;
+    int16 gameEvent;
     uint16 GuidPoolId;
     uint16 EntryPoolId;
     uint16 OriginalZoneId;
+    CreatureSpawnTemplate const* spawnTemplate;
 
     // helper function
     ObjectGuid GetObjectGuid(uint32 lowguid) const { return ObjectGuid(CreatureInfo::GetHighGuid(), id, lowguid); }
@@ -384,13 +405,16 @@ enum SelectFlags
     SELECT_FLAG_POWER_NOT_MANA      = 0x1000,               // Used in some dungeon encounters
     SELECT_FLAG_USE_EFFECT_RADIUS   = 0x2000,               // For AOE targeted abilities which have correct data in effect index 0
     SELECT_FLAG_SKIP_TANK           = 0x4000,               // Not GetVictim - tank is not always top threat
-    SELECT_FLAG_SKIP_CUSTOM         =0x10000,               // skips custom target
+    SELECT_FLAG_PLAYER_CASTING      = 0x8000,               // For Interupts on casting targets
+    SELECT_FLAG_SKIP_CUSTOM         = 0x10000,              // skips custom target
 };
 
 enum RegenStatsFlags
 {
-    REGEN_FLAG_HEALTH               = 0x001,
-    REGEN_FLAG_POWER                = 0x002,
+    REGEN_FLAG_HEALTH_IN_COMBAT     = 0x001, // placeholder for future
+    REGEN_FLAG_HEALTH               = 0x002,
+    REGEN_FLAG_POWER_IN_COMBAT      = 0x004,
+    REGEN_FLAG_POWER                = 0x008,
 };
 
 // Vendors
@@ -681,6 +705,7 @@ class Creature : public Unit
         uint32 GetShieldBlockValue() const override { return (getLevel() / 2 + uint32(GetStat(STAT_STRENGTH) / 20)); }
 
         bool HasSpell(uint32 spellID) const override;
+        void UpdateSpell(int32 index, int32 newSpellId) { m_spells[index] = newSpellId; }
         void UpdateSpellSet(uint32 spellSet);
 
         bool UpdateEntry(uint32 Entry, const CreatureData* data = nullptr, GameEventCreatureData const* eventData = nullptr, bool preserveHPAndPower = true);
@@ -723,7 +748,7 @@ class Creature : public Unit
 
         void SetDeathState(DeathState s) override;          // overwrite virtual Unit::SetDeathState
 
-        bool LoadFromDB(uint32 guidlow, Map* map);
+        bool LoadFromDB(uint32 dbGuid, Map* map, uint32 newGuid, GenericTransport* transport = nullptr);
         virtual void SaveToDB();
         // overwrited in Pet
         virtual void SaveToDB(uint32 mapid, uint8 spawnMask);
@@ -733,7 +758,7 @@ class Creature : public Unit
         void PrepareBodyLootState();
         CreatureLootStatus GetLootStatus() const { return m_lootStatus; }
         virtual void InspectingLoot() override;
-        void SetLootStatus(CreatureLootStatus status);
+        void SetLootStatus(CreatureLootStatus status, bool forced = false);
         bool IsTappedBy(Player* plr) const;
         ObjectGuid GetLootRecipientGuid() const { return m_lootRecipientGuid; }
         uint32 GetLootGroupRecipientId() const { return m_lootGroupRecipientId; }
@@ -761,10 +786,6 @@ class Creature : public Unit
         MovementGeneratorType GetDefaultMovementType() const { return m_defaultMovementType; }
         void SetDefaultMovementType(MovementGeneratorType mgt) { m_defaultMovementType = mgt; }
 
-        // for use only in LoadHelper, Map::Add Map::CreatureCellRelocation
-        Cell const& GetCurrentCell() const { return m_currentCell; }
-        void SetCurrentCell(Cell const& cell) { m_currentCell = cell; }
-
         bool IsVisibleInGridForPlayer(Player* pl) const override;
 
         void RemoveCorpse(bool inPlace = false);
@@ -774,12 +795,12 @@ class Creature : public Unit
 
         time_t const& GetRespawnTime() const { return m_respawnTime; }
         time_t GetRespawnTimeEx() const;
-        void SetRespawnTime(uint32 respawn) { m_respawnTime = respawn ? time(nullptr) + respawn : 0; }
+        void SetRespawnTime(uint32 respawn) { m_respawnTime = respawn ? time(nullptr) + respawn : 0; } // do not use this from scripts
         void Respawn();
         void SaveRespawnTime() override;
 
         uint32 GetRespawnDelay() const { return m_respawnDelay; }
-        void SetRespawnDelay(uint32 delay, bool once = false) { m_respawnDelay = delay; m_respawnOverriden = true; m_respawnOverrideOnce = once; }
+        void SetRespawnDelay(uint32 delay, bool once = false) { m_respawnDelay = delay; m_respawnOverriden = true; m_respawnOverrideOnce = once; } // in seconds
 
         float GetRespawnRadius() const { return m_respawnradius; }
         void SetRespawnRadius(float dist) { m_respawnradius = dist; }
@@ -802,7 +823,7 @@ class Creature : public Unit
 
         GridReference<Creature>& GetGridRef() { return m_gridRef; }
         bool IsRegeneratingHealth() const { return (GetCreatureInfo()->RegenerateStats & REGEN_FLAG_HEALTH) != 0; }
-        bool IsRegeneratingPower() const { return (GetCreatureInfo()->RegenerateStats & REGEN_FLAG_POWER) != 0; }
+        bool IsRegeneratingPower() const;
         virtual uint8 GetPetAutoSpellSize() const { return CREATURE_MAX_SPELLS; }
         virtual uint32 GetPetAutoSpellOnPos(uint8 pos) const
         {
@@ -811,12 +832,14 @@ class Creature : public Unit
             return m_charmInfo->GetCharmSpell(pos)->GetAction();
         }
 
-        void SetCombatStartPosition(float x, float y, float z, float o) { m_combatStartPos.x = x; m_combatStartPos.y = y; m_combatStartPos.z = z; m_combatStartPos.o = o; }
-        void GetCombatStartPosition(float& x, float& y, float& z, float& o) const { x = m_combatStartPos.x; y = m_combatStartPos.y; z = m_combatStartPos.z; o = m_combatStartPos.o; }
+        void SetCombatStartPosition(Position const& pos) { m_combatStartPos = pos; }
+        void GetCombatStartPosition(Position& pos) const { pos = m_combatStartPos; }
+        Position const& GetCombatStartPosition() const { return m_combatStartPos; }
 
         void SetRespawnCoord(CreatureCreatePos const& pos) { m_respawnPos = pos.m_pos; }
         void SetRespawnCoord(float x, float y, float z, float ori) { m_respawnPos.x = x; m_respawnPos.y = y; m_respawnPos.z = z; m_respawnPos.o = ori; }
         void GetRespawnCoord(float& x, float& y, float& z, float* ori = nullptr, float* dist = nullptr) const;
+        Position const& GetRespawnPosition() const { return m_respawnPos; }
         void ResetRespawnCoord();
 
         void SetDeadByDefault(bool death_state) { m_isDeadByDefault = death_state; }
@@ -865,9 +888,12 @@ class Creature : public Unit
         bool IsNoReputation() { return m_noReputation; }
         void SetNoReputation(bool state) { m_noReputation = state; }
 
+        virtual void AddCooldown(SpellEntry const& spellEntry, ItemPrototype const* itemProto = nullptr, bool permanent = false, uint32 forcedDuration = 0) override;
+
         // spell scripting persistency
         bool HasBeenHitBySpell(uint32 spellId);
         void RegisterHitBySpell(uint32 spellId);
+        void UnregisterHitBySpell(uint32 spellId);
         void ResetSpellHitCounter();
 
     protected:
@@ -905,7 +931,6 @@ class Creature : public Unit
         void RegeneratePower(float timerMultiplier);
         virtual void RegenerateHealth();
         MovementGeneratorType m_defaultMovementType;
-        Cell m_currentCell;                                 // store current cell where creature listed
         uint32 m_equipmentId;
 
         // below fields has potential for optimization
@@ -914,6 +939,7 @@ class Creature : public Unit
         uint32 m_temporaryFactionFlags;                     // used for real faction changes (not auras etc)
 
         uint32 m_originalEntry;
+        uint32 m_dbGuid;
 
         Position m_combatStartPos;                          // after combat contains last position
         Position m_respawnPos;

@@ -192,13 +192,6 @@ void PoolGroup<T>::SetExcludeObject(uint32 guid, bool state)
     }
 }
 
-bool CanSpawnDueToLinking(uint32 lowGuid, MapPersistentState& mapState)
-{
-    if (Map* map = mapState.GetMap()) // for world maps this will fail on world start
-        return map->GetCreatureLinkingHolder()->CanSpawn(lowGuid, map, nullptr, 0.f, 0.f);
-    return true;
-}
-
 template <class T>
 PoolObject* PoolGroup<T>::RollOne(SpawnedPoolData& spawns, uint32 triggerFrom, MapPersistentState& mapState)
 {
@@ -225,7 +218,7 @@ PoolObject* PoolGroup<T>::RollOne(SpawnedPoolData& spawns, uint32 triggerFrom, M
             if (obj->exclude)
                 continue;
 
-            if (!CanSpawnDueToLinking(obj->guid, mapState))
+            if (!CanSpawn(obj, mapState))
                 continue;
 
             if (obj->guid != triggerFrom && spawns.IsSpawnedObject<T>(obj->guid))
@@ -258,7 +251,7 @@ PoolObject* PoolGroup<T>::RollOne(SpawnedPoolData& spawns, uint32 triggerFrom, M
             if (obj->exclude)
                 continue;
 
-            if (!CanSpawnDueToLinking(obj->guid, mapState))
+            if (!CanSpawn(obj, mapState))
                 continue;
 
             if (obj->guid != triggerFrom && spawns.IsSpawnedObject<T>(obj->guid))
@@ -372,6 +365,34 @@ void PoolGroup<Pool>::RemoveOneRelation(uint16 child_pool_id)
     }
 }
 
+template<>
+bool PoolGroup<Creature>::CanSpawn(PoolObject* object, MapPersistentState& mapState)
+{
+    if (Map* map = mapState.GetMap()) // for world maps this will fail on world start
+        return map->GetCreatureLinkingHolder()->CanSpawn(object->guid, map, nullptr, 0.f, 0.f);
+    return true;
+}
+
+template<>
+bool PoolGroup<GameObject>::CanSpawn(PoolObject* object, MapPersistentState& mapState)
+{
+    if (GameObjectData const* data = sObjectMgr.GetGOData(object->guid))
+    {
+        if (Map* map = mapState.GetMap()) // for world maps this will fail on world start
+        {
+            if ((data->spawnMask & (1 << map->GetDifficulty())) == 0)
+                return false;
+        }
+    }
+    return true;
+}
+
+template<>
+bool PoolGroup<Pool>::CanSpawn(PoolObject* /*object*/, MapPersistentState& /*mapState*/)
+{
+    return true;
+}
+
 template <class T>
 void PoolGroup<T>::SpawnObject(MapPersistentState& mapState, uint32 limit, uint32 triggerFrom, bool instantly)
 {
@@ -435,7 +456,7 @@ void PoolGroup<Creature>::Spawn1Object(MapPersistentState& mapState, PoolObject*
         if (dataMap && dataMap->IsLoaded(data->posX, data->posY))
         {
             Creature* pCreature = new Creature;
-            if (!pCreature->LoadFromDB(obj->guid, dataMap))
+            if (!pCreature->LoadFromDB(obj->guid, dataMap, obj->guid))
                 delete pCreature;
             else
             {
@@ -468,8 +489,10 @@ void PoolGroup<GameObject>::Spawn1Object(MapPersistentState& mapState, PoolObjec
         // We use spawn coords to spawn
         if (dataMap && dataMap->IsLoaded(data->posX, data->posY))
         {
-            GameObject* pGameobject = new GameObject;
-            if (!pGameobject->LoadFromDB(obj->guid, dataMap))
+            GameObjectData const* data = sObjectMgr.GetGOData(obj->guid);
+            MANGOS_ASSERT(data);
+            GameObject* pGameobject = GameObject::CreateGameObject(data->id);
+            if (!pGameobject->LoadFromDB(obj->guid, dataMap, obj->guid))
                 delete pGameobject;
             else
             {

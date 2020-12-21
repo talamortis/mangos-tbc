@@ -34,6 +34,7 @@
 #include "DBScripts/ScriptMgr.h"
 #include "Entities/CreatureLinkingMgr.h"
 #include "vmap/DynamicTree.h"
+#include "Multithreading/Messager.h"
 
 #include <bitset>
 #include <functional>
@@ -54,7 +55,9 @@ class BattleGround;
 class GridMap;
 class GameObjectModel;
 class WeatherSystem;
+class GenericTransport;
 namespace MaNGOS { struct ObjectUpdater; }
+class Transport;
 
 // GCC have alternative #pragma pack(N) syntax and old gcc version not support pack(push,N), also any gcc version not support it at some platform
 #if defined( __GNUC__ )
@@ -147,6 +150,7 @@ class Map : public GridRefManager<NGridType>
 
         void PlayerRelocation(Player*, float x, float y, float z, float orientation);
         void CreatureRelocation(Creature* creature, float x, float y, float z, float ang);
+        void GameObjectRelocation(GameObject* go, float x, float y, float z, float orientation, bool respawnRelocationOnFail = true);
 
         template<class T, class CONTAINER> void Visit(const Cell& cell, TypeContainerVisitor<T, CONTAINER>& visitor);
 
@@ -292,7 +296,7 @@ class Map : public GridRefManager<NGridType>
         void PlayDirectSoundToMap(uint32 soundId, uint32 zoneId = 0) const;
 
         // Dynamic VMaps
-        float GetHeight(float x, float y, float z) const;
+        float GetHeight(float x, float y, float z, bool swim = false) const;
         bool GetHeightInRange(float x, float y, float& z, float maxSearchDist = 4.0f) const;
         bool IsInLineOfSight(float x1, float y1, float z1, float x2, float y2, float z2, bool ignoreM2Model) const;
         bool GetHitPosition(float srcX, float srcY, float srcZ, float& destX, float& destY, float& destZ, float modifyDist) const;
@@ -324,15 +328,9 @@ class Map : public GridRefManager<NGridType>
         bool GetRandomPointInTheAir(float& x, float& y, float& z, float radius, bool randomRange = true) const;
         bool GetRandomPointUnderWater(float& x, float& y, float& z, float radius, GridMapLiquidData& liquid_status, bool randomRange = true) const;
 
-        void AddMessage(const std::function<void(Map*)>& message);
-
         uint32 SpawnedCountForEntry(uint32 entry);
         void AddToSpawnCount(const ObjectGuid& guid);
         void RemoveFromSpawnCount(const ObjectGuid& guid);
-
-        uint32 GetUpdateTimeMin() { return m_updateTimeMin; }
-        uint32 GetUpdateTimeMax() { return m_updateTimeMax; }
-        uint32 GetUpdateTimeAvg() { return uint32(m_updateTimeTotal / m_cycleCounter); }
 
         uint32 GetCurrentMSTime() const;
         TimePoint GetCurrentClockTime() const;
@@ -341,6 +339,13 @@ class Map : public GridRefManager<NGridType>
         void CreatePlayerOnClient(Player* player);
 
         uint32 GetLoadedGridsCount();
+
+        Messager<Map>& GetMessager() { return m_messager; }
+
+        GenericTransport* GetTransport(ObjectGuid guid);
+
+        void AddTransport(Transport* transport);
+        void RemoveTransport(Transport* transport);
 
     private:
         void LoadMapAndVMap(int gx, int gy);
@@ -351,6 +356,7 @@ class Map : public GridRefManager<NGridType>
 
         void SendInitTransports(Player* player) const;
         void SendRemoveTransports(Player* player) const;
+        void LoadTransports();
 
         bool CreatureCellRelocation(Creature* c, const Cell& new_cell);
 
@@ -396,12 +402,10 @@ class Map : public GridRefManager<NGridType>
         std::map<uint32, uint32> m_tempCreatures;
         std::map<uint32, uint32> m_tempPets;
 
-        std::vector<std::function<void(Map*)>> m_messageVector;
-        std::mutex m_messageMutex;
-
         WorldObjectSet m_onEventNotifiedObjects;
         WorldObjectSet::iterator m_onEventNotifiedIter;
 
+        Messager<Map> m_messager;
     private:
         time_t i_gridExpiry;
 
@@ -424,6 +428,7 @@ class Map : public GridRefManager<NGridType>
         // Map local low guid counters
         ObjectGuidGenerator<HIGHGUID_UNIT> m_CreatureGuids;
         ObjectGuidGenerator<HIGHGUID_GAMEOBJECT> m_GameObjectGuids;
+        ObjectGuidGenerator<HIGHGUID_TRANSPORT> m_transportGuids;
         ObjectGuidGenerator<HIGHGUID_DYNAMICOBJECT> m_DynObjectGuids;
         ObjectGuidGenerator<HIGHGUID_PET> m_PetGuids;
 
@@ -442,13 +447,11 @@ class Map : public GridRefManager<NGridType>
         // WeatherSystem
         WeatherSystem* m_weatherSystem;
 
-        std::unordered_map<uint32, std::set<ObjectGuid>> m_spawnedCount;
+        // Transports
+        typedef std::set<Transport*> TransportSet;
+        TransportSet m_transports;
 
-        // Map update performance logging
-        std::atomic<uint32> m_cycleCounter;
-        std::atomic<uint32> m_updateTimeMin;
-        std::atomic<uint32> m_updateTimeMax;
-        std::atomic<uint64> m_updateTimeTotal;
+        std::unordered_map<uint32, std::set<ObjectGuid>> m_spawnedCount;
 };
 
 class WorldMap : public Map

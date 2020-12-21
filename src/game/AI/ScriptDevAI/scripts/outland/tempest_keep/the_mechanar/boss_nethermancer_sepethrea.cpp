@@ -37,7 +37,7 @@ enum
 
     SPELL_SUMMON_RAGING_FLAMES      = 35275,
     SPELL_SUMMON_RAGING_FLAMES_H    = 39084,
-    SPELL_FROST_ATTACK              = 45196, // serverside - triggers 45196
+    SPELL_FROST_ATTACK              = 45196, // serverside - triggers 45195
     SPELL_ARCANE_BLAST              = 35314,
     SPELL_DRAGONS_BREATH            = 35250,
 
@@ -71,6 +71,7 @@ struct boss_nethermancer_sepethreaAI : public ScriptedAI
 
     void Aggro(Unit* /*pWho*/) override
     {
+        m_creature->SetInCombatWithZone();
         DoScriptText(SAY_AGGRO, m_creature);
         DoCastSpellIfCan(nullptr, SPELL_FROST_ATTACK, CAST_TRIGGERED | CAST_AURA_NOT_PRESENT);
         DoCastSpellIfCan(m_creature, m_bIsRegularMode ? SPELL_SUMMON_RAGING_FLAMES : SPELL_SUMMON_RAGING_FLAMES_H);
@@ -141,7 +142,7 @@ UnitAI* GetAI_boss_nethermancer_sepethrea(Creature* pCreature)
 
 enum
 {
-    SPELL_RAGING_FLAMES = 35278,
+    SPELL_RAGING_FLAMES = 35281,
     SPELL_INFERNO = 35268,
     SPELL_INFERNO_H = 39346,
 };
@@ -161,15 +162,14 @@ struct npc_raging_flamesAI : public ScriptedAI
     ScriptedInstance* m_pInstance;
     bool m_bIsRegularMode;
 
-    uint32 m_uiRagingFlamesTimer;
     uint32 m_uiInfernoTimer;
 
     ObjectGuid m_summonerGuid;
 
     void Reset() override
     {
-        m_uiRagingFlamesTimer = m_bIsRegularMode ? 1200 : 700;
         m_uiInfernoTimer = urand(15700, 30000);
+        DoCastSpellIfCan(nullptr, SPELL_RAGING_FLAMES, CAST_TRIGGERED | CAST_AURA_NOT_PRESENT);
     }
 
     void Aggro(Unit* /*pWho*/) override
@@ -191,15 +191,6 @@ struct npc_raging_flamesAI : public ScriptedAI
         // Return since we have no target
         if (!m_creature->SelectHostileTarget() || !m_creature->GetVictim())
             return;
-
-        // Raging Flames
-        if (m_uiRagingFlamesTimer < uiDiff)
-        {
-            if (DoCastSpellIfCan(m_creature, SPELL_RAGING_FLAMES) == CAST_OK)
-                m_uiRagingFlamesTimer = 1000;
-        }
-        else
-            m_uiRagingFlamesTimer -= uiDiff;
 
         // Inferno
         if (m_uiInfernoTimer < uiDiff)

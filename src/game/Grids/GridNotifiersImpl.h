@@ -214,7 +214,7 @@ inline void MaNGOS::DynamicObjectUpdater::VisitHelper(Unit* target)
                 continue;
 
             // only creature entries supported for this target type
-            if (i_spellST->type == SPELL_TARGET_TYPE_GAMEOBJECT)
+            if (i_spellST->type == SPELL_TARGET_TYPE_GAMEOBJECT || i_spellST->type == SPELL_TARGET_TYPE_GAMEOBJECT_GUID)
                 continue;
 
             if (target->GetEntry() == i_spellST->targetEntry)
@@ -254,7 +254,7 @@ inline void MaNGOS::DynamicObjectUpdater::VisitHelper(Unit* target)
     if (target->IsImmuneToSpell(spellInfo, false, eff_index) || target->IsImmuneToSpellEffect(spellInfo, eff_index, false))
         return;
 
-    if (!i_dynobject.IsWithinLOSInMap(target))
+    if (!spellInfo->HasAttribute(SPELL_ATTR_EX2_IGNORE_LOS) && !i_dynobject.IsWithinLOSInMap(target))
         return;
 
     // Apply PersistentAreaAura on target

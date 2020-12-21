@@ -390,12 +390,6 @@ enum
     NPC_BROODLORD               = 12017,
     NPC_TALON_KING_IKISS        = 18473,
     NPC_KARGATH_BLADEFIST       = 16808,
-    NPC_MOROES                  = 15687,
-    NPC_MOROGRIM_TIDEWALKER     = 21213,
-    NPC_KELIDAN_THE_BREAKER     = 17377,
-    NPC_NAZAN                   = 17536,
-    NPC_VAZRUDEN                = 17537,
-    NPC_LEOTHERAS               = 21215,
 
     // Black Temple
     NPC_HIGH_WARLORD_NAJENTUS   = 22887,
@@ -443,27 +437,6 @@ bool ScriptedAI::EnterEvadeIfOutOfCombatArea(const uint32 diff)
             if (x < 270.0f && x > 185.0f)
                 return false;
             break;
-        case NPC_MOROES:                                    // Moroes - Generate bounding box - TODO: Despawn Remaining Adds upon Evade after Death
-            if (x > -11030.f && x < -10943.f && y > -1955.f && y < -1860.f)
-                return false;
-            break;
-        case NPC_MOROGRIM_TIDEWALKER:                       // Morogrim - Natural Box made by room
-            if (x > 304.12f && x < 457.35f)
-                return false;
-            break;
-        case NPC_KELIDAN_THE_BREAKER:   // out of his room
-            if (y > -158.23)
-                return false;
-            break;
-        case NPC_VAZRUDEN:
-        case NPC_NAZAN:
-            if (x < -1336.0f)
-                return false;
-            break;
-        case NPC_LEOTHERAS:
-            if (x < 409.0f && y > -524.0f &&  x > 300.0f && y < -301.0f)
-                return false;
-            break;
         case NPC_HIGH_WARLORD_NAJENTUS:
             if (x > 300.f)
                 return false;
@@ -499,14 +472,6 @@ bool ScriptedAI::EnterEvadeIfOutOfCombatArea(const uint32 diff)
 
     EnterEvadeMode();
     return true;
-}
-
-void ScriptedAI::DespawnGuids(GuidVector& spawns)
-{
-    for (ObjectGuid& guid : spawns)
-        if (Creature* spawn = m_creature->GetMap()->GetAnyTypeCreature(guid))
-            spawn->ForcedDespawn();
-    spawns.clear();
 }
 
 void Scripted_NoMovementAI::GetAIInformation(ChatHandler& reader)

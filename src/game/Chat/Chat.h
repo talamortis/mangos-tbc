@@ -20,6 +20,7 @@
 #define MANGOSSERVER_CHAT_H
 
 #include "Common.h"
+#include "Globals/Locales.h"
 #include "Globals/SharedDefines.h"
 #include "Entities/ObjectGuid.h"
 
@@ -158,7 +159,7 @@ class ChatHandler
         std::string ExtractPlayerNameFromLink(char** text);
         bool ExtractPlayerTarget(char** args, Player** player, ObjectGuid* player_guid = nullptr, std::string* player_name = nullptr);
 
-        Player* GetPlayer();
+        WorldSession* GetSession() const { return m_session; }
     protected:
         explicit ChatHandler() : m_session(nullptr), sentErrorMessage(false)
         {}      // for CLI subclass
@@ -201,15 +202,12 @@ class ChatHandler
         bool HandleAccountSetGmLevelCommand(char* args);
         bool HandleAccountSetPasswordCommand(char* args);
 
-        bool HandleAHBotItemsAmountCommand(char* args);
-        template <int Q>
-        bool HandleAHBotItemsAmountQualityCommand(char* args);
-        bool HandleAHBotItemsRatioCommand(char* args);
-        template <int H>
-        bool HandleAHBotItemsRatioHouseCommand(char* args);
+#ifdef BUILD_AHBOT
         bool HandleAHBotRebuildCommand(char* args);
         bool HandleAHBotReloadCommand(char* args);
         bool HandleAHBotStatusCommand(char* args);
+        bool HandleAHBotItemCommand(char* args);
+#endif
 
         bool HandleAuctionAllianceCommand(char* args);
         bool HandleAuctionGoblinCommand(char* args);
@@ -278,7 +276,6 @@ class ChatHandler
         bool HandleDebugHaveAtClientCommand(char* args);
         bool HandleDebugIsVisibleCommand(char* args);
 
-        bool HandleDebugMaps(char* args);
         bool HandleShowTemporarySpawnList(char* args);
         bool HandleGridsLoadedCount(char* args);
 
@@ -303,6 +300,8 @@ class ChatHandler
 
         bool HandleDebugFlyCommand(char* args);
 
+        bool HandleDebugPacketHistory(char* args);
+
         bool HandleSD2HelpCommand(char* args);
         bool HandleSD2ScriptCommand(char* args);
 
@@ -320,6 +319,7 @@ class ChatHandler
         bool HandleGameObjectTargetCommand(char* args);
         bool HandleGameObjectTurnCommand(char* args);
         bool HandleGameObjectActivateCommand(char* args);
+        bool HandleGameObjectForcedDespawnCommand(char* args);
         bool HandleGameObjectRespawnCommand(char* args);
 
         bool HandleGMCommand(char* args);
@@ -466,6 +466,7 @@ class ChatHandler
         bool HandleNpcUnFollowCommand(char* args);
         bool HandleNpcWhisperCommand(char* args);
         bool HandleNpcYellCommand(char* args);
+        bool HandleNpcTempSpawn(char* args);
 
         // TODO: NpcCommands that needs to be fixed :
         bool HandleNpcAddWeaponCommand(char* args);
@@ -623,6 +624,7 @@ class ChatHandler
         bool HandleTitlesCurrentCommand(char* args);
         bool HandleTitlesRemoveCommand(char* args);
         bool HandleTitlesSetMaskCommand(char* args);
+        bool HandleTitlesSwapCommand(char* args);
 
         bool HandleTriggerActiveCommand(char* args);
         bool HandleTriggerNearCommand(char* args);
@@ -667,6 +669,8 @@ class ChatHandler
         bool HandleMovegensCommand(char* args);
         bool HandleComeToMeCommand(char* args);
         bool HandleMovespeedShowCommand(char* args);
+        bool HandleDebugMovement(char* args);
+        bool HandlePrintMovement(char* args);
 
         bool HandleCooldownListCommand(char* args);
         bool HandleCooldownClearCommand(char* args);
@@ -695,6 +699,11 @@ class ChatHandler
         bool HandleChangeWeatherCommand(char* args);
         bool HandleKickPlayerCommand(char* args);
 
+        bool HandleBagsCommand(char* args);
+
+        bool HandleCombatListCommand(char* args);
+        bool HandleCombatStopCommand(char* args);
+
         bool HandleTicketDiscardCommand(char* args);
         bool HandleTicketEscalateCommand(char* args);
         bool HandleTicketGoCommand(char* args);
@@ -713,7 +722,6 @@ class ChatHandler
         bool HandleMaxSkillCommand(char* args);
         bool HandleSetSkillCommand(char* args);
         bool HandleRespawnCommand(char* args);
-        bool HandleCombatStopCommand(char* args);
         bool HandleRepairitemsCommand(char* args);
         bool HandleStableCommand(char* args);
         bool HandleWaterwalkCommand(char* args);
@@ -740,7 +748,13 @@ class ChatHandler
         bool HandleLinkToggleCommand(char* args);
         bool HandleLinkCheckCommand(char* args);
 
+        // worldstate
+        bool HandleWarEffortCommand(char* args);
         bool HandleExpansionRelease(char* args);
+
+        // Battleground
+        bool HandleBattlegroundStartCommand(char* args);
+        bool HandleBattlegroundStopCommand(char* args);
 
         //! Development Commands
         bool HandleSaveAllCommand(char* args);
@@ -802,7 +816,7 @@ class ChatHandler
         };
 
         typedef std::list<DeletedInfo> DeletedInfoList;
-        bool GetDeletedCharacterInfoList(DeletedInfoList& foundList, std::string searchString = "") const;
+        bool GetDeletedCharacterInfoList(DeletedInfoList& foundList, std::string searchString = "");
         std::string GenerateDeletedCharacterGUIDsWhereStr(DeletedInfoList::const_iterator& itr, DeletedInfoList::const_iterator const& itr_end);
         void HandleCharacterDeletedListHelper(DeletedInfoList const& foundList);
         void HandleCharacterDeletedRestoreHelper(DeletedInfo const& delInfo);

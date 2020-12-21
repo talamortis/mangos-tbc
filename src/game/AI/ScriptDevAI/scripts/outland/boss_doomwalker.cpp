@@ -91,6 +91,8 @@ struct boss_doomwalkerAI : public ScriptedAI
         m_overrunParams.range.maxRange = 30;
 
         m_creature->RemoveAurasDueToSpell(SPELL_MARK_OF_DEATH_AURA);
+
+        m_creature->SetWalk(true);
     }
 
     void KilledUnit(Unit* pVictim) override
@@ -134,7 +136,7 @@ struct boss_doomwalkerAI : public ScriptedAI
         SetCombatScriptStatus(true);
         float x, y, z;
         summoned->GetNearPoint(m_creature, x, y, z, 0.f, 0.f, summoned->GetAngle(m_creature));
-        m_creature->GetMotionMaster()->MovePoint(POINT_OVERRUN, x, y, z);
+        m_creature->GetMotionMaster()->MovePoint(POINT_OVERRUN, x, y, z, FORCED_MOVEMENT_RUN);
         m_overrunExecTimer = 250;
     }
 
@@ -200,12 +202,11 @@ struct boss_doomwalkerAI : public ScriptedAI
             while (targets.size() > COUNT_OVERRUN)
                 targets.erase(targets.begin() + urand(0, targets.size() - 1));
 
-            if (!targets.empty())
+            if (!targets.empty() && DoCastSpellIfCan(nullptr, SPELL_OVERRUN) == CAST_OK)
             {
                 float angle = m_creature->GetAngle(targets[0]);
                 m_creature->SetFacingTo(angle);
                 m_creature->SetOrientation(angle);
-                m_creature->CastSpell(nullptr, SPELL_OVERRUN, TRIGGERED_NONE);
                 m_creature->CastSpell(nullptr, SPELL_OVERRUN_TRIGGER_SPAWN, TRIGGERED_OLD_TRIGGERED); // shouldnt be sent to client
                 DoScriptText(urand(0, 1) ? SAY_OVERRUN_1 : SAY_OVERRUN_2, m_creature);
                 m_uiOverrunTimer = urand(25000, 40000);

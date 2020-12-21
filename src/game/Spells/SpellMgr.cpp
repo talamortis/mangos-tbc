@@ -82,7 +82,7 @@ int32 CalculateSpellDuration(SpellEntry const* spellInfo, Unit const* caster)
         int32 maxduration = GetSpellMaxDuration(spellInfo);
 
         if (duration != maxduration && caster->GetTypeId() == TYPEID_PLAYER)
-            duration += int32((maxduration - duration) * ((Player*)caster)->GetComboPoints() / 5);
+            duration += int32((maxduration - duration) * caster->GetComboPoints() / 5);
 
         if (Player* modOwner = caster->GetSpellModOwner())
         {
@@ -400,10 +400,6 @@ SpellSpecific GetSpellSpecific(uint32 spellId)
             // family flag 37 (except Demon Skin, which is under general)
             if (spellInfo->IsFitToFamilyMask(uint64(0x0000002000000000)))
                 return SPELL_WARLOCK_ARMOR;
-
-            // Drain Soul and Shadowburn
-            if (IsSpellHaveAura(spellInfo, SPELL_AURA_CHANNEL_DEATH_ITEM))
-                return SPELL_SOUL_CAPTURE;
 
             // Corruption and Seed of Corruption
             if (spellInfo->IsFitToFamilyMask(uint64(0x1000000002)))
@@ -1256,8 +1252,20 @@ struct DoSpellThreat
         if (ste.threat || ste.ap_bonus != 0.f)
         {
             const uint32* targetA = spell->EffectImplicitTargetA;
-            if ((targetA[EFFECT_INDEX_1] && targetA[EFFECT_INDEX_1] != targetA[EFFECT_INDEX_0]) ||
-                    (targetA[EFFECT_INDEX_2] && targetA[EFFECT_INDEX_2] != targetA[EFFECT_INDEX_0]))
+
+            uint32 target = 0;
+            bool failed = false;
+            for (int i = 0; i < MAX_EFFECT_INDEX; i++)
+            {
+                if (targetA[i] != 0)
+                {
+                    if (target == 0)
+                        target = targetA[i];
+                    else if (targetA[i] != target)
+                        failed = true;
+                }
+            }
+            if (failed)
                 sLog.outErrorDb("Spell %u listed in `spell_threat` has effects with different targets, threat may be assigned incorrectly", spell->Id);
         }
         ++count;
@@ -2071,6 +2079,18 @@ void SpellMgr::LoadSpellScriptTarget()
                 }
                 break;
             }
+            case SPELL_TARGET_TYPE_GAMEOBJECT_GUID:
+            {
+                if (!itr->targetEntry)
+                    break;
+
+                if (!sObjectMgr.GetGOData(itr->targetEntry))
+                {
+                    sLog.outErrorDb("Table `spell_script_target`: gameobject entry %u does not exist.", itr->targetEntry);
+                    sSpellScriptTargetStorage.EraseEntry(itr->spellId);
+                }
+                break;
+            }
             case SPELL_TARGET_TYPE_CREATURE_GUID:
             {
                 if (!sObjectMgr.GetCreatureData(itr->targetEntry))
@@ -2567,10 +2587,6 @@ SpellCastResult SpellMgr::GetSpellAllowedInLocationError(SpellEntry const* spell
             return map_id == 566 && player && player->InBattleGround() ? SPELL_CAST_OK : SPELL_FAILED_REQUIRES_AREA;
         case 2584:                                          // Waiting to Resurrect
         case 42792:                                         // Recently Dropped Flag
-        case 43681:                                         // Inactive
-        {
-            return player && player->InBattleGround() ? SPELL_CAST_OK : SPELL_FAILED_ONLY_BATTLEGROUNDS;
-        }
         case 22011:                                         // Spirit Heal Channel
         case 22012:                                         // Spirit Heal
         case 24171:                                         // Resurrection Impact Visual
@@ -2919,7 +2935,16 @@ DiminishingGroup GetDiminishingReturnsGroupForSpell(SpellEntry const* spellproto
             // some generic arena related spells have by some strange reason MECHANIC_TURN
             if (spellproto->Mechanic == MECHANIC_TURN)
                 return DIMINISHING_NONE;
+            // Hunter Pet Intimidation
+            else if (spellproto->Id == 24394)
+                return DIMINISHING_CONTROL_STUN;
             break;
+        case SPELLFAMILY_MAGE:
+        {
+            if (spellproto->IsFitToFamilyMask(uint64(0x000800000)))
+                return DIMINISHING_DRAGONS_BREATH;
+            break;
+        }
         case SPELLFAMILY_ROGUE:
         {
             // Kidney Shot
@@ -2940,11 +2965,16 @@ DiminishingGroup GetDiminishingReturnsGroupForSpell(SpellEntry const* spellproto
         case SPELLFAMILY_WARLOCK:
         {
             // Seduction
+            // ToDo: Fix  diminishing returns aspect of this spell, currently limited to 10secs in pvp only as setting DIMINISHING_FEAR to DRTYPE_ALL messes with PvE
             if (spellproto->IsFitToFamilyMask(uint64(0x00040000000)))
                 return DIMINISHING_FEAR;
             // Curses/etc
             if (spellproto->IsFitToFamilyMask(uint64(0x00080000000)))
                 return DIMINISHING_LIMITONLY;
+            /* Unstable Affliction Dispel Silence
+            // ToDo: Fix diminishing returns aspect for this spell 5 2.5 1.25 0
+            else if (spellproto->Id == 31117)
+                return DIMINISHING_UNSTABLE_AFFLICTION_SILENCE;*/
             break;
         }
         case SPELLFAMILY_DRUID:
@@ -2952,6 +2982,12 @@ DiminishingGroup GetDiminishingReturnsGroupForSpell(SpellEntry const* spellproto
             // Cyclone
             if (spellproto->IsFitToFamilyMask(uint64(0x02000000000)))
                 return DIMINISHING_BLIND_CYCLONE;
+            // Nature's Grasp Triggered Root
+            else if (spellproto->SpellFamilyFlags & 0x00000000200LL && spellproto->Attributes == 0x49010000)
+                return DIMINISHING_CONTROL_ROOT;
+            // Feral Charge Root Effect
+            else if (spellproto->Id == 45334)
+                return DIMINISHING_NONE;
             break;
         }
         case SPELLFAMILY_WARRIOR:
@@ -2959,6 +2995,15 @@ DiminishingGroup GetDiminishingReturnsGroupForSpell(SpellEntry const* spellproto
             // Hamstring - limit duration to 10s in PvP
             if (spellproto->IsFitToFamilyMask(uint64(0x00000000002)))
                 return DIMINISHING_LIMITONLY;
+            break;
+        }
+        case SPELLFAMILY_PALADIN:
+        {
+            // ToDo: Fix  diminishing returns aspect of this spell, currently limited to 10secs in pvp only as setting DIMINISHING_FEAR to DRTYPE_ALL messes with PvE
+            // Turn Evil - Turn Undead(Rank 3):This spell has been reworked and has been renamed to "Turn Evil".
+            // It will now work on Demons in addition to Undead. Turn Evil is subject to diminishing returns, and lasts 10 seconds in PvP. - https://wowwiki.fandom.com/wiki/Patch_2.4.0
+            if (spellproto->IsFitToFamilyMask(uint64(0x0000400000000000)) && spellproto->Attributes == 0x40010000)
+                return DIMINISHING_FEAR;
             break;
         }
         default:
@@ -2975,7 +3020,7 @@ DiminishingGroup GetDiminishingReturnsGroupForSpell(SpellEntry const* spellproto
     if (mechanic & (1 << (MECHANIC_SLEEP - 1)))
         return DIMINISHING_SLEEP;
     if (mechanic & ((1 << (MECHANIC_KNOCKOUT - 1)) | (1 << (MECHANIC_SAPPED - 1)) | (1 << (MECHANIC_POLYMORPH - 1))))
-        return DIMINISHING_POLYMORPH_KNOCKOUT;
+        return DIMINISHING_KNOCKOUT_POLYMORPH_SAPPED;
     if (mechanic & (1 << (MECHANIC_ROOT - 1)))
         return triggered ? DIMINISHING_TRIGGER_ROOT : DIMINISHING_CONTROL_ROOT;
     if (mechanic & (1 << (MECHANIC_FEAR - 1)))
@@ -3008,11 +3053,12 @@ bool IsDiminishingReturnsGroupDurationLimited(DiminishingGroup group)
         case DIMINISHING_TRIGGER_ROOT:
         case DIMINISHING_FEAR:
         case DIMINISHING_CHARM:
-        case DIMINISHING_POLYMORPH_KNOCKOUT:
+        case DIMINISHING_KNOCKOUT_POLYMORPH_SAPPED:
         case DIMINISHING_FREEZE:
         case DIMINISHING_BLIND_CYCLONE:
         case DIMINISHING_BANISH:
         case DIMINISHING_LIMITONLY:
+        case DIMINISHING_DRAGONS_BREATH:
             return true;
         default:
             return false;
@@ -3039,17 +3085,19 @@ DiminishingReturnsType GetDiminishingReturnsGroupType(DiminishingGroup group)
         case DIMINISHING_TRIGGER_STUN:
         case DIMINISHING_KIDNEYSHOT:
         case DIMINISHING_CHARM:
+        //case DIMINISHING_FEAR: Fix PvE no DR vs PvP DR
             return DRTYPE_ALL;
         case DIMINISHING_SLEEP:
         case DIMINISHING_CONTROL_ROOT:
         case DIMINISHING_TRIGGER_ROOT:
         case DIMINISHING_FEAR:
-        case DIMINISHING_POLYMORPH_KNOCKOUT:
+        case DIMINISHING_KNOCKOUT_POLYMORPH_SAPPED:
         case DIMINISHING_SILENCE:
         case DIMINISHING_DISARM:
         case DIMINISHING_DEATHCOIL:
         case DIMINISHING_FREEZE:
         case DIMINISHING_BANISH:
+        case DIMINISHING_DRAGONS_BREATH:
             return DRTYPE_PLAYER;
         default:
             break;

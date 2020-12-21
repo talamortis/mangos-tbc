@@ -136,7 +136,7 @@ ObjectMgr::ObjectMgr() :
     m_PetNumbers("Pet numbers"),
     m_FirstTemporaryCreatureGuid(1),
     m_FirstTemporaryGameObjectGuid(1),
-    DBCLocaleIndex(LOCALE_enUS)
+    m_Dbc2StorageLocaleIndex(DEFAULT_LOCALE)
 {
 }
 
@@ -245,7 +245,7 @@ void ObjectMgr::LoadCreatureLocales()
             std::string str = fields[1 + 2 * (i - 1)].GetCppString();
             if (!str.empty())
             {
-                int idx = GetOrNewIndexForLocale(LocaleConstant(i));
+                int idx = GetOrNewStorageLocaleIndexFor(LocaleConstant(i));
                 if (idx >= 0)
                 {
                     if ((int32)data.Name.size() <= idx)
@@ -257,7 +257,7 @@ void ObjectMgr::LoadCreatureLocales()
             str = fields[1 + 2 * (i - 1) + 1].GetCppString();
             if (!str.empty())
             {
-                int idx = GetOrNewIndexForLocale(LocaleConstant(i));
+                int idx = GetOrNewStorageLocaleIndexFor(LocaleConstant(i));
                 if (idx >= 0)
                 {
                     if ((int32)data.SubName.size() <= idx)
@@ -333,7 +333,7 @@ void ObjectMgr::LoadGossipMenuItemsLocales()
             std::string str = fields[2 + 2 * (i - 1)].GetCppString();
             if (!str.empty())
             {
-                int idx = GetOrNewIndexForLocale(LocaleConstant(i));
+                int idx = GetOrNewStorageLocaleIndexFor(LocaleConstant(i));
                 if (idx >= 0)
                 {
                     if ((int32)data.OptionText.size() <= idx)
@@ -345,7 +345,7 @@ void ObjectMgr::LoadGossipMenuItemsLocales()
             str = fields[2 + 2 * (i - 1) + 1].GetCppString();
             if (!str.empty())
             {
-                int idx = GetOrNewIndexForLocale(LocaleConstant(i));
+                int idx = GetOrNewStorageLocaleIndexFor(LocaleConstant(i));
                 if (idx >= 0)
                 {
                     if ((int32)data.BoxText.size() <= idx)
@@ -401,7 +401,7 @@ void ObjectMgr::LoadPointOfInterestLocales()
             if (str.empty())
                 continue;
 
-            int idx = GetOrNewIndexForLocale(LocaleConstant(i));
+            int idx = GetOrNewStorageLocaleIndexFor(LocaleConstant(i));
             if (idx >= 0)
             {
                 if ((int32)data.IconName.size() <= idx)
@@ -749,6 +749,15 @@ void ObjectMgr::ConvertCreatureAddonAuras(CreatureDataAddon* addon, char const* 
         {
             sLog.outErrorDb("Creature (%s: %u) has spell %u defined in `auras` field in `%s, but spell doesn't apply an aura`.", guidEntryStr, addon->guidOrEntry, cAura, table);
             continue;
+        }
+
+        if (SpellCastTimesEntry const* spellCastTimeEntry = sSpellCastTimesStore.LookupEntry(AdditionalSpellInfo->CastingTimeIndex))
+        {
+            if (spellCastTimeEntry->CastTime > 0)
+            {
+                sLog.outErrorDb("Creature (%s: %u) has spell %u defined in `auras` field in `%s, but spell has cast time. Use it in AI instead.", guidEntryStr, addon->guidOrEntry, cAura, table);
+                continue;
+            }
         }
 
         // TODO: Remove LogFilter check after more research
@@ -1276,6 +1285,57 @@ void ObjectMgr::LoadCreatureConditionalSpawn()
     sLog.outString();
 }
 
+void ObjectMgr::LoadCreatureSpawnDataTemplates()
+{
+    m_creatureSpawnTemplateMap.clear();
+
+    std::unique_ptr<QueryResult> result(WorldDatabase.Query("SELECT Entry, UnitFlags, Faction, ModelId, EquipmentId, CurHealth, CurMana, SpawnFlags FROM creature_spawn_data_template"));
+    if (!result)
+    {
+        BarGoLink bar(1);
+        bar.step();
+        sLog.outErrorDb(">> Loaded creature_spawn_data_template, table is empty!");
+        sLog.outString();
+        return;
+    }
+    
+    BarGoLink bar(result->GetRowCount());
+
+    uint32 count = 0;
+
+    do
+    {
+        bar.step();
+
+        Field* fields = result->Fetch();
+
+        uint32 entry =      fields[0].GetUInt32();
+        int64 unitFlags =   int64(fields[1].GetUInt64());
+        uint32 faction =    fields[2].GetUInt32();
+        uint32 modelId =    fields[3].GetUInt32();
+        uint32 equipmentId = fields[4].GetUInt32();
+        uint32 curHealth =  fields[5].GetUInt32();
+        uint32 curMana =    fields[6].GetUInt32();
+        uint32 spawnFlags = fields[7].GetUInt32();
+
+        // leave room for invalidation in future
+
+        auto& data = m_creatureSpawnTemplateMap[entry];
+        data.unitFlags = unitFlags;
+        data.faction = faction;
+        data.modelId = modelId;
+        data.equipmentId = equipmentId;
+        data.curHealth = curHealth;
+        data.curMana = curMana;
+        data.spawnFlags = spawnFlags;
+
+        ++count;
+    } while (result->NextRow());
+
+    sLog.outString(">> Loaded %u creature_spawn_data_template entries", count);
+    sLog.outString();
+}
+
 void ObjectMgr::LoadCreatureSpawnEntry()
 {
     mCreatureSpawnEntryMap.clear();
@@ -1333,11 +1393,14 @@ void ObjectMgr::LoadCreatures()
                           //   13         14       15          16            17         18
                           "curhealth, curmana, DeathState, MovementType, spawnMask, event,"
                           //   19                        20
-                          "pool_creature.pool_entry, pool_creature_template.pool_entry "
+                          "pool_creature.pool_entry, pool_creature_template.pool_entry,"
+                          //   21
+                          "creature_spawn_data.id "
                           "FROM creature "
                           "LEFT OUTER JOIN game_event_creature ON creature.guid = game_event_creature.guid "
                           "LEFT OUTER JOIN pool_creature ON creature.guid = pool_creature.guid "
-                          "LEFT OUTER JOIN pool_creature_template ON creature.id = pool_creature_template.id");
+                          "LEFT OUTER JOIN pool_creature_template ON creature.id = pool_creature_template.id "
+                          "LEFT OUTER JOIN creature_spawn_data ON creature.guid = creature_spawn_data.guid ");
 
     if (!result)
     {
@@ -1417,6 +1480,8 @@ void ObjectMgr::LoadCreatures()
         data.gameEvent          = fields[18].GetInt16();
         data.GuidPoolId         = fields[19].GetInt16();
         data.EntryPoolId        = fields[20].GetInt16();
+        data.spawnTemplate      = GetCreatureSpawnTemplate(0);
+        uint32 spawnDataEntry   = fields[21].GetUInt32();
 
         MapEntry const* mapEntry = sMapStore.LookupEntry(data.mapid);
         if (!mapEntry)
@@ -1506,6 +1571,14 @@ void ObjectMgr::LoadCreatures()
             }
         }
 
+        if (spawnDataEntry > 0)
+        {
+            if (CreatureSpawnTemplate const* templateData = GetCreatureSpawnTemplate(spawnDataEntry))
+                data.spawnTemplate = templateData;
+            else
+                sLog.outErrorDb("Table `creature` have creature (GUID: %u Entry: %u) with spawn template %u that doesnt exist.", guid, data.id, spawnDataEntry);
+        }
+
         if (mapEntry->IsContinent())
         {
             auto terrainInfo = sTerrainMgr.LoadTerrain(data.mapid);
@@ -1518,8 +1591,8 @@ void ObjectMgr::LoadCreatures()
         {
             AddCreatureToGrid(guid, &data);
 
-            if (cInfo->ExtraFlags & CREATURE_EXTRA_FLAG_ACTIVE)
-                m_activeCreatures.insert(ActiveCreatureGuidsOnMap::value_type(data.mapid, guid));
+            if (sWorld.getConfig(CONFIG_BOOL_AUTOLOAD_ACTIVE) && cInfo->ExtraFlags & CREATURE_EXTRA_FLAG_ACTIVE)
+                m_activeCreatures.emplace(data.mapid, guid);
         }
 
         // reset the entry to 0; this will be processed by Creature::GetCreatureConditionalSpawnEntry
@@ -1718,7 +1791,12 @@ void ObjectMgr::LoadGameObjects()
             data.OriginalZoneId = 0;
 
         if (data.IsNotPartOfPoolOrEvent()) // if not this is to be managed by GameEvent System or Pool system
+        {
             AddGameobjectToGrid(guid, &data);
+
+            if (sWorld.getConfig(CONFIG_BOOL_AUTOLOAD_ACTIVE) && gInfo->ExtraFlags & GAMEOBJECT_EXTRA_FLAG_ACTIVE)
+                m_activeGameObjects.emplace(data.mapid, guid);
+        }
 
         ++count;
     }
@@ -1914,7 +1992,7 @@ void ObjectMgr::LoadItemLocales()
             std::string str = fields[1 + 2 * (i - 1)].GetCppString();
             if (!str.empty())
             {
-                int idx = GetOrNewIndexForLocale(LocaleConstant(i));
+                int idx = GetOrNewStorageLocaleIndexFor(LocaleConstant(i));
                 if (idx >= 0)
                 {
                     if ((int32)data.Name.size() <= idx)
@@ -1927,7 +2005,7 @@ void ObjectMgr::LoadItemLocales()
             str = fields[1 + 2 * (i - 1) + 1].GetCppString();
             if (!str.empty())
             {
-                int idx = GetOrNewIndexForLocale(LocaleConstant(i));
+                int idx = GetOrNewStorageLocaleIndexFor(LocaleConstant(i));
                 if (idx >= 0)
                 {
                     if ((int32)data.Description.size() <= idx)
@@ -4399,7 +4477,7 @@ void ObjectMgr::LoadQuestLocales()
             std::string str = fields[1 + 10 * (i - 1)].GetCppString();
             if (!str.empty())
             {
-                int idx = GetOrNewIndexForLocale(LocaleConstant(i));
+                int idx = GetOrNewStorageLocaleIndexFor(LocaleConstant(i));
                 if (idx >= 0)
                 {
                     if ((int32)data.Title.size() <= idx)
@@ -4411,7 +4489,7 @@ void ObjectMgr::LoadQuestLocales()
             str = fields[1 + 10 * (i - 1) + 1].GetCppString();
             if (!str.empty())
             {
-                int idx = GetOrNewIndexForLocale(LocaleConstant(i));
+                int idx = GetOrNewStorageLocaleIndexFor(LocaleConstant(i));
                 if (idx >= 0)
                 {
                     if ((int32)data.Details.size() <= idx)
@@ -4423,7 +4501,7 @@ void ObjectMgr::LoadQuestLocales()
             str = fields[1 + 10 * (i - 1) + 2].GetCppString();
             if (!str.empty())
             {
-                int idx = GetOrNewIndexForLocale(LocaleConstant(i));
+                int idx = GetOrNewStorageLocaleIndexFor(LocaleConstant(i));
                 if (idx >= 0)
                 {
                     if ((int32)data.Objectives.size() <= idx)
@@ -4435,7 +4513,7 @@ void ObjectMgr::LoadQuestLocales()
             str = fields[1 + 10 * (i - 1) + 3].GetCppString();
             if (!str.empty())
             {
-                int idx = GetOrNewIndexForLocale(LocaleConstant(i));
+                int idx = GetOrNewStorageLocaleIndexFor(LocaleConstant(i));
                 if (idx >= 0)
                 {
                     if ((int32)data.OfferRewardText.size() <= idx)
@@ -4447,7 +4525,7 @@ void ObjectMgr::LoadQuestLocales()
             str = fields[1 + 10 * (i - 1) + 4].GetCppString();
             if (!str.empty())
             {
-                int idx = GetOrNewIndexForLocale(LocaleConstant(i));
+                int idx = GetOrNewStorageLocaleIndexFor(LocaleConstant(i));
                 if (idx >= 0)
                 {
                     if ((int32)data.RequestItemsText.size() <= idx)
@@ -4459,7 +4537,7 @@ void ObjectMgr::LoadQuestLocales()
             str = fields[1 + 10 * (i - 1) + 5].GetCppString();
             if (!str.empty())
             {
-                int idx = GetOrNewIndexForLocale(LocaleConstant(i));
+                int idx = GetOrNewStorageLocaleIndexFor(LocaleConstant(i));
                 if (idx >= 0)
                 {
                     if ((int32)data.EndText.size() <= idx)
@@ -4473,7 +4551,7 @@ void ObjectMgr::LoadQuestLocales()
                 str = fields[1 + 10 * (i - 1) + 6 + k].GetCppString();
                 if (!str.empty())
                 {
-                    int idx = GetOrNewIndexForLocale(LocaleConstant(i));
+                    int idx = GetOrNewStorageLocaleIndexFor(LocaleConstant(i));
                     if (idx >= 0)
                     {
                         if ((int32)data.ObjectiveText[k].size() <= idx)
@@ -4747,7 +4825,7 @@ void ObjectMgr::LoadPageTextLocales()
             if (str.empty())
                 continue;
 
-            int idx = GetOrNewIndexForLocale(LocaleConstant(i));
+            int idx = GetOrNewStorageLocaleIndexFor(LocaleConstant(i));
             if (idx >= 0)
             {
                 if ((int32)data.Text.size() <= idx)
@@ -5166,7 +5244,7 @@ void ObjectMgr::LoadGossipTextLocales()
                 std::string str0 = fields[1 + 8 * 2 * (i - 1) + 2 * j].GetCppString();
                 if (!str0.empty())
                 {
-                    int idx = GetOrNewIndexForLocale(LocaleConstant(i));
+                    int idx = GetOrNewStorageLocaleIndexFor(LocaleConstant(i));
                     if (idx >= 0)
                     {
                         if ((int32)data.Text_0[j].size() <= idx)
@@ -5178,7 +5256,7 @@ void ObjectMgr::LoadGossipTextLocales()
                 std::string str1 = fields[1 + 8 * 2 * (i - 1) + 2 * j + 1].GetCppString();
                 if (!str1.empty())
                 {
-                    int idx = GetOrNewIndexForLocale(LocaleConstant(i));
+                    int idx = GetOrNewStorageLocaleIndexFor(LocaleConstant(i));
                     if (idx >= 0)
                     {
                         if ((int32)data.Text_1[j].size() <= idx)
@@ -5329,7 +5407,7 @@ void ObjectMgr::LoadQuestgiverGreetingLocales()
             std::string str = fields[1 + i].GetCppString();
             if (!str.empty())
             {
-                int idx = GetOrNewIndexForLocale(LocaleConstant(i));
+                int idx = GetOrNewStorageLocaleIndexFor(LocaleConstant(i));
                 if (idx >= 0)
                 {
                     if (var.localeText.size() <= static_cast<size_t>(idx))
@@ -5435,7 +5513,7 @@ void ObjectMgr::LoadTrainerGreetingLocales()
             std::string str = fields[i].GetCppString();
             if (!str.empty())
             {
-                int idx = GetOrNewIndexForLocale(LocaleConstant(i));
+                int idx = GetOrNewStorageLocaleIndexFor(LocaleConstant(i));
                 if (idx >= 0)
                 {
                     if (var.localeText.size() <= static_cast<size_t>(idx))
@@ -5486,7 +5564,7 @@ void ObjectMgr::LoadAreatriggerLocales()
             std::string str = fields[i].GetCppString();
             if (!str.empty())
             {
-                int idx = GetOrNewIndexForLocale(LocaleConstant(i));
+                int idx = GetOrNewStorageLocaleIndexFor(LocaleConstant(i));
                 if (idx >= 0)
                 {
                     if (var.StatusFailed.size() <= static_cast<size_t>(idx))
@@ -6679,7 +6757,7 @@ void ObjectMgr::LoadGameObjectLocales()
             std::string str = fields[i].GetCppString();
             if (!str.empty())
             {
-                int idx = GetOrNewIndexForLocale(LocaleConstant(i));
+                int idx = GetOrNewStorageLocaleIndexFor(LocaleConstant(i));
                 if (idx >= 0)
                 {
                     if ((int32)data.Name.size() <= idx)
@@ -6695,7 +6773,7 @@ void ObjectMgr::LoadGameObjectLocales()
             std::string str = fields[i + (MAX_LOCALE - 1)].GetCppString();
             if (!str.empty())
             {
-                int idx = GetOrNewIndexForLocale(LocaleConstant(i));
+                int idx = GetOrNewStorageLocaleIndexFor(LocaleConstant(i));
                 if (idx >= 0)
                 {
                     if ((int32)data.CastBarCaption.size() <= idx)
@@ -6799,10 +6877,12 @@ inline void CheckAndFixGOCaptureMinTime(GameObjectInfo const* goInfo, uint32 con
     const_cast<uint32&>(dataN) = 1;
 }
 
-void ObjectMgr::LoadGameobjectInfo()
+std::vector<uint32> ObjectMgr::LoadGameobjectInfo()
 {
     SQLGameObjectLoader loader;
     loader.Load(sGOStorage);
+
+    std::vector<uint32> transportDisplayIds;
 
     // some checks
     for (SQLStorageBase::SQLSIterator<GameObjectInfo> itr = sGOStorage.getDataBegin<GameObjectInfo>(); itr < sGOStorage.getDataEnd<GameObjectInfo>(); ++itr)
@@ -6914,6 +6994,9 @@ void ObjectMgr::LoadGameobjectInfo()
                     CheckGOLockId(goInfo, goInfo->camera.lockId, 0);
                 break;
             }
+            case GAMEOBJECT_TYPE_TRANSPORT:
+                transportDisplayIds.push_back(goInfo->displayId);
+                break;
             case GAMEOBJECT_TYPE_MO_TRANSPORT:              // 15
             {
                 if (goInfo->moTransport.taxiPathId)
@@ -6922,6 +7005,7 @@ void ObjectMgr::LoadGameobjectInfo()
                         sLog.outErrorDb("Gameobject (Entry: %u GoType: %u) have data0=%u but TaxiPath (Id: %u) not exist.",
                                         goInfo->id, goInfo->type, goInfo->moTransport.taxiPathId, goInfo->moTransport.taxiPathId);
                 }
+                transportDisplayIds.push_back(goInfo->displayId);
                 break;
             }
             case GAMEOBJECT_TYPE_SUMMONING_RITUAL:          // 18
@@ -6968,6 +7052,8 @@ void ObjectMgr::LoadGameobjectInfo()
 
     sLog.outString(">> Loaded %u game object templates", sGOStorage.GetRecordCount());
     sLog.outString();
+
+    return transportDisplayIds;
 }
 
 void ObjectMgr::LoadExplorationBaseXP()
@@ -7645,9 +7731,10 @@ void ObjectMgr::LoadBroadcastTextLocales()
         std::string femaleText = fields[3].GetCppString();
         LocaleConstant locale = GetLocaleByName(localeString);
 
-        int idx = GetOrNewIndexForLocale(locale);
+        int idx = GetOrNewStorageLocaleIndexFor(locale);
         if (idx >= 0)
         {
+            ++idx;
             if (bct.maleText.size() <= size_t(idx))
             {
                 bct.maleText.resize(idx + 1);
@@ -8025,7 +8112,7 @@ PetNameInvalidReason ObjectMgr::CheckPetName(const std::string& name)
     return PET_NAME_SUCCESS;
 }
 
-int ObjectMgr::GetIndexForLocale(LocaleConstant loc)
+int ObjectMgr::GetStorageLocaleIndexFor(LocaleConstant loc)
 {
     if (loc == DEFAULT_LOCALE)
         return -1;
@@ -8037,15 +8124,7 @@ int ObjectMgr::GetIndexForLocale(LocaleConstant loc)
     return -1;
 }
 
-LocaleConstant ObjectMgr::GetLocaleForIndex(int i)
-{
-    if (i < 0 || i >= (int32)m_LocalForIndex.size())
-        return DEFAULT_LOCALE;
-
-    return m_LocalForIndex[i];
-}
-
-int ObjectMgr::GetOrNewIndexForLocale(LocaleConstant loc)
+int ObjectMgr::GetOrNewStorageLocaleIndexFor(LocaleConstant loc)
 {
     if (loc == DEFAULT_LOCALE)
         return -1;
@@ -8270,7 +8349,7 @@ bool ObjectMgr::LoadMangosStrings(DatabaseType& db, char const* table, int32 min
             std::string str = fields[i + 1].GetCppString();
             if (!str.empty())
             {
-                int idx = GetOrNewIndexForLocale(LocaleConstant(i));
+                int idx = GetOrNewStorageLocaleIndexFor(LocaleConstant(i));
                 if (idx >= 0)
                 {
                     // 0 -> default, idx in to idx+1
@@ -8960,10 +9039,17 @@ void ObjectMgr::LoadActiveEntities(Map* _map)
     }
     else                                                    // Normal case - Load all npcs that are active
     {
-        std::pair<ActiveCreatureGuidsOnMap::const_iterator, ActiveCreatureGuidsOnMap::const_iterator> bounds = m_activeCreatures.equal_range(_map->GetId());
-        for (ActiveCreatureGuidsOnMap::const_iterator itr = bounds.first; itr != bounds.second; ++itr)
+        auto bounds = m_activeCreatures.equal_range(_map->GetId());
+        for (auto itr = bounds.first; itr != bounds.second; ++itr)
         {
             CreatureData const& data = mCreatureDataMap[itr->second];
+            _map->ForceLoadGrid(data.posX, data.posY);
+        }
+
+        bounds = m_activeGameObjects.equal_range(_map->GetId());
+        for (auto itr = bounds.first; itr != bounds.second; ++itr)
+        {
+            GameObjectData const& data = mGameObjectDataMap[itr->second];
             _map->ForceLoadGrid(data.posX, data.posY);
         }
     }
@@ -9609,7 +9695,7 @@ bool LoadMangosStrings(DatabaseType& db, char const* table, int32 start_value, i
 void ObjectMgr::LoadCreatureTemplateSpells()
 {
     uint32 count = 0;
-    std::unique_ptr<QueryResult> result(WorldDatabase.Query("SELECT entry, setId, spell1, spell2, spell3, spell4, spell5, spell6, spell7, spell8 FROM creature_template_spells"));
+    std::unique_ptr<QueryResult> result(WorldDatabase.Query("SELECT entry, setId, spell1, spell2, spell3, spell4, spell5, spell6, spell7, spell8, spell9, spell10 FROM creature_template_spells"));
 
     if (result)
     {
@@ -9621,7 +9707,6 @@ void ObjectMgr::LoadCreatureTemplateSpells()
 
             templateSpells.entry = fields[0].GetUInt32();
             templateSpells.setId = fields[1].GetUInt32();
-            templateSpells.spells[CREATURE_MAX_SPELLS];
             for (uint32 i = 0; i < CREATURE_MAX_SPELLS; ++i)
                 templateSpells.spells[i] = fields[2 + i].GetUInt32();
 
@@ -9684,6 +9769,11 @@ void ObjectMgr::LoadCreatureCooldowns()
 
     sLog.outString(">> Loaded %u creature_cooldowns definitions", count);
     sLog.outString();
+}
+
+void ObjectMgr::AddCreatureCooldown(uint32 entry, uint32 spellId, uint32 min, uint32 max)
+{
+    m_creatureCooldownMap[entry].emplace(spellId, std::make_pair(min, max));
 }
 
 SimpleFactionsList const* GetFactionTeamList(uint32 faction)

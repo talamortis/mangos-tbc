@@ -21,7 +21,7 @@
 
 DROP TABLE IF EXISTS `character_db_version`;
 CREATE TABLE `character_db_version` (
-  `required_s2404_01_characters_new_ticket_system_sql_created` bit(1) DEFAULT NULL
+  `required_s2423_01_characters_item_instance_duration_default` bit(1) DEFAULT NULL
 ) ENGINE=MyISAM DEFAULT CHARSET=utf8 ROW_FORMAT=DYNAMIC COMMENT='Last applied sql update to DB';
 
 --
@@ -33,6 +33,42 @@ LOCK TABLES `character_db_version` WRITE;
 INSERT INTO `character_db_version` VALUES
 (NULL);
 /*!40000 ALTER TABLE `character_db_version` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `ahbot_items`
+--
+
+DROP TABLE IF EXISTS `ahbot_items`;
+CREATE TABLE `ahbot_items` (
+      `item` int(11) unsigned NOT NULL DEFAULT '0' COMMENT 'Item Identifier',
+      `value` int(11) unsigned NOT NULL DEFAULT '0' COMMENT 'Item value, a value of 0 bans item from being sold/bought by AHBot',
+      `add_chance` int(11) unsigned NOT NULL DEFAULT '0' COMMENT 'Chance item is added to AH upon bot visit, 0 for normal loot sources',
+      `min_amount` int(11) unsigned NOT NULL DEFAULT '0' COMMENT 'Min amount added, not used when add_chance is 0',
+      `max_amount` int(11) unsigned NOT NULL DEFAULT '0' COMMENT 'Max amount added, not used when add_chance is 0',
+      PRIMARY KEY (`item`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 ROW_FORMAT=COMPACT COMMENT='AuctionHouseBot overridden item settings';
+
+--
+-- Table structure for table `account_data`
+--
+
+DROP TABLE IF EXISTS `account_data`;
+CREATE TABLE `account_data` (
+  `account` int(11) unsigned NOT NULL DEFAULT '0',
+  `type` int(11) unsigned NOT NULL DEFAULT '0',
+  `time` bigint(11) unsigned NOT NULL DEFAULT '0',
+  `data` longblob NOT NULL,
+  PRIMARY KEY (`account`,`type`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+--
+-- Dumping data for table `account_data`
+--
+
+LOCK TABLES `account_data` WRITE;
+/*!40000 ALTER TABLE `account_data` DISABLE KEYS */;
+/*!40000 ALTER TABLE `account_data` ENABLE KEYS */;
 UNLOCK TABLES;
 
 --
@@ -184,6 +220,19 @@ LOCK TABLES `bugreport` WRITE;
 /*!40000 ALTER TABLE `bugreport` DISABLE KEYS */;
 /*!40000 ALTER TABLE `bugreport` ENABLE KEYS */;
 UNLOCK TABLES;
+
+--
+-- Table structure for table `character_account_data`
+--
+
+DROP TABLE IF EXISTS `character_account_data`;
+CREATE TABLE `character_account_data` (
+  `guid` int(11) unsigned NOT NULL DEFAULT '0',
+  `type` int(11) unsigned NOT NULL DEFAULT '0',
+  `time` bigint(11) unsigned NOT NULL DEFAULT '0',
+  `data` longblob NOT NULL,
+  PRIMARY KEY (`guid`,`type`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 --
 -- Table structure for table `character_action`
@@ -1359,7 +1408,17 @@ DROP TABLE IF EXISTS `item_instance`;
 CREATE TABLE `item_instance` (
   `guid` int(11) unsigned NOT NULL DEFAULT '0',
   `owner_guid` int(11) unsigned NOT NULL DEFAULT '0',
-  `data` longtext,
+  `itemEntry` mediumint(8) unsigned NOT NULL DEFAULT '0',
+  `creatorGuid` int(10) unsigned NOT NULL default '0',
+  `giftCreatorGuid` int(10) unsigned NOT NULL default '0',
+  `count` int(10) unsigned NOT NULL default '1',
+  `duration` int(10) unsigned NOT NULL default '0',
+  `charges` text NOT NULL,
+  `flags` int(8) unsigned NOT NULL default '0',
+  `enchantments` text NOT NULL,
+  `randomPropertyId` smallint(5) NOT NULL default '0',
+  `durability` int(5) unsigned NOT NULL default '0',
+  `itemTextId` mediumint(8) unsigned NOT NULL default '0',
   PRIMARY KEY (`guid`),
   KEY `idx_owner_guid` (`owner_guid`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 ROW_FORMAT=DYNAMIC COMMENT='Item System';

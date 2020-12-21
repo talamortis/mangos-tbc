@@ -27,6 +27,7 @@
 #include "Movement/MoveSplineInit.h"
 #include "Movement/MoveSpline.h"
 #include "Maps/GridDefines.h"
+#include "Entities/Transports.h"
 
 #include <cassert>
 
@@ -138,7 +139,7 @@ void WaypointMovementGenerator<Creature>::Finalize(Creature& creature)
 void WaypointMovementGenerator<Creature>::Interrupt(Creature& creature)
 {
     // be sure we are not already interrupted before saving current pos
-    if (creature.hasUnitState(UNIT_STAT_ROAMING))
+    if (creature.hasUnitState(UNIT_STAT_ROAMING_MOVE))
     {
         // save the current position in case of reset
         creature.GetPosition(m_resetPoint);
@@ -152,6 +153,8 @@ void WaypointMovementGenerator<Creature>::Interrupt(Creature& creature)
 void WaypointMovementGenerator<Creature>::Reset(Creature& creature)
 {
     creature.addUnitState(UNIT_STAT_ROAMING);
+    if (!i_path || Stopped(creature))
+        return;
     SendNextWayPointPath(creature);
 }
 
@@ -382,7 +385,7 @@ void WaypointMovementGenerator<Creature>::SendNextWayPointPath(Creature& creatur
     m_nodeIndexes.clear();
 
     // prevent movement while casting spells with cast time or channel time
-    if (!creature.IsAlive() || creature.IsNonMeleeSpellCasted(false, false, true, true))
+    if (!creature.IsAlive() || creature.IsImmobilizedState() || creature.IsNonMeleeSpellCasted(false, false, true, true))
     {
         if (!creature.movespline->Finalized())
         {
@@ -417,7 +420,11 @@ void WaypointMovementGenerator<Creature>::SendNextWayPointPath(Creature& creatur
 
     Vector3 startPos(creature.GetPositionX(), creature.GetPositionY(), creature.GetPositionZ());
     if (!creature.movespline->Finalized())
+    {
+        if (GenericTransport* transport = creature.GetTransport())
+            transport->CalculatePassengerPosition(startPos.x, startPos.y, startPos.z, nullptr);
         startPos = creature.movespline->ComputePosition();
+    }
 
     genPath.push_back(startPos);
 
@@ -456,24 +463,19 @@ void WaypointMovementGenerator<Creature>::SendNextWayPointPath(Creature& creatur
         for (uint32 ptIdx = 0; ptIdx < genPath.size(); ++ptIdx)
         {
             auto pt = genPath[ptIdx];
-            TemporarySpawnWaypoint* wpCreature = new TemporarySpawnWaypoint(creature.GetObjectGuid(), i_currentNode, m_pathId, (uint32)m_PathOrigin);
+            TempSpawnSettings settings;
+            settings.spawner = &creature;
+            settings.entry = VISUAL_WAYPOINT;
+            settings.x = pt.x; settings.y = pt.y; settings.z = pt.z; settings.ori = 0.0f;
+            settings.activeObject = true;
+            settings.despawnTime = 10 * IN_MILLISECONDS;
 
-            CreatureCreatePos pos(creature.GetMap(), pt.x, pt.y, pt.z, 0.0f);
-            CreatureInfo const* waypointInfo = ObjectMgr::GetCreatureTemplate(VISUAL_WAYPOINT);
-            if (!wpCreature->Create(creature.GetMap()->GenerateLocalLowGuid(HIGHGUID_UNIT), pos, waypointInfo))
-            {
-                delete wpCreature;
-                continue;
-            }
+            settings.tempSpawnMovegen = true;
+            settings.waypointId = i_currentNode;
+            settings.spawnPathId = m_pathId;
+            settings.pathOrigin = uint32(m_PathOrigin);
 
-            wpCreature->SetVisibility(VISIBILITY_OFF);
-            wpCreature->SetObjectScale(0.2f);
-            wpCreature->SetRespawnCoord(pos);
-            wpCreature->SetLevel(ptIdx);
-            wpCreature->m_movementInfo.AddMovementFlag(MOVEFLAG_FLYING);
-            wpCreature->SetActiveObjectState(true);
-
-            wpCreature->Summon(TEMPSPAWN_TIMED_DESPAWN, 10 * IN_MILLISECONDS); // Also initializes the AI and MMGen
+            WorldObject::SummonCreature(settings, creature.GetMap());
         }
     }
 
@@ -481,7 +483,7 @@ void WaypointMovementGenerator<Creature>::SendNextWayPointPath(Creature& creatur
     init.MovebyPath(genPath);
     if (nextNode->orientation != 100 && nextNode->delay != 0)
         init.SetFacing(nextNode->orientation);
-    creature.SetWalk(!creature.hasUnitState(UNIT_STAT_RUNNING_STATE) && !creature.IsLevitating(), false);
+    init.SetWalk(!creature.hasUnitState(UNIT_STAT_RUNNING));
 
     // send path to client
     m_pathDuration = init.Launch();
@@ -489,6 +491,8 @@ void WaypointMovementGenerator<Creature>::SendNextWayPointPath(Creature& creatur
     // remove presend time if next node have no delay
     if (nextNode->delay == 0)
         m_pathDuration -= PreSendTime;
+    if (i_path->size() == 1)
+        m_lastReachedWaypoint = 0;
 }
 
 void WaypointMovementGenerator<Creature>::InformAI(Creature& creature, uint32 type, uint32 data)
@@ -520,63 +524,55 @@ bool WaypointMovementGenerator<Creature>::Update(Creature& creature, const uint3
         return true;
     }
 
-    if (i_path->size() > 1)
+    if (Stopped(creature))
     {
-        if (Stopped(creature))
+        // If a script just have set the waypoint to be paused or stopped we have to check
+        // if the client did get a path for this creature. If it is the case, we have to
+        // explicitly send stop so the client knows that we want that creature to be stopped
+        if (!creature.movespline->Finalized())
         {
-            // If a script just have set the waypoint to be paused or stopped we have to check
-            // if the client did get a path for this creature. If it is the case, we have to
-            // explicitly send stop so the client knows that we want that creature to be stopped
-            if (!creature.movespline->Finalized())
-            {
-                Movement::MoveSplineInit init(creature);
-                init.Stop();
-            }
-
-            if (CanMove(diff, creature))
-                SendNextWayPointPath(creature);
+            Movement::MoveSplineInit init(creature);
+            init.Stop();
         }
-        else
-        {
-            if (creature.IsStopped())
-                Stop(STOP_TIME_FOR_PLAYER);
-            else
-            {
-                if (creature.movespline->Finalized())
-                {
-                    // we arrived to a node either by movespline finalized or node reached while creature continue to move
-                    OnArrived(creature);                    // fire script events
-                    if (!Stopped(creature))                 // check if not stopped in OnArrived
-                        SendNextWayPointPath(creature);     // restart movement
-                }
-                else
-                {
-                    if (m_pathDuration <= 0)
-                    {
-                        // time to send new packet
-                        if (m_currentWaypointNode->second.delay == 0)
-                            SendNextWayPointPath(creature);
-                    }
-                    else
-                        m_pathDuration -= diff;
 
-                    if (!m_nodeIndexes.empty() && creature.movespline->currentPathIdx() >= m_nodeIndexes.front())
-                    {
-                        // node reached while moving
-                        m_nodeIndexes.pop_front();
-                        OnArrived(creature);                // fire script events
-                    }
-                }
-            }
-        }
+        if (CanMove(diff, creature))
+            SendNextWayPointPath(creature);
     }
     else
     {
-        // should be guaranteed that there is some delay in node script
-        if (!Stopped(creature) || CanMove(diff, creature))
+        if (creature.IsStopped())
         {
-            m_lastReachedWaypoint = 0;
-            OnArrived(creature);
+            if (creature.IsNonMeleeSpellCasted(false, false, true, true))
+                return true;
+            Stop(1000);
+        }
+        else
+        {
+            if (creature.movespline->Finalized())
+            {
+                // we arrived to a node either by movespline finalized or node reached while creature continue to move
+                OnArrived(creature);                    // fire script events
+                if (!Stopped(creature))                 // check if not stopped in OnArrived
+                    SendNextWayPointPath(creature);     // restart movement
+            }
+            else
+            {
+                if (m_pathDuration <= 0)
+                {
+                    // time to send new packet
+                    if (m_currentWaypointNode->second.delay == 0)
+                        SendNextWayPointPath(creature);
+                }
+                else
+                    m_pathDuration -= diff;
+
+                if (!m_nodeIndexes.empty() && creature.movespline->currentPathIdx() >= m_nodeIndexes.front())
+                {
+                    // node reached while moving
+                    m_nodeIndexes.pop_front();
+                    OnArrived(creature);                // fire script events
+                }
+            }
         }
     }
 
@@ -651,9 +647,11 @@ void WaypointMovementGenerator<Creature>::GetPathInformation(std::ostringstream&
     oss << "(Loaded path " << m_pathId << " from " << WaypointManager::GetOriginString(m_PathOrigin) << ")\n";
 }
 
-void WaypointMovementGenerator<Creature>::AddToWaypointPauseTime(int32 waitTimeDiff)
+void WaypointMovementGenerator<Creature>::AddToWaypointPauseTime(int32 waitTimeDiff, bool force)
 {
-    if (!i_nextMoveTime.Passed())
+    if (force)
+        Stop(waitTimeDiff);
+    else if (!i_nextMoveTime.Passed())
     {
         // creature is stopped already
         // Prevent <= 0, the code in Update requires to catch the change from moving to not moving

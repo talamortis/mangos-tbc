@@ -25,8 +25,10 @@
 
 #include "Common.h"
 #include "Timer.h"
+#include "Globals/Locales.h"
 #include "Globals/SharedDefines.h"
 #include "Entities/Object.h"
+#include "Multithreading/Messager.h"
 
 #include <atomic>
 #include <set>
@@ -36,6 +38,7 @@
 #include <functional>
 #include <utility>
 #include <vector>
+#include <array>
 
 class Object;
 class ObjectGuid;
@@ -78,7 +81,9 @@ enum WorldTimers
     WUPDATE_DELETECHARS = 4,
     WUPDATE_AHBOT       = 5,
     WUPDATE_GROUPS      = 6,
-    WUPDATE_COUNT       = 7
+    WUPDATE_WARDEN      = 7, // This is here for headache merge error issues
+    WUPDATE_METRICS     = 8,
+    WUPDATE_COUNT       = 9
 };
 
 /// Configuration elements
@@ -352,8 +357,10 @@ enum eConfigBoolValues
     CONFIG_BOOL_AUTO_DOWNRANK,
     CONFIG_BOOL_MMAP_ENABLED,
     CONFIG_BOOL_PLAYER_COMMANDS,
+    CONFIG_BOOL_AUTOLOAD_ACTIVE,
     CONFIG_BOOL_PATH_FIND_OPTIMIZE,
     CONFIG_BOOL_PATH_FIND_NORMALIZE_Z,
+    CONFIG_BOOL_ACCOUNT_DATA,
     CONFIG_BOOL_VALUE_COUNT
 };
 
@@ -468,6 +475,12 @@ class World
         /// Get the maximum number of parallel sessions on the server since last reboot
         uint32 GetMaxQueuedSessionCount() const { return m_maxQueuedSessionCount; }
         uint32 GetMaxActiveSessionCount() const { return m_maxActiveSessionCount; }
+        uint32 GetUniqueSessionCount() const { return m_uniqueSessionCount.size(); }
+        // player counts
+        void SetOnlinePlayer(Team team, uint8 race, uint8 plClass, bool apply); // threadsafe
+        uint32 GetOnlineTeamPlayers(bool alliance) const { return m_onlineTeams[alliance]; }
+        uint32 GetOnlineRacePlayers(uint8 race) const { return m_onlineRaces[race]; }
+        uint32 GetOnlineClassPlayers(uint8 plClass) const { return m_onlineClasses[plClass]; }
 
         /// Get the active session server limit (or security level limitations)
         uint32 GetPlayerAmountLimit() const { return m_playerLimit >= 0 ? m_playerLimit : 0; }
@@ -567,7 +580,7 @@ class World
         bool IsPvPRealm() const { return (getConfig(CONFIG_UINT32_GAME_TYPE) == REALM_TYPE_PVP || getConfig(CONFIG_UINT32_GAME_TYPE) == REALM_TYPE_RPPVP || getConfig(CONFIG_UINT32_GAME_TYPE) == REALM_TYPE_FFA_PVP); }
         bool IsFFAPvPRealm() const { return getConfig(CONFIG_UINT32_GAME_TYPE) == REALM_TYPE_FFA_PVP; }
 
-        void KickAll();
+        void KickAll(bool save);
         void KickAllLess(AccountTypes sec);
         void WarnAccount(uint32 accountId, std::string from, std::string reason, const char* type = "WARNING");
         BanReturn BanAccount(BanMode mode, std::string nameOrIP, uint32 duration_secs, std::string reason, const std::string& author);
@@ -618,8 +631,16 @@ class World
         static TimePoint GetCurrentClockTime() { return m_currentTime; }
         static uint32 GetCurrentDiff() { return m_currentDiff; }
 
-        void UpdateSessionExpansion(uint8 expansion);
+        template<typename T>
+        void ExecuteForAllSessions(T executor)
+        {
+            for (auto& data : m_sessions)
+                executor(*data.second);
+        }
 
+        Messager<World>& GetMessager() { return m_messager; }
+
+        void IncrementOpcodeCounter(uint32 opcodeId); // thread safe due to atomics
     protected:
         void _UpdateGameTime();
         // callback for UpdateRealmCharacters
@@ -635,6 +656,8 @@ class World
         void ResetDailyQuests();
         void ResetWeeklyQuests();
         void ResetMonthlyQuests();
+
+        void GeneratePacketMetrics(); // thread safe due to atomics
 
     private:
         void setConfig(eConfigUInt32Values index, char const* fieldname, uint32 defvalue);
@@ -665,7 +688,9 @@ class World
         uint32 mail_timer_expires;
 
         typedef std::unordered_map<uint32, WorldSession*> SessionMap;
+        typedef std::unordered_set<uint32> UniqueSessions;
         SessionMap m_sessions;
+        UniqueSessions m_uniqueSessionCount;
         uint32 m_maxActiveSessionCount;
         uint32 m_maxQueuedSessionCount;
 
@@ -723,6 +748,15 @@ class World
         static uint32 m_currentMSTime;
         static TimePoint m_currentTime;
         static uint32 m_currentDiff;
+
+        Messager<World> m_messager;
+
+        // Opcode logging
+        std::vector<std::atomic<uint32>> m_opcodeCounters;
+        // online count logging
+        std::array<std::atomic<uint32>, 2> m_onlineTeams;
+        std::array<std::atomic<uint32>, MAX_RACES> m_onlineRaces;
+        std::array<std::atomic<uint32>, MAX_CLASSES> m_onlineClasses;
 };
 
 extern uint32 realmID;

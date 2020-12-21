@@ -37,6 +37,8 @@
 #include "Mails/Mail.h"
 #include "Util.h"
 #include "AI/ScriptDevAI/ScriptDevAIMgr.h"
+#include "Spells/SpellMgr.h"
+#include "Entities/Transports.h"
 #ifdef _DEBUG_VMAPS
 #include "VMapFactory.h"
 #endif
@@ -342,6 +344,13 @@ bool ChatHandler::HandleGPSCommand(char* args)
                     cell.GridX(), cell.GridY(), cell.CellX(), cell.CellY(), obj->GetInstanceId(),
                     zone_x, zone_y, ground_z, floor_z, have_map, have_vmap);
 
+    if (GenericTransport* transport = obj->GetTransport())
+    {
+        Position pos;
+        obj->GetPosition(pos.x, pos.y, pos.z, transport);
+        PSendSysMessage("Transport coords: %f %f %f", pos.x, pos.y, pos.z);
+    }
+
     DEBUG_LOG("Player %s GPS call for %s '%s' (%s: %u):",
               m_session ? GetNameLink().c_str() : GetMangosString(LANG_CONSOLE_COMMAND),
               (obj->GetTypeId() == TYPEID_PLAYER ? "player" : "creature"), obj->GetName(),
@@ -599,9 +608,11 @@ bool ChatHandler::HandleGonameCommand(char* args)
 
         // to point to see at target with same orientation
         float x, y, z;
-        target->GetContactPoint(_player, x, y, z);
-
-        _player->TeleportTo(target->GetMapId(), x, y, z, _player->GetAngle(target), TELE_TO_GM_MODE);
+        target->GetContactPoint(target, x, y, z);
+        
+        if (GenericTransport* transport = target->GetTransport())
+            transport->CalculatePassengerOffset(x, y, z);
+        _player->TeleportTo(target->GetMapId(), x, y, z, _player->GetAngle(target), TELE_TO_GM_MODE, nullptr, target->GetTransport());
     }
     else
     {
@@ -1719,7 +1730,8 @@ bool ChatHandler::HandleGoHelper(Player* player, uint32 mapid, float x, float y,
         }
 
         TerrainInfo const* map = sTerrainMgr.LoadTerrain(mapid);
-        z = map->GetWaterOrGroundLevel(x, y, MAX_HEIGHT);
+        float groundZ = player->GetMap()->GetHeight(x, y, 0.f);
+        z = map->GetWaterOrGroundLevel(x, y, MAX_HEIGHT, groundZ);
     }
 
     // stop flight if need
@@ -2189,7 +2201,7 @@ bool ChatHandler::HandleChannelListCommand(char* args)
     ExtractUInt32(&args, max);
     const bool statics = ExtractLiteralArg(&args, "static");
 
-    auto const& map = channelMgr(GetPlayer()->GetTeam())->GetChannels();
+    auto const& map = channelMgr(GetSession()->GetPlayer()->GetTeam())->GetChannels();
 
     std::list<Channel const*> list;
 
@@ -2244,7 +2256,7 @@ bool ChatHandler::HandleChannelStaticCommand(char* args)
     if (!ExtractOnOff(&args, state))
         return false;
 
-    Player* player = GetPlayer();
+    Player* player = GetSession()->GetPlayer();
     ChannelMgr* manager = (player ? channelMgr(player->GetTeam()) : nullptr);
     Channel* channel = (name && manager ? manager->GetChannel(name, player) : nullptr);
 

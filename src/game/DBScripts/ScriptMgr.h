@@ -109,7 +109,7 @@ enum ScriptCommand                                          // resSource, resTar
     // datalong: Send mailTemplateId from resSource (if provided) to player resTarget
     // datalong2: AlternativeSenderEntry. Use as sender-Entry
     // dataint1: Delay (>= 0) in Seconds
-    SCRIPT_COMMAND_SET_FLY                  = 39,           // resSource = Creature
+    SCRIPT_COMMAND_SET_HOVER                  = 39,           // resSource = Creature
     // datalong = bool 0=off, 1=on
     // data_flags & SCRIPT_FLAG_COMMAND_ADDITIONAL set/unset byte flag UNIT_BYTE1_FLAG_FLY_ANIM
     SCRIPT_COMMAND_DESPAWN_GO               = 40,           // resTarget = GameObject
@@ -378,7 +378,7 @@ struct ScriptInfo
             uint32 altSender;                               // datalong2;
         } sendMail;
 
-        struct                                              // SCRIPT_COMMAND_SET_FLY (39)
+        struct                                              // SCRIPT_COMMAND_SET_HOVER (39)
         {
             uint32 fly;                                     // datalong
             uint32 empty;                                   // datalong2
@@ -495,7 +495,7 @@ struct ScriptInfo
             case SCRIPT_COMMAND_TERMINATE_COND:
             case SCRIPT_COMMAND_SET_FACING:
             case SCRIPT_COMMAND_MOVE_DYNAMIC:
-            case SCRIPT_COMMAND_SET_FLY:
+            case SCRIPT_COMMAND_SET_HOVER:
                 return true;
             default:
                 return false;
@@ -590,7 +590,8 @@ class ScriptMgr
 
         bool CheckScriptStringTemplateId(uint32 id) const { return m_scriptTemplates[STRING_TEMPLATE].find(id) != m_scriptTemplates[STRING_TEMPLATE].end(); }
         bool CheckScriptRelayTemplateId(uint32 id) const { return m_scriptTemplates[RELAY_TEMPLATE].find(id) != m_scriptTemplates[RELAY_TEMPLATE].end(); }
-        typedef std::vector<std::pair<int32, uint32>> ScriptTemplateVector;
+        typedef std::pair<int32, uint32> ScriptTemplatePair;
+        typedef std::vector<ScriptTemplatePair> ScriptTemplateVector;
         void GetScriptStringTemplate(uint32 id, ScriptTemplateVector& stringTemplate) { stringTemplate = m_scriptTemplates[STRING_TEMPLATE][id]; }
         void GetScriptRelayTemplate(uint32 id, ScriptTemplateVector& stringTemplate) { stringTemplate = m_scriptTemplates[RELAY_TEMPLATE][id]; }
         int32 GetRandomScriptTemplateId(uint32 id, uint8 templateType);
@@ -615,8 +616,10 @@ class ScriptMgr
 
         AreaTriggerScriptMap    m_AreaTriggerScripts;
         EventIdScriptMap        m_EventIdScripts;
-
+        
         ScriptTemplateMap       m_scriptTemplates[MAX_TYPE];
+        ScriptTemplateMap       m_scriptTemplatesEquallyChanced[MAX_TYPE];
+        ScriptTemplateMap       m_scriptTemplatesExplicitlyChanced[MAX_TYPE];
         ScriptNameMap           m_scriptNames;
 
         // atomic op counter for active scripts amount

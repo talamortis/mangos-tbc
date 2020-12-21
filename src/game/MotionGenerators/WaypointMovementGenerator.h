@@ -72,8 +72,8 @@ class WaypointMovementGenerator<Creature>
 {
     public:
         WaypointMovementGenerator(Creature&) :
-            i_nextMoveTime(0), m_lastReachedWaypoint(0), m_pathId(0), m_PathOrigin(),
-            m_scriptTime(0), m_pathDuration(0)
+            i_nextMoveTime(0), m_scriptTime(0), m_lastReachedWaypoint(0), m_pathId(0),
+            m_pathDuration(0), m_PathOrigin()
         {}
         ~WaypointMovementGenerator() { i_path = nullptr; }
         void Initialize(Creature& creature);
@@ -90,7 +90,7 @@ class WaypointMovementGenerator<Creature>
         void GetPathInformation(uint32& pathId, WaypointPathOrigin& wpOrigin) const { pathId = m_pathId; wpOrigin = m_PathOrigin; }
         void GetPathInformation(std::ostringstream& oss) const;
 
-        void AddToWaypointPauseTime(int32 waitTimeDiff);
+        void AddToWaypointPauseTime(int32 waitTimeDiff, bool force = false);
         bool SetNextWaypoint(uint32 pointId);
 
     private:

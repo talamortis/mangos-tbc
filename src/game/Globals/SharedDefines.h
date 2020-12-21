@@ -594,6 +594,13 @@ enum Team
     ALLIANCE            = 469,
 };
 
+enum BattleGroundWinner
+{
+    WINNER_HORDE        = 0,
+    WINNER_ALLIANCE     = 1,
+    WINNER_NONE         = 2
+};
+
 enum PvpTeamIndex
 {
     TEAM_INDEX_ALLIANCE = 0,
@@ -602,6 +609,9 @@ enum PvpTeamIndex
 };
 
 #define PVP_TEAM_COUNT    2
+
+static inline Team GetTeamIdByTeamIndex(PvpTeamIndex teamIndex) { return teamIndex == TEAM_INDEX_ALLIANCE ? ALLIANCE : HORDE; }
+static inline PvpTeamIndex GetTeamIndexByTeamId(Team team) { return team == ALLIANCE ? TEAM_INDEX_ALLIANCE : TEAM_INDEX_HORDE; }
 
 enum SpellCastResult
 {
@@ -2132,12 +2142,15 @@ enum DiminishingGroup
     DIMINISHING_TRIGGER_ROOT,                               // Immobilizing effects from triggered spells like Frostbite
     DIMINISHING_FEAR,                                       // Non-warlock fears
     DIMINISHING_CHARM,
+    // Mage Specific
+    DIMINISHING_DRAGONS_BREATH,                             // Should diminish with itself as it is not part of DIMINISHING_BLIND_CYCLONE
     // Rogue Specific
     DIMINISHING_KIDNEYSHOT,                                 // Kidney Shot is not diminished with Cheap Shot
     // Warlock Specific
     DIMINISHING_DEATHCOIL,                                  // Death Coil Diminish only with another Death Coil
+    DIMINISHING_UNSTABLE_AFFLICTION_SILENCE,                // The silence from this ability is now subject to diminishing returns. - https://wow.gamepedia.com/Patch_2.3.0
     // Shared Class Specific
-    DIMINISHING_POLYMORPH_KNOCKOUT,                         // Includes polymorph, sap and all knockout mechanics
+    DIMINISHING_KNOCKOUT_POLYMORPH_SAPPED,                  // Includes all knockout mechanics (gouge, maim, repentance), polymorph and sap
     DIMINISHING_BLIND_CYCLONE,                              // From 2.3.0
     DIMINISHING_DISARM,                                     // From 2.3.0
     DIMINISHING_SILENCE,                                    // From 2.3.0

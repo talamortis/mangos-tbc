@@ -461,10 +461,11 @@ struct boss_archimondeAI : public ScriptedAI
         {
             if (m_leashCheckTimer <= diff)
             {
-                float x, y, z, o;
-                m_creature->GetCombatStartPosition(x, y, z, o);
+                Position pos;
+                m_creature->GetCombatStartPosition(pos);
                 // Range stuff here
-                if (m_creature->GetDistance2d(x, y) >= 200.f || (x < 5534.752f && x > 5381.371f && y < -3507.099f && y > -3587.244f))
+                if (m_creature->GetDistance2d(pos.GetPositionX(), pos.GetPositionY()) >= 200.f || (pos.GetPositionX() < 5534.752f && pos.GetPositionX() > 5381.371f &&
+                    pos.GetPositionY() < -3507.099f && pos.GetPositionY() > -3587.244f))
                 {
                     m_actionReadyStatus[ARCHIMONDE_ACTION_HAND_OF_DEATH] = true;
                     m_leashCheckTimer = 0;
@@ -541,9 +542,9 @@ struct npc_doomfire_targetingAI : public ScriptedAI
         if (m_uiChangeTargetTimer < uiDiff)
         {
             float nextOrientation = MapManager::NormalizeOrientation(m_creature->GetOrientation() + irand(-1, 1) * m_turnConstant);
-            WorldLocation pos;
+            Position pos;
             m_creature->GetFirstCollisionPosition(pos, 8.f, nextOrientation); // both orientation and distance verified with sniffs
-            m_creature->NearTeleportTo(pos.coord_x, pos.coord_y, pos.coord_z, nextOrientation);
+            m_creature->NearTeleportTo(pos.x, pos.y, pos.z, nextOrientation);
 
             m_uiChangeTargetTimer = 1000;
         }

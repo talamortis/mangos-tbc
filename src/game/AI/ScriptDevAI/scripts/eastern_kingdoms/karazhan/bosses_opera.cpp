@@ -383,7 +383,7 @@ struct boss_tinheadAI : public ScriptedAI
     {
         m_uiAggroTimer  = 37000;
         m_uiCleaveTimer = 5000;
-        m_uiRustTimer   = 30000;
+        m_uiRustTimer   = 6000;
     }
 
     void Aggro(Unit* /*pWho*/) override
@@ -764,7 +764,7 @@ struct boss_bigbadwolfAI : public ScriptedAI
 
     void Reset() override
     {
-        m_uiRedRidingHoodTimer = 30000;
+        m_uiRedRidingHoodTimer = 4000;
         m_uiFearTimer          = urand(25000, 35000);
         m_uiSwipeTimer         = 5000;
 
@@ -966,7 +966,7 @@ struct boss_julianneAI : public ScriptedAI
         m_creature->ForcedDespawn();
     }
 
-    void DamageTaken(Unit* /*doneBy*/, uint32& damage, DamageEffectType /*damagetype*/, SpellEntry const* /*spellInfo*/) override
+    void DamageTaken(Unit* /*dealer*/, uint32& damage, DamageEffectType /*damagetype*/, SpellEntry const* /*spellInfo*/) override
     {
         if (damage < m_creature->GetHealth())
             return;
@@ -1210,7 +1210,7 @@ struct boss_romuloAI : public ScriptedAI
         m_creature->ForcedDespawn();
     }
 
-    void DamageTaken(Unit* /*pDoneBy*/, uint32& damage, DamageEffectType /*damagetype*/, SpellEntry const* /*spellInfo*/) override
+    void DamageTaken(Unit* /*dealer*/, uint32& damage, DamageEffectType /*damagetype*/, SpellEntry const* /*spellInfo*/) override
     {
         if (damage < m_creature->GetHealth())
             return;

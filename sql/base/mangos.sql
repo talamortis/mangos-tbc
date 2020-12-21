@@ -23,7 +23,7 @@ DROP TABLE IF EXISTS `db_version`;
 CREATE TABLE `db_version` (
   `version` varchar(120) DEFAULT NULL,
   `creature_ai_version` varchar(120) DEFAULT NULL,
-  `required_s2414_01_mangos_ability_sets` bit(1) DEFAULT NULL
+  `required_s2425_01_mangos_creature_spawn_tideup` bit(1) DEFAULT NULL
 ) ENGINE=MyISAM DEFAULT CHARSET=utf8 ROW_FORMAT=DYNAMIC COMMENT='Used DB version notes';
 
 --
@@ -411,21 +411,6 @@ INSERT INTO `command` VALUES
 ('account set password',4,'Syntax: .account set password (#accountId|$accountName) $password $password\r\n\r\nSet password for account.'),
 ('additem',3,'Syntax: .additem #itemid/[#itemname]/#shift-click-item-link #itemcount\r\n\r\nAdds the specified number of items of id #itemid (or exact (!) name $itemname in brackets, or link created by shift-click at item in inventory or recipe) to your or selected character inventory. If #itemcount is omitted, only one item will be added.\r\n.'),
 ('additemset',3,'Syntax: .additemset #itemsetid\r\n\r\nAdd items from itemset of id #itemsetid to your or selected character inventory. Will add by one example each item from itemset.'),
-('ahbot items amount',3,'Syntax: .ahbot items amount $GreyItems $WhiteItems $GreenItems $BlueItems $PurpleItems $OrangeItems $YellowItems\r\n\r\nSet amount of each items color be selled on auction.'),
-('ahbot items amount blue',3,'Syntax: .ahbot items amount blue $BlueItems\r\n\r\nSet amount of Blue color items be selled on auction.'),
-('ahbot items amount green',3,'Syntax: .ahbot items amount green $GreenItems\r\n\r\nSet amount of Green color items be selled on auction.'),
-('ahbot items amount grey',3,'Syntax: .ahbot items amount grey $GreyItems\r\n\r\nSet amount of Grey color items be selled on auction.'),
-('ahbot items amount orange',3,'Syntax: .ahbot items amount orange $OrangeItems\r\n\r\nSet amount of Orange color items be selled on auction.'),
-('ahbot items amount purple',3,'Syntax: .ahbot items amount purple $PurpleItems\r\n\r\nSet amount of Purple color items be selled on auction.'),
-('ahbot items amount white',3,'Syntax: .ahbot items amount white $WhiteItems\r\n\r\nSet amount of White color items be selled on auction.'),
-('ahbot items amount yellow',3,'Syntax: .ahbot items amount yellow $YellowItems\r\n\r\nSet amount of Yellow color items be selled on auction.'),
-('ahbot items ratio',3,'Syntax: .ahbot items ratio $allianceratio $horderatio $neutralratio\r\n\r\nSet ratio of items in 3 auctions house.'),
-('ahbot items ratio alliance',3,'Syntax: .ahbot items ratio alliance $allianceratio\r\n\r\nSet ratio of items in alliance auction house.'),
-('ahbot items ratio horde',3,'Syntax: .ahbot items ratio horde $horderatio\r\n\r\nSet ratio of items in horde auction house.'),
-('ahbot items ratio neutral',3,'Syntax: .ahbot items ratio neutral $neutralratio\r\n\r\nSet ratio of items in $neutral auction house.'),
-('ahbot rebuild',3,'Syntax: .ahbot rebuild [all]\r\n\r\nExpire all actual auction of ahbot except bided by player. Bided auctions could be forced to expire by using \"all\" option. AHBot will re-fill auctions using current settings.'),
-('ahbot reload',3,'Syntax: .ahbot reload\r\n\r\nReload AHBot settings from configuration file.'),
-('ahbot status',3,'Syntax: .ahbot status [all]\r\n\r\nShow current ahbot state data in short form, and with \"all\" with details.'),
 ('announce',1,'Syntax: .announce $MessageToBroadcast\r\n\r\nSend a global message to all players online in chat log.'),
 ('auction',3,'Syntax: .auction\r\n\r\nShow your team auction store.'),
 ('auction alliance',3,'Syntax: .auction alliance\r\n\r\nShow alliance auction store independent from your team.'),
@@ -965,6 +950,53 @@ LOCK TABLES `creature_conditional_spawn` WRITE;
 UNLOCK TABLES;
 
 --
+-- Table structure for table `creature_spawn_data`
+--
+
+DROP TABLE IF EXISTS `creature_spawn_data`;
+CREATE TABLE `creature_spawn_data` (
+  `Guid` int unsigned NOT NULL COMMENT 'guid of creature',
+  `Id` int unsigned NOT NULL COMMENT 'ID of template',
+  PRIMARY KEY (`Guid`)
+) ENGINE=MyISAM DEFAULT CHARSET=utf8 ROW_FORMAT=DYNAMIC COMMENT='Creature System (Spawn Data)';
+
+--
+-- Dumping data for table `creature_spawn_data`
+--
+
+LOCK TABLES `creature_spawn_data` WRITE;
+/*!40000 ALTER TABLE `creature_spawn_data` DISABLE KEYS */;
+/*!40000 ALTER TABLE `creature_spawn_data` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `creature_spawn_data_template`
+--
+
+DROP TABLE IF EXISTS `creature_spawn_data_template`;
+CREATE TABLE `creature_spawn_data_template` (
+  `Entry` int unsigned NOT NULL COMMENT 'ID of template',
+  `UnitFlags` bigint NOT NULL DEFAULT '-1',
+  `Faction` int unsigned NOT NULL DEFAULT '0',
+  `ModelId` mediumint unsigned NOT NULL DEFAULT '0',
+  `EquipmentId` mediumint NOT NULL DEFAULT '0',
+  `CurHealth` int unsigned NOT NULL DEFAULT '1',
+  `CurMana` int unsigned NOT NULL DEFAULT '0',
+  `SpawnFlags` int unsigned NOT NULL DEFAULT '0',
+  PRIMARY KEY (`Entry`,`UnitFlags`,`ModelId`,`EquipmentId`,`CurHealth`,`CurMana`,`SpawnFlags`)
+) ENGINE=MyISAM DEFAULT CHARSET=utf8 ROW_FORMAT=DYNAMIC COMMENT='Creature System (Spawn Data Template)';
+
+--
+-- Dumping data for table `creature_spawn_data_template`
+--
+
+LOCK TABLES `creature_spawn_data_template` WRITE;
+/*!40000 ALTER TABLE `creature_spawn_data_template` DISABLE KEYS */;
+INSERT INTO `creature_spawn_data_template` (`Entry`) VALUES (0);
+/*!40000 ALTER TABLE `creature_spawn_data_template` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
 -- Table structure for table `creature_spawn_entry`
 --
 
@@ -1440,7 +1472,9 @@ CREATE TABLE `creature_template_spells` (
   `spell6` mediumint(8) unsigned NOT NULL DEFAULT '0',
   `spell7` mediumint(8) unsigned NOT NULL DEFAULT '0',
   `spell8` mediumint(8) unsigned NOT NULL DEFAULT '0',
-  PRIMARY KEY (`entry`)
+  `spell9` mediumint(8) unsigned NOT NULL DEFAULT '0',
+  `spell10` mediumint(8) unsigned NOT NULL DEFAULT '0',
+  PRIMARY KEY (`entry`,`setId`)
 ) ENGINE=MyISAM DEFAULT CHARSET=utf8 ROW_FORMAT=DYNAMIC COMMENT='Creature System (Spells used by creature)';
 
 --
@@ -4462,8 +4496,8 @@ INSERT INTO `mangos_string` VALUES
 (1168,'Scripting library reloaded.',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL),
 (1169,'Scripting library build for different mangosd revision.',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL),
 (1170,'Player selected: %s.\nFaction: %u.\nnpcFlags: %u.\nBase Entry: %u, Spawned Entry %u (Difficulty %u).\nDisplayID: %u (Native: %u).',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL),
-(1171,'All config are reloaded from ahbot configuration file.',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL),
-(1172,'Error while trying to reload ahbot config.',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL),
+(1171,'Reloaded AHBot configuration.',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL),
+(1172,'Error while trying to reload AHBot configuration.',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL),
 (1173,'==========================================================',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL),
 (1174,'|--------------------------------------------------------|',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL),
 (1175,'|            | Alliance |  Horde   | Neutral  |  Total   |',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL),
@@ -4471,18 +4505,6 @@ INSERT INTO `mangos_string` VALUES
 (1177,'| %-10s | %8u | %8u | %8u | %8u |',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL),
 (1178,'%-10s = %6u / %6u / %6u / %6u',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL),
 (1179,'Count',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL),
-(1180,'Item Ratio',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL),
-(1181,'|            | Alliance |   Horde  | Neutral  |  Amount  |',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL),
-(1182,'          Alliance/Horde/Neutral/Amount',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL),
-(1183,'Grey',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL),
-(1184,'White',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL),
-(1185,'Green',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL),
-(1186,'Blue',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL),
-(1187,'Purple',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL),
-(1188,'Orange',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL),
-(1189,'Yellow',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL),
-(1190,'Amount of %s items is set to %u.',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL),
-(1191,'Items ratio for %s is set to %u.',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL),
 (1194,'Current State Information: GOState %u, LootState %u. Collision %s',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL),
 (1195,'Current State Information: GOState %u, LootState %u. Collision %s, (door %s by default)',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL),
 (1196,'Debug output for taxi flights is now %s.',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL),

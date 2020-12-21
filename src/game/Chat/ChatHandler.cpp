@@ -278,6 +278,9 @@ void WorldSession::HandleMessagechatOpcode(WorldPacket& recv_data)
             // battleground raid is always in Player->GetGroup(), never in GetOriginalGroup()
             Group* group = _player->GetGroup();
 
+            if (!group)
+                return;
+
             if (group->isBattleGroup())
                 group = _player->GetOriginalGroup();
 
@@ -360,6 +363,9 @@ void WorldSession::HandleMessagechatOpcode(WorldPacket& recv_data)
             // battleground raid is always in Player->GetGroup(), never in GetOriginalGroup()
             Group* group = _player->GetGroup();
 
+            if (!group)
+                return;
+
             if (group->isBattleGroup())
                 group = _player->GetOriginalGroup();
 
@@ -387,6 +393,9 @@ void WorldSession::HandleMessagechatOpcode(WorldPacket& recv_data)
             // if player is in battleground, raid chat is sent only to members of normal group
             // battleground raid is always in Player->GetGroup(), never in GetOriginalGroup()
             Group* group = _player->GetGroup();
+
+            if (!group)
+                return;
 
             if (group->isBattleGroup())
                 group = _player->GetOriginalGroup();

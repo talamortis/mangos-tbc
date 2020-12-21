@@ -25,6 +25,7 @@
 #include "Dynamic/FactoryHolder.h"
 #include "Entities/ObjectGuid.h"
 #include "AI/BaseAI/AIDefines.h"
+#include <functional>
 
 class WorldObject;
 class GameObject;
@@ -67,6 +68,7 @@ enum CastFlags
     CAST_MAIN_SPELL             = 0x100,                    // Marks main spell
     CAST_PLAYER_ONLY            = 0x200,                    // Selects only player targets - substitution for EAI not having more params
     CAST_DISTANCE_YOURSELF      = 0x400,                    // If spell with this cast flag hits main aggro target, caster distances himself - EAI only
+    CAST_TARGET_CASTING         = 0x800,                    // Selects only player targets that are casting - EAI only
 };
 
 enum ReactStates
@@ -403,6 +405,7 @@ class UnitAI
 
 
         // TODO: Implement proper casterAI in EAI and remove this from Leotheras script
+        uint32 GetAttackDistance() { return m_attackDistance; }
         void SetMoveChaseParams(float dist, float angle, bool moveFurther) { m_attackDistance = dist; m_attackAngle = angle; m_moveFurther = moveFurther; }
 
         // Returns friendly unit with the most amount of hp missing from max hp - ignoreSelf - some spells cant target self
@@ -458,13 +461,15 @@ class UnitAI
         virtual void DistancingStarted();
         virtual void DistancingEnded();
 
-        void AttackClosestEnemy();
+        void AttackSpecificEnemy(std::function<void(Unit*,Unit*&)> check);
+        virtual void AttackClosestEnemy();
 
         void SetRootSelf(bool apply, bool combatOnly = false);
         void ClearSelfRoot();
 
     protected:
         virtual std::string GetAIName() { return "UnitAI"; }
+        void DespawnGuids(GuidVector& spawns); // despawns all creature guids and clears contents
 
         ///== Fields =======================================
 

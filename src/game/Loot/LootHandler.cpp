@@ -70,8 +70,8 @@ void WorldSession::HandleAutostoreLootItemOpcode(WorldPacket& recv_data)
         if (item)
             item->SetLootState(ITEM_LOOT_CHANGED);
     }
-
-    sScriptDevMgr.OnLootItem(_player, item, lootItem->count, item->GetGUIDLow());
+    if (item)
+        sScriptDevMgr.OnLootItem(_player, item, lootItem->count, item->GetGUIDLow());
 }
 
 void WorldSession::HandleLootMoneyOpcode(WorldPacket& /*recv_data*/)

@@ -14921,6 +14921,8 @@ bool Player::LoadFromDB(ObjectGuid guid, SqlQueryHolder* holder)
     setFactionForRace(getRace());
     SetCharm(nullptr);
 
+    sScriptDevMgr.OnPlayerLoadFromDB(this);
+
     // load home bind and check in same time class/race pair, it used later for restore broken positions
     if (!_LoadHomeBind(holder->GetResult(PLAYER_LOGIN_QUERY_LOADHOMEBIND)))
     {

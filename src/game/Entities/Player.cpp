@@ -16483,6 +16483,8 @@ void Player::SaveToDB()
         return;
     }
 
+    sScriptDevMgr.OnPlayerSave(this);
+
     // first save/honor gain after midnight will also update the player's honor fields
     UpdateHonorFields();
 

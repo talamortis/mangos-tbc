@@ -2699,6 +2699,13 @@ void Player::GiveLevel(uint32 level)
     SendQuestGiverStatusMultiple();
 }
 
+void Player::SetFreeTalentPoints(uint32 points) 
+{ 
+    sScriptDevMgr.OnPlayerFreeTalentPointsChanged(this, points);
+
+    SetUInt32Value(PLAYER_CHARACTER_POINTS1, points);
+}
+
 void Player::UpdateFreeTalentPoints(bool resetIfNeed)
 {
     uint32 level = getLevel();

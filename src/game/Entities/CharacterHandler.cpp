@@ -427,6 +427,8 @@ void WorldSession::HandleCharDeleteOpcode(WorldPacket& recv_data)
     // is guild leader
     if (sGuildMgr.GetGuildByLeader(guid))
     {
+        sScriptDevMgr.OnPlayerFailedDelete(guid, GetAccountId());
+
         WorldPacket data(SMSG_CHAR_DELETE, 1);
         data << (uint8)CHAR_DELETE_FAILED_GUILD_LEADER;
         SendPacket(data, true);
@@ -436,6 +438,8 @@ void WorldSession::HandleCharDeleteOpcode(WorldPacket& recv_data)
     // is arena team captain
     if (sObjectMgr.GetArenaTeamByCaptain(guid))
     {
+        sScriptDevMgr.OnPlayerFailedDelete(guid, GetAccountId());
+
         WorldPacket data(SMSG_CHAR_DELETE, 1);
         data << (uint8)CHAR_DELETE_FAILED_ARENA_CAPTAIN;
         SendPacket(data, true);

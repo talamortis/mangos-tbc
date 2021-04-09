@@ -35,6 +35,7 @@
 #include "Grids/GridNotifiersImpl.h"
 #include "Grids/CellImpl.h"
 #include "GMTickets/GMTicketMgr.h"
+#include "AI/ScriptDevAI/ScriptDevMgr.h"
 
 bool WorldSession::CheckChatMessage(std::string& msg, bool addon/* = false*/)
 {
@@ -191,6 +192,8 @@ void WorldSession::HandleMessagechatOpcode(WorldPacket& recv_data)
             if (!CheckChatMessage(msg))
                 return;
 
+            sScriptDevMgr.OnPlayerChat(GetPlayer(), type, lang, msg);
+
             if (type == CHAT_MSG_SAY)
                 GetPlayer()->Say(msg, lang);
             else if (type == CHAT_MSG_EMOTE)
@@ -253,6 +256,7 @@ void WorldSession::HandleMessagechatOpcode(WorldPacket& recv_data)
                 }
             }
 
+            sScriptDevMgr.OnPlayerChat(GetPlayer(), type, lang, msg, player);
             GetPlayer()->Whisper(msg, lang, player->GetObjectGuid());
         } break;
 
@@ -284,6 +288,8 @@ void WorldSession::HandleMessagechatOpcode(WorldPacket& recv_data)
             if (!group)
                 return;
 
+            sScriptDevMgr.OnPlayerChat(GetPlayer(), type, lang, msg, group);
+
             WorldPacket data;
             ChatHandler::BuildChatPacket(data, ChatMsg(type), msg.c_str(), Language(lang), _player->GetChatTag(), _player->GetObjectGuid(), _player->GetName());
             group->BroadcastPacket(data, false, group->GetMemberGroup(GetPlayer()->GetObjectGuid()));
@@ -310,7 +316,11 @@ void WorldSession::HandleMessagechatOpcode(WorldPacket& recv_data)
 
             if (GetPlayer()->GetGuildId())
                 if (Guild* guild = sGuildMgr.GetGuildById(GetPlayer()->GetGuildId()))
+                {
+                    sScriptDevMgr.OnPlayerChat(GetPlayer(), type, lang, msg, guild);
                     guild->BroadcastToGuild(this, msg, lang == LANG_ADDON ? LANG_ADDON : LANG_UNIVERSAL);
+                }
+                    
 
             break;
         }
@@ -334,8 +344,11 @@ void WorldSession::HandleMessagechatOpcode(WorldPacket& recv_data)
 
             if (GetPlayer()->GetGuildId())
                 if (Guild* guild = sGuildMgr.GetGuildById(GetPlayer()->GetGuildId()))
+                {
+                    sScriptDevMgr.OnPlayerChat(GetPlayer(), type, lang, msg, guild);
                     guild->BroadcastToOfficers(this, msg, lang == LANG_ADDON ? LANG_ADDON : LANG_UNIVERSAL);
-
+                }
+                    
             break;
         }
         case CHAT_MSG_RAID:
@@ -366,6 +379,8 @@ void WorldSession::HandleMessagechatOpcode(WorldPacket& recv_data)
             if (!group || !group->isRaidGroup())
                 return;
 
+            sScriptDevMgr.OnPlayerChat(GetPlayer(), type, lang, msg, group);
+
             WorldPacket data;
             ChatHandler::BuildChatPacket(data, CHAT_MSG_RAID, msg.c_str(), Language(lang), _player->GetChatTag(), _player->GetObjectGuid(), _player->GetName());
             group->BroadcastPacket(data, false);
@@ -393,6 +408,8 @@ void WorldSession::HandleMessagechatOpcode(WorldPacket& recv_data)
 
             if (!group || !group->isRaidGroup() || !group->IsLeader(_player->GetObjectGuid()))
                 return;
+
+            sScriptDevMgr.OnPlayerChat(GetPlayer(), type, lang, msg, group);
 
             WorldPacket data;
             ChatHandler::BuildChatPacket(data, CHAT_MSG_RAID_LEADER, msg.c_str(), Language(lang), _player->GetChatTag(), _player->GetObjectGuid(), _player->GetName());
@@ -424,6 +441,8 @@ void WorldSession::HandleMessagechatOpcode(WorldPacket& recv_data)
             else if (sWorld.getConfig(CONFIG_BOOL_CHAT_RESTRICTED_RAID_WARNINGS))
                 return;
 
+            sScriptDevMgr.OnPlayerChat(GetPlayer(), type, lang, msg, group);
+
             WorldPacket data;
             ChatHandler::BuildChatPacket(data, CHAT_MSG_RAID_WARNING, msg.c_str(), Language(lang), _player->GetChatTag(), _player->GetObjectGuid(), _player->GetName());
             group->BroadcastPacket(data, true);
@@ -451,6 +470,8 @@ void WorldSession::HandleMessagechatOpcode(WorldPacket& recv_data)
             if (!group || !group->isBattleGroup())
                 return;
 
+            sScriptDevMgr.OnPlayerChat(GetPlayer(), type, lang, msg, group);
+
             WorldPacket data;
             ChatHandler::BuildChatPacket(data, CHAT_MSG_BATTLEGROUND, msg.c_str(), Language(lang), _player->GetChatTag(), _player->GetObjectGuid(), _player->GetName());
             group->BroadcastPacket(data, false);
@@ -474,6 +495,8 @@ void WorldSession::HandleMessagechatOpcode(WorldPacket& recv_data)
             if (!group || !group->isBattleGroup() || !group->IsLeader(_player->GetObjectGuid()))
                 return;
 
+            sScriptDevMgr.OnPlayerChat(GetPlayer(), type, lang, msg, group);
+
             WorldPacket data;
             ChatHandler::BuildChatPacket(data, CHAT_MSG_BATTLEGROUND_LEADER, msg.c_str(), Language(lang), _player->GetChatTag(), _player->GetObjectGuid(), _player->GetName());
             group->BroadcastPacket(data, false);
@@ -493,7 +516,10 @@ void WorldSession::HandleMessagechatOpcode(WorldPacket& recv_data)
 
             if (ChannelMgr* cMgr = channelMgr(_player->GetTeam()))
                 if (Channel* chn = cMgr->GetChannel(channel, _player))
+                {
+                    sScriptDevMgr.OnPlayerChat(_player, type, lang, msg, chn);
                     chn->Say(_player, msg.c_str(), lang);
+                }
         } break;
 
         case CHAT_MSG_AFK:

@@ -8267,6 +8267,8 @@ void Spell::EffectDuel(SpellEffectIndex eff_idx)
     target->SetGuidValue(PLAYER_DUEL_ARBITER, pGameObj->GetObjectGuid());
 
     m_spellLog.AddLog(uint32(SPELL_EFFECT_DUEL), target->GetPackGUID());
+
+    sScriptDevMgr.OnPlayerDuelRequest(target, caster);
 }
 
 void Spell::EffectStuck(SpellEffectIndex /*eff_idx*/)

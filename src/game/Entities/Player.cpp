@@ -925,6 +925,7 @@ bool Player::Create(uint32 guidlow, const std::string& name, uint8 race, uint8 c
     }
     // all item positions resolved
 
+    sScriptDevMgr.OnPlayerCreate(this);
     return true;
 }
 

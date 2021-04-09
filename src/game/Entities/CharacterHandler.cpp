@@ -467,6 +467,8 @@ void WorldSession::HandleCharDeleteOpcode(WorldPacket& recv_data)
         sLog.outCharDump(dump.c_str(), GetAccountId(), lowguid, name.c_str());
     }
 
+    sScriptDevMgr.OnPlayerDelete(guid, GetAccountId());
+
     Player::DeleteFromDB(guid, GetAccountId());
 
     WorldPacket data(SMSG_CHAR_DELETE, 1);

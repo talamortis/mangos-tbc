@@ -56,6 +56,7 @@
 #include "Loot/LootMgr.h"
 #include "Movement/MoveSpline.h"
 #include "AI/ScriptDevAI/include/sc_grid_searchers.h"
+#include "AI/ScriptDevAI/ScriptDevMgr.h"
 
 pEffect SpellEffects[MAX_SPELL_EFFECTS] =
 {
@@ -4179,6 +4180,8 @@ bool Spell::DoCreateItem(SpellEffectIndex /*eff_idx*/, uint32 itemtype, bool rep
 
         // send info to the client
         player->SendNewItem(pItem, num_to_add, true, !bgType);
+
+        sScriptDevMgr.OnCreateItem(player, pItem, num_to_add);
 
         // we succeeded in creating at least one item, so a levelup is possible
         if (!bgType)

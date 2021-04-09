@@ -21251,7 +21251,11 @@ void Player::ModifyMoney(int32 d)
 
     // "At Gold Limit"
     if (GetMoney() >= MAX_MONEY_AMOUNT)
+    {
+        sScriptDevMgr.OnPlayerMoneyLimit(this, d);
         SendEquipError(EQUIP_ERR_TOO_MUCH_GOLD, nullptr, nullptr);
+    }
+        
 }
 
 Object* Player::GetObjectByTypeMask(ObjectGuid guid, TypeMask typemask)

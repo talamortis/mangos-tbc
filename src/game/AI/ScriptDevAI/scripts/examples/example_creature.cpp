@@ -291,6 +291,11 @@ public:
     {
         ChatHandler(player).PSendSysMessage("Both Scripting Structures are working Side by Side!");
     }
+
+    void OnLootItem(Player* player, Item* item, uint32 count, uint64 lootGUID)
+    {
+        ChatHandler(player).PSendSysMessage("Player has Just looted %u", item->GetEntry());
+    }
 };
 
 // This is the actual function called only once durring InitScripts()

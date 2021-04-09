@@ -3765,6 +3765,8 @@ uint32 Player::resetTalentsCost() const
 
 bool Player::resetTalents(bool no_cost)
 {
+    sScriptDevMgr.OnPlayerTalentsReset(this, no_cost);
+
     // not need after this call
     if (HasAtLoginFlag(AT_LOGIN_RESET_TALENTS))
         RemoveAtLoginFlag(AT_LOGIN_RESET_TALENTS, true);

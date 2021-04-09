@@ -16264,6 +16264,9 @@ InstancePlayerBind* Player::BindToInstance(DungeonPersistentState* state, bool p
         if (!load)
             DEBUG_LOG("Player::BindToInstance: %s(%d) is now bound to map %d, instance %d, difficulty %d",
                       GetName(), GetGUIDLow(), state->GetMapId(), state->GetInstanceId(), state->GetDifficulty());
+
+        sScriptDevMgr.OnPlayerBindToInstance(this, state->GetDifficulty(), state->GetMapId(), permanent);
+
         return &bind;
     }
     return nullptr;

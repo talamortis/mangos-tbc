@@ -190,7 +190,7 @@ public:
     virtual void OnSave(Player* /*player*/) { }
 
     // Called when a player is bound to an instance
-    virtual void OnBindToInstance(Player* /*player*/, DungeonDifficulty /*difficulty*/, uint32 /*mapId*/, bool /*permanent*/, uint8 /*extendState*/) { }
+    virtual void OnBindToInstance(Player* /*player*/, Difficulty /*difficulty*/, uint32 /*mapId*/, bool /*permanent*/) { }
 
     // Called when a player switches to a new zone
     virtual void OnUpdateZone(Player* /*player*/, uint32 /*newZone*/, uint32 /*newArea*/) { }
@@ -261,7 +261,7 @@ public: /* PlayerScript */
     void OnPlayerDelete(ObjectGuid guid, uint32 accountId);
     void OnPlayerFailedDelete(ObjectGuid guid, uint32 accountId);
     void OnPlayerSave(Player* player);
-    void OnPlayerBindToInstance(Player* player, DungeonDifficulty difficulty, uint32 mapid, bool permanent, uint8 extendState);
+    void OnPlayerBindToInstance(Player* player, Difficulty difficulty, uint32 mapid, bool permanent);
     void OnPlayerUpdateZone(Player* player, uint32 newZone, uint32 newArea);
     void OnQuestObjectiveProgress(Player* player, Quest const* quest, uint32 objectiveIndex, uint16 progress);
     void OnQuestStatusChange(Player* player, uint32 questId);

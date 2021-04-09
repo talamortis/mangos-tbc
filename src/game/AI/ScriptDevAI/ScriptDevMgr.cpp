@@ -258,9 +258,9 @@ void ScriptDevMgr::OnPlayerSave(Player* player)
     FOREACH_SCRIPT(PlayerScript)->OnSave(player);
 }
 
-void ScriptDevMgr::OnPlayerBindToInstance(Player* player, DungeonDifficulty difficulty, uint32 mapid, bool permanent, uint8 extendState)
+void ScriptDevMgr::OnPlayerBindToInstance(Player* player, Difficulty difficulty, uint32 mapid, bool permanent)
 {
-    FOREACH_SCRIPT(PlayerScript)->OnBindToInstance(player, difficulty, mapid, permanent, extendState);
+    FOREACH_SCRIPT(PlayerScript)->OnBindToInstance(player, difficulty, mapid, permanent);
 }
 
 void ScriptDevMgr::OnPlayerUpdateZone(Player* player, uint32 newZone, uint32 newArea)

@@ -82,7 +82,7 @@ int32 CalculateSpellDuration(SpellEntry const* spellInfo, Unit const* caster)
         int32 maxduration = GetSpellMaxDuration(spellInfo);
 
         if (duration != maxduration && caster->GetTypeId() == TYPEID_PLAYER)
-            duration += int32((maxduration - duration) * ((Player*)caster)->GetComboPoints() / 5);
+            duration += int32((maxduration - duration) * caster->GetComboPoints() / 5);
 
         if (Player* modOwner = caster->GetSpellModOwner())
         {
@@ -400,10 +400,6 @@ SpellSpecific GetSpellSpecific(uint32 spellId)
             // family flag 37 (except Demon Skin, which is under general)
             if (spellInfo->IsFitToFamilyMask(uint64(0x0000002000000000)))
                 return SPELL_WARLOCK_ARMOR;
-
-            // Drain Soul and Shadowburn
-            if (IsSpellHaveAura(spellInfo, SPELL_AURA_CHANNEL_DEATH_ITEM))
-                return SPELL_SOUL_CAPTURE;
 
             // Corruption and Seed of Corruption
             if (spellInfo->IsFitToFamilyMask(uint64(0x1000000002)))
@@ -1256,8 +1252,20 @@ struct DoSpellThreat
         if (ste.threat || ste.ap_bonus != 0.f)
         {
             const uint32* targetA = spell->EffectImplicitTargetA;
-            if ((targetA[EFFECT_INDEX_1] && targetA[EFFECT_INDEX_1] != targetA[EFFECT_INDEX_0]) ||
-                    (targetA[EFFECT_INDEX_2] && targetA[EFFECT_INDEX_2] != targetA[EFFECT_INDEX_0]))
+
+            uint32 target = 0;
+            bool failed = false;
+            for (int i = 0; i < MAX_EFFECT_INDEX; i++)
+            {
+                if (targetA[i] != 0)
+                {
+                    if (target == 0)
+                        target = targetA[i];
+                    else if (targetA[i] != target)
+                        failed = true;
+                }
+            }
+            if (failed)
                 sLog.outErrorDb("Spell %u listed in `spell_threat` has effects with different targets, threat may be assigned incorrectly", spell->Id);
         }
         ++count;
@@ -2567,10 +2575,6 @@ SpellCastResult SpellMgr::GetSpellAllowedInLocationError(SpellEntry const* spell
             return map_id == 566 && player && player->InBattleGround() ? SPELL_CAST_OK : SPELL_FAILED_REQUIRES_AREA;
         case 2584:                                          // Waiting to Resurrect
         case 42792:                                         // Recently Dropped Flag
-        case 43681:                                         // Inactive
-        {
-            return player && player->InBattleGround() ? SPELL_CAST_OK : SPELL_FAILED_ONLY_BATTLEGROUNDS;
-        }
         case 22011:                                         // Spirit Heal Channel
         case 22012:                                         // Spirit Heal
         case 24171:                                         // Resurrection Impact Visual

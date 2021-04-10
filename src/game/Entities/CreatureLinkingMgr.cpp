@@ -263,7 +263,7 @@ bool CreatureLinkingMgr::IsLinkingEntryValid(uint32 slaveEntry, CreatureLinkingI
 enum EventMask
 {
     EVENT_MASK_ON_AGGRO     = FLAG_AGGRO_ON_AGGRO,
-    EVENT_MASK_ON_EVADE     = FLAG_RESPAWN_ON_EVADE | FLAG_DESPAWN_ON_EVADE,
+    EVENT_MASK_ON_EVADE     = FLAG_RESPAWN_ON_EVADE | FLAG_DESPAWN_ON_EVADE | FLAG_EVADE_ON_EVADE,
     EVENT_MASK_ON_DIE       = FLAG_DESPAWN_ON_DEATH | FLAG_SELFKILL_ON_DEATH | FLAG_RESPAWN_ON_DEATH | FLAG_FOLLOW,
     EVENT_MASK_ON_RESPAWN   = FLAG_RESPAWN_ON_RESPAWN | FLAG_DESPAWN_ON_RESPAWN | FLAG_FOLLOW,
     EVENT_MASK_TRIGGER_TO   = FLAG_TO_AGGRO_ON_AGGRO | FLAG_TO_RESPAWN_ON_EVADE | FLAG_FOLLOW,
@@ -432,12 +432,26 @@ void CreatureLinkingHolder::DoCreatureLinkingEvent(CreatureLinkingEvent eventTyp
     // Process Slaves (by entry)
     HolderMapBounds bounds = m_holderMap.equal_range(pSource->GetEntry());
     for (HolderMap::iterator itr = bounds.first; itr != bounds.second; ++itr)
-        ProcessSlaveGuidList(eventType, pSource, itr->second.linkingFlag & eventFlagFilter, itr->second.searchRange, itr->second.linkedGuids, pEnemy);
+    {
+        if (!itr->second.inUse)
+        {
+            itr->second.inUse = true;
+            ProcessSlaveGuidList(eventType, pSource, itr->second.linkingFlag & eventFlagFilter, itr->second.searchRange, itr->second.linkedGuids, pEnemy);
+            itr->second.inUse = false;
+        }
+    }
 
     // Process Slaves (by guid)
     bounds = m_holderGuidMap.equal_range(pSource->GetGUIDLow());
     for (HolderMap::iterator itr = bounds.first; itr != bounds.second; ++itr)
-        ProcessSlaveGuidList(eventType, pSource, itr->second.linkingFlag & eventFlagFilter, itr->second.searchRange, itr->second.linkedGuids, pEnemy);
+    {
+        if (!itr->second.inUse)
+        {
+            itr->second.inUse = true;
+            ProcessSlaveGuidList(eventType, pSource, itr->second.linkingFlag & eventFlagFilter, itr->second.searchRange, itr->second.linkedGuids, pEnemy);
+            itr->second.inUse = false;
+        }
+    }
 
     // Process Master
     if (CreatureLinkingInfo const* pInfo = sCreatureLinkingMgr.GetLinkedTriggerInformation(pSource))
@@ -555,6 +569,8 @@ void CreatureLinkingHolder::ProcessSlave(CreatureLinkingEvent eventType, Creatur
                 pSlave->ForcedDespawn();
             if (flag & FLAG_RESPAWN_ON_EVADE && !pSlave->IsAlive())
                 pSlave->Respawn();
+            if (flag & FLAG_EVADE_ON_EVADE && pSlave->IsAlive())
+                pSlave->AI()->EnterEvadeMode();
             break;
         case LINKING_EVENT_DIE:
             if (flag & FLAG_SELFKILL_ON_DEATH && pSlave->IsAlive())

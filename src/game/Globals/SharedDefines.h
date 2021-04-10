@@ -594,6 +594,13 @@ enum Team
     ALLIANCE            = 469,
 };
 
+enum BattleGroundWinner
+{
+    WINNER_HORDE        = 0,
+    WINNER_ALLIANCE     = 1,
+    WINNER_NONE         = 2
+};
+
 enum PvpTeamIndex
 {
     TEAM_INDEX_ALLIANCE = 0,
@@ -602,6 +609,9 @@ enum PvpTeamIndex
 };
 
 #define PVP_TEAM_COUNT    2
+
+static inline Team GetTeamIdByTeamIndex(PvpTeamIndex teamIndex) { return teamIndex == TEAM_INDEX_ALLIANCE ? ALLIANCE : HORDE; }
+static inline PvpTeamIndex GetTeamIndexByTeamId(Team team) { return team == ALLIANCE ? TEAM_INDEX_ALLIANCE : TEAM_INDEX_HORDE; }
 
 enum SpellCastResult
 {

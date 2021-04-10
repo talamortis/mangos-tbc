@@ -792,7 +792,7 @@ void ScriptMgr::LoadScripts(ScriptMapMapName& scripts, const char* tablename)
             ScriptMap emptyMap;
             scripts.second[tmp.id] = emptyMap;
         }
-        scripts.second[tmp.id].insert(ScriptMap::value_type(tmp.delay, tmp));
+        scripts.second[tmp.id].emplace(tmp.delay, tmp);
 
         ++count;
     }
@@ -2100,9 +2100,9 @@ bool ScriptAction::HandleScriptStep()
             if (LogIfNotCreature(pSource))
                 return false;
             if (m_script->pauseWaypoint.doPause)
-                ((Creature*)pSource)->addUnitState(UNIT_STAT_WAYPOINT_PAUSED);
+                ((Creature*)pSource)->GetMotionMaster()->PauseWaypoints(0);
             else
-                ((Creature*)pSource)->clearUnitState(UNIT_STAT_WAYPOINT_PAUSED);
+                ((Creature*)pSource)->GetMotionMaster()->UnpauseWaypoints();
             break;
         }
         case SCRIPT_COMMAND_RESERVED_1:                     // 33

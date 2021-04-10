@@ -193,11 +193,13 @@ void ChaseMovementGenerator::HandleTargetedMovement(Unit& owner, const uint32& t
 
     this->i_recheckDistance.Reset(250);
     G3D::Vector3 dest = owner.movespline->FinalDestination();
+    if (dest.x == 0 && dest.y == 0 && dest.z == 0)
+        owner.GetPosition(dest.x, dest.y, dest.z);
     if (m_currentMode != CHASE_MODE_DISTANCING)
     {
         targetMoved = this->RequiresNewPosition(owner, dest.x, dest.y, dest.z);
 
-        if (this->i_speedChanged || targetMoved)
+        if ((this->i_speedChanged && !owner.movespline->Finalized()) || targetMoved)
         {
             float x, y, z;
 
@@ -214,19 +216,31 @@ void ChaseMovementGenerator::HandleTargetedMovement(Unit& owner, const uint32& t
                 z = end.z;
             }
 
-            if (DispatchSplineToPosition(owner, x, y, z, EnableWalking(), true, true))
+            if (owner.GetDistance(x, y, z, DIST_CALC_NONE) > 0.3f)
             {
-                this->i_targetReached = false;
-                this->i_speedChanged = false;
-                /* m_prevTargetPos is updated on making new spline (normal and distancing) and also on reaching target
-                is used for determining if player moved towards target whilst the spline was going on to stop the spline prematurely
-                and prevent it going behind targets back - it will still occur in rare cases due to PF and lag */
-                this->i_target->GetPosition(this->i_lastTargetPos.x, this->i_lastTargetPos.y, this->i_lastTargetPos.z);
-                m_closenessAndFanningTimer = 0;
-                return;
+                if (DispatchSplineToPosition(owner, x, y, z, EnableWalking(), true, true))
+                {
+                    this->i_targetReached = false;
+                    this->i_speedChanged = false;
+                    /* m_prevTargetPos is updated on making new spline (normal and distancing) and also on reaching target
+                    is used for determining if player moved towards target whilst the spline was going on to stop the spline prematurely
+                    and prevent it going behind targets back - it will still occur in rare cases due to PF and lag */
+                    this->i_target->GetPosition(this->i_lastTargetPos.x, this->i_lastTargetPos.y, this->i_lastTargetPos.z);
+                    m_closenessAndFanningTimer = 0;
+                    return;
+                }
             }
             // if we arrived here something failed in PF dispatch and target is not reachable
-            m_reachable = false;
+            if (this->i_offset == 0.f)
+            {
+                if (!owner.CanReachWithMeleeAttack(this->i_target.getTarget()))
+                    m_reachable = false;
+            }
+            else
+            {
+                if (owner.GetDistance(this->i_target.getTarget(), true, DIST_CALC_COMBAT_REACH) > this->i_offset)
+                    m_reachable = false;
+            }
             return;
         }
         else if (!targetMoved) // we do not need new position and we are reachable
@@ -332,6 +346,10 @@ void ChaseMovementGenerator::DistanceYourself(Unit& owner, float distance)
 
 void ChaseMovementGenerator::Backpedal(Unit& owner)
 {
+    // do not allow backpedalling during scripts
+    if (owner.AI()->GetCombatScriptStatus())
+        return;
+
     m_closenessExpired = false;
     m_closenessAndFanningTimer = CHASE_CLOSENESS_TIMER; // Just in case path doesnt generate
     float targetDist = std::min(this->i_target->GetCombinedCombatReach(&owner, false), 3.75f);
@@ -465,7 +483,7 @@ void ChaseMovementGenerator::CutPath(Unit& owner, PointsArray& path)
             const G3D::Vector3& data = path.at(i);
             if (this->i_target->GetDistance(data.x, data.y, data.z, DIST_CALC_NONE) > distSquared)
                 continue;
-            if (!owner.GetMap()->IsInLineOfSight(tarX, tarY, tarZ + 2.0f, data.x, data.y, data.z + 2.0f, IGNORE_M2))
+            if (!owner.GetMap()->IsInLineOfSight(tarX, tarY, tarZ + i_target->GetCollisionHeight(), data.x, data.y, data.z + owner.GetCollisionHeight(), IGNORE_M2))
                 continue;
             // both in LOS and in range - advance to next and stop
             return path.resize(++i);
@@ -530,8 +548,11 @@ void ChaseMovementGenerator::_setLocation(Unit& owner)
 
     float x, y, z;
 
-    if (_getLocation(owner, x, y, z))
-        DispatchSplineToPosition(owner, x, y, z, EnableWalking(), true, true);
+    if (RequiresNewPosition(owner, owner.GetPositionX(), owner.GetPositionY(), owner.GetPositionZ()) && _getLocation(owner, x, y, z))
+    {
+        if (DispatchSplineToPosition(owner, x, y, z, EnableWalking(), true, true))
+            this->i_target->GetPosition(this->i_lastTargetPos.x, this->i_lastTargetPos.y, this->i_lastTargetPos.z);
+    }
     else
         return;
 
@@ -558,6 +579,12 @@ bool FollowMovementGenerator::EnableWalking() const
     return (i_target.isValid() && i_target->IsWalking());
 }
 
+void FollowMovementGenerator::MarkMovegen()
+{
+    if (m_possess)
+        m_main = false;
+}
+
 float FollowMovementGenerator::GetSpeed(Unit& owner) const
 {
     const UnitMoveType type = i_target->m_movementInfo.GetSpeedType();
@@ -568,10 +595,6 @@ float FollowMovementGenerator::GetSpeed(Unit& owner) const
 
     // Use default speed when a mix of PC and NPC units involved (escorting?)
     if (owner.HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PLAYER_CONTROLLED) != i_target->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PLAYER_CONTROLLED))
-        return speed;
-
-    // Use default speed when debuffed or somehow constrained in speed
-    if (owner.GetSpeedRate(type) < 1.0f || owner.HasAuraType(SPELL_AURA_USE_NORMAL_MOVEMENT_SPEED))
         return speed;
 
     // Followers sync with master's speed when not in combat
@@ -619,7 +642,7 @@ bool FollowMovementGenerator::IsBoostAllowed(Unit& owner) const
     return (i_target->HasInArc(&owner) != !i_target->m_movementInfo.HasMovementFlag(MovementFlags(MOVEFLAG_BACKWARD)));
 }
 
-bool FollowMovementGenerator::IsUnstuckAllowed(Unit &owner) const
+bool FollowMovementGenerator::IsUnstuckAllowed(Unit& owner) const
 {
     // Do not try to unstuck if in combat
     if (owner.IsInCombat() || !i_target.isValid() || i_target->IsInCombat())
@@ -640,6 +663,9 @@ bool FollowMovementGenerator::IsUnstuckAllowed(Unit &owner) const
 void FollowMovementGenerator::Initialize(Unit& owner)
 {
     if (!i_target.isValid() || !i_target->IsInWorld())
+        return;
+
+    if (i_target->GetMap() != owner.GetMap())
         return;
 
     owner.addUnitState(UNIT_STAT_FOLLOW);                   // _MOVE set in _SetTargetLocation after required checks
@@ -917,7 +943,7 @@ void FollowMovementGenerator::HandleTargetedMovement(Unit& owner, const uint32& 
             targetOrientation = (!targetRelocation && !m_targetMoving && !m_targetFaced);
             targetSpeedChanged = (targetSpeedChanged && !targetRelocation && !targetOrientation);
             i_lastTargetPos = currentTargetPos;
-       }
+        }
     }
 
     // Decide whether it's suitable time to update position or orientation

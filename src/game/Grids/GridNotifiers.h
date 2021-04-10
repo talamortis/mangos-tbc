@@ -28,6 +28,7 @@
 #include "Entities/Player.h"
 #include "Entities/Unit.h"
 
+#include <functional>
 #include <memory>
 
 namespace MaNGOS
@@ -597,6 +598,9 @@ namespace MaNGOS
             {
                 GameObjectInfo const* goInfo = go->GetGOInfo();
                 if (goInfo->type != GAMEOBJECT_TYPE_SPELL_FOCUS)
+                    return false;
+
+                if (!go->IsSpawned())
                     return false;
 
                 if (goInfo->spellFocus.focusId != i_focusId)

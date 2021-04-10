@@ -282,7 +282,7 @@ void WorldSession::HandleMessagechatOpcode(WorldPacket& recv_data)
             // battleground raid is always in Player->GetGroup(), never in GetOriginalGroup()
             Group* group = _player->GetGroup();
 
-            if (group->isBattleGroup())
+            if (group && group->isBattleGroup())
                 group = _player->GetOriginalGroup();
 
             if (!group)
@@ -373,10 +373,13 @@ void WorldSession::HandleMessagechatOpcode(WorldPacket& recv_data)
             // battleground raid is always in Player->GetGroup(), never in GetOriginalGroup()
             Group* group = _player->GetGroup();
 
+            if (!group)
+                return;
+
             if (group->isBattleGroup())
                 group = _player->GetOriginalGroup();
 
-            if (!group || !group->isRaidGroup())
+            if (!group->isRaidGroup())
                 return;
 
             sScriptDevMgr.OnPlayerChat(GetPlayer(), type, lang, msg, group);
@@ -403,10 +406,13 @@ void WorldSession::HandleMessagechatOpcode(WorldPacket& recv_data)
             // battleground raid is always in Player->GetGroup(), never in GetOriginalGroup()
             Group* group = _player->GetGroup();
 
+            if (!group)
+                return;
+
             if (group->isBattleGroup())
                 group = _player->GetOriginalGroup();
 
-            if (!group || !group->isRaidGroup() || !group->IsLeader(_player->GetObjectGuid()))
+            if (!group->isRaidGroup() || !group->IsLeader(_player->GetObjectGuid()))
                 return;
 
             sScriptDevMgr.OnPlayerChat(GetPlayer(), type, lang, msg, group);

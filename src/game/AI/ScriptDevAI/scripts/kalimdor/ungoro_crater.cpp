@@ -48,7 +48,11 @@ enum
 
 struct npc_ame01AI : public npc_escortAI
 {
-    npc_ame01AI(Creature* pCreature) : npc_escortAI(pCreature) { Reset(); }
+    npc_ame01AI(Creature* pCreature) : npc_escortAI(pCreature)
+    {
+        m_creature->SetStandState(UNIT_STAND_STATE_DEAD, true);
+        Reset();
+    }
 
     void Reset() override {}
 
@@ -149,7 +153,11 @@ enum
 
 struct npc_ringoAI : public FollowerAI
 {
-    npc_ringoAI(Creature* pCreature) : FollowerAI(pCreature) { Reset(); }
+    npc_ringoAI(Creature* pCreature) : FollowerAI(pCreature)
+    {
+        m_creature->SetStandState(UNIT_STAND_STATE_DEAD);
+        Reset();
+    }
 
     uint32 m_uiFaintTimer;
     uint32 m_uiEndEventProgress;

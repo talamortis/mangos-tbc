@@ -86,8 +86,8 @@ struct boss_ossirianAI : public CombatAI
     boss_ossirianAI(Creature* creature) :
         CombatAI(creature, OSSIRIAN_ACTION_MAX),
         m_instance(static_cast<instance_ruins_of_ahnqiraj*>(m_creature->GetInstanceData())),
-        m_saidIntro(false),
-        m_uiCrystalPosition(0)
+        m_uiCrystalPosition(0),
+        m_saidIntro(false)
     {
         AddCombatAction(OSSIRIAN_INITIAL_SPAWN, 10000u);
         AddCombatAction(OSSIRIAN_SUPREME, 45000u);
@@ -190,6 +190,11 @@ struct boss_ossirianAI : public CombatAI
             CreatureData const* data = sObjectMgr.GetCreatureData(crystal->GetGUIDLow());
             if (data->spawntimesecsmin == 0 && m_instance->GetData(TYPE_OSSIRIAN) != IN_PROGRESS)
             {
+                if (GameObject* crystalGo = GetClosestGameObjectWithEntry(crystal, GO_OSSIRIAN_CRYSTAL, 5.0f))
+                {
+                    crystalGo->SetLootState(GO_JUST_DEACTIVATED);
+                    crystalGo->SetForcedDespawn();
+                }
                 crystal->SetRespawnDelay(7200);
                 crystal->ForcedDespawn();
             }
@@ -225,7 +230,10 @@ struct boss_ossirianAI : public CombatAI
             DoSpawnNextCrystal(1);
             // despawn go
             if (GameObject* crystal = GetClosestGameObjectWithEntry(caster, GO_OSSIRIAN_CRYSTAL, 5.0f))
+            {
                 crystal->SetLootState(GO_JUST_DEACTIVATED);
+                crystal->SetForcedDespawn();
+            }
             static_cast<Creature*>(caster)->SetRespawnDelay(7200);
             static_cast<Creature*>(caster)->ForcedDespawn(500);
         }

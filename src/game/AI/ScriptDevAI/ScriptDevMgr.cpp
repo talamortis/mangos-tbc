@@ -66,7 +66,7 @@ ScriptDevMgr::~ScriptDevMgr()
     SCR_CLEAR(InstanceMapScript);
     SCR_CLEAR(BattlegroundMapScript);
     SCR_CLEAR(ItemScript);
-    SCR_CLEAR(CreatureScript);
+   
     SCR_CLEAR(GameObjectScript);
     SCR_CLEAR(AreaTriggerScript);
     SCR_CLEAR(BattlegroundScript);
@@ -77,10 +77,236 @@ ScriptDevMgr::~ScriptDevMgr()
     SCR_CLEAR(ConditionScript);
     SCR_CLEAR(DynamicObjectScript);
     SCR_CLEAR(TransportScript);*/
+    SCR_CLEAR(CreatureScript);
     SCR_CLEAR(PlayerScript);
    
 
 #undef SCR_CLEAR
+}
+
+/* #############################################
+   #                GameObjectScripts
+   #
+   ############################################# */
+
+bool ScriptDevMgr::OnGossipHello(Player* player, GameObject* go)
+{
+    MANGOS_ASSERT(player);
+    MANGOS_ASSERT(go);
+
+    GET_SCRIPT_RET(GameObjectScript, go->GetScriptId(), tmpscript, false);
+    player->PlayerTalkClass->ClearMenus();
+    return tmpscript->OnGossipHello(player, go);
+}
+
+bool ScriptDevMgr::OnGossipSelect(Player* player, GameObject* go, uint32 sender, uint32 action)
+{
+    MANGOS_ASSERT(player);
+    MANGOS_ASSERT(go);
+
+
+    GET_SCRIPT_RET(GameObjectScript, go->GetScriptId(), tmpscript, false);
+    player->PlayerTalkClass->ClearMenus();
+    return tmpscript->OnGossipSelect(player, go, sender, action);
+}
+
+bool ScriptDevMgr::OnGossipSelectCode(Player* player, GameObject* go, uint32 sender, uint32 action, const char* code)
+{
+    MANGOS_ASSERT(player);
+    MANGOS_ASSERT(go);
+    MANGOS_ASSERT(code);
+
+
+    GET_SCRIPT_RET(GameObjectScript, go->GetScriptId(), tmpscript, false);
+    player->PlayerTalkClass->ClearMenus();
+    return tmpscript->OnGossipSelectCode(player, go, sender, action, code);
+}
+
+bool ScriptDevMgr::OnQuestAccept(Player* player, GameObject* go, Quest const* quest)
+{
+    MANGOS_ASSERT(player);
+    MANGOS_ASSERT(go);
+    MANGOS_ASSERT(quest);
+
+
+    GET_SCRIPT_RET(GameObjectScript, go->GetScriptId(), tmpscript, false);
+    player->PlayerTalkClass->ClearMenus();
+    return tmpscript->OnQuestAccept(player, go, quest);
+}
+
+bool ScriptDevMgr::OnQuestReward(Player* player, GameObject* go, Quest const* quest, uint32 opt)
+{
+    MANGOS_ASSERT(player);
+    MANGOS_ASSERT(go);
+    MANGOS_ASSERT(quest);
+
+    GET_SCRIPT_RET(GameObjectScript, go->GetScriptId(), tmpscript, false);
+    player->PlayerTalkClass->ClearMenus();
+    return tmpscript->OnQuestReward(player, go, quest, opt);
+}
+
+
+bool ScriptDevMgr::OnQuestComplete(Player* player, GameObject* gameobject, Quest const* quest)
+{
+    MANGOS_ASSERT(player);
+    MANGOS_ASSERT(gameobject);
+    MANGOS_ASSERT(quest);
+
+    GET_SCRIPT_RET(GameObjectScript, gameobject->GetScriptId(), tmpscript, false);
+    player->PlayerTalkClass->ClearMenus();
+    return tmpscript->OnQuestComplete(player, gameobject, quest);
+}
+
+uint32 ScriptDevMgr::GetDialogStatus(Player* player, GameObject* go)
+{
+    MANGOS_ASSERT(player);
+    MANGOS_ASSERT(go);
+
+
+    GET_SCRIPT_RET(GameObjectScript, go->GetScriptId(), tmpscript, 100);
+    player->PlayerTalkClass->ClearMenus();
+    return tmpscript->OnDialogStatus(player, go);
+}
+
+void ScriptDevMgr::OnGameObjectDestroyed(Player* player, GameObject* go, uint32 eventId)
+{
+    MANGOS_ASSERT(go);
+
+    GET_SCRIPT(GameObjectScript, go->GetScriptId(), tmpscript);
+    tmpscript->OnDestroyed(player, go, eventId);
+}
+
+void ScriptDevMgr::OnGameObjectUpdate(GameObject* go, uint32 diff)
+{
+    MANGOS_ASSERT(go);
+
+    GET_SCRIPT(GameObjectScript, go->GetScriptId(), tmpscript);
+    tmpscript->OnUpdate(go, diff);
+}
+
+/* #############################################
+   #                CreatureScripts
+   #
+   ############################################# */
+
+bool ScriptDevMgr::OnDummyEffect(Unit* caster, uint32 spellId, uint32 effIndex, Creature* target)
+{
+    MANGOS_ASSERT(caster);
+    MANGOS_ASSERT(target);
+
+    GET_SCRIPT_RET(CreatureScript, target->GetScriptId(), tmpscript, false);
+    return tmpscript->OnDummyEffect(caster, spellId, effIndex, target);
+}
+
+bool ScriptDevMgr::OnGossipHello(Player* player, Creature* creature)
+{
+    MANGOS_ASSERT(player);
+    MANGOS_ASSERT(creature);
+
+    GET_SCRIPT_RET(CreatureScript, creature->GetScriptId(), tmpscript, false);
+    player->PlayerTalkClass->ClearMenus();
+    return tmpscript->OnGossipHello(player, creature);
+}
+
+bool ScriptDevMgr::OnGossipSelect(Player* player, Creature* creature, uint32 sender, uint32 action)
+{
+    MANGOS_ASSERT(player);
+    MANGOS_ASSERT(creature);
+
+    GET_SCRIPT_RET(CreatureScript, creature->GetScriptId(), tmpscript, false);
+    player->PlayerTalkClass->ClearMenus();
+        
+    return tmpscript->OnGossipSelect(player, creature, sender, action);
+}
+
+bool ScriptDevMgr::OnGossipSelectCode(Player* player, Creature* creature, uint32 sender, uint32 action, const char* code)
+{
+    MANGOS_ASSERT(player);
+    MANGOS_ASSERT(creature);
+    MANGOS_ASSERT(code);
+
+    GET_SCRIPT_RET(CreatureScript, creature->GetScriptId(), tmpscript, false);
+    player->PlayerTalkClass->ClearMenus();
+    return tmpscript->OnGossipSelectCode(player, creature, sender, action, code);
+}
+
+bool ScriptDevMgr::OnQuestAccept(Player* player, Creature* creature, Quest const* quest)
+{
+    MANGOS_ASSERT(player);
+
+    MANGOS_ASSERT(creature);
+    MANGOS_ASSERT(quest);
+
+    GET_SCRIPT_RET(CreatureScript, creature->GetScriptId(), tmpscript, false);
+    player->PlayerTalkClass->ClearMenus();
+    return tmpscript->OnQuestAccept(player, creature, quest);
+}
+
+bool ScriptDevMgr::OnQuestSelect(Player* player, Creature* creature, Quest const* quest)
+{
+    MANGOS_ASSERT(player);
+    MANGOS_ASSERT(creature);
+    MANGOS_ASSERT(quest);
+
+    GET_SCRIPT_RET(CreatureScript, creature->GetScriptId(), tmpscript, false);
+    player->PlayerTalkClass->ClearMenus();
+    return tmpscript->OnQuestSelect(player, creature, quest);
+}
+
+bool ScriptDevMgr::OnQuestComplete(Player* player, Creature* creature, Quest const* quest)
+{
+    MANGOS_ASSERT(player);
+    MANGOS_ASSERT(creature);
+    MANGOS_ASSERT(quest);
+
+    GET_SCRIPT_RET(CreatureScript, creature->GetScriptId(), tmpscript, false);
+    player->PlayerTalkClass->ClearMenus();
+    return tmpscript->OnQuestComplete(player, creature, quest);
+}
+
+bool ScriptDevMgr::OnQuestReward(Player* player, Creature* creature, Quest const* quest, uint32 opt)
+{
+    MANGOS_ASSERT(player);
+    MANGOS_ASSERT(creature);
+    MANGOS_ASSERT(quest);
+
+    GET_SCRIPT_RET(CreatureScript, creature->GetScriptId(), tmpscript, false);
+    player->PlayerTalkClass->ClearMenus();
+    return tmpscript->OnQuestReward(player, creature, quest, opt);
+}
+
+uint32 ScriptDevMgr::GetDialogStatus(const Player* player, const Creature* creature)
+{
+    MANGOS_ASSERT(player);
+    MANGOS_ASSERT(creature);
+
+    // TODO: 100 is a funny magic number to have hanging around here...
+    GET_SCRIPT_RET(CreatureScript, creature->GetScriptId(), tmpscript, 100);
+    player->PlayerTalkClass->ClearMenus();
+    return tmpscript->OnDialogStatus(player, creature);
+}
+
+CreatureAI* ScriptDevMgr::GetCreatureAI(Creature* creature)
+{
+    MANGOS_ASSERT(creature);
+
+    GET_SCRIPT_RET(CreatureScript, creature->GetScriptId(), tmpscript, NULL);
+    return tmpscript->GetAI(creature);
+}
+
+void ScriptDevMgr::OnCreatureUpdate(Creature* creature, uint32 diff)
+{
+    MANGOS_ASSERT(creature);
+
+    GET_SCRIPT(CreatureScript, creature->GetScriptId(), tmpscript);
+    tmpscript->OnUpdate(creature, diff);
+}
+
+
+CreatureScript::CreatureScript(const char* name)
+    : ScriptObject(name)
+{
+    ScriptDevMgr::ScriptRegistry<CreatureScript>::AddScript(this);
 }
 
 /* #############################################
@@ -371,19 +597,19 @@ template<class TScript> std::map<uint32, TScript*> ScriptDevMgr::ScriptRegistry<
 template<class TScript> uint32 ScriptDevMgr::ScriptRegistry<TScript>::_scriptIdCounter;
 
 // Specialize for each script type class like so:
+template class ScriptDevMgr::ScriptRegistry<CreatureScript>;
+template class ScriptDevMgr::ScriptRegistry<GameObjectScript>;
+template class ScriptDevMgr::ScriptRegistry<PlayerScript>;
 /*template class ScriptDevMgr::ScriptRegistry<SpellHandlerScript>;
 template class ScriptDevMgr::ScriptRegistry<AuraHandlerScript>;
 template class ScriptDevMgr::ScriptRegistry<ServerScript>;
-template class ScriptDevMgr::ScriptRegistry<WorldScript>;*/
-template class ScriptDevMgr::ScriptRegistry<PlayerScript>;
-/*template class ScriptDevMgr::ScriptRegistry<GroupScript>;
+template class ScriptDevMgr::ScriptRegistry<WorldScript>;
+template class ScriptDevMgr::ScriptRegistry<GroupScript>;
 template class ScriptDevMgr::ScriptRegistry<FormulaScript>;
 template class ScriptDevMgr::ScriptRegistry<WorldMapScript>;
 template class ScriptDevMgr::ScriptRegistry<InstanceMapScript>;
 template class ScriptDevMgr::ScriptRegistry<BattlegroundMapScript>;
 template class ScriptDevMgr::ScriptRegistry<ItemScript>;
-template class ScriptDevMgr::ScriptRegistry<CreatureScript>;
-template class ScriptDevMgr::ScriptRegistry<GameObjectScript>;
 template class ScriptDevMgr::ScriptRegistry<AreaTriggerScript>;
 template class ScriptDevMgr::ScriptRegistry<BattlegroundScript>;
 template class ScriptDevMgr::ScriptRegistry<OutdoorPvPScript>;

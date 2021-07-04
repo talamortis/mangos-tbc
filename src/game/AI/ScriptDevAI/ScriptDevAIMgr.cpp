@@ -12,6 +12,7 @@
 #include "system/system.h"
 #include "ScriptDevAIMgr.h"
 #include "include/sc_creature.h"
+#include "ScriptDevMgr.h"
 
 #ifdef BUILD_SCRIPTDEV
 #include "system/ScriptLoader.h"
@@ -141,8 +142,12 @@ bool ScriptDevAIMgr::OnGossipHello(Player* pPlayer, Creature* pCreature)
 {
     Script* pTempScript = GetScript(pCreature->GetScriptId());
 
+    // if we have no script check Other structure
     if (!pTempScript || !pTempScript->pGossipHello)
+    {
+        sScriptDevMgr.OnGossipHello(pPlayer, pCreature);
         return false;
+    }
 
     pPlayer->PlayerTalkClass->ClearMenus();
 
@@ -154,7 +159,11 @@ bool ScriptDevAIMgr::OnGossipHello(Player* pPlayer, GameObject* pGo)
     Script* pTempScript = GetScript(pGo->GetGOInfo()->ScriptId);
 
     if (!pTempScript || !pTempScript->pGossipHelloGO)
+    {
+        sScriptDevMgr.OnGossipHello(pPlayer, pGo);
         return false;
+    }
+
 
     pPlayer->PlayerTalkClass->ClearMenus();
 
@@ -168,7 +177,11 @@ bool ScriptDevAIMgr::OnGossipSelect(Player* pPlayer, Creature* pCreature, uint32
     Script* pTempScript = GetScript(pCreature->GetScriptId());
 
     if (!pTempScript)
+    {
+        sScriptDevMgr.OnGossipSelect(pPlayer, pCreature, uiSender, uiAction);
         return false;
+    }
+
 
     if (code)
     {
@@ -193,7 +206,10 @@ bool ScriptDevAIMgr::OnGossipSelect(Player* pPlayer, GameObject* pGo, uint32 uiS
     Script* pTempScript = GetScript(pGo->GetGOInfo()->ScriptId);
 
     if (!pTempScript)
+    {
+        sScriptDevMgr.OnGossipSelect(pPlayer, pGo, uiSender, uiAction);
         return false;
+    }
 
     if (code)
     {
@@ -216,8 +232,11 @@ uint32 ScriptDevAIMgr::GetDialogStatus(const Player* pPlayer, const Creature* pC
     Script* pTempScript = GetScript(pCreature->GetScriptId());
 
     if (!pTempScript || !pTempScript->pDialogStatusNPC)
+    {
+        sScriptDevMgr.GetDialogStatus(pPlayer, pCreature);
         return DIALOG_STATUS_UNDEFINED;
-
+    }
+        
     pPlayer->PlayerTalkClass->ClearMenus();
 
     return pTempScript->pDialogStatusNPC(pPlayer, pCreature);
@@ -240,7 +259,10 @@ bool ScriptDevAIMgr::OnQuestAccept(Player* pPlayer, Creature* pCreature, const Q
     Script* pTempScript = GetScript(pCreature->GetScriptId());
 
     if (!pTempScript || !pTempScript->pQuestAcceptNPC)
+    {
+        sScriptDevMgr.OnQuestAccept(pPlayer, pCreature, pQuest);
         return false;
+    }
 
     pPlayer->PlayerTalkClass->ClearMenus();
 
@@ -252,7 +274,10 @@ bool ScriptDevAIMgr::OnQuestAccept(Player* pPlayer, GameObject* pGo, const Quest
     Script* pTempScript = GetScript(pGo->GetGOInfo()->ScriptId);
 
     if (!pTempScript || !pTempScript->pQuestAcceptGO)
+    {
+        sScriptDevMgr.OnQuestAccept(pPlayer, pGo, pQuest);
         return false;
+    }
 
     pPlayer->PlayerTalkClass->ClearMenus();
 
@@ -264,7 +289,10 @@ bool ScriptDevAIMgr::OnQuestAccept(Player* pPlayer, Item* pItem, Quest const* pQ
     Script* pTempScript = GetScript(pItem->GetProto()->ScriptId);
 
     if (!pTempScript || !pTempScript->pQuestAcceptItem)
+    {
+        //sScriptDevMgr.OnQuestAccept(pPlayer, pItem, pQuest);
         return false;
+    }
 
     pPlayer->PlayerTalkClass->ClearMenus();
 
@@ -276,7 +304,10 @@ bool ScriptDevAIMgr::OnGameObjectUse(Player* pPlayer, GameObject* pGo)
     Script* pTempScript = GetScript(pGo->GetGOInfo()->ScriptId);
 
     if (!pTempScript || !pTempScript->pGOUse)
+    {
+        //sScriptDevMgr.OnGameObjectUse(pPlayer, pGo);
         return false;
+    }
 
     return pTempScript->pGOUse(pPlayer, pGo);
 }
@@ -296,8 +327,11 @@ bool ScriptDevAIMgr::OnQuestRewarded(Player* pPlayer, Creature* pCreature, Quest
     Script* pTempScript = GetScript(pCreature->GetScriptId());
 
     if (!pTempScript || !pTempScript->pQuestRewardedNPC)
+    {
+        //sScriptDevMgr.OnQuestReward(pPlayer, pCreature, pQuest);
         return false;
-
+    }
+        
     pPlayer->PlayerTalkClass->ClearMenus();
 
     return pTempScript->pQuestRewardedNPC(pPlayer, pCreature, pQuest);
@@ -308,7 +342,10 @@ bool ScriptDevAIMgr::OnQuestRewarded(Player* pPlayer, GameObject* pGo, Quest con
     Script* pTempScript = GetScript(pGo->GetGOInfo()->ScriptId);
 
     if (!pTempScript || !pTempScript->pQuestRewardedGO)
+    {
+        //sScriptDevMgr.OnQuestReward(pPlayer, pGo, pQuest);
         return false;
+    }
 
     pPlayer->PlayerTalkClass->ClearMenus();
 
@@ -320,7 +357,10 @@ bool ScriptDevAIMgr::OnAreaTrigger(Player* pPlayer, AreaTriggerEntry const* atEn
     Script* pTempScript = GetScript(GetAreaTriggerScriptId(atEntry->id));
 
     if (!pTempScript || !pTempScript->pAreaTrigger)
+    {
+        //sScriptDevMgr.OnAreaTrigger(pPlayer, atEntry);
         return false;
+    }
 
     return pTempScript->pAreaTrigger(pPlayer, atEntry);
 }
@@ -341,7 +381,10 @@ UnitAI* ScriptDevAIMgr::GetCreatureAI(Creature* pCreature) const
     Script* pTempScript = GetScript(pCreature->GetScriptId());
 
     if (!pTempScript || !pTempScript->GetAI)
+    {
+        sScriptDevMgr.GetCreatureAI(pCreature);
         return nullptr;
+    }
 
     return pTempScript->GetAI(pCreature);
 }

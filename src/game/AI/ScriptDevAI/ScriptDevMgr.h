@@ -82,6 +82,96 @@ public:
 };
 
 /* #############################################
+   #                GameObjectScript
+   #
+   #############################################*/
+
+class GameObjectScript : public ScriptObject, public UpdatableScript<GameObject>
+{
+protected:
+
+    GameObjectScript(const char* name);
+
+public:
+
+    bool IsDatabaseBound() const { return true; }
+
+    // Called when a dummy spell effect is triggered on the gameobject.
+    virtual bool OnDummyEffect(Unit* caster, uint32 spellId, uint32 effIndex, GameObject* target) { return false; }
+
+    // Called when a player opens a gossip dialog with the gameobject.
+    virtual bool OnGossipHello(Player* player, GameObject* go) { return false; }
+
+    // Called when a player selects a gossip item in the gameobject's gossip menu.
+    virtual bool OnGossipSelect(Player* player, GameObject* go, uint32 sender, uint32 action) { return false; }
+
+    // Called when a player selects a gossip with a code in the gameobject's gossip menu.
+    virtual bool OnGossipSelectCode(Player* player, GameObject* go, uint32 sender, uint32 action, const char* code) { return false; }
+
+    // Called when a player accepts a quest from the gameobject.
+    virtual bool OnQuestAccept(Player* player, GameObject* go, Quest const* quest) { return false; }
+
+    // Called when a player selects a quest reward.
+    virtual bool OnQuestReward(Player* player, GameObject* go, Quest const* quest, uint32 opt) { return false; }
+
+    // Called when a player completes a quest with the creature.
+    virtual bool OnQuestComplete(Player* player, GameObject* go, Quest const* quest) { return false; }
+
+    // Called when the dialog status between a player and the gameobject is requested.
+    virtual uint32 OnDialogStatus(Player* player, GameObject* go) { return 0; }
+
+    // Called when the gameobject is destroyed (destructible buildings only).
+    virtual void OnDestroyed(Player* player, GameObject* go, uint32 eventId) { }
+};
+
+
+/* #############################################
+   #                CreatureScript
+   #
+   #############################################*/
+
+class CreatureScript : public ScriptObject, public UpdatableScript<Creature>
+{
+protected:
+
+    CreatureScript(const char* name);
+
+public:
+
+    bool IsDatabaseBound() const { return true; }
+
+    // Called when a dummy spell effect is triggered on the creature.
+    virtual bool OnDummyEffect(Unit* caster, uint32 spellId, uint32 effIndex, Creature* target) { return false; }
+
+    // Called when a player opens a gossip dialog with the creature.
+    virtual bool OnGossipHello(Player* player, Creature* creature) { return false; }
+
+    // Called when a player selects a gossip item in the creature's gossip menu.
+    virtual bool OnGossipSelect(Player* player, Creature* creature, uint32 sender, uint32 action) { return false; }
+
+    // Called when a player selects a gossip with a code in the creature's gossip menu.
+    virtual bool OnGossipSelectCode(Player* player, Creature* creature, uint32 sender, uint32 action, const char* code) { return false; }
+
+    // Called when a player accepts a quest from the creature.
+    virtual bool OnQuestAccept(Player* player, Creature* creature, Quest const* quest) { return false; }
+
+    // Called when a player selects a quest in the creature's quest menu.
+    virtual bool OnQuestSelect(Player* player, Creature* creature, Quest const* quest) { return false; }
+
+    // Called when a player completes a quest with the creature.
+    virtual bool OnQuestComplete(Player* player, Creature* creature, Quest const* quest) { return false; }
+
+    // Called when a player selects a quest reward.
+    virtual bool OnQuestReward(Player* player, Creature* creature, Quest const* quest, uint32 opt) { return false; }
+
+    // Called when the dialog status between a player and the creature is requested.
+    virtual uint32 OnDialogStatus(const Player* player, const Creature* creature) { return 0; }
+
+    // Called when a CreatureAI object is needed for the creature.
+    virtual CreatureAI* GetAI(Creature* creature) const { return NULL; }
+};
+
+/* #############################################
    #                PlayerScripts
    #
    #############################################*/
@@ -268,6 +358,33 @@ public: /* PlayerScript */
     void OnPlayerRepop(Player* player);
     void OnGossipSelectCode(Player* player, uint32 menu_id, uint32 sender, uint32 action, const char* code);
     void OnGossipSelect(Player* player, uint32 menu_id, uint32 sender, uint32 action);
+
+public: /* CreatureScript*/
+    bool OnDummyEffect(Unit* caster, uint32 spellId, uint32 effIndex, Creature* target);
+    bool OnGossipHello(Player* player, Creature* creature);
+    bool OnGossipSelect(Player* player, Creature* creature, uint32 sender, uint32 action);
+    bool OnGossipSelectCode(Player* player, Creature* creature, uint32 sender, uint32 action, const char* code);
+    bool OnQuestAccept(Player* player, Creature* creature, Quest const* quest);
+    bool OnQuestSelect(Player* player, Creature* creature, Quest const* quest);
+    bool OnQuestComplete(Player* player, Creature* creature, Quest const* quest);
+    bool OnQuestReward(Player* player, Creature* creature, Quest const* quest, uint32 opt);
+    uint32 GetDialogStatus(const Player* player, const Creature* creature);
+    CreatureAI* GetCreatureAI(Creature* creature);
+    void OnCreatureUpdate(Creature* creature, uint32 diff);
+
+public: /* GobjectScript*/
+
+    bool OnGossipHello(Player* player, GameObject* go);
+    bool OnGossipSelect(Player* player, GameObject* go, uint32 sender, uint32 action);
+    bool OnGossipSelectCode(Player* player, GameObject* go, uint32 sender, uint32 action, const char* code);
+    bool OnQuestAccept(Player* player, GameObject* go, Quest const* quest);
+    bool OnQuestReward(Player* player, GameObject* go, Quest const* quest, uint32 opt);
+    bool OnQuestComplete(Player* player, GameObject* gameobject, Quest const* quest);
+    uint32 GetDialogStatus(Player* player, GameObject* go);
+    void OnGameObjectDestroyed(Player* player, GameObject* go, uint32 eventId);
+    void OnGameObjectUpdate(GameObject* go, uint32 diff);
+
+public: /*ItemScript*/
 
 
 public: /* ScriptRegistry */

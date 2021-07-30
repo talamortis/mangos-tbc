@@ -305,6 +305,44 @@ public:
 
 };
 
+/* #############################################
+   #                WorldScripts
+   #
+   #############################################*/
+
+class WorldScript : public ScriptObject, public UpdatableScript<void>
+{
+protected:
+
+    WorldScript(const char* name);
+
+public:
+
+    // Loads Custom Database Tables
+    virtual void OnLoadCustomDatabaseTable() { }
+
+    // Called when the open/closed state of the world changes.
+    virtual void OnOpenStateChange(bool open) { }
+
+    // Called after the world configuration is (re)loaded.
+    virtual void OnConfigLoad(bool reload) { }
+
+    // Called before the message of the day is changed.
+    virtual void OnMotdChange(std::string& newMotd) { }
+
+    // Called when a world shutdown is initiated.
+    virtual void OnShutdown(ShutdownExitCode code, ShutdownMask mask) { }
+
+    // Called when a world shutdown is cancelled.
+    virtual void OnShutdownCancel() { }
+
+    // Called when the world is started.
+    virtual void OnStartup() { }
+
+    // Called on every world tick (don't execute too heavy code here).
+    virtual void OnUpdate(void* null, uint32 diff) { }
+};
+
 
 class ScriptDevMgr
 {
@@ -385,6 +423,17 @@ public: /* GobjectScript*/
     void OnGameObjectUpdate(GameObject* go, uint32 diff);
 
 public: /*ItemScript*/
+
+public: /* WorldScript */
+
+    void OnLoadCustomDatabaseTable();
+    void OnOpenStateChange(bool open);
+    void OnConfigLoad(bool reload);
+    void OnMotdChange(std::string& newMotd);
+    void OnShutdown(ShutdownExitCode code, ShutdownMask mask);
+    void OnShutdownCancel();
+    void OnStartup();
+    void OnWorldUpdate(uint32 diff);
 
 
 public: /* ScriptRegistry */

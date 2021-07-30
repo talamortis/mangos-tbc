@@ -71,6 +71,7 @@
 #include <mutex>
 #include <cstdarg>
 #include <memory>
+#include <AI/ScriptDevAI/ScriptDevMgr.h>
 
 INSTANTIATE_SINGLETON_1(World);
 
@@ -812,6 +813,9 @@ void World::LoadConfigSettings(bool reload)
     setConfig(CONFIG_BOOL_PATH_FIND_OPTIMIZE, "PathFinder.OptimizePath", true);
     setConfig(CONFIG_BOOL_PATH_FIND_NORMALIZE_Z, "PathFinder.NormalizeZ", false);
 
+    if (reload)
+        sScriptDevMgr.OnConfigLoad(reload);
+
     sLog.outString();
 }
 
@@ -1253,6 +1257,9 @@ void World::SetInitialWorldSettings()
     sLog.outString("Loading CreatureEventAI Scripts...");
     sEventAIMgr.LoadCreatureEventAI_Scripts();
 
+    sLog.outString("Loading Custom Module Tables...");
+    sScriptDevMgr.OnLoadCustomDatabaseTable();
+
     ///- Load and initialize scripting library
     sLog.outString("Initializing Scripting Library...");
     sScriptDevAIMgr.Initialize();
@@ -1546,6 +1553,8 @@ void World::Update(uint32 diff)
 
     // cleanup unused GridMap objects as well as VMaps
     sTerrainMgr.Update(diff);
+
+    sScriptDevMgr.OnWorldUpdate(diff);
 }
 
 namespace MaNGOS

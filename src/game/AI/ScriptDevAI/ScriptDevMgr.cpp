@@ -59,15 +59,12 @@ ScriptDevMgr::~ScriptDevMgr()
     /*SCR_CLEAR(SpellHandlerScript);
     SCR_CLEAR(AuraHandlerScript);
     SCR_CLEAR(ServerScript);
-    SCR_CLEAR(WorldScript);
+    
     SCR_CLEAR(GroupScript);
     SCR_CLEAR(FormulaScript);
     SCR_CLEAR(WorldMapScript);
     SCR_CLEAR(InstanceMapScript);
     SCR_CLEAR(BattlegroundMapScript);
-    SCR_CLEAR(ItemScript);
-   
-    SCR_CLEAR(GameObjectScript);
     SCR_CLEAR(AreaTriggerScript);
     SCR_CLEAR(BattlegroundScript);
     SCR_CLEAR(OutdoorPvPScript);
@@ -77,8 +74,10 @@ ScriptDevMgr::~ScriptDevMgr()
     SCR_CLEAR(ConditionScript);
     SCR_CLEAR(DynamicObjectScript);
     SCR_CLEAR(TransportScript);*/
+    SCR_CLEAR(GameObjectScript);
     SCR_CLEAR(CreatureScript);
     SCR_CLEAR(PlayerScript);
+    SCR_CLEAR(WorldScript);
    
 
 #undef SCR_CLEAR
@@ -525,6 +524,58 @@ PlayerScript::PlayerScript(const char* name)
     ScriptDevMgr::ScriptRegistry<PlayerScript>::AddScript(this);
 }
 
+
+/* #############################################
+   #                WorldScript
+   #
+   ############################################# */
+
+void ScriptDevMgr::OnLoadCustomDatabaseTable()
+{
+    FOREACH_SCRIPT(WorldScript)->OnLoadCustomDatabaseTable();
+}
+
+void ScriptDevMgr::OnOpenStateChange(bool open)
+{
+    FOREACH_SCRIPT(WorldScript)->OnOpenStateChange(open);
+}
+
+void ScriptDevMgr::OnConfigLoad(bool reload)
+{
+    FOREACH_SCRIPT(WorldScript)->OnConfigLoad(reload);
+}
+
+void ScriptDevMgr::OnMotdChange(std::string& newMotd)
+{
+    FOREACH_SCRIPT(WorldScript)->OnMotdChange(newMotd);
+}
+
+void ScriptDevMgr::OnStartup()
+{
+    FOREACH_SCRIPT(WorldScript)->OnStartup();
+}
+
+void ScriptDevMgr::OnShutdown(ShutdownExitCode code, ShutdownMask mask)
+{
+    FOREACH_SCRIPT(WorldScript)->OnShutdown(code, mask);
+}
+
+void ScriptDevMgr::OnShutdownCancel()
+{
+    FOREACH_SCRIPT(WorldScript)->OnShutdownCancel();
+}
+
+void ScriptDevMgr::OnWorldUpdate(uint32 diff)
+{
+    FOREACH_SCRIPT(WorldScript)->OnUpdate(NULL, diff);
+}
+
+WorldScript::WorldScript(const char* name)
+    : ScriptObject(name)
+{
+    ScriptDevMgr::ScriptRegistry<WorldScript>::AddScript(this);
+}
+
 template<class TScript>
 void ScriptDevMgr::ScriptRegistry<TScript>::AddScript(TScript* const script)
 {
@@ -600,10 +651,10 @@ template<class TScript> uint32 ScriptDevMgr::ScriptRegistry<TScript>::_scriptIdC
 template class ScriptDevMgr::ScriptRegistry<CreatureScript>;
 template class ScriptDevMgr::ScriptRegistry<GameObjectScript>;
 template class ScriptDevMgr::ScriptRegistry<PlayerScript>;
+template class ScriptDevMgr::ScriptRegistry<WorldScript>;
 /*template class ScriptDevMgr::ScriptRegistry<SpellHandlerScript>;
 template class ScriptDevMgr::ScriptRegistry<AuraHandlerScript>;
 template class ScriptDevMgr::ScriptRegistry<ServerScript>;
-template class ScriptDevMgr::ScriptRegistry<WorldScript>;
 template class ScriptDevMgr::ScriptRegistry<GroupScript>;
 template class ScriptDevMgr::ScriptRegistry<FormulaScript>;
 template class ScriptDevMgr::ScriptRegistry<WorldMapScript>;

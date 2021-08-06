@@ -56,6 +56,7 @@
 #include "AI/ScriptDevAI/include/sc_grid_searchers.h"
 #include "Maps/InstanceData.h"
 #include "Entities/Transports.h"
+#include "AI/ScriptDevAI/ScriptDevMgr.h"
 
 pEffect SpellEffects[MAX_SPELL_EFFECTS] =
 {
@@ -4037,6 +4038,8 @@ bool Spell::DoCreateItem(SpellEffectIndex /*eff_idx*/, uint32 itemtype, bool rep
         // send info to the client
         player->SendNewItem(pItem, num_to_add, true, !bgType);
 
+        sScriptDevMgr.OnCreateItem(player, pItem, num_to_add);
+
         // we succeeded in creating at least one item, so a levelup is possible
         if (!bgType)
             player->UpdateCraftSkill(m_spellInfo->Id);
@@ -7906,6 +7909,8 @@ void Spell::EffectDuel(SpellEffectIndex eff_idx)
     target->SetGuidValue(PLAYER_DUEL_ARBITER, pGameObj->GetObjectGuid());
 
     m_spellLog.AddLog(uint32(SPELL_EFFECT_DUEL), target->GetPackGUID());
+
+    sScriptDevMgr.OnPlayerDuelRequest(target, caster);
 }
 
 void Spell::EffectStuck(SpellEffectIndex /*eff_idx*/)

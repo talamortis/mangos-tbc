@@ -48,6 +48,7 @@
 #include "Movement/MoveSpline.h"
 #include "Entities/CreatureLinkingMgr.h"
 #include "Tools/Formulas.h"
+#include "AI/ScriptDevAI/ScriptDevMgr.h"
 #include "Entities/Transports.h"
 
 #ifdef BUILD_METRICS
@@ -932,7 +933,35 @@ uint32 Unit::DealDamage(Unit* dealer, Unit* victim, uint32 damage, CleanDamage c
     }
 
     if (health <= damage)
+    {
+
+        if (dealer->GetTypeId() == TYPEID_PLAYER)
+        {
+            if (victim->GetTypeId() == TYPEID_PLAYER)
+            {
+                Player* killer = static_cast<Player*>(dealer);
+                Player* killed = static_cast<Player*>(victim);
+                sScriptDevMgr.OnPVPKill(killer, killed);
+            }
+            else if (victim->GetTypeId() == TYPEID_UNIT)
+            {
+                Player* killer = static_cast<Player*>(dealer);
+                Creature* killed = static_cast<Creature*>(victim);
+                sScriptDevMgr.OnCreatureKill(killer, killed);
+            }
+        }
+        else if (dealer->GetTypeId() == TYPEID_UNIT)
+        {
+            if (victim->GetTypeId() == TYPEID_PLAYER)
+            {
+                Creature* killer = static_cast<Creature*>(dealer);
+                Player* killed = static_cast<Player*>(victim);
+                sScriptDevMgr.OnPlayerKilledByCreature(killer, killed);
+            }
+        }
+
         Kill(dealer, victim, damagetype, spellProto, durabilityLoss, duel_hasEnded);
+    }
     else                                                    // if (health <= damage)
         HandleDamageDealt(dealer, victim, damage, cleanDamage, damagetype, damageSchoolMask, spellProto, duel_hasEnded);
 

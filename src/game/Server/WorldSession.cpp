@@ -37,6 +37,7 @@
 #include "Social/SocialMgr.h"
 #include "GMTickets/GMTicketMgr.h"
 #include "Loot/LootMgr.h"
+#include "AI/ScriptDevAI/ScriptDevMgr.h"
 
 #include <mutex>
 #include <deque>
@@ -594,6 +595,8 @@ void WorldSession::LogoutPlayer()
         if (_player->GetPlayerbotMgr())
             _player->GetPlayerbotMgr()->LogoutAllBots(true);
 #endif
+
+        sScriptDevMgr.OnPlayerLogout(_player);
 
         sLog.outChar("Account: %d (IP: %s) Logout Character:[%s] (guid: %u)", GetAccountId(), GetRemoteAddress().c_str(), _player->GetName(), _player->GetGUIDLow());
 

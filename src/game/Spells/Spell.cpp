@@ -46,6 +46,7 @@
 #include "MotionGenerators/PathFinder.h"
 #include "Spells/Scripts/SpellScript.h"
 #include "Entities/ObjectGuid.h"
+#include "AI/ScriptDevAI/ScriptDevMgr.h"
 
 extern pEffect SpellEffects[MAX_SPELL_EFFECTS];
 
@@ -3000,6 +3001,9 @@ void Spell::cast(bool skipCheck)
         if (charmer && !(charmer->GetTypeId() == TYPEID_PLAYER && ((Player*)charmer)->GetCamera().GetBody() == m_caster)) // need to check if target doesnt have a player controlling it
             m_caster->SetInFront(m_targets.getUnitTarget());
     }
+
+    if (m_caster->GetTypeId() == TYPEID_PLAYER)
+        sScriptDevMgr.OnPlayerSpellCast((Player*)m_caster, this, skipCheck);
 
     // triggered cast called from Spell::prepare where it was already checked
     SpellCastResult castResult = SPELL_CAST_OK;

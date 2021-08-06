@@ -63,6 +63,7 @@
 #include "Loot/LootMgr.h"
 #include "World/WorldStateDefines.h"
 #include "World/WorldState.h"
+#include "AI/ScriptDevAI/ScriptDevMgr.h"
 
 #ifdef BUILD_PLAYERBOT
 #include "PlayerBot/Base/PlayerbotAI.h"
@@ -953,6 +954,7 @@ bool Player::Create(uint32 guidlow, const std::string& name, uint8 race, uint8 c
     }
     // all item positions resolved
 
+    sScriptDevMgr.OnPlayerCreate(this);
     return true;
 }
 
@@ -1383,6 +1385,8 @@ void Player::Update(const uint32 diff)
     // Update ticket squelch timer
     if (WorldSession* session = GetSession())
         session->m_ticketSquelchTimer.Update(diff);
+
+    sScriptDevMgr.OnBeforePlayerUpdate(this, diff);
 
     // Undelivered mail
     if (m_nextMailDelivereTime && m_nextMailDelivereTime <= time(nullptr))
@@ -2657,7 +2661,9 @@ void Player::GiveXP(uint32 xp, Creature* victim, float groupRate)
     else
         bonus_xp = victim ? GetXPRestBonus(xp) : 0;
 
-    SendLogXPGain(xp, victim, bonus_xp, recruitAFriend, groupRate);
+    sScriptDevMgr.OnGivePlayerXP(this, xp, victim);
+
+    SendLogXPGain(xp, victim, rested_bonus_xp, groupRate);
 
     uint32 curXP = GetUInt32Value(PLAYER_XP);
     uint32 nextLvlXP = GetUInt32Value(PLAYER_NEXT_LEVEL_XP);
@@ -2683,6 +2689,8 @@ void Player::GiveLevel(uint32 level)
 {
     if (level == getLevel())
         return;
+
+    sScriptDevMgr.OnPlayerLevelChanged(this, getLevel(), level);
 
     uint32 plClass = getClass();
 
@@ -2757,6 +2765,13 @@ void Player::GiveLevel(uint32 level)
     // resend quests status directly
     GetSession()->SetCurrentPlayerLevel(level);
     SendQuestGiverStatusMultiple();
+}
+
+void Player::SetFreeTalentPoints(uint32 points) 
+{ 
+    sScriptDevMgr.OnPlayerFreeTalentPointsChanged(this, points);
+
+    SetUInt32Value(PLAYER_CHARACTER_POINTS1, points);
 }
 
 void Player::UpdateFreeTalentPoints(bool resetIfNeed)
@@ -3818,6 +3833,8 @@ uint32 Player::resetTalentsCost() const
 
 bool Player::resetTalents(bool no_cost)
 {
+    sScriptDevMgr.OnPlayerTalentsReset(this, no_cost);
+
     // not need after this call
     if (HasAtLoginFlag(AT_LOGIN_RESET_TALENTS))
         RemoveAtLoginFlag(AT_LOGIN_RESET_TALENTS, true);
@@ -7110,6 +7127,8 @@ void Player::UpdateZone(uint32 newZone, uint32 newArea, bool force)
     // zone changed, so area changed as well, update it
     UpdateArea(newArea);
 
+    sScriptDevMgr.OnPlayerUpdateZone(this, newZone, newArea);
+
     // in PvP, any not controlled zone (except zone->team == 6, default case)
     // in PvE, only opposition team capital
     switch (zone->team)
@@ -7275,6 +7294,8 @@ void Player::DuelComplete(DuelCompleteType type)
     SetUInt32Value(PLAYER_DUEL_TEAM, 0);
     duel->opponent->SetGuidValue(PLAYER_DUEL_ARBITER, ObjectGuid());
     duel->opponent->SetUInt32Value(PLAYER_DUEL_TEAM, 0);
+
+    sScriptDevMgr.OnPlayerDuelEnd(duel->opponent, this, type);
 
     delete duel->opponent->duel;
     duel->opponent->duel = nullptr;
@@ -10487,6 +10508,7 @@ Item* Player::_StoreItem(uint16 pos, Item* pItem, uint32 count, bool clone, bool
         AddEnchantmentDurations(pItem);
         AddItemDurations(pItem);
         sScriptDevAIMgr.OnItemLoot(this, pItem, true);
+        sScriptDevMgr.OnLootItem(this, pItem, count, pItem->GetGUIDLow());
 
         // at place into not appropriate slot (bank, for example) remove aura
         ApplyItemOnStoreSpell(pItem, IsEquipmentPos(pItem->GetBagSlot(), pItem->GetSlot()) || IsInventoryPos(pItem->GetBagSlot(), pItem->GetSlot()));
@@ -13364,6 +13386,8 @@ void Player::RewardQuest(Quest const* pQuest, uint32 reward, Object* questGiver,
             {
                 Item* item = StoreNewItem(dest, itemId, true, Item::GenerateItemRandomPropertyId(itemId));
                 SendNewItem(item, pQuest->RewChoiceItemCount[reward], true, false, false, false);
+
+                sScriptDevMgr.OnQuestRewardItem(this, item, pQuest->RewChoiceItemCount[reward]);
             }
         }
     }
@@ -13379,6 +13403,8 @@ void Player::RewardQuest(Quest const* pQuest, uint32 reward, Object* questGiver,
                 {
                     Item* item = StoreNewItem(dest, itemId, true, Item::GenerateItemRandomPropertyId(itemId));
                     SendNewItem(item, pQuest->RewItemCount[i], true, false, false, false);
+
+                    sScriptDevMgr.OnQuestRewardItem(this, item, pQuest->RewChoiceItemCount[i]);
                 }
             }
         }
@@ -15054,6 +15080,8 @@ bool Player::LoadFromDB(ObjectGuid guid, SqlQueryHolder* holder)
     setFactionForRace(getRace());
     SetCharm(nullptr);
 
+    sScriptDevMgr.OnPlayerLoadFromDB(this);
+
     // load home bind and check in same time class/race pair, it used later for restore broken positions
     if (!_LoadHomeBind(holder->GetResult(PLAYER_LOGIN_QUERY_LOADHOMEBIND)))
     {
@@ -16432,6 +16460,9 @@ InstancePlayerBind* Player::BindToInstance(DungeonPersistentState* state, bool p
         if (!load)
             DEBUG_LOG("Player::BindToInstance: %s(%d) is now bound to map %d, instance %d, difficulty %d",
                       GetName(), GetGUIDLow(), state->GetMapId(), state->GetInstanceId(), state->GetDifficulty());
+
+        sScriptDevMgr.OnPlayerBindToInstance(this, state->GetDifficulty(), state->GetMapId(), permanent);
+
         return &bind;
     }
     return nullptr;
@@ -16650,6 +16681,8 @@ void Player::SaveToDB()
         ScheduleDelayedOperation(DELAYED_SAVE_PLAYER);
         return;
     }
+
+    sScriptDevMgr.OnPlayerSave(this);
 
     // first save/honor gain after midnight will also update the player's honor fields
     UpdateHonorFields();
@@ -17625,6 +17658,8 @@ void Player::UpdateDuelFlag(time_t currTime)
 {
     if (!duel || duel->startTimer == 0 || currTime < duel->startTimer + 3)
         return;
+
+    sScriptDevMgr.OnPlayerDuelStart(this, duel->opponent);
 
     SetUInt32Value(PLAYER_DUEL_TEAM, 1);
     duel->opponent->SetUInt32Value(PLAYER_DUEL_TEAM, 2);
@@ -21435,6 +21470,25 @@ void Player::SetHomebindToLocation(WorldLocation const& loc, uint32 area_id)
     // update sql homebind
     CharacterDatabase.PExecute("UPDATE character_homebind SET map = '%u', zone = '%u', position_x = '%f', position_y = '%f', position_z = '%f' WHERE guid = '%u'",
                                m_homebindMapId, m_homebindAreaId, m_homebindX, m_homebindY, m_homebindZ, GetGUIDLow());
+}
+
+void Player::ModifyMoney(int32 d)
+{
+
+    sScriptDevMgr.OnPlayerMoneyChanged(this, d);
+
+    if (d < 0)
+        SetMoney(GetMoney() > uint32(-d) ? GetMoney() + d : 0);
+    else
+        SetMoney(GetMoney() < uint32(MAX_MONEY_AMOUNT - d) ? GetMoney() + d : MAX_MONEY_AMOUNT);
+
+    // "At Gold Limit"
+    if (GetMoney() >= MAX_MONEY_AMOUNT)
+    {
+        sScriptDevMgr.OnPlayerMoneyLimit(this, d);
+        SendEquipError(EQUIP_ERR_TOO_MUCH_GOLD, nullptr, nullptr);
+    }
+        
 }
 
 Object* Player::GetObjectByTypeMask(ObjectGuid guid, TypeMask typemask)

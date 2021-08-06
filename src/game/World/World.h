@@ -637,10 +637,6 @@ class World
 
         void UpdateSessionExpansion(uint8 expansion);
 
-        void LoadModuleConfig();
-
-        bool GetModuleBoolConfig(std::string conf, bool value);
-
     protected:
         void _UpdateGameTime();
         // callback for UpdateRealmCharacters

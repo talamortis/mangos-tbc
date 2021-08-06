@@ -827,6 +827,9 @@ void World::SetInitialWorldSettings()
     ///- Initialize detour memory management
     dtAllocSetCustom(dtCustomAlloc, dtCustomFree);
 
+    ///- Initialize module config settings
+    LoadModuleConfig();
+
     ///- Initialize config settings
     LoadConfigSettings();
 
@@ -2508,4 +2511,79 @@ void World::UpdateSessionExpansion(uint8 expansion)
     for (auto& data : m_sessions)
         if (data.second->GetSecurity() < SEC_GAMEMASTER)
             data.second->SetExpansion(expansion);
+}
+
+void World::LoadModuleConfig()
+{
+    QueryResult* result = WorldDatabase.PQuery("SELECT `id`, `config`, `value` FROM module_config");
+    uint64 count = 0;
+
+    if (result)
+    {
+        do
+        {
+            Field* field = result->Fetch();
+            ModuleConfig mod;
+
+            uint32 id = field[0].GetUInt32();
+            mod.config = field[1].GetString();
+            mod.value = field[2].GetString();
+
+            _moduleConfig[mod.config] = mod;
+
+            count++;
+        } while (result->NextRow());
+    }
+
+    sLog.outString(">> Loaded %lu module config", count);
+}
+
+//sModuleMgr.GetBool(std::string conf, bool, default)
+bool World::GetModuleBoolConfig(std::string conf, bool value)
+{
+    auto it = _moduleConfig.find(conf.c_str());
+
+    // If we can not find the config at all then use value
+    if (it == _moduleConfig.end())
+        return value;
+    else
+    {
+        ModuleConfig Mod = it->second;
+
+        const char* str = Mod.value.c_str();
+        if (strcmp(str, "true") == 0 || strcmp(str, "TRUE") == 0 ||
+            strcmp(str, "yes") == 0 || strcmp(str, "YES") == 0 ||
+            strcmp(str, "1") == 0)
+            return true;
+        else
+            return false;
+    }
+}
+
+std::string World::GetModuleStringConfig(std::string conf, std::string value)
+{
+    auto it = _moduleConfig.find(conf.c_str());
+
+    if (it == _moduleConfig.end())
+        return value.c_str();
+    else
+    {
+        ModuleConfig Mod = it->second;
+        return Mod.value.c_str();
+    }
+
+}
+
+int32 World::GetModuleIntConfig(std::string conf, uint32 value)
+{
+    auto it = _moduleConfig.find(conf.c_str());
+
+    if (it == _moduleConfig.end())
+        return value;
+    else
+    {
+        ModuleConfig Mod = it->second;
+        return (uint32)atoi(Mod.value.c_str());
+    }
+
 }

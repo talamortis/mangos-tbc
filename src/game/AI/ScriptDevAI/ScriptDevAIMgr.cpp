@@ -236,7 +236,7 @@ uint32 ScriptDevAIMgr::GetDialogStatus(const Player* pPlayer, const Creature* pC
         return DIALOG_STATUS_UNDEFINED;
     }
         
-    pPlayer->PlayerTalkClass->ClearMenus();
+    pPlayer->GetPlayerMenu()->ClearMenus();
 
     return pTempScript->pDialogStatusNPC(pPlayer, pCreature);
 }
@@ -331,7 +331,7 @@ bool ScriptDevAIMgr::OnQuestRewarded(Player* pPlayer, Creature* pCreature, Quest
         return false;
     }
         
-    pPlayer->PlayerTalkClass->ClearMenus();
+    pPlayer->GetPlayerMenu()->ClearMenus();
 
     return pTempScript->pQuestRewardedNPC(pPlayer, pCreature, pQuest);
 }

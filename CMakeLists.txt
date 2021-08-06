@@ -27,6 +27,11 @@ endif()
 
 project(CMaNGOS_TBC)
 
+# some utils for cmake
+include(dep/drassil/cmake-utils/utils.cmake)
+
+include(cmake/ac_macros.cmake)
+
 # Define here name of the binaries
 set(CMANGOS_BINARY_SERVER_NAME "mangosd")
 set(CMANGOS_BINARY_REALMD_NAME "realmd")
@@ -365,6 +370,35 @@ endif()
 
 add_subdirectory(dep)
 
+#
+# Loading dyn modules
+#
+
+# add modules and dependencies
+CU_SUBDIRLIST(sub_DIRS  "${CMAKE_SOURCE_DIR}/src/game/Modules" FALSE FALSE)
+FOREACH(subdir ${sub_DIRS})
+
+    get_filename_component(MODULENAME ${subdir} NAME)
+
+    if (";${DISABLED_AC_MODULES};" MATCHES ";${MODULENAME};")
+       continue()
+    endif()
+
+    STRING(REGEX REPLACE "^${CMAKE_SOURCE_DIR}/" "" subdir_rel ${subdir})
+    if(EXISTS "${subdir}/CMakeLists.txt")
+        message("Loading module: ${subdir_rel}")
+        add_subdirectory("${subdir_rel}")
+    endif()
+ENDFOREACH()
+CU_RUN_HOOK("AFTER_LOAD_CONF")
+
+CU_RUN_HOOK("AFTER_LOAD_CMAKE_MODULES")
+#
+# Loading application sources
+#
+
+CU_RUN_HOOK("BEFORE_SRC_LOAD")
+
 # Add definitions for all build types
 # Don't place this above 'dep' subdirectory! Because of defines build will crash.
 set(DEFINITIONS "")
@@ -392,6 +426,8 @@ endif()
 if(BUILD_GAME_SERVER OR BUILD_LOGIN_SERVER OR BUILD_EXTRACTORS)
   add_subdirectory(src)
 endif()
+
+CU_RUN_HOOK("AFTER_SRC_LOAD")
 
 if(BUILD_EXTRACTORS)
   if(CMAKE_SYSTEM_PROCESSOR MATCHES "^arm")

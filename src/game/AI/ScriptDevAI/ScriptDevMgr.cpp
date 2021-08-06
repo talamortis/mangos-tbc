@@ -94,7 +94,7 @@ bool ScriptDevMgr::OnGossipHello(Player* player, GameObject* go)
     MANGOS_ASSERT(go);
 
     GET_SCRIPT_RET(GameObjectScript, go->GetScriptId(), tmpscript, false);
-    player->PlayerTalkClass->ClearMenus();
+    player->GetPlayerMenu()->ClearMenus();
     return tmpscript->OnGossipHello(player, go);
 }
 
@@ -105,7 +105,7 @@ bool ScriptDevMgr::OnGossipSelect(Player* player, GameObject* go, uint32 sender,
 
 
     GET_SCRIPT_RET(GameObjectScript, go->GetScriptId(), tmpscript, false);
-    player->PlayerTalkClass->ClearMenus();
+    player->GetPlayerMenu()->ClearMenus();
     return tmpscript->OnGossipSelect(player, go, sender, action);
 }
 
@@ -117,7 +117,7 @@ bool ScriptDevMgr::OnGossipSelectCode(Player* player, GameObject* go, uint32 sen
 
 
     GET_SCRIPT_RET(GameObjectScript, go->GetScriptId(), tmpscript, false);
-    player->PlayerTalkClass->ClearMenus();
+    player->GetPlayerMenu()->ClearMenus();
     return tmpscript->OnGossipSelectCode(player, go, sender, action, code);
 }
 
@@ -129,7 +129,7 @@ bool ScriptDevMgr::OnQuestAccept(Player* player, GameObject* go, Quest const* qu
 
 
     GET_SCRIPT_RET(GameObjectScript, go->GetScriptId(), tmpscript, false);
-    player->PlayerTalkClass->ClearMenus();
+    player->GetPlayerMenu()->ClearMenus();
     return tmpscript->OnQuestAccept(player, go, quest);
 }
 
@@ -140,7 +140,7 @@ bool ScriptDevMgr::OnQuestReward(Player* player, GameObject* go, Quest const* qu
     MANGOS_ASSERT(quest);
 
     GET_SCRIPT_RET(GameObjectScript, go->GetScriptId(), tmpscript, false);
-    player->PlayerTalkClass->ClearMenus();
+    player->GetPlayerMenu()->ClearMenus();
     return tmpscript->OnQuestReward(player, go, quest, opt);
 }
 
@@ -152,7 +152,7 @@ bool ScriptDevMgr::OnQuestComplete(Player* player, GameObject* gameobject, Quest
     MANGOS_ASSERT(quest);
 
     GET_SCRIPT_RET(GameObjectScript, gameobject->GetScriptId(), tmpscript, false);
-    player->PlayerTalkClass->ClearMenus();
+    player->GetPlayerMenu()->ClearMenus();
     return tmpscript->OnQuestComplete(player, gameobject, quest);
 }
 
@@ -163,7 +163,7 @@ uint32 ScriptDevMgr::GetDialogStatus(Player* player, GameObject* go)
 
 
     GET_SCRIPT_RET(GameObjectScript, go->GetScriptId(), tmpscript, 100);
-    player->PlayerTalkClass->ClearMenus();
+    player->GetPlayerMenu()->ClearMenus();
     return tmpscript->OnDialogStatus(player, go);
 }
 
@@ -203,7 +203,7 @@ bool ScriptDevMgr::OnGossipHello(Player* player, Creature* creature)
     MANGOS_ASSERT(creature);
 
     GET_SCRIPT_RET(CreatureScript, creature->GetScriptId(), tmpscript, false);
-    player->PlayerTalkClass->ClearMenus();
+    player->GetPlayerMenu()->ClearMenus();
     return tmpscript->OnGossipHello(player, creature);
 }
 
@@ -213,7 +213,7 @@ bool ScriptDevMgr::OnGossipSelect(Player* player, Creature* creature, uint32 sen
     MANGOS_ASSERT(creature);
 
     GET_SCRIPT_RET(CreatureScript, creature->GetScriptId(), tmpscript, false);
-    player->PlayerTalkClass->ClearMenus();
+    player->GetPlayerMenu()->ClearMenus();
         
     return tmpscript->OnGossipSelect(player, creature, sender, action);
 }
@@ -225,7 +225,7 @@ bool ScriptDevMgr::OnGossipSelectCode(Player* player, Creature* creature, uint32
     MANGOS_ASSERT(code);
 
     GET_SCRIPT_RET(CreatureScript, creature->GetScriptId(), tmpscript, false);
-    player->PlayerTalkClass->ClearMenus();
+    player->GetPlayerMenu()->ClearMenus();
     return tmpscript->OnGossipSelectCode(player, creature, sender, action, code);
 }
 
@@ -237,7 +237,7 @@ bool ScriptDevMgr::OnQuestAccept(Player* player, Creature* creature, Quest const
     MANGOS_ASSERT(quest);
 
     GET_SCRIPT_RET(CreatureScript, creature->GetScriptId(), tmpscript, false);
-    player->PlayerTalkClass->ClearMenus();
+    player->GetPlayerMenu()->ClearMenus();
     return tmpscript->OnQuestAccept(player, creature, quest);
 }
 
@@ -248,7 +248,7 @@ bool ScriptDevMgr::OnQuestSelect(Player* player, Creature* creature, Quest const
     MANGOS_ASSERT(quest);
 
     GET_SCRIPT_RET(CreatureScript, creature->GetScriptId(), tmpscript, false);
-    player->PlayerTalkClass->ClearMenus();
+    player->GetPlayerMenu()->ClearMenus();
     return tmpscript->OnQuestSelect(player, creature, quest);
 }
 
@@ -259,7 +259,7 @@ bool ScriptDevMgr::OnQuestComplete(Player* player, Creature* creature, Quest con
     MANGOS_ASSERT(quest);
 
     GET_SCRIPT_RET(CreatureScript, creature->GetScriptId(), tmpscript, false);
-    player->PlayerTalkClass->ClearMenus();
+    player->GetPlayerMenu()->ClearMenus();
     return tmpscript->OnQuestComplete(player, creature, quest);
 }
 
@@ -270,7 +270,7 @@ bool ScriptDevMgr::OnQuestReward(Player* player, Creature* creature, Quest const
     MANGOS_ASSERT(quest);
 
     GET_SCRIPT_RET(CreatureScript, creature->GetScriptId(), tmpscript, false);
-    player->PlayerTalkClass->ClearMenus();
+    player->GetPlayerMenu()->ClearMenus();
     return tmpscript->OnQuestReward(player, creature, quest, opt);
 }
 
@@ -281,7 +281,7 @@ uint32 ScriptDevMgr::GetDialogStatus(const Player* player, const Creature* creat
 
     // TODO: 100 is a funny magic number to have hanging around here...
     GET_SCRIPT_RET(CreatureScript, creature->GetScriptId(), tmpscript, 100);
-    player->PlayerTalkClass->ClearMenus();
+    player->GetPlayerMenu()->ClearMenus();
     return tmpscript->OnDialogStatus(player, creature);
 }
 

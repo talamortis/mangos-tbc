@@ -26,11 +26,11 @@ EndScriptData */
 #include "MotionGenerators/WaypointManager.h"
 
 instance_zulaman::instance_zulaman(Map* map) : ScriptedInstance(map),
+    m_startCheck(false),
     m_uiEventTimer(MINUTE * IN_MILLISECONDS),
     m_uiBearEventPhase(0),
     m_isBearPhaseInProgress(false),
     m_bIsAkilzonGauntletInProgress(false),
-    m_startCheck(false),
     m_spiritFadeTimer(0)
 {
     Initialize();
@@ -198,9 +198,9 @@ void instance_zulaman::OnCreatureEvade(Creature* creature)
                 if (!temp)
                     break;
 
-                if (!temp->IsAlive())
-                    temp->Respawn();
-                
+                temp->ForcedDespawn();
+                temp->Respawn();
+
                 temp->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_NPC | UNIT_FLAG_IMMUNE_TO_PLAYER);
             }
             m_nalorakkEvent[m_uiBearEventPhase].trashKilledCount = 0;
@@ -302,12 +302,20 @@ void instance_zulaman::OnObjectCreate(GameObject* pGo)
         case GO_AMANI_DRUM:
             break;
         case GO_ALTAR_TORCH_EAGLE_GOD:
+            if (m_auiEncounter[TYPE_AKILZON] == DONE)
+                pGo->SetGoState(GO_STATE_ACTIVE);
             break;
         case GO_ALTAR_TORCH_DRAGONHAWK_GOD:
+            if (m_auiEncounter[TYPE_JANALAI] == DONE)
+                pGo->SetGoState(GO_STATE_ACTIVE);
             break;
         case GO_ALTAR_TORCH_LYNX_GOD:
+            if (m_auiEncounter[TYPE_HALAZZI] == DONE)
+                pGo->SetGoState(GO_STATE_ACTIVE);
             break;
         case GO_ALTAR_TORCH_BEAR_GOD:
+            if (m_auiEncounter[TYPE_NALORAKK] == DONE)
+                pGo->SetGoState(GO_STATE_ACTIVE);
             break;
         default:
             return;
@@ -318,7 +326,7 @@ void instance_zulaman::OnObjectCreate(GameObject* pGo)
 void instance_zulaman::FillInitialWorldStates(ByteBuffer& data, uint32& count, uint32 /*zoneId*/, uint32 /*areaId*/)
 {
     FillInitialWorldStateData(data, count, WORLD_STATE_ZUL_AMAN_EVENT_RUN_IS_ACTIVE, GetData(TYPE_EVENT_RUN) == IN_PROGRESS);
-    FillInitialWorldStateData(data, count, WORLD_STATE_MOUNT_HYJAL_ENEMYCOUNT, GetData(TYPE_RUN_EVENT_TIME));
+    FillInitialWorldStateData(data, count, WORLD_STATE_ZUL_AMAN_TIME_COUNTER, GetData(TYPE_RUN_EVENT_TIME));
 }
 
 void instance_zulaman::SetData(uint32 type, uint32 data)
@@ -699,7 +707,7 @@ void instance_zulaman::SpawnMalacrass()
     if (GetSingleCreatureFromStorage(NPC_MALACRASS, true))
         return;
 
-    // Summon Archimonde
+    // Summon Malacrass
     if (Player* pPlayer = GetPlayerInMap())
         pPlayer->SummonCreature(NPC_MALACRASS, aMalacrassSpawnLoc[0], aMalacrassSpawnLoc[1], aMalacrassSpawnLoc[2], aMalacrassSpawnLoc[3], TEMPSPAWN_MANUAL_DESPAWN, 0);
 }

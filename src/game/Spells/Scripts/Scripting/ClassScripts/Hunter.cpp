@@ -21,33 +21,38 @@
 
 struct HuntersMark : public AuraScript
 {
-    int32 OnAuraValueCalculate(Aura* aura, Unit* /*caster*/, int32 damage) const override
+    int32 OnAuraValueCalculate(AuraCalcData& data, int32 value) const override
     {
-        if (aura->GetEffIndex() == EFFECT_INDEX_2)
+        if (data.effIdx == EFFECT_INDEX_2)
         {
             int32 auraValue = 0;
-            if (Aura* otherAura = aura->GetHolder()->m_auras[EFFECT_INDEX_1])
-                auraValue = otherAura->GetAmount(); // fetch ranged aura AP
-
-            if (Unit* caster = aura->GetCaster())
+            if (data.aura)
             {
-                Unit::AuraList const& mclassScritAuras = caster->GetAurasByType(SPELL_AURA_OVERRIDE_CLASS_SCRIPTS);
-                for (Unit::AuraList::const_iterator j = mclassScritAuras.begin(); j != mclassScritAuras.end(); ++j)
+                if (Aura* otherAura = data.aura->GetHolder()->m_auras[EFFECT_INDEX_1])
+                    auraValue = otherAura->GetAmount(); // fetch ranged aura AP
+            }
+            else if (data.caster) // or newly calculate it
+                auraValue = data.caster->CalculateSpellEffectValue(data.target, data.spellProto, EFFECT_INDEX_1, nullptr, true, false);
+
+            if (Unit* caster = data.caster)
+            {
+                Unit::AuraList const& classScriptAuras = caster->GetAurasByType(SPELL_AURA_OVERRIDE_CLASS_SCRIPTS);
+                for (auto& aura : classScriptAuras)
                 {
-                    switch ((*j)->GetModifier()->m_miscvalue)
+                    switch (aura->GetModifier()->m_miscvalue)
                     {
                         case 5236:
                         case 5237:
                         case 5238:
                         case 5239:
                         case 5240:
-                            damage = std::min((*j)->GetModifier()->m_amount, auraValue); // use lower, so that talent doesnt make low lvls OP
+                            value = aura->GetModifier()->m_amount * auraValue / 100;
                             break;
                     }
                 }
             }
         }
-        return damage;
+        return value;
     }
 
     SpellAuraProcResult OnProc(Aura* aura, ProcExecutionData& /*procData*/) const override
@@ -65,7 +70,7 @@ struct HuntersMark : public AuraScript
 
 struct KillCommand : public SpellScript
 {
-    void OnHit(Spell* spell) const override
+    void OnHit(Spell* spell, SpellMissInfo /*missInfo*/) const override
     {
         if (spell->GetCaster()->HasAura(37483)) // Improved Kill Command - Item set bonus
             spell->GetCaster()->CastSpell(nullptr, 37482, TRIGGERED_OLD_TRIGGERED);// Exploited Weakness
@@ -96,8 +101,35 @@ struct KillCommand : public SpellScript
     }
 };
 
+struct Misdirection : public SpellScript
+{
+    SpellCastResult OnCheckCast(Spell* spell, bool/* strict*/) const override
+    {
+        // Patch 2.3.0 (2007-11-13):
+        // Misdirection: If a Hunter attempts to use this ability on a target which already has an active Misdirection, the spell will fail to apply due to a more powerful spell already being in effect.
+        if (Unit* target = spell->m_targets.getUnitTarget())
+            if (target->HasAura(35079))
+                return SPELL_FAILED_AURA_BOUNCED;
+
+        return SPELL_CAST_OK;
+    }
+};
+
+struct ExposeWeakness : public AuraScript
+{
+    int32 OnAuraValueCalculate(AuraCalcData& data, int32 value) const override
+    {
+        if (data.caster)
+            value = (data.caster->GetStat(STAT_AGILITY) * value) / 100;
+
+        return value;
+    }
+};
+
 void LoadHunterScripts()
 {
     RegisterAuraScript<HuntersMark>("spell_hunters_mark");
     RegisterSpellScript<KillCommand>("spell_kill_command");
+    RegisterSpellScript<Misdirection>("spell_misdirection");
+    RegisterAuraScript<ExposeWeakness>("spell_expose_weakness");
 }

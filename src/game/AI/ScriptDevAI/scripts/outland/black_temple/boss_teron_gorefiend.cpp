@@ -94,6 +94,10 @@ struct boss_teron_gorefiendAI : public ScriptedAI, public CombatActions
         AddCombatAction(GOREFIEND_ACTION_SHADOW_OF_DEATH, 0u);
         AddCombatAction(GOREFIEND_ACTION_CRUSHING_SHADOWS, 0u);
         AddCombatAction(GOREFIEND_ACTION_BERSERK, 0u);
+        m_creature->GetCombatManager().SetLeashingCheck([&](Unit*, float x, float y, float z)
+            {
+                return x < 516.8f && y > 402.7f;
+            });
         Reset();
     }
 
@@ -142,13 +146,13 @@ struct boss_teron_gorefiendAI : public ScriptedAI, public CombatActions
         }
     }
 
-    void JustReachedHome() override
+    void EnterEvadeMode() override
     {
         if (m_instance)
             m_instance->SetData(TYPE_GOREFIEND, FAIL);
-
         DespawnSummons();
         DoCastSpellIfCan(nullptr, SPELL_DESTROY_ALL_SPIRITS);
+        ScriptedAI::EnterEvadeMode();
     }
 
     void Aggro(Unit* /*pWho*/) override
@@ -170,6 +174,7 @@ struct boss_teron_gorefiendAI : public ScriptedAI, public CombatActions
                     m_introDone = true;
                 }
                 break;
+            default: break;
         }
     }
 
@@ -405,6 +410,9 @@ struct npc_shadow_constructAI : public ScriptedAI, public TimerManager
 
 bool AreaTrigger_at_teron_gorefiend(Player* player, AreaTriggerEntry const* /*at*/)
 {
+    if (player->IsGameMaster())
+        return false;
+
     instance_black_temple* temple = static_cast<instance_black_temple*>(player->GetMap()->GetInstanceData());
     if (Creature* teron = temple->GetSingleCreatureFromStorage(NPC_TERON_GOREFIEND))
         if (teron->IsAlive())
@@ -462,7 +470,7 @@ struct SummonBlossomMoveTarget : public SpellScript
 {
     void OnDestTarget(Spell* spell) const override
     {
-        spell->m_targets.m_destZ += 12.f;
+        spell->m_targets.m_destPos.z += 12.f;
     }
 };
 

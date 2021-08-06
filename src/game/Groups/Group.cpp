@@ -504,13 +504,17 @@ void Group::SetTargetIcon(uint8 id, ObjectGuid targetGuid)
 
 static void GetDataForXPAtKill_helper(Player* player, Unit const* victim, uint32& sum_level, Player*& member_with_max_level, Player*& not_gray_member_with_max_level)
 {
-    sum_level += player->getLevel();
-    if (!member_with_max_level || member_with_max_level->getLevel() < player->getLevel())
+    const uint32 level = player->getLevel();
+
+    sum_level += level;
+
+    if (!member_with_max_level || member_with_max_level->getLevel() < level)
         member_with_max_level = player;
 
-    uint32 gray_level = MaNGOS::XP::GetGrayLevel(player->getLevel());
-    if (victim->getLevel() > gray_level && (!not_gray_member_with_max_level
-                                            || not_gray_member_with_max_level->getLevel() < player->getLevel()))
+    if (MaNGOS::XP::IsTrivialLevelDifference(level, victim->GetLevelForTarget(player)))
+        return;
+
+    if (!not_gray_member_with_max_level || not_gray_member_with_max_level->getLevel() < level)
         not_gray_member_with_max_level = player;
 }
 
@@ -1185,6 +1189,8 @@ uint32 Group::CanJoinBattleGroundQueue(BattleGroundTypeId bgTypeId, BattleGround
         // check if member can join any more battleground queues
         if (!member->HasFreeBattleGroundQueueId())
             return BG_JOIN_ERR_ALL_QUEUES_USED;
+        if (member->InArena())
+            return BG_JOIN_ERR_GROUP_IN_ARENA;
     }
     return BG_JOIN_ERR_OK;
 }
@@ -1396,7 +1402,7 @@ void Group::UnbindInstance(uint32 mapid, uint8 difficulty, bool unload)
 
 void Group::_homebindIfInstance(Player* player) const
 {
-    if (player && !player->isGameMaster())
+    if (player && !player->IsGameMaster())
     {
         Map* map = player->GetMap();
         if (map->IsDungeon())
@@ -1449,7 +1455,7 @@ static void RewardGroupAtKill_helper(Player* pGroupGuy, Unit* pVictim, uint32 co
                 // normal creature (not pet/etc) can be only in !PvP case
                 if (creatureVictim->GetTypeId() == TYPEID_UNIT)
                     if (CreatureInfo const* normalInfo = creatureVictim->GetCreatureInfo())
-                        pGroupGuy->KilledMonster(normalInfo, creatureVictim->GetObjectGuid());
+                        pGroupGuy->KilledMonster(normalInfo, creatureVictim);
             }
         }
     }

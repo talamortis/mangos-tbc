@@ -30,6 +30,8 @@ EndContentData */
 
 #include "AI/ScriptDevAI/include/sc_common.h"
 #include "AI/ScriptDevAI/base/escort_ai.h"
+#include "AI/ScriptDevAI/scripts/outland/world_outland.h"
+#include "Spells/Scripts/SpellScript.h"
 
 /*######
 ## mob_lump
@@ -76,7 +78,7 @@ struct mob_lumpAI : public ScriptedAI
         AttackStart(pAttacker);
     }
 
-    void DamageTaken(Unit* /*pDealer*/, uint32& damage, DamageEffectType /*damagetype*/, SpellEntry const* /*spellInfo*/) override
+    void DamageTaken(Unit* /*dealer*/, uint32& damage, DamageEffectType /*damagetype*/, SpellEntry const* /*spellInfo*/) override
     {
         if (m_creature->GetHealth() < damage || (m_creature->GetHealth() - damage) * 100 / m_creature->GetMaxHealth() < 30)
         {
@@ -473,7 +475,11 @@ enum
 
 struct npc_rethhedronAI : public ScriptedAI
 {
-    npc_rethhedronAI(Creature* pCreature) : ScriptedAI(pCreature) { JustRespawned(); Reset(); }
+    npc_rethhedronAI(Creature* pCreature) : ScriptedAI(pCreature)
+    {
+        m_creature->GetCombatManager().SetLeashingDisable(true);
+        Reset();
+    }
 
     uint32 m_uiCrippleTimer;
     uint32 m_uiShadowBoltTimer;
@@ -493,7 +499,7 @@ struct npc_rethhedronAI : public ScriptedAI
 
         m_bLowHpYell        = false;
 
-        m_attackDistance = 30.0f;
+        m_attackDistance = 60.0f;
     }
 
     void JustRespawned() override
@@ -506,7 +512,7 @@ struct npc_rethhedronAI : public ScriptedAI
         ScriptedAI::JustRespawned();
     }
 
-    void DamageTaken(Unit* /*pDealer*/, uint32& damage, DamageEffectType /*damagetype*/, SpellEntry const* /*spellInfo*/) override
+    void DamageTaken(Unit* /*dealer*/, uint32& damage, DamageEffectType /*damagetype*/, SpellEntry const* /*spellInfo*/) override
     {
         damage = std::min(m_creature->GetHealth() - 1, damage);
 
@@ -596,10 +602,58 @@ struct npc_rethhedronAI : public ScriptedAI
     }
 };
 
-UnitAI* GetAI_npc_rethhedron(Creature* pCreature)
+enum
 {
-    return new npc_rethhedronAI(pCreature);
+    GOSSIP_IN_BATTLE = 7700,
+
+    QUEST_RING_OF_BLOOD_FINAL_CHALLENGE = 9977,
+};
+
+bool QuestAccept_npc_gurthock(Player* /*player*/, Creature* creature, const Quest* quest)
+{
+    if (quest->GetQuestId() == QUEST_RING_OF_BLOOD_FINAL_CHALLENGE)
+    {
+        if (InstanceData* data = creature->GetInstanceData())
+            data->SetData(TYPE_MOGOR, 1);
+    }
+    else
+        creature->RemoveFlag(UNIT_NPC_FLAGS, UNIT_NPC_FLAG_QUESTGIVER);
+    return true;
 }
+
+bool GossipHello_npc_gurthock(Player* player, Creature* creature)
+{
+    if (creature->HasFlag(UNIT_NPC_FLAGS, UNIT_NPC_FLAG_QUESTGIVER))
+        return false;
+    player->PrepareGossipMenu(creature, GOSSIP_IN_BATTLE);
+    player->SendPreparedGossip(creature);
+    return true;
+}
+
+enum
+{
+    NPC_WILD_SPARROWHAWK = 22979,
+
+    SPELL_CAPTURED_SPARROWHAWK = 39812,
+};
+
+struct SparrowhawkNet : public SpellScript
+{
+    SpellCastResult OnCheckCast(Spell* spell, bool /*strict*/) const override
+    {
+        if (spell->m_targets.getUnitTargetGuid().GetEntry() != NPC_WILD_SPARROWHAWK)
+            return SPELL_FAILED_BAD_TARGETS;
+        return SPELL_CAST_OK;
+    }
+
+    void OnEffectExecute(Spell* spell, SpellEffectIndex effIdx) const override
+    {
+        if (effIdx != EFFECT_INDEX_1 || !spell->GetUnitTarget())
+            return;
+
+        spell->GetUnitTarget()->CastSpell(spell->GetCaster(), SPELL_CAPTURED_SPARROWHAWK, TRIGGERED_OLD_TRIGGERED);
+    }
+};
 
 void AddSC_nagrand()
 {
@@ -621,6 +675,14 @@ void AddSC_nagrand()
 
     pNewScript = new Script;
     pNewScript->Name = "npc_rethhedron";
-    pNewScript->GetAI = &GetAI_npc_rethhedron;
+    pNewScript->GetAI = &GetNewAIInstance<npc_rethhedronAI>;
     pNewScript->RegisterSelf();
+
+    pNewScript = new Script;
+    pNewScript->Name = "npc_gurthock";
+    pNewScript->pQuestAcceptNPC = &QuestAccept_npc_gurthock;
+    pNewScript->pGossipHello = &GossipHello_npc_gurthock;
+    pNewScript->RegisterSelf();
+
+    RegisterSpellScript<SparrowhawkNet>("spell_sparrowhawk_net");
 }

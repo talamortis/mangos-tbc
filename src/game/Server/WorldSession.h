@@ -24,11 +24,13 @@
 #define __WORLDSESSION_H
 
 #include "Common.h"
+#include "Globals/Locales.h"
 #include "Globals/SharedDefines.h"
 #include "Entities/ObjectGuid.h"
 #include "AuctionHouse/AuctionHouseMgr.h"
 #include "Entities/Item.h"
 #include "WorldSocket.h"
+#include "Multithreading/Messager.h"
 
 #include <map>
 #include <deque>
@@ -58,6 +60,30 @@ class MovementInfo;
 class WorldSession;
 
 struct OpcodeHandler;
+
+enum AccountDataType
+{
+    GLOBAL_CONFIG_CACHE             = 0,                    // 0x01 g
+    PER_CHARACTER_CONFIG_CACHE      = 1,                    // 0x02 p
+    GLOBAL_BINDINGS_CACHE           = 2,                    // 0x04 g
+    PER_CHARACTER_BINDINGS_CACHE    = 3,                    // 0x08 p
+    GLOBAL_MACROS_CACHE             = 4,                    // 0x10 g
+    PER_CHARACTER_MACROS_CACHE      = 5,                    // 0x20 p
+    PER_CHARACTER_LAYOUT_CACHE      = 6,                    // 0x40 p
+    PER_CHARACTER_CHAT_CACHE        = 7,                    // 0x80 p
+    NUM_ACCOUNT_DATA_TYPES          = 8
+};
+
+#define GLOBAL_CACHE_MASK           0x15
+#define PER_CHARACTER_CACHE_MASK    0xEA
+
+struct AccountData
+{
+    AccountData() : Time(0), Data("") {}
+
+    time_t Time;
+    std::string Data;
+};
 
 enum PartyOperation
 {
@@ -175,12 +201,13 @@ class WorldSession
         friend class CharacterHandler;
 
     public:
-        WorldSession(uint32 id, WorldSocket* sock, AccountTypes sec, uint8 expansion, time_t mute_time, LocaleConstant locale);
+        WorldSession(uint32 id, WorldSocket* sock, AccountTypes sec, uint8 expansion, time_t mute_time, LocaleConstant locale, uint32 recruitingFriend, bool isARecruiter);
         ~WorldSession();
 
         // Set this session have no attached socket but keep it alive for short period of time to permit a possible reconnection
         void SetOffline();
         void SetOnline();
+        void SetInCharSelection();
 
         // Request set offline, close socket and put session offline
         bool RequestNewSocket(WorldSocket* socket);
@@ -218,7 +245,7 @@ class WorldSession
 #else
         const std::string GetRemoteAddress() const { return m_Socket ? m_Socket->GetRemoteAddress() : "disconnected"; }
 #endif
-        void SetPlayer(Player* plr) { _player = plr; }
+        void SetPlayer(Player* plr, uint32 playerGuid);
         uint8 GetExpansion() const { return m_expansion; }
         void SetExpansion(uint8 expansion);
 
@@ -247,11 +274,14 @@ class WorldSession
         }
 
         void LogoutPlayer();
-        void KickPlayer();
+        void KickPlayer(bool save = false, bool inPlace = false); // inplace variable needed for shutdown
 
         void QueuePacket(std::unique_ptr<WorldPacket> new_packet);
 
-        bool Update(uint32 diff, PacketFilter& updater);
+        void DeleteMovementPackets();
+
+        bool Update(uint32 diff);
+        void UpdateMap(uint32 diff);
 
         /// Handle the authentication waiting queue (to be completed)
         void SendAuthWaitQue(uint32 position) const;
@@ -289,6 +319,12 @@ class WorldSession
         void SendStableResult(uint8 res) const;
         bool CheckStableMaster(ObjectGuid guid) const;
 
+        // Account Data
+        AccountData* GetAccountData(AccountDataType type) { return &m_accountData[type]; }
+        void SetAccountData(AccountDataType type, time_t time_, const std::string& data);
+        void SendAccountDataTimes(uint32 mask);
+        void LoadGlobalAccountData();
+        void LoadAccountData(QueryResult* result, uint32 mask);
         void LoadTutorialsData();
         void SendTutorialsData();
         void SaveTutorialsData();
@@ -361,12 +397,23 @@ class WorldSession
         void SetLatency(uint32 latency) { m_latency = latency; }
         uint32 getDialogStatus(const Player* pPlayer, const Object* questgiver, uint32 defstatus) const;
 
+        uint32 GetOrderCounter() const { return m_orderCounter; }
+        void IncrementOrderCounter() { ++m_orderCounter; }
+
+        // Recruit-A-Friend Handling
+        uint32 GetRecruitingFriendId() const { return m_recruitingFriendId; }
+        bool IsARecruiter() const { return m_isRecruiter; }
+
         // Time Synchronisation
         void ResetTimeSync();
         void SendTimeSync();
 
+        // Thread safety
+        uint32 GetCurrentPlayerLevel() { return m_currentPlayerLevel; }
+        void SetCurrentPlayerLevel(uint32 level) { m_currentPlayerLevel = level; }
+
         // Misc
-        void SendKnockBack(float angle, float horizontalSpeed, float verticalSpeed) const;
+        void SendKnockBack(Unit* who, float angle, float horizontalSpeed, float verticalSpeed);
         void SendPlaySpellVisual(ObjectGuid guid, uint32 spellArtKit) const;
 
         void SendAuthOk() const;
@@ -723,7 +770,7 @@ class WorldSession
         void HandleBattleGroundPlayerPositionsOpcode(WorldPacket& recv_data);
         void HandlePVPLogDataOpcode(WorldPacket& recv_data);
         void HandleBattlefieldStatusOpcode(WorldPacket& recv_data);
-        void HandleBattleFieldPortOpcode(WorldPacket& recv_data);
+        void HandleBattlefieldPortOpcode(WorldPacket& recv_data);
         void HandleBattlefieldListOpcode(WorldPacket& recv_data);
         void HandleLeaveBattlefieldOpcode(WorldPacket& recv_data);
         void HandleBattlemasterJoinArena(WorldPacket& recv_data);
@@ -799,8 +846,18 @@ class WorldSession
 
         void HandleGetMirrorimageData(WorldPacket& recv_data);
 
+        // Raf
+        void HandleGrantLevel(WorldPacket& recv_data);
+        void HandleReferAFriend(WorldPacket& recv_data);
+        void HandleAcceptLevelGrant(WorldPacket& recv_data);
+
         // Movement
         void SynchronizeMovement(MovementInfo &movementInfo);
+
+        std::deque<uint32> GetOpcodeHistory();
+
+        Messager<WorldSession>& GetMessager() { return m_messager; }
+
     private:
         // Additional private opcode handlers
         void HandleComplainMail(WorldPacket& recv_data);
@@ -818,6 +875,9 @@ class WorldSession
         void LogUnexpectedOpcode(WorldPacket const& packet, const char* reason) const;
         void LogUnprocessedTail(WorldPacket const& packet) const;
 
+        void ProcessByteBufferException(WorldPacket const& packet);
+
+        uint32 m_GUIDLow;                                   // set logged or recently logout player (while m_playerRecentlyLogout set)
         Player* _player;
         std::shared_ptr<WorldSocket> m_Socket;              // socket pointer is owned by the network thread which created it
         std::shared_ptr<WorldSocket> m_requestSocket;       // a new socket for this session is requested (double connection)
@@ -827,7 +887,11 @@ class WorldSession
         uint32 _accountId;
         uint8 m_expansion;
 
+        // Anticheat
+        uint32 m_orderCounter;
+
         time_t _logoutTime;                                 // when logout will be processed after a logout request
+        time_t m_kickTime;
         bool m_playerSave;                                  // should we have to save the player after logout request
         bool m_inQueue;                                     // session wait in auth.queue
         bool m_playerLoading;                               // code processed in LoginPlayer
@@ -836,6 +900,7 @@ class WorldSession
         LocaleConstant m_sessionDbcLocale;
         int m_sessionDbLocaleIndex;
         uint32 m_latency;
+        AccountData m_accountData[NUM_ACCOUNT_DATA_TYPES];
         uint32 m_Tutorials[8];
         TutorialDataState m_tutorialState;
 
@@ -852,8 +917,19 @@ class WorldSession
 
         bool m_initialZoneUpdated = false;
 
+        // Recruit-A-Friend
+        uint32 m_recruitingFriendId;
+        bool m_isRecruiter;
+
+        // Thread safety mechanisms
         std::mutex m_recvQueueLock;
+        std::mutex m_recvQueueMapLock;
         std::deque<std::unique_ptr<WorldPacket>> m_recvQueue;
+        std::deque<std::unique_ptr<WorldPacket>> m_recvQueueMap;
+
+        Messager<WorldSession> m_messager;
+
+        std::atomic<uint32> m_currentPlayerLevel;
 };
 #endif
 /// @}

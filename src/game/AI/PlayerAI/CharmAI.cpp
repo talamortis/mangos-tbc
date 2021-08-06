@@ -18,23 +18,186 @@
 
 #include "PlayerAI.h"
 
-enum WarriorSpells
+enum PriestSpells
 {
-    SPELL_HEROIC_STRIKE = 78,
+    SPELL_PSYCHIC_SCREAM = 8122,
+    SPELL_SHADOW_WORD_PAIN = 589,
+    SPELL_MIND_BLAST = 8092,
 };
 
-enum WarriorPriorities
+struct PriestAI : public PlayerAI
 {
-    PRIORITY_HEROIC_STRIKE = 0,
-    WARRIOR_SPELL_MAX,
+    PriestAI(Player* player) : PlayerAI(player)
+    {
+        if (uint32 mindBlast = LookupHighestLearnedRank(SPELL_MIND_BLAST))
+            AddPlayerSpellAction(mindBlast);
+        if (uint32 spell = LookupHighestLearnedRank(SPELL_SHADOW_WORD_PAIN))
+            AddPlayerSpellAction(spell);
+        if (uint32 spell = LookupHighestLearnedRank(SPELL_PSYCHIC_SCREAM))
+            AddPlayerSpellAction(spell);
+    }
+};
+
+enum MageSpells
+{
+    SPELL_BLIZZARD = 10,
+    SPELL_FROSTBOLT = 116,
+    SPELL_FIREBALL = 133,
+};
+
+struct MageAI : public PlayerAI
+{
+    MageAI(Player* player) : PlayerAI(player)
+    {
+        if (uint32 fireball = LookupHighestLearnedRank(SPELL_FIREBALL))
+            AddPlayerSpellAction(fireball);
+        if (uint32 spell = LookupHighestLearnedRank(SPELL_BLIZZARD))
+            AddPlayerSpellAction(spell);
+        if (uint32 spell = LookupHighestLearnedRank(SPELL_FROSTBOLT))
+            AddPlayerSpellAction(spell);
+    }
+};
+
+enum WarlockSpells
+{
+    SPELL_RAIN_OF_FIRE = 5740,
+    SPELL_FEAR = 5782,
+    SPELL_SHADOW_BOLT = 686,
+};
+
+struct WarlockAI : public PlayerAI
+{
+    WarlockAI(Player* player) : PlayerAI(player)
+    {
+        if (uint32 shadowBolt = LookupHighestLearnedRank(SPELL_SHADOW_BOLT))
+            AddPlayerSpellAction(shadowBolt);
+        if (uint32 spell = LookupHighestLearnedRank(SPELL_RAIN_OF_FIRE))
+            AddPlayerSpellAction(spell);
+        if (uint32 spell = LookupHighestLearnedRank(SPELL_FEAR))
+            AddPlayerSpellAction(spell);
+    }
+};
+
+enum RogueSpells
+{
+    SPELL_BLIND = 2094,
+    SPELL_EVISCERATE = 2098,
+    SPELL_SINISTER_STRIKE = 1752,
+};
+
+struct RogueAI : public PlayerAI
+{
+    RogueAI(Player* player) : PlayerAI(player)
+    {
+        if (uint32 sinisterStrike = LookupHighestLearnedRank(SPELL_SINISTER_STRIKE))
+            AddPlayerSpellAction(sinisterStrike);
+        if (uint32 spell = LookupHighestLearnedRank(SPELL_BLIND))
+            AddPlayerSpellAction(spell);
+        if (uint32 spell = LookupHighestLearnedRank(SPELL_EVISCERATE))
+            AddPlayerSpellAction(spell);
+    }
+};
+
+enum DruidSpells
+{
+    SPELL_WRATH = 5176,
+    SPELL_HURRICANE = 16914,
+    SPELL_MOONFIRE = 8921,
+};
+
+struct DruidAI : public PlayerAI
+{
+    DruidAI(Player* player) : PlayerAI(player)
+    {
+        if (uint32 moonfire = LookupHighestLearnedRank(SPELL_MOONFIRE))
+            AddPlayerSpellAction(moonfire);
+        if (uint32 spell = LookupHighestLearnedRank(SPELL_WRATH))
+            AddPlayerSpellAction(spell);
+        if (uint32 spell = LookupHighestLearnedRank(SPELL_HURRICANE))
+            AddPlayerSpellAction(spell);
+    }
+};
+
+enum ShamanSpells
+{
+    SPELL_HEROISM = 32182,
+    SPELL_BLOODLUST = 2825,
+    SPELL_LIGHTNING_BOLT = 403,
+    SPELL_FLAME_SHOCK = 8050,
+};
+
+struct ShamanAI : public PlayerAI
+{
+    ShamanAI(Player* player) : PlayerAI(player)
+    {
+        if (uint32 flameShock = LookupHighestLearnedRank(SPELL_FLAME_SHOCK))
+            AddPlayerSpellAction(flameShock);
+        if (uint32 spell = LookupHighestLearnedRank(SPELL_HEROISM))
+            AddPlayerSpellAction(spell);
+        if (uint32 spell = LookupHighestLearnedRank(SPELL_BLOODLUST))
+            AddPlayerSpellAction(spell);
+        if (uint32 spell = LookupHighestLearnedRank(SPELL_LIGHTNING_BOLT))
+            AddPlayerSpellAction(spell);
+    }
+};
+
+enum HunterSpells
+{
+    SPELL_VOLLEY = 1510,
+    SPELL_EXPLOSIVE_TRAP = 13813,
+    SPELL_RAPTOR_STRIKE = 2973,
+};
+
+struct HunterAI : public PlayerAI
+{
+    HunterAI(Player* player) : PlayerAI(player)
+    {
+        if (uint32 raptorStrike = LookupHighestLearnedRank(SPELL_RAPTOR_STRIKE))
+            AddPlayerSpellAction(raptorStrike);
+        if (uint32 spell = LookupHighestLearnedRank(SPELL_VOLLEY))
+            AddPlayerSpellAction(spell);
+        if (uint32 spell = LookupHighestLearnedRank(SPELL_EXPLOSIVE_TRAP))
+            AddPlayerSpellAction(spell);
+    }
+};
+
+enum WarriorSpells
+{
+    SPELL_INTIMIDATING_SHOUT = 5246,
+    SPELL_HAMSTRING = 1715,
+    SPELL_HEROIC_STRIKE = 78,
 };
 
 struct WarriorAI : public PlayerAI
 {
-    WarriorAI(Player* player) : PlayerAI(player, WARRIOR_SPELL_MAX)
+    WarriorAI(Player* player) : PlayerAI(player)
     {
         if (uint32 heroicStrike = LookupHighestLearnedRank(SPELL_HEROIC_STRIKE))
-            AddPlayerSpellAction(PRIORITY_HEROIC_STRIKE, heroicStrike);
+            AddPlayerSpellAction(heroicStrike);
+        if (uint32 spell = LookupHighestLearnedRank(SPELL_INTIMIDATING_SHOUT))
+            AddPlayerSpellAction(spell);
+        if (uint32 spell = LookupHighestLearnedRank(SPELL_HAMSTRING))
+            AddPlayerSpellAction(spell);
+    }
+};
+
+enum PaladinSpells
+{
+    SPELL_FLASH_OF_LIGHT = 19750,
+    SPELL_HAMMER_OF_JUSTICE = 853,
+    SPELL_CONSECRATION = 26573,
+};
+
+struct PaladinAI : public PlayerAI
+{
+    PaladinAI(Player* player) : PlayerAI(player)
+    {
+        if (uint32 spell = LookupHighestLearnedRank(SPELL_FLASH_OF_LIGHT))
+            AddPlayerSpellAction(spell);
+        if (uint32 spell = LookupHighestLearnedRank(SPELL_HAMMER_OF_JUSTICE))
+            AddPlayerSpellAction(spell);
+        if (uint32 spell = LookupHighestLearnedRank(SPELL_CONSECRATION))
+            AddPlayerSpellAction(spell);
     }
 };
 
@@ -43,6 +206,14 @@ UnitAI* GetClassAI(Classes playerClass, Player* player)
     switch (playerClass)
     {
         case CLASS_WARRIOR: return new WarriorAI(player);
-        default: return new PlayerAI(player, 0);
+        case CLASS_PALADIN: return new PaladinAI(player);
+        case CLASS_HUNTER:  return new HunterAI(player);
+        case CLASS_ROGUE:   return new RogueAI(player);
+        case CLASS_PRIEST:  return new PriestAI(player);
+        case CLASS_SHAMAN:  return new ShamanAI(player);
+        case CLASS_MAGE:    return new MageAI(player);
+        case CLASS_WARLOCK: return new WarlockAI(player);
+        case CLASS_DRUID:   return new DruidAI(player);
+        default: return new PlayerAI(player);
     }
 }

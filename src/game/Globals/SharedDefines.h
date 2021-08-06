@@ -144,7 +144,7 @@ enum Stats
 
 #define MAX_STATS                        5
 
-enum Powers
+enum Powers : uint32
 {
     POWER_MANA                          = 0,            // UNIT_FIELD_POWER1
     POWER_RAGE                          = 1,            // UNIT_FIELD_POWER2
@@ -439,7 +439,7 @@ enum SpellAttributesEx4
     SPELL_ATTR_EX4_CAST_ONLY_IN_OUTLAND        = 0x04000000,// 26 Can only be used in Outland.
     SPELL_ATTR_EX4_UNK27                       = 0x08000000,// 27
     SPELL_ATTR_EX4_UNK28                       = 0x10000000,// 28
-    SPELL_ATTR_EX4_UNK29                       = 0x20000000,// 29
+    SPELL_ATTR_EX4_UNK29                       = 0x20000000,// 29 Related to client selfcheck about dispel in 2.4.3 client but no spells, CC seems to have them
     SPELL_ATTR_EX4_UNK30                       = 0x40000000,// 30
     SPELL_ATTR_EX4_UNK31                       = 0x80000000,// 31
 };
@@ -519,6 +519,7 @@ enum SpellAttributesEx6
 enum SpellAttributesServerside
 {
     SPELL_ATTR_SS_PREVENT_INVIS                = 0x00000001,
+    SPELL_ATTR_AOE_CAP                         = 0x00000002,
 };
 
 enum SheathTypes
@@ -594,6 +595,13 @@ enum Team
     ALLIANCE            = 469,
 };
 
+enum BattleGroundWinner
+{
+    WINNER_HORDE        = 0,
+    WINNER_ALLIANCE     = 1,
+    WINNER_NONE         = 2
+};
+
 enum PvpTeamIndex
 {
     TEAM_INDEX_ALLIANCE = 0,
@@ -602,6 +610,9 @@ enum PvpTeamIndex
 };
 
 #define PVP_TEAM_COUNT    2
+
+static inline Team GetTeamIdByTeamIndex(PvpTeamIndex teamIndex) { return teamIndex == TEAM_INDEX_ALLIANCE ? ALLIANCE : HORDE; }
+static inline PvpTeamIndex GetTeamIndexByTeamId(Team team) { return team == ALLIANCE ? TEAM_INDEX_ALLIANCE : TEAM_INDEX_HORDE; }
 
 enum SpellCastResult
 {
@@ -740,8 +751,8 @@ enum SpellCastResult
     SPELL_FAILED_TARGET_NOT_IN_INSTANCE         = 0x84,
     SPELL_FAILED_NOT_WHILE_TRADING              = 0x85,
     SPELL_FAILED_TARGET_NOT_IN_RAID             = 0x86,
-    SPELL_FAILED_DISENCHANT_WHILE_LOOTING       = 0x87,
-    SPELL_FAILED_PROSPECT_WHILE_LOOTING         = 0x88,
+    SPELL_FAILED_DISENCHANT_WHILE_LOOTING       = 0x87, // TODO: add
+    SPELL_FAILED_PROSPECT_WHILE_LOOTING         = 0x88, // TODO: add
     SPELL_FAILED_PROSPECT_NEED_MORE             = 0x89,
     SPELL_FAILED_TARGET_FREEFORALL              = 0x8A,
     SPELL_FAILED_NO_EDIBLE_CORPSES              = 0x8B,
@@ -2003,6 +2014,7 @@ enum CorpseDynFlags
 #define SPELL_ID_PASSIVE_RESURRECTION_SICKNESS  15007
 #define SPELL_ID_WEAPON_SWITCH_COOLDOWN_1_5s    6119
 #define SPELL_ID_WEAPON_SWITCH_COOLDOWN_1_0s    6123
+#define SPELL_ID_BATTLEGROUND_DESERTER          26013
 
 enum WeatherType
 {
@@ -2132,12 +2144,15 @@ enum DiminishingGroup
     DIMINISHING_TRIGGER_ROOT,                               // Immobilizing effects from triggered spells like Frostbite
     DIMINISHING_FEAR,                                       // Non-warlock fears
     DIMINISHING_CHARM,
+    // Mage Specific
+    DIMINISHING_DRAGONS_BREATH,                             // Should diminish with itself as it is not part of DIMINISHING_BLIND_CYCLONE
     // Rogue Specific
     DIMINISHING_KIDNEYSHOT,                                 // Kidney Shot is not diminished with Cheap Shot
     // Warlock Specific
     DIMINISHING_DEATHCOIL,                                  // Death Coil Diminish only with another Death Coil
+    DIMINISHING_UNSTABLE_AFFLICTION_SILENCE,                // The silence from this ability is now subject to diminishing returns. - https://wow.gamepedia.com/Patch_2.3.0
     // Shared Class Specific
-    DIMINISHING_POLYMORPH_KNOCKOUT,                         // Includes polymorph, sap and all knockout mechanics
+    DIMINISHING_KNOCKOUT_POLYMORPH_SAPPED,                  // Includes all knockout mechanics (gouge, maim, repentance), polymorph and sap
     DIMINISHING_BLIND_CYCLONE,                              // From 2.3.0
     DIMINISHING_DISARM,                                     // From 2.3.0
     DIMINISHING_SILENCE,                                    // From 2.3.0
@@ -2498,7 +2513,7 @@ enum TrackedAuraType
 
 // we need to stick to 1 version or half of the stuff will work for someone
 // others will not and opposite
-// will only support WoW and WoW:TBC 2.4.3 client build 8606...
+// will only support Vanilla and TBC 2.4.3 client build 8606...
 
 #define EXPECTED_MANGOSD_CLIENT_BUILD        {8606, 0}
 

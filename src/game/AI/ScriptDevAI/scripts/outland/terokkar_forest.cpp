@@ -150,7 +150,7 @@ struct mob_netherweb_victimAI : public ScriptedAI
 {
     mob_netherweb_victimAI(Creature* pCreature) : ScriptedAI(pCreature)
     {
-        SetCombatMovement(false);
+        SetReactState(REACT_PASSIVE);
         Reset();
     }
 
@@ -1045,12 +1045,12 @@ struct npc_skyguard_prisonerAI : public npc_escortAI
 
             SetEscortPaused(true);
 
-            if (m_creature->GetPositionZ() < 310.0f)
-                SetCurrentWaypoint(19);
-            else if (m_creature->GetPositionZ() < 330.0f)
-                SetCurrentWaypoint(33);
-            else
-                SetCurrentWaypoint(0);
+            if (m_creature->GetPositionZ() < 310.0f)        // -3720.35, 3789.91, 302.888
+                SetCurrentWaypoint(20);
+            else if (m_creature->GetPositionZ() < 320.0f)   // -3669.57, 3386.74, 312.955
+                SetCurrentWaypoint(34);
+            else if (m_creature->GetPositionZ() < 350.0f)   // -4106.64, 3029.76, 344.877
+                SetCurrentWaypoint(1);
 
             SetEscortPaused(false);
 
@@ -1383,6 +1383,10 @@ struct npc_vengeful_harbinger : public ScriptedAI
     void Reset() override
     {
         eventResetTimer = EVENT_RESET_TIMER;
+        m_creature->GetCombatManager().SetLeashingCheck([&](Unit*, float x, float y, float z)
+        {
+            return y > 4428.f;
+        });
     }
 
     void JustRespawned() override
@@ -1441,15 +1445,16 @@ struct npc_vengeful_harbinger : public ScriptedAI
             {
                 if (eventResetTimer <= uiDiff)
                 {
-                    if (Creature* tombGuardian = GetClosestCreatureWithEntry(m_creature, NPC_DRAENEI_TOMB_GUARDIAN, 15))
+                    if (Unit* tombGuardian = m_creature->GetSpawner())
                     {
                         m_creature->AI()->SendAIEvent(AI_EVENT_CUSTOM_B, m_creature, tombGuardian);
                         eventResetTimer = 0;
-                    }
-                    else
-                    {
-                        sLog.outCustomLog("Vengeful Harbinger found out of combat in a strange place. This should never happen!");
-                        m_creature->ForcedDespawn();
+
+                        if (!m_creature->IsWithinDist(tombGuardian, 25.f))
+                        {
+                            sLog.outCustomLog("Vengeful Harbinger found out of combat in a strange place. This should never happen!");
+                            m_creature->ForcedDespawn();
+                        }
                     }
                 }
                 else
@@ -1460,7 +1465,7 @@ struct npc_vengeful_harbinger : public ScriptedAI
             DoMeleeAttackIfReady();
     }
 
-    void DamageTaken(Unit* /*pDoneBy*/, uint32& damage, DamageEffectType /*damagetype*/, SpellEntry const* /*spellInfo*/) override
+    void DamageTaken(Unit* /*dealer*/, uint32& damage, DamageEffectType /*damagetype*/, SpellEntry const* /*spellInfo*/) override
     {
         if (damage < m_creature->GetHealth())
             return;
@@ -1486,6 +1491,16 @@ UnitAI* GetAI_npc_vengeful_harbinger(Creature* pCreature)
 {
     return new npc_vengeful_harbinger(pCreature);
 }
+
+struct ShadowyDisguise : public AuraScript
+{
+    void OnApply(Aura* aura, bool apply) const override
+    {
+        Unit* target = aura->GetTarget();
+        if (!apply)
+            target->RemoveAurasDueToSpell(target->getGender() == GENDER_MALE ? 38080 : 38081);
+    }
+};
 
 void AddSC_terokkar_forest()
 {
@@ -1558,4 +1573,6 @@ void AddSC_terokkar_forest()
     pNewScript->Name = "npc_vengeful_harbinger";
     pNewScript->GetAI = &GetAI_npc_vengeful_harbinger;
     pNewScript->RegisterSelf();
+
+    RegisterAuraScript<ShadowyDisguise>("spell_shadowy_disguise");
 }

@@ -178,7 +178,7 @@ class ThreatContainer
         void addReference(HostileReference* hostileReference) { iThreatList.push_back(hostileReference); }
         void clearReferences();
         // Sort the list if necessary
-        void update(bool force);
+        void update(bool force, bool isPlayer);
 
         ThreatList iThreatList;
     private:
@@ -208,6 +208,7 @@ class ThreatManager
         void modifyAllThreatPercent(int32 threatPercent);
 
         float getThreat(Unit* victim, bool alsoSearchOfflineList = false);
+        float GetHighestThreat(); // for purpose of taunt effect
 
         bool HasThreat(Unit* victim, bool alsoSearchOfflineList = false);
 
@@ -231,6 +232,8 @@ class ThreatManager
 
         // Don't must be used for explicit modify threat values in iterator return pointers
         ThreatList const& getThreatList() const { return iThreatContainer.getThreatList(); }
+
+        void DeleteOutOfRangeReferences();
 
         // When a target is unreachable, we need to set someone as low priority
         void SetTargetSuppressed(Unit* target);

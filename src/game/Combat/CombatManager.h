@@ -21,6 +21,7 @@
 
 #include "Common.h"
 #include <functional>
+#include "Entities/Object.h"
 
 enum EvadeState
 {
@@ -52,6 +53,7 @@ class CombatManager
         void TriggerCombatTimer(Unit* target);
         void TriggerCombatTimer(bool pvp);
         void StopCombatTimer() { m_combatTimer = 0; }
+        bool IsLeashingDisabled() { return m_leashingDisabled; }
         void SetLeashingDisable(bool apply) { m_leashingDisabled = apply; }
         void SetLeashingCheck(std::function<bool(Unit*, float x, float y, float z)> check) { m_leashingCheck = check; } // if check evals as true - evade
     private:
@@ -63,6 +65,7 @@ class CombatManager
 
         // combat timer handling
         uint32 m_combatTimer;
+        Position m_lastRefreshPos;
         bool m_leashingDisabled;                            // disables leashing timer for script mobs
         std::function<bool(Unit*, float x, float y, float z)> m_leashingCheck;
 };

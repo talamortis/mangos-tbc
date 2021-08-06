@@ -3,7 +3,7 @@
 #####################################
 
 [MangosdConf]
-ConfVersion=2020060701
+ConfVersion=2021021901
 
 ###################################################################################################################
 # CONNECTIONS AND DIRECTORIES
@@ -122,6 +122,11 @@ SD2ErrorLogFile = "SD2Errors.log"
 #        Default: "" (don't load all grids at startup)
 #                 "mapId1[,mapId2[..]]" (DO load all grids on the given maps- Experimental and very resource consumming)
 #
+#    Autoload.Active
+#        Load active creatures that have ExtraFlags CREATURE_EXTRA_FLAG_ACTIVE or movementType WAYPOINT_MOTION_TYPE
+#        This will allow creatures having these conditions to update their grid without any player around. Useful for running in debug mode.
+#        Default: True
+#
 #    GridCleanUpDelay
 #        Grid clean up delay (in milliseconds)
 #        Default: 300000 (5 min)
@@ -220,6 +225,9 @@ SD2ErrorLogFile = "SD2Errors.log"
 #        Set the max number of players returned in the /who list and interface (0 means unlimited)
 #        Default:     49 - (stable)
 #
+#    AccountData
+#        Set 1 if you want account data saving to DB
+#
 ###################################################################################################################
 
 UseProcessors = 0
@@ -230,6 +238,7 @@ SaveRespawnTimeImmediately = 1
 MaxOverspeedPings = 2
 GridUnload = 1
 LoadAllGridsOnMaps = ""
+Autoload.Active = 1
 GridCleanUpDelay = 300000
 MapUpdateInterval = 100
 ChangeWeatherInterval = 600000
@@ -251,6 +260,7 @@ MaxCoreStuckTime = 0
 AddonChannel = 1
 CleanCharacterDB = 1
 MaxWhoListReturns = 49
+AccountData = 0
 
 ###################################################################################################################
 # SERVER LOGGING
@@ -281,6 +291,12 @@ MaxWhoListReturns = 49
 #        Logfile name
 #        Default: "Server.log"
 #                 "" - Empty name disable creating log file
+#
+#    PacketLogFile
+#        Description: Binary packet logging file for the world server.
+#                     Filename extension must be .pkt to be parsable with WPP.
+#        Example:     "World.pkt" - (Enabled)
+#        Default:     ""          - (Disabled)
 #
 #    LogTimestamp
 #        Logfile with timestamp of server start in name
@@ -387,6 +403,7 @@ PidFile = ""
 LogLevel = 1
 LogTime = 0
 LogFile = "Server.log"
+PacketLogFile = ""
 LogTimestamp = 0
 LogFileLevel = 0
 LogFilter_TransportMoves = 1
@@ -912,11 +929,6 @@ TalentsInspecting = 1
 ###################################################################################################################
 # CREATURE AND GAMEOBJECT SETTINGS
 #
-#    ThreatRadius
-#        Radius for creature to evade after being pulled away from combat start point
-#        If ThreatRadius is less than creature aggro radius then aggro radius will be used
-#        Default: 100 yards
-#
 #    Rate.Creature.Aggro
 #        Aggro radius percent or off.
 #        Default: 1   - 100%
@@ -1021,7 +1033,6 @@ TalentsInspecting = 1
 #
 ###################################################################################################################
 
-ThreatRadius = 100
 Rate.Creature.Aggro = 1
 CreatureRespawnAggroDelay = 5000
 CreatureFamilyFleeAssistanceRadius = 30
@@ -1773,3 +1784,43 @@ SOAP.Port = 7878
 CharDelete.Method = 0
 CharDelete.MinLevel = 0
 CharDelete.KeepDays = 30
+
+###################################################################################################################
+# METRICS CONFIGURATION -> Require core builded with BUILD_METRICS option
+#
+#    Metric.Enable
+#        Enable or disable metric logging
+#        Default: 0  - Disabled(default)
+#                 1  - Enable
+#
+#    Metric.Address
+#        IP / Hostname for the InfluxDB where measurements are stored.
+#        Default: "127.0.0.1"
+#
+#    Metric.Port
+#        Port for the InfluxDB where measurements are stored.
+#        Default: 8086
+#
+#    Metric.Database
+#        Database name for the InfluxDB where measurements are stored.
+#        Default: "perfd"
+#
+#    Metric.Username
+#        Username of the InfluxDB where measurements are stored.
+#        Default: ""
+#
+#    Metric.Password
+#        Password of the InfluxDB where measurements are stored.
+#        Default: ""
+#
+###################################################################################################################
+
+Metric.Enable = 0
+Metric.Address = "127.0.0.1"
+Metric.Port = 8086
+Metric.Database = "perfd"
+Metric.Username = ""
+Metric.Password = ""
+
+Dummy.Debug1 = 0
+Dummy.Debug2 = 0

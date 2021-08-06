@@ -28,6 +28,7 @@
 
 class MovementGenerator;
 class Unit;
+struct Position;
 
 namespace G3D
 {
@@ -42,22 +43,25 @@ namespace G3D
 #define PET_FOLLOW_DIST  1.0f
 #define PET_FOLLOW_ANGLE (M_PI_F / 2.0f)
 
+// define minimum falling distance required to launch MoveFall generator
+static float MOVE_FALL_MIN_FALL_DISTANCE = 0.5f;
+
 // values 0 ... MAX_DB_MOTION_TYPE-1 used in DB
 enum MovementGeneratorType
 {
     IDLE_MOTION_TYPE                = 0,                    // IdleMovementGenerator.h
     RANDOM_MOTION_TYPE              = 1,                    // RandomMovementGenerator.h
     WAYPOINT_MOTION_TYPE            = 2,                    // WaypointMovementGenerator.h
+    PATH_MOTION_TYPE                = 3,                    // PathMovementGenerator.h
 
-    MAX_DB_MOTION_TYPE              = 3,                    // *** this and below motion types can't be set in DB.
+    MAX_DB_MOTION_TYPE              = 4,                    // *** this and below motion types can't be set in DB.
 
-    DISTRACT_MOTION_TYPE            = 3,                    // IdleMovementGenerator.h
-    STAY_MOTION_TYPE                = 4,                    // PointMovementGenerator.h
-    FOLLOW_MOTION_TYPE              = 5,                    // TargetedMovementGenerator.h
-    CHASE_MOTION_TYPE               = 6,                    // TargetedMovementGenerator.h
-    RETREAT_MOTION_TYPE             = 7,                    // PointMovementGenerator.h
-    TIMED_FLEEING_MOTION_TYPE       = 8,                    // RandomMovementGenerator.h
-    PATH_MOTION_TYPE                = 9,                    // PathMovementGenerator.h
+    DISTRACT_MOTION_TYPE            = 4,                    // IdleMovementGenerator.h
+    STAY_MOTION_TYPE                = 5,                    // PointMovementGenerator.h
+    FOLLOW_MOTION_TYPE              = 6,                    // TargetedMovementGenerator.h
+    CHASE_MOTION_TYPE               = 7,                    // TargetedMovementGenerator.h
+    RETREAT_MOTION_TYPE             = 8,                    // PointMovementGenerator.h
+    TIMED_FLEEING_MOTION_TYPE       = 9,                    // RandomMovementGenerator.h
     POINT_MOTION_TYPE               = 10,                   // PointMovementGenerator.h
     HOME_MOTION_TYPE                = 11,                   // HomeMovementGenerator.h
     FLEEING_MOTION_TYPE             = 12,                   // RandomMovementGenerator.h
@@ -82,6 +86,7 @@ enum ForcedMovement
 {
     FORCED_MOVEMENT_NONE,
     FORCED_MOVEMENT_WALK,
+    FORCED_MOVEMENT_RUN,
     FORCED_MOVEMENT_FLIGHT,
 };
 
@@ -127,25 +132,27 @@ class MotionMaster : private std::stack<MovementGenerator*>
         void MoveIdle();
         void MoveRandomAroundPoint(float x, float y, float z, float radius, float verticalZ = 0.0f, uint32 timer = 0);
         void MoveTargetedHome(bool runHome = true);
-        void MoveFollow(Unit* target, float dist, float angle, bool asMain = false);
+        void MoveFollow(Unit* target, float dist, float angle, bool asMain = false, bool alwaysBoost = false);
         void MoveStay(float x, float y, float z, float o = 0, bool asMain = false);
         void MoveChase(Unit* target, float dist = 0.0f, float angle = 0.0f, bool moveFurther = false, bool walk = false, bool combat = true);
         void DistanceYourself(float dist);
         void MoveConfused();
         void MoveFleeing(Unit* enemy, uint32 time = 0);
-        void MovePoint(uint32 id, float x, float y, float z, bool generatePath = true, ForcedMovement forcedMovement = FORCED_MOVEMENT_NONE);
-        void MovePoint(uint32 id, float x, float y, float z, float o, bool generatePath = true, ForcedMovement forcedMovement = FORCED_MOVEMENT_NONE);
+        void MovePoint(uint32 id, Position const& position, ForcedMovement forcedMovement = FORCED_MOVEMENT_NONE, float speed = 0.f, bool generatePath = true);
+        void MovePoint(uint32 id, float x, float y, float z, ForcedMovement forcedMovement = FORCED_MOVEMENT_NONE, bool generatePath = true);
         void MovePointTOL(uint32 id, float x, float y, float z, bool takeOff, ForcedMovement forcedMovement = FORCED_MOVEMENT_NONE);
         void MovePath(std::vector<G3D::Vector3>& path, ForcedMovement forcedMovement = FORCED_MOVEMENT_NONE, bool flying = false);
         void MovePath(std::vector<G3D::Vector3>& path, float o, ForcedMovement forcedMovement = FORCED_MOVEMENT_NONE, bool flying = false);
-        void MovePath(WaypointPath& path, ForcedMovement forcedMovement = FORCED_MOVEMENT_NONE, bool flying = false);
+        void MovePath(int32 pathId, WaypointPathOrigin wpOrigin = PATH_NO_PATH, ForcedMovement forcedMovement = FORCED_MOVEMENT_NONE, bool flying = false, float speed = 0.f, bool cyclic = false);
         void MoveRetreat(float x, float y, float z, float o, uint32 delay);
         void MoveWaypoint(uint32 pathId = 0, uint32 source = 0, uint32 initialDelay = 0, uint32 overwriteEntry = 0);
         void MoveTaxi();
         void MoveDistract(uint32 timer);
         void MoveCharge(float x, float y, float z, float speed, uint32 id = EVENT_CHARGE);
         void MoveCharge(Unit& target, float speed, uint32 id = EVENT_CHARGE);
-        void MoveFall();
+        bool MoveFall();
+        void MoveJump(float x, float y, float z, float horizontalSpeed, float max_height, uint32 id = EVENT_JUMP);
+        void MoveJumpFacing(float x, float y, float z, float o, float horizontalSpeed, float max_height, uint32 id = EVENT_JUMP);
 
         MovementGeneratorType GetCurrentMovementGeneratorType() const;
 
@@ -160,6 +167,11 @@ class MotionMaster : private std::stack<MovementGenerator*>
         uint32 GetPathId() const { return m_currentPathId; }
 
         void InterruptPanic();
+
+        void PauseWaypoints(uint32 time = MINUTE * IN_MILLISECONDS);
+        void UnpauseWaypoints();
+
+        void UnMarkFollowMovegens();
 
     private:
         void Mutate(MovementGenerator* m);                  // use Move* functions instead

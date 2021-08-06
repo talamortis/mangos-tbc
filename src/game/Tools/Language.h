@@ -754,7 +754,7 @@ enum MangosStrings
     LANG_DIST_ARENA_POINTS_END          = 746,
     LANG_DIST_ARENA_REWARDS_START       = 747,
     LANG_DIST_ARENA_REWARDS_END         = 748,
-//                                      = 749, not used
+    LANG_BG_GROUP_MEMBER_IN_ARENA       = 749,
     LANG_BATTLEGROUND_PREMATURE_FINISH_WARNING      = 750,  // "Not enough players. This game will close in %u mins."
     LANG_BATTLEGROUND_PREMATURE_FINISH_WARNING_SECS = 751,  // "Not enough players. This game will close in %u seconds."
     LANG_BATTLEGROUND_ONLY_ALLIANCE_USE = 752,              // "Only The Alliance can use that portal"
@@ -936,18 +936,7 @@ enum MangosStrings
     LANG_AHBOT_STATUS_FORMAT_CONSOLE    = 1177,
     LANG_AHBOT_STATUS_FORMAT_CHAT       = 1178,
     LANG_AHBOT_STATUS_ITEM_COUNT        = 1179,
-    LANG_AHBOT_STATUS_ITEM_RATIO        = 1180,
-    LANG_AHBOT_STATUS_TITLE2_CONSOLE    = 1181,
-    LANG_AHBOT_STATUS_TITLE2_CHAT       = 1182,
-    LANG_AHBOT_QUALITY_GREY             = 1183,
-    LANG_AHBOT_QUALITY_WHITE            = 1184,
-    LANG_AHBOT_QUALITY_GREEN            = 1185,
-    LANG_AHBOT_QUALITY_BLUE             = 1186,
-    LANG_AHBOT_QUALITY_PURPLE           = 1187,
-    LANG_AHBOT_QUALITY_ORANGE           = 1188,
-    LANG_AHBOT_QUALITY_YELLOW           = 1189,
-    LANG_AHBOT_ITEMS_AMOUNT             = 1190,
-    LANG_AHBOT_ITEMS_RATIO              = 1191,
+    //                                    1180-1191 no longer in use (previously used by ahbot)
     LANG_MOVEGENS_EFFECT                = 1192,
     //                                    1193 used in master branch
     LANG_COMMAND_GO_STATUS              = 1194,

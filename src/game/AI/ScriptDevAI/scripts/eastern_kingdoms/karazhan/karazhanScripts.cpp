@@ -32,6 +32,7 @@ EndContentData */
 #include "AI/ScriptDevAI/include/sc_common.h"
 #include "karazhan.h"
 #include "AI/ScriptDevAI/base/escort_ai.h"
+#include "Spells/Scripts/SpellScript.h"
 
 /*######
 # npc_barnesAI
@@ -200,7 +201,7 @@ bool GossipHello_npc_barnes(Player* pPlayer, Creature* pCreature)
                 case NOT_STARTED:
                     pPlayer->ADD_GOSSIP_ITEM_ID(GOSSIP_ICON_CHAT, GOSSIP_ITEM_OPERA_1, GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF + 1);
                     // for GMs we add the possibility to change the event
-                    if (pPlayer->isGameMaster())
+                    if (pPlayer->IsGameMaster())
                     {
                         pPlayer->ADD_GOSSIP_ITEM(GOSSIP_ICON_DOT, "[GM] Change event to EVENT_OZ", GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF + 3);
                         pPlayer->ADD_GOSSIP_ITEM(GOSSIP_ICON_DOT, "[GM] Change event to EVENT_HOOD", GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF + 4);
@@ -209,7 +210,7 @@ bool GossipHello_npc_barnes(Player* pPlayer, Creature* pCreature)
                     pPlayer->SEND_GOSSIP_MENU(TEXT_ID_OPERA_1, pCreature->GetObjectGuid());
                     break;
                 case FAIL:
-                    if (pPlayer->isGameMaster())
+                    if (pPlayer->IsGameMaster())
                     {
                         pPlayer->ADD_GOSSIP_ITEM(GOSSIP_ICON_DOT, "[GM] Change event to EVENT_OZ", GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF + 3);
                         pPlayer->ADD_GOSSIP_ITEM(GOSSIP_ICON_DOT, "[GM] Change event to EVENT_HOOD", GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF + 4);
@@ -505,6 +506,32 @@ bool ProcessEventId_event_spell_medivh_journal(uint32 /*uiEventId*/, Object* pSo
     return true;
 }
 
+enum
+{
+    SPELL_BLINK = 29884,
+};
+
+struct BlinkArcaneAnomaly : public SpellScript
+{
+    void OnInit(Spell* spell) const override
+    {
+        spell->SetMaxAffectedTargets(1);
+    }
+
+    void OnEffectExecute(Spell* spell, SpellEffectIndex effIdx) const override
+    {
+        if (effIdx == EFFECT_INDEX_0)
+        {
+            if (Unit* target = spell->GetUnitTarget())
+            {
+                spell->GetCaster()->CastSpell(target, SPELL_BLINK, TRIGGERED_OLD_TRIGGERED);
+                spell->GetCaster()->getThreatManager().modifyAllThreatPercent(-100);
+                spell->GetCaster()->AddThreat(target, 1000.f);
+            }
+        }
+    }
+};
+
 void AddSC_karazhan()
 {
     Script* pNewScript = new Script;
@@ -528,4 +555,6 @@ void AddSC_karazhan()
     pNewScript->Name = "event_spell_medivh_journal";
     pNewScript->pProcessEventId = &ProcessEventId_event_spell_medivh_journal;
     pNewScript->RegisterSelf();
+
+    RegisterSpellScript<BlinkArcaneAnomaly>("spell_blink_arcane_anomaly");
 }

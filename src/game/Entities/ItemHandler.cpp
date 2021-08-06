@@ -719,7 +719,7 @@ void WorldSession::SendListInventory(ObjectGuid vendorguid) const
     }
 
     // Stop the npc if moving
-    pCreature->StopMoving();
+    pCreature->GetMotionMaster()->PauseWaypoints();
 
     VendorItemData const* vItems = pCreature->GetVendorItems();
     VendorItemData const* tItems = pCreature->GetVendorTemplateItems();
@@ -757,7 +757,7 @@ void WorldSession::SendListInventory(ObjectGuid vendorguid) const
             ItemPrototype const* pProto = ObjectMgr::GetItemPrototype(itemId);
             if (pProto)
             {
-                if (!_player->isGameMaster())
+                if (!_player->IsGameMaster())
                 {
                     // class wrong item skip only for bindable case
                     if ((pProto->AllowableClass & _player->getClassMask()) == 0 && pProto->Bonding == BIND_WHEN_PICKED_UP)
@@ -1126,6 +1126,14 @@ void WorldSession::HandleWrapItemOpcode(WorldPacket& recv_data)
     if (item->GetProto()->MaxCount > 0)
     {
         _player->SendEquipError(EQUIP_ERR_UNIQUE_CANT_BE_WRAPPED, item, nullptr);
+        return;
+    }
+
+    // don't allow wrapping while casting - fixes an exploit where you could use
+    // items multiple times by wrapping them during use
+    if (_player->IsNonMeleeSpellCasted(true, false, false))
+    {
+        _player->SendEquipError(EQUIP_ERR_CANT_DO_RIGHT_NOW, item, nullptr);
         return;
     }
 

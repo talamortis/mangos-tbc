@@ -1228,7 +1228,7 @@ bool Unit::IsFogOfWarVisibleStealth(Unit const* other) const
     MANGOS_ASSERT(other)
 
     // Gamemasters can see through invisibility
-    if (other->GetTypeId() == TYPEID_PLAYER && static_cast<Player const*>(other)->isGameMaster())
+    if (other->GetTypeId() == TYPEID_PLAYER && static_cast<Player const*>(other)->IsGameMaster())
         return true;
 
     switch (sWorld.getConfig(CONFIG_UINT32_FOGOFWAR_STEALTH))
@@ -1251,7 +1251,7 @@ bool Unit::IsFogOfWarVisibleHealth(Unit const* other) const
     MANGOS_ASSERT(other)
 
     // Gamemasters can see health values
-    if (other->GetTypeId() == TYPEID_PLAYER && static_cast<Player const*>(other)->isGameMaster())
+    if (other->GetTypeId() == TYPEID_PLAYER && static_cast<Player const*>(other)->IsGameMaster())
         return true;
 
     switch (sWorld.getConfig(CONFIG_UINT32_FOGOFWAR_HEALTH))
@@ -1275,7 +1275,7 @@ bool Unit::IsFogOfWarVisibleStats(Unit const* other) const
     MANGOS_ASSERT(other)
 
     // Gamemasters can see stat values
-    if (other->GetTypeId() == TYPEID_PLAYER && static_cast<Player const*>(other)->isGameMaster())
+    if (other->GetTypeId() == TYPEID_PLAYER && static_cast<Player const*>(other)->IsGameMaster())
         return true;
 
     switch (sWorld.getConfig(CONFIG_UINT32_FOGOFWAR_STATS))
@@ -1369,4 +1369,30 @@ bool Unit::CanAssistInCombatAgainst(Unit const* who, Unit const* enemy) const
         return true;
 
     return false;
+}
+
+/////////////////////////////////////////////////
+/// [Serverside] Opposition: this can join combat against enemy
+///
+/// @note Relations API Tier 3
+///
+/// This function is not intented to have client-side counterpart by original design.
+/// A helper function used to determine if current unit can join combat against enemy
+/// Used in several assistance checks
+/////////////////////////////////////////////////
+bool Unit::CanJoinInAttacking(Unit const* enemy) const
+{
+    if (!CanEnterCombat())
+        return false;
+
+    if (IsFeigningDeathSuccessfully())
+        return false;
+
+    if (HasAuraType(SPELL_AURA_MOD_UNATTACKABLE))
+        return false;
+
+    if (!CanAttack(enemy))
+        return false;
+
+    return true;
 }

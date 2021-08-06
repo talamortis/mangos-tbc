@@ -112,6 +112,23 @@ void instance_temple_of_ahnqiraj::DoHandleTempleAreaTrigger(uint32 triggerId, Pl
     }
 }
 
+void instance_temple_of_ahnqiraj::OnCreatureDeath(Creature* creature)
+{
+    switch (creature->GetEntry())
+    {
+        case NPC_CLAW_TENTACLE:
+        case NPC_EYE_TENTACLE:
+            if (Creature* portal = GetClosestCreatureWithEntry(creature, NPC_TENTACLE_PORTAL, 5.0f))
+                portal->ForcedDespawn();
+        break;
+        case NPC_GIANT_CLAW_TENTACLE:
+        case NPC_GIANT_EYE_TENTACLE:
+            if (Creature* portal = GetClosestCreatureWithEntry(creature, NPC_GIANT_TENTACLE_PORTAL, 5.0f))
+                portal->ForcedDespawn();
+        break;
+    }
+}
+
 void instance_temple_of_ahnqiraj::OnCreatureCreate(Creature* creature)
 {
     switch (creature->GetEntry())
@@ -138,6 +155,32 @@ void instance_temple_of_ahnqiraj::OnCreatureCreate(Creature* creature)
             break;
         case NPC_POISON_CLOUD:
             m_bugTrioSpawns.push_back(creature->GetObjectGuid());
+            break;
+        case NPC_CLAW_TENTACLE:
+        case NPC_EYE_TENTACLE:
+            if (creature->AI())
+                creature->AI()->SetCombatMovement(false);
+            creature->CastSpell(creature, SPELL_SUMMON_PORTAL, TRIGGERED_OLD_TRIGGERED);
+            break;
+        case NPC_GIANT_CLAW_TENTACLE:
+        case NPC_GIANT_EYE_TENTACLE:
+            if (creature->AI())
+                creature->AI()->SetCombatMovement(false);
+            creature->CastSpell(creature, SPELL_SUMMON_GIANT_PORTAL, TRIGGERED_OLD_TRIGGERED);
+            break;
+        case NPC_EXIT_TRIGGER:
+            creature->SetInCombatWithZone(false);
+            if (creature->AI())
+                creature->AI()->SetCombatMovement(false);
+            break;
+        case NPC_EYE_OF_CTHUN:
+            // Safeguard for C'Thun encounter in case of fight abruptly ended during phase 2
+            if (GetData(TYPE_CTHUN) != DONE)
+            {
+                if (!creature->IsAlive())
+                    creature->Respawn();
+            }
+            m_npcEntryGuidStore[creature->GetEntry()] = creature->GetObjectGuid();
             break;
     }
 }
@@ -172,12 +215,6 @@ void instance_temple_of_ahnqiraj::OnCreatureRespawn(Creature* creature)
 {
     switch (creature->GetEntry())
     {
-        case NPC_VISCIDUS_TRIGGER:
-        {
-            if (Creature* viscidus = GetSingleCreatureFromStorage(NPC_VISCIDUS))
-                viscidus->AI()->JustSummoned(creature);
-            break;
-        }
         case NPC_QIRAJI_SCARAB:
         case NPC_QIRAJI_SCORPION:
             creature->SetCorpseDelay(5);
@@ -278,6 +315,26 @@ void instance_temple_of_ahnqiraj::SetData(uint32 uiType, uint32 uiData)
             m_auiEncounter[uiType] = uiData;
             break;
         case TYPE_CTHUN:
+            if (uiData == FAIL)
+            {
+                // Respawn the Eye of C'Thun when failing in phase 2
+                if (Creature* eyeOfCthun = GetSingleCreatureFromStorage(NPC_EYE_OF_CTHUN))
+                {
+                    if (!eyeOfCthun->IsAlive())
+                        eyeOfCthun->Respawn();
+                    // Reset combat
+                    if (eyeOfCthun->AI() && eyeOfCthun->IsInCombat())
+                        eyeOfCthun->AI()->EnterEvadeMode();
+                }
+                if (Creature* cthun = GetSingleCreatureFromStorage(NPC_CTHUN))
+                {
+                    // Reset combat
+                    if (cthun->AI() && cthun->IsInCombat())
+                        cthun->AI()->EnterEvadeMode();
+                }
+            }
+            m_auiEncounter[uiType] = uiData;
+            break;
         case TYPE_TWINS_INTRO:
             m_auiEncounter[uiType] = uiData;
             break;
@@ -385,13 +442,26 @@ bool AreaTrigger_at_temple_ahnqiraj(Player* player, AreaTriggerEntry const* at)
 {
     if (at->id == AREATRIGGER_TWIN_EMPERORS || at->id == AREATRIGGER_SARTURA)
     {
-        if (player->isGameMaster() || !player->IsAlive())
+        if (player->IsGameMaster() || !player->IsAlive())
             return false;
 
         if (instance_temple_of_ahnqiraj* pInstance = (instance_temple_of_ahnqiraj*)player->GetInstanceData())
             pInstance->DoHandleTempleAreaTrigger(at->id, player);
     }
 
+    return false;
+}
+
+bool ProcessEventId_event_reset_cthun(uint32 /*eventId*/, Object* source, Object* /*target*/, bool /*isStart*/)
+{
+    if (source->GetTypeId() == TYPEID_UNIT)
+    {
+        if (instance_temple_of_ahnqiraj* instance = (instance_temple_of_ahnqiraj*)((Creature*)source)->GetInstanceData())
+        {
+            instance->SetData(TYPE_CTHUN, FAIL);
+            return true;
+        }
+    }
     return false;
 }
 
@@ -405,5 +475,10 @@ void AddSC_instance_temple_of_ahnqiraj()
     pNewScript = new Script;
     pNewScript->Name = "at_temple_ahnqiraj";
     pNewScript->pAreaTrigger = &AreaTrigger_at_temple_ahnqiraj;
+    pNewScript->RegisterSelf();
+
+    pNewScript = new Script;
+    pNewScript->Name = "event_cthun_reset";
+    pNewScript->pProcessEventId = &ProcessEventId_event_reset_cthun;
     pNewScript->RegisterSelf();
 }

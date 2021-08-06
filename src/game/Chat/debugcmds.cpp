@@ -84,7 +84,7 @@ bool ChatHandler::HandleDebugSendPoiCommand(char* args)
         return false;
 
     DETAIL_LOG("Command : POI, NPC = %u, icon = %u flags = %u", target->GetGUIDLow(), icon, flags);
-    pPlayer->PlayerTalkClass->SendPointOfInterest(target->GetPositionX(), target->GetPositionY(), Poi_Icon(icon), flags, 30, "Test POI");
+    pPlayer->GetPlayerMenu()->SendPointOfInterest(target->GetPositionX(), target->GetPositionY(), Poi_Icon(icon), flags, 30, "Test POI");
     return true;
 }
 
@@ -691,17 +691,6 @@ bool ChatHandler::HandleDebugBattlegroundCommand(char* /*args*/)
     return true;
 }
 
-bool ChatHandler::HandleDebugBattlegroundStartCommand(char* /*args*/)
-{
-    if (auto bg = m_session->GetPlayer()->GetBattleGround())
-    {
-        bg->SetStartDelayTime(-1);
-        return true;
-    }
-
-    return false;
-}
-
 bool ChatHandler::HandleDebugArenaCommand(char* /*args*/)
 {
     sBattleGroundMgr.ToggleArenaTesting();
@@ -1196,35 +1185,6 @@ bool ChatHandler::HandleDebugTaxiCommand(char* /*args*/)
     return true;
 }
 
-bool ChatHandler::HandleDebugMaps(char* /*args*/)
-{
-    PSendSysMessage("Update time statistics:");
-    PSendSysMessage("Map[0] >> Min: %ums, Max: %ums, Avg: %ums",
-        sMapMgr.GetMapUpdateMinTime(0), sMapMgr.GetMapUpdateMaxTime(0), sMapMgr.GetMapUpdateAvgTime(0));
-    PSendSysMessage("Map[1] >> Min: %ums, Max: %ums, Avg: %ums",
-        sMapMgr.GetMapUpdateMinTime(1), sMapMgr.GetMapUpdateMaxTime(1), sMapMgr.GetMapUpdateAvgTime(1));
-    PSendSysMessage("Map[530] >> Min: %ums, Max: %ums, Avg: %ums",
-        sMapMgr.GetMapUpdateMinTime(530), sMapMgr.GetMapUpdateMaxTime(530), sMapMgr.GetMapUpdateAvgTime(530));
-
-    if (m_session)
-    {
-        Player* player = m_session->GetPlayer();
-        if (!player)
-            return true;
-
-        if (player->GetMap()->IsContinent())
-            return true;
-
-        uint32 mapId = player->GetMap()->GetId();
-        uint32 instance = player->GetMap()->GetInstanceId();
-        PSendSysMessage("Instance update time statistics:");
-        PSendSysMessage("Map[%u] (Instance: %u) >> Min: %ums, Max: %ums, Avg: %ums",
-            mapId, instance, sMapMgr.GetMapUpdateMinTime(mapId, instance), sMapMgr.GetMapUpdateMaxTime(mapId, instance), sMapMgr.GetMapUpdateAvgTime(mapId, instance));
-    }
-
-    return true;
-}
-
 bool ChatHandler::HandleShowTemporarySpawnList(char* /*args*/)
 {
     Player* pPlayer = m_session->GetPlayer();
@@ -1547,6 +1507,21 @@ bool ChatHandler::HandleDebugFlyCommand(char* args)
     return true;
 }
 
+bool ChatHandler::HandleDebugPacketHistory(char* /*args*/)
+{
+    auto history = m_session->GetOpcodeHistory();
+    std::string output = "Opcodes (reverse order):\n";
+    for (auto itr = history.rbegin(); itr != history.rend(); ++itr)
+    {
+        output += LookupOpcodeName(*itr);
+        output += "\n";
+    }
+
+    SendSysMessage(output.data());
+
+    return true;
+}
+
 bool ChatHandler::HandleDebugObjectFlags(char* args)
 {
     char* debugCmd = ExtractLiteralArg(&args);
@@ -1630,5 +1605,6 @@ bool ChatHandler::HandleDebugObjectFlags(char* args)
             target->SetDebugFlag(CMDebugFlags(~CMDEBUGFLAG_NONE));
         }
     }
+
     return true;
 }

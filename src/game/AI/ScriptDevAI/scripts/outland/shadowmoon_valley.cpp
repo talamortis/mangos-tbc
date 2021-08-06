@@ -40,7 +40,8 @@ EndContentData */
 #include "AI/ScriptDevAI/base/escort_ai.h"
 #include "AI/ScriptDevAI/base/pet_ai.h"
 #include "Entities/TemporarySpawn.h"
-#include "AI/ScriptDevAI/base/TimerAI.h"
+#include "AI/ScriptDevAI/base/CombatAI.h"
+#include "Spells/Scripts/SpellScript.h"
 
 /*#####
 # mob_mature_netherwing_drake
@@ -203,14 +204,14 @@ enum
 
 struct mob_enslaved_netherwing_drakeAI : public ScriptedAI
 {
-    mob_enslaved_netherwing_drakeAI(Creature* pCreature) : ScriptedAI(pCreature)
+    mob_enslaved_netherwing_drakeAI(Creature* creature) : ScriptedAI(creature), m_uiFlyTimer(0), m_disabled(false)
     {
-        m_uiFlyTimer = 0;
         Reset();
     }
 
     ObjectGuid m_playerGuid;
     uint32 m_uiFlyTimer;
+    bool m_disabled;
 
     void Reset() override
     {
@@ -218,13 +219,20 @@ struct mob_enslaved_netherwing_drakeAI : public ScriptedAI
         m_creature->SetHover(false);
     }
 
+    void JustRespawned() override
+    {
+        ScriptedAI::JustRespawned();
+        m_disabled = false;
+    }
+
     void SpellHit(Unit* pCaster, const SpellEntry* pSpell) override
     {
-        if (pSpell->Id == SPELL_HIT_FORCE_OF_NELTHARAKU && !m_uiFlyTimer)
+        if (pSpell->Id == SPELL_HIT_FORCE_OF_NELTHARAKU && !m_disabled)
         {
             if (Player* pPlayer = pCaster->GetBeneficiaryPlayer())
             {
                 m_uiFlyTimer = 2500;
+                m_disabled = true;
                 m_playerGuid = pPlayer->GetObjectGuid();
 
                 DoScriptText(EMOTE_ON_HIT_FORCE, m_creature);
@@ -424,14 +432,12 @@ struct npc_dragonmaw_peonAI : public ScriptedAI
                 m_uiPoisonTimer -= uiDiff;
         }
 
+        if (!m_creature->SelectHostileTarget())
+            return;
+
         DoMeleeAttackIfReady();
     }
 };
-
-UnitAI* GetAI_npc_dragonmaw_peon(Creature* pCreature)
-{
-    return new npc_dragonmaw_peonAI(pCreature);
-}
 
 bool EffectDummyCreature_npc_dragonmaw_peon(Unit* pCaster, uint32 uiSpellId, SpellEffectIndex uiEffIndex, Creature* pCreatureTarget, ObjectGuid /*originalCasterGuid*/)
 {
@@ -692,32 +698,35 @@ enum
 {
     QUEST_BATTLE_OF_THE_CRIMSON_WATCH = 10781,
 
-    EVENT_COOLDOWN                    = 30000,
+    EVENT_COOLDOWN = 30000,
 
-    SAY_TORLOTH_DIALOGUE1             = -1000532,
-    SAY_TORLOTH_DIALOGUE2             = -1000533,
-    SAY_TORLOTH_DIALOGUE3             = -1000534,
-    SAY_ILLIDAN_DIALOGUE              = -1000535,
-    SAY_ILLIDAN_SUMMON1               = -1000536,
-    SAY_ILLIDAN_SUMMON2               = -1000537,
-    SAY_ILLIDAN_SUMMON3               = -1000538,
-    SAY_ILLIDAN_SUMMON4               = -1000539,
-    SAY_EVENT_COMPLETED               = -1000540,
+    SAY_EVENT_START = -1015103,
 
-    MODEL_ID_FELGUARD                 = 18654,
-    MODEL_ID_DREADLORD                = 19991,
+    SAY_TORLOTH_DIALOGUE1 = -1000532,
+    SAY_TORLOTH_DIALOGUE2 = -1000533,
+    SAY_TORLOTH_DIALOGUE3 = -1000534,
+    SAY_ILLIDAN_DIALOGUE = -1000535,
+    SAY_ILLIDAN_SUMMON1 = -1000536,
+    SAY_ILLIDAN_SUMMON2 = -1000537,
+    SAY_ILLIDAN_SUMMON3 = -1000538,
+    SAY_ILLIDAN_SUMMON4 = -1000539,
+    SAY_EVENT_COMPLETED = -1000540,
 
-    NPC_ILLIDARI_SOLDIER              = 22075,
-    NPC_ILLIDARI_MIND_BREAKER         = 22074,
-    NPC_ILLIDARI_HIGHLORD             = 19797,
-    NPC_TORLOTH_THE_MAGNIFICENT       = 22076,
-    NPC_LORD_ILLIDAN                  = 22083
+    MODEL_ID_FELGUARD = 18654,
+    MODEL_ID_DREADLORD = 19991,
+
+    NPC_ILLIDARI_SOLDIER = 22075,
+    NPC_ILLIDARI_MIND_BREAKER = 22074,
+    NPC_ILLIDARI_HIGHLORD = 19797,
+    NPC_TORLOTH_THE_MAGNIFICENT = 22076,
+    NPC_LORD_ILLIDAN = 22083,
+    NPC_MARCUS_AURALION = 22073,
 };
 
 enum CinematicCreature
 {
     LORD_ILLIDAN = 1,
-    TORLOTH      = 0
+    TORLOTH = 0
 };
 
 const float EVENT_AREA_RADIUS = 65.0;
@@ -734,10 +743,9 @@ static TorlothCinematic TorlothAnim[] =
     {SAY_TORLOTH_DIALOGUE1, TORLOTH, 2000},
     {SAY_ILLIDAN_DIALOGUE, LORD_ILLIDAN, 7000},
     {SAY_TORLOTH_DIALOGUE2, TORLOTH, 3000},
-    {0, TORLOTH, 2000},                                  // Torloth stand
-    {SAY_TORLOTH_DIALOGUE3, TORLOTH, 1000},
-    {0, TORLOTH, 3000},
-    {0, TORLOTH, 0}
+    {0, TORLOTH, 1000},                                 // Torloth stand
+    {SAY_TORLOTH_DIALOGUE3, TORLOTH, 7000},
+    {0, TORLOTH, 0},                                    // Torloth attacks
 };
 
 struct Location
@@ -796,54 +804,81 @@ static WaveData WavesInfo[] =
 
 enum
 {
-    SPELL_CLEAVE           = 15284,
-    SPELL_SHADOWFURY       = 39082,
-    SPELL_SPELL_REFLECTION = 33961
+    SPELL_CLEAVE = 15284,
+    SPELL_SHADOWFURY = 39082,
+    SPELL_SPELL_REFLECTION = 33961,
+
+    SPELL_SPIRIT_PARTICLES = 37119,
+    SPELL_SHADOWFORM = 37816,
+
+    FACTION_HOSTILE = 14,
 };
 
-struct mob_torlothAI : public ScriptedAI
+enum TorlothActions
 {
-    mob_torlothAI(Creature* pCreature) : ScriptedAI(pCreature) {Reset();}
+    TORLOTH_CLEAVE,
+    TORLOTH_SHADOWFURY,
+    TORLOTH_SPELL_REFLECTION,
+    TORLOTH_ACTION_MAX,
+    TORLOTH_ANIMATIONS,
+};
+
+struct mob_torlothAI : public CombatAI
+{
+    mob_torlothAI(Creature* creature) : CombatAI(creature, TORLOTH_ACTION_MAX)
+    {
+        AddCombatAction(TORLOTH_CLEAVE, 10000u);
+        AddCombatAction(TORLOTH_SHADOWFURY, 18000u);
+        AddCombatAction(TORLOTH_SPELL_REFLECTION, 25000u);
+        AddCustomAction(TORLOTH_ANIMATIONS, 4000u, [&]() {HandleAnimation(); });
+    }
 
     ObjectGuid m_lordIllidanGuid;
     ObjectGuid m_playerGuid;
 
-    uint32 m_uiCleaveTimer;
-    uint32 m_uiShadowfuryTimer;
-    uint32 m_uiSpellReflectionTimer;
-    uint8  m_uiAnimationCount;
-    uint32 m_uiAnimationTimer;
+    uint8 m_uiAnimationCount;
 
     void Reset() override
     {
+        CombatAI::Reset();
         m_lordIllidanGuid.Clear();
         m_playerGuid.Clear();
 
         m_uiAnimationCount = 0;
-        m_uiAnimationTimer = 4000;
-        m_uiCleaveTimer = 10000;
-        m_uiShadowfuryTimer = 18000;
-        m_uiSpellReflectionTimer = 25000;
 
         // make him not attackable for the time of animation
-        m_creature->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NON_ATTACKABLE);
         SetCombatMovement(false);
+    }
+
+    void FailEvent()
+    {
+        m_creature->ForcedDespawn();
+        if (Unit* spawner = m_creature->GetSpawner()) // get controller of event
+            SendAIEvent(AI_EVENT_CUSTOM_A, m_creature, spawner); // fail
+    }
+
+    void JustRespawned() override
+    {
+        CombatAI::JustRespawned();
+        DoCastSpellIfCan(nullptr, SPELL_SPIRIT_PARTICLES, CAST_TRIGGERED | CAST_AURA_NOT_PRESENT);
+        DoCastSpellIfCan(nullptr, SPELL_SHADOWFORM, CAST_TRIGGERED | CAST_AURA_NOT_PRESENT);
     }
 
     void EnterEvadeMode() override
     {
-        m_creature->ForcedDespawn();
+        CombatAI::EnterEvadeMode(); // cleanup
+        FailEvent();
     }
 
     void HandleAnimation()
     {
-        Creature* pCreature = m_creature;
+        Creature* creature = m_creature;
 
         if (TorlothAnim[m_uiAnimationCount].uiCreature == LORD_ILLIDAN)
         {
-            pCreature = m_creature->GetMap()->GetCreature(m_lordIllidanGuid);
+            creature = m_creature->GetMap()->GetCreature(m_lordIllidanGuid);
 
-            if (!pCreature)
+            if (!creature)
             {
                 m_creature->ForcedDespawn();
                 return;
@@ -851,9 +886,7 @@ struct mob_torlothAI : public ScriptedAI
         }
 
         if (TorlothAnim[m_uiAnimationCount].iTextId)
-            DoScriptText(TorlothAnim[m_uiAnimationCount].iTextId, pCreature);
-
-        m_uiAnimationTimer = TorlothAnim[m_uiAnimationCount].uiTimer;
+            DoScriptText(TorlothAnim[m_uiAnimationCount].iTextId, creature);
 
         switch (m_uiAnimationCount)
         {
@@ -862,94 +895,62 @@ struct mob_torlothAI : public ScriptedAI
                 break;
             case 3:
                 m_creature->SetStandState(UNIT_STAND_STATE_STAND);
+                if (Player* target = m_creature->GetMap()->GetPlayer(m_playerGuid))
+                    m_creature->SetFacingToObject(target);
                 break;
             case 5:
-                if (Player* pTarget = m_creature->GetMap()->GetPlayer(m_playerGuid))
-                {
-                    // TODO: review this
-                    m_creature->AddThreat(pTarget);
-                    m_creature->SetFacingToObject(pTarget);
-                    m_creature->HandleEmote(EMOTE_ONESHOT_POINT);
-                }
-                break;
-            case 6:
             {
-                if (Player* pTarget = m_creature->GetMap()->GetPlayer(m_playerGuid))
-                {
-                    SetCombatMovement(true);
-                    m_creature->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NON_ATTACKABLE);
-                    float fLocX, fLocY, fLocZ;
-                    pTarget->GetPosition(fLocX, fLocY, fLocZ);
-                    m_creature->GetMotionMaster()->MovePoint(0, fLocX, fLocY, fLocZ);
-                }
+                SetCombatMovement(true);
+                m_creature->setFaction(FACTION_HOSTILE);
+                m_creature->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_PLAYER);
+                if (Player* target = m_creature->GetMap()->GetPlayer(m_playerGuid))
+                    AttackStart(target);
+                else
+                    FailEvent();
                 break;
             }
         }
 
+        if (uint32 timer = TorlothAnim[m_uiAnimationCount].uiTimer)
+            ResetTimer(TORLOTH_ANIMATIONS, timer);
         ++m_uiAnimationCount;
     }
 
-    void JustDied(Unit* pKiller) override
+    void JustDied(Unit* /*killer*/) override
     {
-        if (Player* pPlayer = pKiller->GetBeneficiaryPlayer())
+        if (Player* player = m_creature->GetMap()->GetPlayer(m_playerGuid))
         {
-            pPlayer->RewardPlayerAndGroupAtEventExplored(QUEST_BATTLE_OF_THE_CRIMSON_WATCH, m_creature);
+            player->RewardPlayerAndGroupAtEventExplored(QUEST_BATTLE_OF_THE_CRIMSON_WATCH, m_creature);
 
-            if (Creature* pLordIllidan = m_creature->GetMap()->GetCreature(m_lordIllidanGuid))
+            if (Creature* lordIllidan = m_creature->GetMap()->GetCreature(m_lordIllidanGuid))
             {
-                DoScriptText(SAY_EVENT_COMPLETED, pLordIllidan, pPlayer);
-                pLordIllidan->AI()->EnterEvadeMode();
+                DoScriptText(SAY_EVENT_COMPLETED, lordIllidan, player);
+                lordIllidan->AI()->EnterEvadeMode();
             }
         }
+        if (Unit* spawner = m_creature->GetSpawner()) // get controller of event
+            SendAIEvent(AI_EVENT_CUSTOM_B, m_creature, spawner); // success
     }
 
-    void UpdateAI(const uint32 uiDiff) override
+    void ExecuteAction(uint32 action) override
     {
-        if (m_uiAnimationCount < 7)
+        switch (action)
         {
-            if (m_uiAnimationTimer < uiDiff)
-                HandleAnimation();
-            else
-                m_uiAnimationTimer -= uiDiff;
-        }
-        else
-        {
-            if (!m_creature->SelectHostileTarget() || !m_creature->GetVictim())
-                return;
-
-            if (m_uiCleaveTimer < uiDiff)
-            {
-                DoCastSpellIfCan(m_creature->GetVictim(), SPELL_CLEAVE);
-                m_uiCleaveTimer = 15000;
-            }
-            else
-                m_uiCleaveTimer -= uiDiff;
-
-            if (m_uiShadowfuryTimer < uiDiff)
-            {
-                DoCastSpellIfCan(m_creature->GetVictim(), SPELL_SHADOWFURY);
-                m_uiShadowfuryTimer = 20000;
-            }
-            else
-                m_uiShadowfuryTimer -= uiDiff;
-
-            if (m_uiSpellReflectionTimer < uiDiff)
-            {
-                DoCastSpellIfCan(m_creature, SPELL_SPELL_REFLECTION);
-                m_uiSpellReflectionTimer = 30000;
-            }
-            else
-                m_uiSpellReflectionTimer -= uiDiff;
-
-            DoMeleeAttackIfReady();
+            case TORLOTH_CLEAVE:
+                if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_CLEAVE) == CAST_OK)
+                    ResetCombatAction(action, 15000);
+                break;
+            case TORLOTH_SHADOWFURY:
+                if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_SHADOWFURY) == CAST_OK)
+                    ResetCombatAction(action, 20000);
+                break;
+            case TORLOTH_SPELL_REFLECTION:
+                if (DoCastSpellIfCan(nullptr, SPELL_SPELL_REFLECTION) == CAST_OK)
+                    ResetCombatAction(action, 30000);
+                break;
         }
     }
 };
-
-UnitAI* GetAI_mob_torloth(Creature* pCreature)
-{
-    return new mob_torlothAI(pCreature);
-}
 
 /*#####
 # npc_lord_illidan_stormrage
@@ -957,8 +958,9 @@ UnitAI* GetAI_mob_torloth(Creature* pCreature)
 
 struct npc_lord_illidan_stormrageAI : public Scripted_NoMovementAI
 {
-    npc_lord_illidan_stormrageAI(Creature* pCreature) : Scripted_NoMovementAI(pCreature) {Reset();}
+    npc_lord_illidan_stormrageAI(Creature* pCreature) : Scripted_NoMovementAI(pCreature) {}
 
+    GuidVector m_spawns;
     ObjectGuid m_playerGuid;
     uint32 m_uiWaveTimer;
     uint32 m_uiAnnounceTimer;
@@ -967,7 +969,6 @@ struct npc_lord_illidan_stormrageAI : public Scripted_NoMovementAI
     uint8  m_uiWaveCount;
 
     bool m_bEventStarted;
-    bool m_bEventFailed;
     bool m_bWaveAnnounced;
 
     void Reset() override
@@ -982,14 +983,31 @@ struct npc_lord_illidan_stormrageAI : public Scripted_NoMovementAI
         m_uiWaveCount = 0;
 
         m_bEventStarted = false;
-        m_bEventFailed = false;
         m_bWaveAnnounced = false;
+
+        m_spawns.clear();
     }
 
-    void StartEvent(Player* pPlayer)
+    void StartEvent(Player* player)
     {
         m_bEventStarted = true;
-        m_playerGuid = pPlayer->GetObjectGuid();
+        m_playerGuid = player->GetObjectGuid();
+        if (Creature* marcus = GetClosestCreatureWithEntry(m_creature, NPC_MARCUS_AURALION, 20.f))
+            DoScriptText(SAY_EVENT_START, marcus, player);
+    }
+
+    void FailEvent()
+    {
+        DespawnGuids(m_spawns);
+        Reset();
+    }
+
+    void ReceiveAIEvent(AIEventType eventType, Unit* /*sender*/, Unit* /*invoker*/, uint32 /*miscValue*/) override
+    {
+        if (eventType == AI_EVENT_CUSTOM_A) // failed - sent by torloth
+            FailEvent();
+        else if (eventType == AI_EVENT_CUSTOM_B) // success
+            Reset();
     }
 
     void SummonWave()
@@ -1006,9 +1024,8 @@ struct npc_lord_illidan_stormrageAI : public Scripted_NoMovementAI
             float fLocZ = SpawnLocation[uiLocIndex + i].fLocZ;
             float fOrient = SpawnLocation[uiLocIndex + i].fOrient;
 
-            if (Creature* pSpawn = m_creature->SummonCreature(WavesInfo[m_uiWaveCount].uiCreatureId, fLocX, fLocY, fLocZ, fOrient, TEMPSPAWN_CORPSE_TIMED_DESPAWN, 15000))
+            if (Creature* pSpawn = m_creature->SummonCreature(WavesInfo[m_uiWaveCount].uiCreatureId, fLocX, fLocY, fLocZ, fOrient, TEMPSPAWN_TIMED_OOC_OR_DEAD_DESPAWN, 30000))
             {
-
                 if (m_uiWaveCount)                          // only in first wave
                     continue;
 
@@ -1035,7 +1052,7 @@ struct npc_lord_illidan_stormrageAI : public Scripted_NoMovementAI
         m_uiAnnounceTimer = WavesInfo[m_uiWaveCount].uiYellTimer;
     }
 
-    void JustSummoned(Creature* pSummoned) override
+    void JustSummoned(Creature* summoned) override
     {
         // increment mob count
         ++m_uiMobCount;
@@ -1043,9 +1060,9 @@ struct npc_lord_illidan_stormrageAI : public Scripted_NoMovementAI
         if (!m_playerGuid)
             return;
 
-        if (pSummoned->GetEntry() == NPC_TORLOTH_THE_MAGNIFICENT)
+        if (summoned->GetEntry() == NPC_TORLOTH_THE_MAGNIFICENT)
         {
-            if (mob_torlothAI* pTorlothAI = dynamic_cast<mob_torlothAI*>(pSummoned->AI()))
+            if (mob_torlothAI* pTorlothAI = dynamic_cast<mob_torlothAI*>(summoned->AI()))
             {
                 pTorlothAI->m_lordIllidanGuid = m_creature->GetObjectGuid();
                 pTorlothAI->m_playerGuid = m_playerGuid;
@@ -1053,85 +1070,46 @@ struct npc_lord_illidan_stormrageAI : public Scripted_NoMovementAI
         }
         else
         {
-            if (Player* pTarget = m_creature->GetMap()->GetPlayer(m_playerGuid))
-            {
-                float fLocX, fLocY, fLocZ;
-                pTarget->GetPosition(fLocX, fLocY, fLocZ);
-                pSummoned->GetMotionMaster()->MovePoint(0, fLocX, fLocY, fLocZ);
-            }
+            if (Player* target = m_creature->GetMap()->GetPlayer(m_playerGuid))
+                summoned->AI()->AttackStart(target);
         }
     }
 
-    void SummonedCreatureDespawn(Creature* /*pCreature*/) override
+    void SummonedCreatureJustDied(Creature* creature) override
     {
-        // decrement mob count
-        --m_uiMobCount;
+        if (creature->GetEntry() != NPC_TORLOTH_THE_MAGNIFICENT)
+        {
+            // decrement mob count
+            --m_uiMobCount;
 
-        if (!m_uiMobCount)
-            m_bWaveAnnounced = false;
+            if (!m_uiMobCount)
+                m_bWaveAnnounced = false;
+        }
     }
 
     void CheckEventFail()
     {
-        Player* pPlayer = m_creature->GetMap()->GetPlayer(m_playerGuid);
+        Player* player = m_creature->GetMap()->GetPlayer(m_playerGuid);
 
-        if (!pPlayer)
+        if (!player)
             return;
 
-        if (Group* pEventGroup = pPlayer->GetGroup())
+        if (!player->CheckForGroup([&](Player const* player) -> bool
+            {
+                if (!player->IsAlive())
+                    return false;
+
+                if (player->GetQuestStatus(QUEST_BATTLE_OF_THE_CRIMSON_WATCH) != QUEST_STATUS_INCOMPLETE)
+                    return false;
+
+                if (!player->IsWithinDistInMap(m_creature, EVENT_AREA_RADIUS))
+                    return false;
+
+                return true;
+            }))
         {
-            uint8 uiDeadMemberCount = 0;
-            uint8 uiFailedMemberCount = 0;
-
-            for (GroupReference* pRef = pEventGroup->GetFirstMember(); pRef != nullptr; pRef = pRef->next())
-            {
-                if (Player* pMember = pRef->getSource())
-                {
-                    if (!pMember->IsAlive())
-                        ++uiDeadMemberCount;
-
-                    // if we already failed no need to check other things
-                    if (pMember->GetQuestStatus(QUEST_BATTLE_OF_THE_CRIMSON_WATCH) == QUEST_STATUS_FAILED)
-                    {
-                        ++uiFailedMemberCount;
-                        continue;
-                    }
-
-                    // we left event area fail quest
-                    if (!pMember->IsWithinDistInMap(m_creature, EVENT_AREA_RADIUS))
-                    {
-                        pMember->FailQuest(QUEST_BATTLE_OF_THE_CRIMSON_WATCH);
-                        ++uiFailedMemberCount;
-                    }
-                }
-                else
-                    uiFailedMemberCount++;
-            }
-
-            if (pEventGroup->GetMembersCount() == uiFailedMemberCount)
-            {
-                m_bEventFailed = true;
-                return;
-            }
-
-            if (pEventGroup->GetMembersCount() == uiDeadMemberCount)
-            {
-                for (GroupReference* pRef = pEventGroup->GetFirstMember(); pRef != nullptr; pRef = pRef->next())
-                {
-                    if (Player* pMember = pRef->getSource())
-                    {
-                        if (pMember->GetQuestStatus(QUEST_BATTLE_OF_THE_CRIMSON_WATCH) == QUEST_STATUS_INCOMPLETE)
-                            pMember->FailQuest(QUEST_BATTLE_OF_THE_CRIMSON_WATCH);
-                    }
-                }
-
-                m_bEventFailed = true;
-            }
-        }
-        else if (pPlayer->IsDead() || !pPlayer->IsWithinDistInMap(m_creature, EVENT_AREA_RADIUS))
-        {
-            pPlayer->FailQuest(QUEST_BATTLE_OF_THE_CRIMSON_WATCH);
-            m_bEventFailed = true;
+            player->FailQuestForGroup(QUEST_BATTLE_OF_THE_CRIMSON_WATCH);
+            FailEvent();
         }
     }
 
@@ -1163,27 +1141,19 @@ struct npc_lord_illidan_stormrageAI : public Scripted_NoMovementAI
         }
         else
             m_uiCheckTimer -= uiDiff;
-
-        if (m_bEventFailed)
-            Reset();
     }
 };
-
-UnitAI* GetAI_npc_lord_illidan_stormrage(Creature * (pCreature))
-{
-    return new npc_lord_illidan_stormrageAI(pCreature);
-}
 
 /*#####
 # go_crystal_prison : GameObject that begins the event and hands out quest
 ######*/
-bool GOQuestAccept_GO_crystal_prison(Player* pPlayer, GameObject* /*pGo*/, Quest const* pQuest)
+bool GOQuestAccept_GO_crystal_prison(Player* player, GameObject* /*go*/, Quest const* quest)
 {
-    if (pQuest->GetQuestId() == QUEST_BATTLE_OF_THE_CRIMSON_WATCH)
-        if (Creature* pLordIllidan = GetClosestCreatureWithEntry(pPlayer, NPC_LORD_ILLIDAN, 50.0))
-            if (npc_lord_illidan_stormrageAI* pIllidanAI = dynamic_cast<npc_lord_illidan_stormrageAI*>(pLordIllidan->AI()))
-                if (!pIllidanAI->m_bEventStarted)
-                    pIllidanAI->StartEvent(pPlayer);
+    if (quest->GetQuestId() == QUEST_BATTLE_OF_THE_CRIMSON_WATCH)
+        if (Creature* lordIllidan = GetClosestCreatureWithEntry(player, NPC_LORD_ILLIDAN, 50.0))
+            if (npc_lord_illidan_stormrageAI* illidanAI = dynamic_cast<npc_lord_illidan_stormrageAI*>(lordIllidan->AI()))
+                if (!illidanAI->m_bEventStarted)
+                    illidanAI->StartEvent(player);
 
     return true;
 }
@@ -1234,10 +1204,11 @@ enum
     EVENT_AIR                           = 13516,
 };
 
-struct npc_totem_of_spiritsAI : public ScriptedPetAI
+struct npc_totem_of_spiritsAI : public ScriptedAI
 {
-    npc_totem_of_spiritsAI(Creature* pCreature) : ScriptedPetAI(pCreature)
+    npc_totem_of_spiritsAI(Creature* creature) : ScriptedAI(creature)
     {
+        SetReactState(REACT_PASSIVE);
         Reset();
         m_uiElementalSieveTimer = 2500; // needs to be cast non-stop without interference from evade and some such
     }
@@ -1246,52 +1217,45 @@ struct npc_totem_of_spiritsAI : public ScriptedPetAI
 
     void Reset() override {}
 
-    void AttackedBy(Unit* /*pAttacker*/) override {}
-
-    void SummonedMovementInform(Creature* pSummoned, uint32 /*uiMotionType*/, uint32 /*uiData*/) override
+    void SummonedMovementInform(Creature* summoned, uint32 /*motionType*/, uint32 /*data*/) override
     {
-        switch (pSummoned->GetEntry())
+        switch (summoned->GetEntry())
         {
             case NPC_EARTHEN_SOUL:
-                pSummoned->CastSpell(m_creature, SPELL_EARTH_CAPTURED, TRIGGERED_OLD_TRIGGERED);
+                summoned->CastSpell(m_creature, SPELL_EARTH_CAPTURED, TRIGGERED_OLD_TRIGGERED);
                 break;
             case NPC_FIERY_SOUL:
-                pSummoned->CastSpell(m_creature, SPELL_FIERY_CAPTURED, TRIGGERED_OLD_TRIGGERED);
+                summoned->CastSpell(m_creature, SPELL_FIERY_CAPTURED, TRIGGERED_OLD_TRIGGERED);
                 break;
             case NPC_WATERY_SOUL:
-                pSummoned->CastSpell(m_creature, SPELL_WATER_CAPTURED, TRIGGERED_OLD_TRIGGERED);
+                summoned->CastSpell(m_creature, SPELL_WATER_CAPTURED, TRIGGERED_OLD_TRIGGERED);
                 break;
             case NPC_AIRY_SOUL:
-                pSummoned->CastSpell(m_creature, SPELL_AIR_CAPTURED, TRIGGERED_OLD_TRIGGERED);
+                summoned->CastSpell(m_creature, SPELL_AIR_CAPTURED, TRIGGERED_OLD_TRIGGERED);
                 break;
         }
 
         // Despawn the spirit soul after it's captured
-        ((Creature*)pSummoned)->ForcedDespawn(1000);
+        summoned->ForcedDespawn(1000);
     }
 
-    void JustSummoned(Creature* pSummoned) override
+    void JustSummoned(Creature* summoned) override
     {
         // After summoning the spirit soul, make it move towards the totem
-        pSummoned->GetMotionMaster()->MovePoint(1, m_creature->GetPositionX(), m_creature->GetPositionY(), m_creature->GetPositionZ() + 4);
+        summoned->GetMotionMaster()->MovePoint(1, m_creature->GetPositionX(), m_creature->GetPositionY(), m_creature->GetPositionZ() + 4);
     }
 
-    void UpdateAI(const uint32 uiDiff) override
+    void UpdateAI(const uint32 diff) override
     {
-        if (m_uiElementalSieveTimer <= uiDiff)
+        if (m_uiElementalSieveTimer <= diff)
         {
-            m_creature->CastSpell(m_creature, SPELL_ELEMENTAL_SIEVE, TRIGGERED_OLD_TRIGGERED);
+            m_creature->CastSpell(nullptr, SPELL_ELEMENTAL_SIEVE, TRIGGERED_OLD_TRIGGERED);
             m_uiElementalSieveTimer = 2500;
         }
         else
-            m_uiElementalSieveTimer -= uiDiff;
+            m_uiElementalSieveTimer -= diff;
     }
 };
-
-UnitAI* GetAI_npc_totem_of_spirits(Creature* pCreature)
-{
-    return new npc_totem_of_spiritsAI(pCreature);
-}
 
 bool EffectDummyCreature_npc_totem_of_spirits(Unit* /*pCaster*/, uint32 uiSpellId, SpellEffectIndex uiEffIndex, Creature* pCreatureTarget, ObjectGuid /*originalCasterGuid*/)
 {
@@ -1490,6 +1454,7 @@ struct npc_shadowlord_deathwailAI : public ScriptedAI
         SetReactState(REACT_PASSIVE);
         m_creature->SetByteFlag(UNIT_FIELD_BYTES_1, 3, UNIT_BYTE1_FLAG_FLY_ANIM);
         m_creature->SetLevitate(true);
+        SetDeathPrevention(true);
         Reset();
     }
 
@@ -1535,6 +1500,7 @@ struct npc_shadowlord_deathwailAI : public ScriptedAI
         m_bDeathwailGrounded = true;
         m_creature->GetMotionMaster()->MovePoint(0, DeathwailDescentCoords[0].xCoord, DeathwailDescentCoords[0].yCoord, DeathwailDescentCoords[0].zCoord);
         DoScriptText(SAY_BEGIN_DESCENT, m_creature);
+        SetDeathPrevention(false);
     }
 
     void MovementInform(uint32 motionType, uint32 pointId) override
@@ -1805,6 +1771,8 @@ struct mob_shadowmoon_soulstealerAI : public ScriptedAI
 
     void Reset() override
     {
+        SetCombatMovement(false);
+        SetMeleeEnabled(false);
         m_cDeathwail = nullptr;
         m_bSixtyTriggered = false;
         m_bTwentyTriggered = false;
@@ -1828,7 +1796,7 @@ struct mob_shadowmoon_soulstealerAI : public ScriptedAI
 
     void Aggro(Unit* who) override
     {
-        m_cDeathwail = GetClosestCreatureWithEntry(m_creature, NPC_SHADOWLORD_DEATHWAIL, 175.0f);
+        m_cDeathwail = GetClosestCreatureWithEntry(m_creature, NPC_SHADOWLORD_DEATHWAIL, 200.0f);
         bool exitCombat = false;
 
         if (m_cDeathwail)
@@ -1869,31 +1837,36 @@ struct mob_shadowmoon_soulstealerAI : public ScriptedAI
 
     void UpdateAI(const uint32 /*uiDiff*/) override
     {
+        if (!m_creature->SelectHostileTarget())
+            return;
+
+        if (!m_cDeathwail)
+            return;
+
         if (!m_bSixtyTriggered)
         {
             if (m_creature->GetHealthPercent() <= 60.0f)
+            {
                 if (npc_shadowlord_deathwailAI* DeathwailAI = dynamic_cast<npc_shadowlord_deathwailAI*>(m_cDeathwail->AI()))
                 {
                     DeathwailAI->DoSummonWave(true);
                     m_bSixtyTriggered = true;
                 }
+            }
         }
         else if (!m_bTwentyTriggered)
         {
             if (m_creature->GetHealthPercent() <= 20.0f)
+            {
                 if (npc_shadowlord_deathwailAI* DeathwailAI = dynamic_cast<npc_shadowlord_deathwailAI*>(m_cDeathwail->AI()))
                 {
                     DeathwailAI->DoSummonWave(true);
                     m_bTwentyTriggered = true;
                 }
+            }
         }
     }
 };
-
-UnitAI* GetAI_mob_shadowmoon_soulstealer(Creature* pCreature)
-{
-    return new mob_shadowmoon_soulstealerAI(pCreature);
-}
 
 /*#####
 #npc_spawned_oronok_tornheart
@@ -2573,6 +2546,8 @@ enum
     SPELL_LAZY_AND_GOOD_FOR_NOTHING = 40732,
     SPELL_DEFIANT_AND_ENRAGED       = 40735,
     SPELL_PEON_CLEAR_ALL            = 40762,
+    SPELL_KICK                      = 34802,
+    SPELL_SUNDER_ARMOR              = 15572,
 
     NPC_PEON                = 22252,
     NPC_PEON_WORK_NODE      = 23308,
@@ -2595,6 +2570,8 @@ struct npc_disobedient_dragonmaw_peonAI : public ScriptedAI
 
     uint32 m_angryTimer;
     uint32 m_booterangTimer;
+    uint32 m_kickTimer;
+    uint32 m_sunderarmorTimer;
     ObjectGuid m_lastPlayerGuid;
 
     void Reset() override
@@ -2606,6 +2583,8 @@ struct npc_disobedient_dragonmaw_peonAI : public ScriptedAI
             else
                 m_angryTimer = urand(6000, 10000);
             m_booterangTimer = 0;
+            m_kickTimer = urand(5000, 10000);
+            m_sunderarmorTimer = urand(3000, 9000);
         }
     }
 
@@ -2710,6 +2689,32 @@ struct npc_disobedient_dragonmaw_peonAI : public ScriptedAI
                 else m_booterangTimer -= diff;
             }
         }
+        else
+        {
+            if (!m_creature->SelectHostileTarget() || !m_creature->GetVictim())
+                return;
+
+            if (m_kickTimer)
+            {
+                if (m_kickTimer <= diff)
+                {
+                    if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_KICK) == CAST_OK)
+                        m_kickTimer = urand(12000, 24000);
+                }
+                else m_kickTimer -= diff;
+            }
+            if (m_sunderarmorTimer)
+            {
+                if (m_sunderarmorTimer <= diff)
+                {
+                    if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_SUNDER_ARMOR) == CAST_OK)
+                        m_sunderarmorTimer = urand(12000, 18000);
+                }
+                else m_sunderarmorTimer -= diff;
+            }
+
+            DoMeleeAttackIfReady();
+        }
 
         ScriptedAI::UpdateAI(diff);
     }
@@ -2781,6 +2786,7 @@ enum CommanderActions : uint32
     COMMANDER_ACTION_POST_MOVEMENT_FACE_DIRECTION, // Only for aldor
     COMMANDER_ACTION_POST_MOVEMENT_START_EVENT,
     COMMANDER_ACTION_WIN_RETURN,
+    COMMANDER_ACTION_FAIL_EVENT,
 };
 
 struct SpawnData
@@ -2861,9 +2867,9 @@ static DeadliestScriptInfo deadliestScriptInfo[COMMANDER_COUNT] =
     { NPC_ALDOR_DRAGONMAW_SKYBREAKER,   NPC_ALTAR_DEFENDER,   LAST_POINT_ARCUS, SAY_EVENT_ACCEPT_ARCUS, SAY_EVENT_START_ARCUS, SAY_EVENT_END_ARCUS, SAY_EVENT_ACCEPT_ARCUS, QUEST_DEADLIEST_TRAP_ALDOR }
 };
 
-struct npc_commanderAI : public ScriptedAI, public CombatActions
+struct npc_commanderAI : public CombatAI
 {
-    npc_commanderAI(Creature* creature, uint8 commanderId) : ScriptedAI(creature), CombatActions(COMMANDER_COMBAT_ACTION_MAX),
+    npc_commanderAI(Creature* creature, uint8 commanderId) : CombatAI(creature, COMMANDER_COMBAT_ACTION_MAX),
         m_defenderSpawns(DEFENDER_SPAWN_COUNT),
         m_dragonmawSpawns(DRAGONMAW_SPAWN_COUNT),
         m_killCounter(0),
@@ -2871,9 +2877,9 @@ struct npc_commanderAI : public ScriptedAI, public CombatActions
     {
         m_attackDistance = 30.f;
         m_meleeEnabled = false;
-        AddCombatAction(COMMANDER_COMBAT_ACTION_AIMED_SHOT, 0u);
-        AddCombatAction(COMMANDER_COMBAT_ACTION_MULTI_SHOT, 0u);
-        AddCombatAction(COMMANDER_COMBAT_ACTION_SHOOT, 0u);
+        AddCombatAction(COMMANDER_COMBAT_ACTION_AIMED_SHOT, GetInitialCombatActionTimer(COMMANDER_COMBAT_ACTION_AIMED_SHOT));
+        AddCombatAction(COMMANDER_COMBAT_ACTION_MULTI_SHOT, GetInitialCombatActionTimer(COMMANDER_COMBAT_ACTION_MULTI_SHOT));
+        AddCombatAction(COMMANDER_COMBAT_ACTION_SHOOT, GetInitialCombatActionTimer(COMMANDER_COMBAT_ACTION_SHOOT));
 
         AddCustomAction(COMMANDER_ACTION_START_QUEST_FLAGS, true, [&]() { m_creature->RemoveFlag(UNIT_NPC_FLAGS, UNIT_NPC_FLAG_QUESTGIVER); });
         AddCustomAction(COMMANDER_ACTION_START_QUEST_TEXT, true, [&]()
@@ -2888,6 +2894,11 @@ struct npc_commanderAI : public ScriptedAI, public CombatActions
             m_creature->GetRespawnCoord(x, y, z, &ori);
             m_creature->GetMotionMaster()->MovePoint(POINT_HOME, x, y, z);
         });
+        AddCustomAction(COMMANDER_ACTION_FAIL_EVENT, true, [&]()
+        {
+            m_creature->ForcedDespawn();
+            FailEvent();
+        });
     }
 
     GuidVector m_defenderSpawns;
@@ -2896,13 +2907,6 @@ struct npc_commanderAI : public ScriptedAI, public CombatActions
 
     uint8 m_killCounter;
     uint8 m_commanderId;
-
-    void Reset() override
-    {
-        ResetTimer(COMMANDER_COMBAT_ACTION_AIMED_SHOT, GetRepeatingCombatActionTimer(COMMANDER_COMBAT_ACTION_AIMED_SHOT));
-        ResetTimer(COMMANDER_COMBAT_ACTION_MULTI_SHOT, GetRepeatingCombatActionTimer(COMMANDER_COMBAT_ACTION_MULTI_SHOT));
-        ResetTimer(COMMANDER_COMBAT_ACTION_SHOOT,      GetRepeatingCombatActionTimer(COMMANDER_COMBAT_ACTION_SHOOT));
-    }
 
     void GetAIInformation(ChatHandler& reader) override
     {
@@ -2936,43 +2940,22 @@ struct npc_commanderAI : public ScriptedAI, public CombatActions
         return 0;
     }
 
-    void ExecuteActions() override
+    void ExecuteAction(uint32 action) override
     {
-        if (!CanExecuteCombatAction())
-            return;
-
-        for (uint32 i = 0; i < COMMANDER_COMBAT_ACTION_MAX; ++i)
+        switch (action)
         {
-            if (!GetActionReadyStatus(i))
-                continue;
-
-            switch (i)
-            {
-                case COMMANDER_COMBAT_ACTION_AIMED_SHOT:
-                    if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_AIMED_SHOT) == CAST_OK)
-                    {
-                        SetActionReadyStatus(i, false);
-                        ResetTimer(i, GetRepeatingCombatActionTimer(i));
-                        return;
-                    }
-                    continue;
-                case COMMANDER_COMBAT_ACTION_MULTI_SHOT:
-                    if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_MULTI_SHOT) == CAST_OK)
-                    {
-                        SetActionReadyStatus(i, false);
-                        ResetTimer(i, GetRepeatingCombatActionTimer(i));
-                        return;
-                    }
-                    continue;
-                case COMMANDER_COMBAT_ACTION_SHOOT:
-                    if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_SHOOT) == CAST_OK)
-                    {
-                        SetActionReadyStatus(i, false);
-                        ResetTimer(i, GetRepeatingCombatActionTimer(i));
-                        return;
-                    }
-                    continue;
-            }
+            case COMMANDER_COMBAT_ACTION_AIMED_SHOT:
+                if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_AIMED_SHOT) == CAST_OK)
+                    ResetCombatAction(action, GetRepeatingCombatActionTimer(action));
+                return;
+            case COMMANDER_COMBAT_ACTION_MULTI_SHOT:
+                if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_MULTI_SHOT) == CAST_OK)
+                    ResetCombatAction(action, GetRepeatingCombatActionTimer(action));
+                return;
+            case COMMANDER_COMBAT_ACTION_SHOOT:
+                if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_SHOOT) == CAST_OK)
+                    ResetCombatAction(action, GetRepeatingCombatActionTimer(action));
+                return;
         }
     }
 
@@ -3023,6 +3006,7 @@ struct npc_commanderAI : public ScriptedAI, public CombatActions
         ResetTimer(COMMANDER_ACTION_START_QUEST_FLAGS, 1000);
         ResetTimer(COMMANDER_ACTION_START_QUEST_TEXT, 2000);
         ResetTimer(COMMANDER_ACTION_START_QUEST_MOVEMENT, 4500);
+        m_creature->SetActiveObjectState(true);
     }
 
     virtual void FinishedWaypointMovement()
@@ -3030,6 +3014,7 @@ struct npc_commanderAI : public ScriptedAI, public CombatActions
         m_creature->GetMotionMaster()->Clear(false, true);
         m_creature->GetMotionMaster()->MoveIdle();
         m_creature->SetSheath(SHEATH_STATE_RANGED);
+        ResetTimer(COMMANDER_ACTION_FAIL_EVENT, 900000);
     }
 
     virtual void StartAttackingEvent()
@@ -3044,6 +3029,8 @@ struct npc_commanderAI : public ScriptedAI, public CombatActions
 
         DoScriptText(deadliestScriptInfo[m_commanderId].winText, m_creature, m_creature->GetMap()->GetPlayer(m_startingPlayer));
 
+        if (m_creature->IsInCombat())
+            EnterEvadeMode();
         ResetTimer(COMMANDER_ACTION_WIN_RETURN, 3000);
         ResetEvent();
     }
@@ -3060,6 +3047,14 @@ struct npc_commanderAI : public ScriptedAI, public CombatActions
         DespawnDragonmaw();
         m_startingPlayer = ObjectGuid();
         m_creature->SetSheath(SHEATH_STATE_MELEE);
+        DisableTimer(COMMANDER_ACTION_FAIL_EVENT);
+        m_creature->HandleEmote(0);
+        m_creature->SetActiveObjectState(false);
+    }
+
+    void JustDied(Unit* killer) override
+    {
+        FailEvent();
     }
 
     void MovementInform(uint32 movementType, uint32 data) override
@@ -3155,16 +3150,6 @@ struct npc_commander_arcusAI : public npc_commanderAI
         npc_commanderAI::StartAttackingEvent();
     }
 };
-
-UnitAI* GetAI_npc_commander_hobb(Creature* pCreature)
-{
-    return new npc_commander_hobbAI(pCreature);
-}
-
-UnitAI* GetAI_npc_commander_arcus(Creature* pCreature)
-{
-    return new npc_commander_arcusAI(pCreature);
-}
 
 bool QuestAccept_npc_commander(Player* player, Creature* questgiver, Quest const* quest)
 {
@@ -3286,7 +3271,7 @@ struct npc_dragonmaw_racerAI : public npc_escortAI
     {
         if (m_uiAttackTimer)
         {
-            if (m_uiAttackTimer < uiDiff)
+            if (m_uiAttackTimer <= uiDiff)
             {
                 AttackPlayer();
             }
@@ -3508,36 +3493,6 @@ struct npc_dragonmaw_racer_skyshatterAI : public npc_dragonmaw_racerAI
         m_uiAttackTimer = urand(1000, 2000);
     }
 };
-
-UnitAI* GetAI_npc_dragonmaw_racer_muckjaw(Creature* pCreature)
-{
-    return new npc_dragonmaw_racer_muckjawAI(pCreature);
-}
-
-UnitAI* GetAI_npc_dragonmaw_racer_trope(Creature* pCreature)
-{
-    return new npc_dragonmaw_racer_tropeAI(pCreature);
-}
-
-UnitAI* GetAI_npc_dragonmaw_racer_corlok(Creature* pCreature)
-{
-    return new npc_dragonmaw_racer_corlokAI(pCreature);
-}
-
-UnitAI* GetAI_npc_dragonmaw_racer_ichman(Creature* pCreature)
-{
-    return new npc_dragonmaw_racer_ichmanAI(pCreature);
-}
-
-UnitAI* GetAI_npc_dragonmaw_racer_mulverick(Creature* pCreature)
-{
-    return new npc_dragonmaw_racer_mulverickAI(pCreature);
-}
-
-UnitAI* GetAI_npc_dragonmaw_racer_skyshatter(Creature* pCreature)
-{
-    return new npc_dragonmaw_racer_skyshatterAI(pCreature);
-}
 
 bool QuestAccept_npc_dragonmaw_racer(Player* player, Creature* questgiver, Quest const* quest)
 {
@@ -4618,6 +4573,7 @@ struct npc_bt_battle_sensor : public ScriptedAI
                             senderAI->m_bIsWaypointing = false;
                         break;
                     }
+                    default: break;
                 }
 
                 break;
@@ -4703,6 +4659,7 @@ struct npc_bt_battle_sensor : public ScriptedAI
                             senderAI->m_bIsWaypointing = false;
                         break;
                     }
+                    default: break;
                 }
 
                 break;
@@ -4770,6 +4727,7 @@ struct npc_bt_battle_sensor : public ScriptedAI
                         }
                         break;
                     }
+                    default: break;
                 }
 
                 break;
@@ -4831,6 +4789,7 @@ struct npc_bt_battle_sensor : public ScriptedAI
                         }
                         break;
                     }
+                    default: break;
                 }
 
                 break;
@@ -4857,6 +4816,7 @@ struct npc_bt_battle_sensor : public ScriptedAI
                         m_caalenGuid = senderGuid;
                         break;
                     }
+                    default: break;
                 }
 
                 break;
@@ -4891,6 +4851,7 @@ struct npc_bt_battle_sensor : public ScriptedAI
                         if (Creature* senderAI = dynamic_cast<Creature*>(sender))
                             senderAI->ForcedDespawn(90000);
                         break;
+                    default: break;
                 }
 
                 break;
@@ -5263,6 +5224,58 @@ UnitAI* GetAI_npc_bt_battle_sensor(Creature* pCreature)
     return new npc_bt_battle_sensor(pCreature);
 }
 
+struct TagGreaterFelfireDiemetradon : public SpellScript, public AuraScript
+{
+    SpellCastResult OnCheckCast(Spell* spell, bool /*strict*/) const override
+    {
+        Unit* target = spell->m_targets.getUnitTarget();
+        if (!target || !target->IsCreature() || static_cast<Creature*>(target)->HasBeenHitBySpell(spell->m_spellInfo->Id))
+            return SPELL_FAILED_BAD_TARGETS;
+        return SPELL_CAST_OK;
+    }
+
+    void OnHit(Spell* spell, SpellMissInfo /*missInfo*/) const override
+    {
+        Unit* target = spell->m_targets.getUnitTarget(); // no need to check for creature, done above
+        if (target)
+            static_cast<Creature*>(target)->RegisterHitBySpell(spell->m_spellInfo->Id);
+    }
+
+    void OnApply(Aura* aura, bool apply) const override
+    {
+        if (apply)
+            static_cast<Creature*>(aura->GetTarget())->UnregisterHitBySpell(aura->GetSpellProto()->Id);
+    }
+};
+
+struct DragonmawIllusionBase : public AuraScript
+{
+    void OnApply(Aura* aura, bool apply) const override
+    {
+        if (apply)
+        {
+            aura->GetTarget()->CastSpell(nullptr, 40216, TRIGGERED_OLD_TRIGGERED);
+            aura->GetTarget()->CastSpell(nullptr, 42016, TRIGGERED_OLD_TRIGGERED);
+        }
+        else
+        {
+            aura->GetTarget()->RemoveAurasDueToSpell(40216);
+            aura->GetTarget()->RemoveAurasDueToSpell(42016);
+        }
+    }
+};
+
+struct DragonmawIllusionTransform : public AuraScript
+{
+    void OnApply(Aura* aura, bool apply) const override
+    {
+        if (apply)
+            aura->GetTarget()->OverrideMountDisplayId(16314);
+        else
+            aura->GetTarget()->OverrideMountDisplayId(0);
+    }
+};
+
 void AddSC_shadowmoon_valley()
 {
     Script* pNewScript = new Script;
@@ -5277,7 +5290,7 @@ void AddSC_shadowmoon_valley()
 
     pNewScript = new Script;
     pNewScript->Name = "npc_dragonmaw_peon";
-    pNewScript->GetAI = &GetAI_npc_dragonmaw_peon;
+    pNewScript->GetAI = &GetNewAIInstance<npc_dragonmaw_peonAI>;
     pNewScript->pEffectDummyNPC = &EffectDummyCreature_npc_dragonmaw_peon;
     pNewScript->RegisterSelf();
 
@@ -5289,17 +5302,17 @@ void AddSC_shadowmoon_valley()
 
     pNewScript = new Script;
     pNewScript->Name = "npc_lord_illidan_stormrage";
-    pNewScript->GetAI = &GetAI_npc_lord_illidan_stormrage;
+    pNewScript->GetAI = &GetNewAIInstance<npc_lord_illidan_stormrageAI>;
     pNewScript->RegisterSelf();
 
     pNewScript = new Script;
     pNewScript->Name = "mob_torloth";
-    pNewScript->GetAI = &GetAI_mob_torloth;
+    pNewScript->GetAI = &GetNewAIInstance<mob_torlothAI>;
     pNewScript->RegisterSelf();
 
     pNewScript = new Script;
     pNewScript->Name = "npc_totem_of_spirits";
-    pNewScript->GetAI = &GetAI_npc_totem_of_spirits;
+    pNewScript->GetAI = &GetNewAIInstance<npc_totem_of_spiritsAI>;
     pNewScript->pEffectDummyNPC = &EffectDummyCreature_npc_totem_of_spirits;
     pNewScript->RegisterSelf();
 
@@ -5310,7 +5323,7 @@ void AddSC_shadowmoon_valley()
 
     pNewScript = new Script;
     pNewScript->Name = "mob_shadowmoon_soulstealer";
-    pNewScript->GetAI = &GetAI_mob_shadowmoon_soulstealer;
+    pNewScript->GetAI = &GetNewAIInstance<mob_shadowmoon_soulstealerAI>;
     pNewScript->RegisterSelf();
 
     pNewScript = new Script;
@@ -5352,49 +5365,49 @@ void AddSC_shadowmoon_valley()
 
     pNewScript = new Script;
     pNewScript->Name = "npc_commander_hobb";
-    pNewScript->GetAI = &GetAI_npc_commander_hobb;
+    pNewScript->GetAI = &GetNewAIInstance<npc_commander_hobbAI>;
     pNewScript->pQuestAcceptNPC = &QuestAccept_npc_commander;
     pNewScript->RegisterSelf();
 
     pNewScript = new Script;
     pNewScript->Name = "npc_commander_arcus";
-    pNewScript->GetAI = &GetAI_npc_commander_arcus;
+    pNewScript->GetAI = &GetNewAIInstance<npc_commander_arcusAI>;
     pNewScript->pQuestAcceptNPC = &QuestAccept_npc_commander;
     pNewScript->RegisterSelf();
 
     pNewScript = new Script;
     pNewScript->Name = "npc_dragonmaw_racer_muckjaw";
-    pNewScript->GetAI = &GetAI_npc_dragonmaw_racer_muckjaw;
+    pNewScript->GetAI = &GetNewAIInstance<npc_dragonmaw_racer_muckjawAI>;
     pNewScript->pQuestAcceptNPC = &QuestAccept_npc_dragonmaw_racer;
     pNewScript->RegisterSelf();
 
     pNewScript = new Script;
     pNewScript->Name = "npc_dragonmaw_racer_trope";
-    pNewScript->GetAI = &GetAI_npc_dragonmaw_racer_trope;
+    pNewScript->GetAI = &GetNewAIInstance<npc_dragonmaw_racer_tropeAI>;
     pNewScript->pQuestAcceptNPC = &QuestAccept_npc_dragonmaw_racer;
     pNewScript->RegisterSelf();
 
     pNewScript = new Script;
     pNewScript->Name = "npc_dragonmaw_racer_corlok";
-    pNewScript->GetAI = &GetAI_npc_dragonmaw_racer_corlok;
+    pNewScript->GetAI = &GetNewAIInstance<npc_dragonmaw_racer_corlokAI>;
     pNewScript->pQuestAcceptNPC = &QuestAccept_npc_dragonmaw_racer;
     pNewScript->RegisterSelf();
 
     pNewScript = new Script;
     pNewScript->Name = "npc_dragonmaw_racer_ichman";
-    pNewScript->GetAI = &GetAI_npc_dragonmaw_racer_ichman;
+    pNewScript->GetAI = &GetNewAIInstance<npc_dragonmaw_racer_ichmanAI>;
     pNewScript->pQuestAcceptNPC = &QuestAccept_npc_dragonmaw_racer;
     pNewScript->RegisterSelf();
 
     pNewScript = new Script;
     pNewScript->Name = "npc_dragonmaw_racer_mulverick";
-    pNewScript->GetAI = &GetAI_npc_dragonmaw_racer_mulverick;
+    pNewScript->GetAI = &GetNewAIInstance<npc_dragonmaw_racer_mulverickAI>;
     pNewScript->pQuestAcceptNPC = &QuestAccept_npc_dragonmaw_racer;
     pNewScript->RegisterSelf();
 
     pNewScript = new Script;
     pNewScript->Name = "npc_dragonmaw_racer_skyshatter";
-    pNewScript->GetAI = &GetAI_npc_dragonmaw_racer_skyshatter;
+    pNewScript->GetAI = &GetNewAIInstance<npc_dragonmaw_racer_skyshatterAI>;
     pNewScript->pQuestAcceptNPC = &QuestAccept_npc_dragonmaw_racer;
     pNewScript->RegisterSelf();
 
@@ -5407,4 +5420,8 @@ void AddSC_shadowmoon_valley()
     pNewScript->Name = "npc_bt_battle_sensor";
     pNewScript->GetAI = &GetAI_npc_bt_battle_sensor;
     pNewScript->RegisterSelf();
+
+    RegisterScript<TagGreaterFelfireDiemetradon>("spell_tag_for_single_use");
+    RegisterAuraScript<DragonmawIllusionBase>("spell_dragonmaw_illusion_base");
+    RegisterAuraScript<DragonmawIllusionTransform>("spell_dragonmaw_illusion_transform");
 }

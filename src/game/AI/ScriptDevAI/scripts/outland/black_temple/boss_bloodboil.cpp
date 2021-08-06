@@ -16,14 +16,15 @@
 
 /* ScriptData
 SDName: Boss_Bloodboil
-SD%Complete: 90
-SDComment: Timers may need adjustments.
+SD%Complete: 100
+SDComment:
 SDCategory: Black Temple
 EndScriptData */
 
 #include "AI/ScriptDevAI/include/sc_common.h"
 #include "black_temple.h"
 #include "AI/ScriptDevAI/base/TimerAI.h"
+#include "Spells/Scripts/SpellScript.h"
 
 enum
 {
@@ -89,9 +90,8 @@ enum GurtoggActions
 
 struct boss_gurtogg_bloodboilAI : public ScriptedAI, public CombatActions
 {
-    boss_gurtogg_bloodboilAI(Creature* creature) : ScriptedAI(creature), CombatActions(GURTOGG_ACTION_MAX)
+    boss_gurtogg_bloodboilAI(Creature* creature) : ScriptedAI(creature), CombatActions(GURTOGG_ACTION_MAX), m_instance(static_cast<ScriptedInstance*>(creature->GetInstanceData()))
     {
-        m_instance = static_cast<ScriptedInstance*>(creature->GetInstanceData());
         AddCombatAction(GURTOGG_ACTION_CHANGE_PHASE, 0u);
         AddCombatAction(GURTOGG_ACTION_BERSERK, 0u);
         AddCombatAction(GURTOGG_ACTION_BLOODBOIL, 0u);
@@ -99,6 +99,10 @@ struct boss_gurtogg_bloodboilAI : public ScriptedAI, public CombatActions
         AddCombatAction(GURTOGG_ACTION_FEL_ACID, 0u);
         AddCombatAction(GURTOGG_ACTION_BEWILDERING_STRIKE, 0u);
         AddCombatAction(GURTOGG_ACTION_EJECT, 0u);
+        m_creature->GetCombatManager().SetLeashingCheck([](Unit*, float, float y, float)
+        {
+            return y < 140.f;
+        });
         Reset();
     }
 
@@ -232,7 +236,7 @@ struct boss_gurtogg_bloodboilAI : public ScriptedAI, public CombatActions
             m_phase1 = true;
             DoCastSpellIfCan(nullptr, SPELL_ACIDIC_WOUND, CAST_TRIGGERED | CAST_AURA_NOT_PRESENT);
             m_creature->CastSpell(nullptr, SPELL_FEL_GEYSER, TRIGGERED_OLD_TRIGGERED);
-            ResetTimer(GURTOGG_ACTION_BLOODBOIL, 12000);
+            ResetTimer(GURTOGG_ACTION_BLOODBOIL, 10000);
             ResetTimer(GURTOGG_ACTION_ARCING_SMASH, 10000);
             ResetTimer(GURTOGG_ACTION_FEL_ACID, GetInitialActionTimer(GURTOGG_ACTION_FEL_ACID));
             ResetTimer(GURTOGG_ACTION_BEWILDERING_STRIKE, 28000);
@@ -341,23 +345,26 @@ struct boss_gurtogg_bloodboilAI : public ScriptedAI, public CombatActions
         if (!m_creature->SelectHostileTarget() || !m_creature->GetVictim())
             return;
 
-        EnterEvadeIfOutOfCombatArea(diff);
-
         ExecuteActions();
 
         DoMeleeAttackIfReady();
     }
 };
 
-UnitAI* GetAI_boss_gurtogg_bloodboil(Creature* pCreature)
+struct FelRage3 : public AuraScript
 {
-    return new boss_gurtogg_bloodboilAI(pCreature);
-}
+    void OnApply(Aura* aura, bool apply) const override
+    {
+        aura->GetTarget()->ModifyAuraState(AURA_STATE_HYPOTHERMIA, apply);
+    }
+};
 
 void AddSC_boss_gurtogg_bloodboil()
 {
     Script* pNewScript = new Script;
     pNewScript->Name = "boss_gurtogg_bloodboil";
-    pNewScript->GetAI = &GetAI_boss_gurtogg_bloodboil;
+    pNewScript->GetAI = &GetNewAIInstance<boss_gurtogg_bloodboilAI>;
     pNewScript->RegisterSelf();
+
+    RegisterAuraScript<FelRage3>("spell_fel_rage_3");
 }

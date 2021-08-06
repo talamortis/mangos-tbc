@@ -76,6 +76,20 @@ set(SRC_GRP_LOG
     Log.h
 )
 
+set(SRC_GRP_MT
+    Multithreading/Messager.h
+    Multithreading/Messager.cpp
+)
+
+if(BUILD_METRICS)
+    set(SRC_GRP_METRIC
+        Metric/Measurement.cpp
+        Metric/Measurement.h
+        Metric/Metric.cpp
+        Metric/Metric.h
+    )
+endif()
+
 set(SRC_GRP_NETWORK
     Network/PacketBuffer.cpp
     Network/Socket.cpp
@@ -96,6 +110,7 @@ set(SRC_GRP_UTIL
     Util.h
     WorldPacket.h
     ProducerConsumerQueue.h
+    CommonDefines.h
 )
 
 set(SRC_GRP_SRP
@@ -109,9 +124,11 @@ set(LIBRARY_SRCS
     ${SRC_GRP_DATABASE}
     ${SRC_GRP_DATABASE_DBC}
     ${SRC_GRP_LOG}
+    ${SRC_GRP_METRIC}
     ${SRC_GRP_UTIL}
     ${SRC_GRP_SRP}
     ${SRC_GRP_NETWORK}
+    ${SRC_GRP_MT}
     Common.cpp
     Common.h
     revision_sql.h
@@ -149,6 +166,13 @@ source_group("Log"
     ${SRC_GRP_LOG}
 )
 
+if(BUILD_METRICS)
+    source_group("Metric"
+    FILES
+        ${SRC_GRP_METRIC}
+    )
+endif()
+
 source_group("Util"
   FILES
     ${SRC_GRP_UTIL}
@@ -157,6 +181,11 @@ source_group("Util"
 source_group("SRP"
   FILES
     ${SRC_GRP_SRP}
+)
+
+source_group("Multithreading"
+  FILES
+    ${SRC_GRP_MT}
 )
 
 # OS specific files
@@ -192,15 +221,26 @@ target_include_directories(${LIBRARY_NAME}
   PUBLIC "${CMAKE_SOURCE_DIR}/src/game"
 )
 
-target_link_libraries(${LIBRARY_NAME}
-  PUBLIC framework
-  PUBLIC ${Boost_LIBRARIES}
-  PUBLIC ${OPENSSL_LIBRARIES}
-  PUBLIC utf8cpp
-)
+if(UNIX)
+  target_link_libraries(${LIBRARY_NAME}
+    PUBLIC framework
+    PUBLIC utf8cpp
+    PUBLIC dl
+    PUBLIC ${Boost_LIBRARIES}
+    PUBLIC ${OPENSSL_LIBRARIES}
+  )
+else()
+  target_link_libraries(${LIBRARY_NAME}
+    PUBLIC framework
+    PUBLIC ${Boost_LIBRARIES}
+    PUBLIC ${OPENSSL_LIBRARIES}
+    PUBLIC utf8cpp
+  )
+endif()
 
 if(POSTGRESQL AND POSTGRESQL_FOUND)
   target_include_directories(${LIBRARY_NAME} PUBLIC ${PostgreSQL_INCLUDE_DIRS})
+  target_link_libraries(${LIBRARY_NAME} PUBLIC ${PostgreSQL_LIBRARIES})
 else()
   target_include_directories(${LIBRARY_NAME} PUBLIC ${MYSQL_INCLUDE_DIR})
   target_link_libraries(${LIBRARY_NAME} PUBLIC ${MYSQL_LIBRARY})
@@ -210,6 +250,11 @@ else()
     add_custom_command(TARGET ${LIBRARY_NAME} POST_BUILD
       COMMAND xcopy /Y \"${LibFolder}\\*.dll\" \"${DEV_BIN_DIR}\\*.dll\")
   endif()
+endif()
+
+# Specific definition for an issue with boost/stacktrace when building on macOS
+if(APPLE)
+  add_compile_definitions(_GNU_SOURCE)
 endif()
 
 # Generate precompiled header

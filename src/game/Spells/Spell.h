@@ -38,6 +38,7 @@ class Group;
 class Aura;
 struct SpellTargetEntry;
 struct SpellScript;
+struct AuraScript;
 
 enum SpellCastFlags
 {
@@ -117,19 +118,13 @@ class SpellCastTargets
 
             m_itemTargetEntry  = target.m_itemTargetEntry;
 
-            m_srcX = target.m_srcX;
-            m_srcY = target.m_srcY;
-            m_srcZ = target.m_srcZ;
-
-            m_destX = target.m_destX;
-            m_destY = target.m_destY;
-            m_destZ = target.m_destZ;
+            m_srcPos = target.m_srcPos;
+            m_destPos = target.m_destPos;
 
             m_strTarget = target.m_strTarget;
 
             m_targetMask = target.m_targetMask;
 
-            m_destOri = 0.f;
             m_mapId = target.m_mapId;
 
             return *this;
@@ -141,9 +136,10 @@ class SpellCastTargets
 
         void setDestination(float x, float y, float z);
         void setSource(float x, float y, float z);
-        void getDestination(float& x, float& y, float& z) const { x = m_destX; y = m_destY; z = m_destZ; }
-        void getDestination(WorldLocation& loc) { loc.coord_x = m_destX; loc.coord_y = m_destY; loc.coord_z = m_destZ; }
-        void getSource(float& x, float& y, float& z) const { x = m_srcX; y = m_srcY, z = m_srcZ; }
+        void getDestination(float& x, float& y, float& z) const { x = m_destPos.x; y = m_destPos.y; z = m_destPos.z; }
+        Position getDestination() const { return m_destPos; }
+        void getDestination(WorldLocation& loc) { loc.coord_x = m_destPos.x; loc.coord_y = m_destPos.y; loc.coord_z = m_destPos.z; }
+        void getSource(float& x, float& y, float& z) const { x = m_srcPos.x; y = m_srcPos.y; z = m_srcPos.z; }
 
         void setGOTarget(GameObject* target);
         ObjectGuid getGOTargetGuid() const { return m_GOTargetGUID; }
@@ -173,13 +169,12 @@ class SpellCastTargets
 
         void Update(Unit* caster);
 
-        float m_srcX, m_srcY, m_srcZ;
-        float m_destX, m_destY, m_destZ;
+        Position m_srcPos;
+        Position m_destPos;
         std::string m_strTarget;
 
         uint32 m_targetMask;
 
-        float m_destOri;
         uint32 m_mapId; // not to be written to packet in vanilla/tbc
 
     private:
@@ -311,6 +306,7 @@ class Spell
         void EffectOpenLock(SpellEffectIndex eff_idx);
         void EffectSummonChangeItem(SpellEffectIndex eff_idx);
         void EffectProficiency(SpellEffectIndex eff_idx);
+        void EffectTeleportGraveyard(SpellEffectIndex eff_idx);
         void EffectApplyAreaAura(SpellEffectIndex eff_idx);
         void EffectSummonType(SpellEffectIndex eff_idx);
         void EffectLearnSpell(SpellEffectIndex eff_idx);
@@ -374,7 +370,6 @@ class Spell
         void EffectTaunt(SpellEffectIndex eff_idx);
         void EffectDurabilityDamagePCT(SpellEffectIndex eff_idx);
         void EffectModifyThreatPercent(SpellEffectIndex eff_idx);
-        void EffectResurrectNew(SpellEffectIndex eff_idx);
         void EffectAddExtraAttacks(SpellEffectIndex eff_idx);
         void EffectSpiritHeal(SpellEffectIndex eff_idx);
         void EffectSkinPlayerCorpse(SpellEffectIndex eff_idx);
@@ -389,8 +384,10 @@ class Spell
         void EffectPlaySound(SpellEffectIndex eff_idx);
         void EffectPlayMusic(SpellEffectIndex eff_idx);
         void EffectKnockBackFromPosition(SpellEffectIndex eff_idx);
+        void EffectSummonRafFriend(SpellEffectIndex eff_idx);
+        void EffectCreateTamedPet(SpellEffectIndex eff_ifx);
 
-        Spell(Unit* caster, SpellEntry const* info, uint32 triggeredFlags, ObjectGuid originalCasterGUID = ObjectGuid(), SpellEntry const* triggeredBy = nullptr);
+        Spell(WorldObject* caster, SpellEntry const* info, uint32 triggeredFlags, ObjectGuid originalCasterGUID = ObjectGuid(), SpellEntry const* triggeredBy = nullptr);
         ~Spell();
 
         SpellCastResult SpellStart(SpellCastTargets const* targets, Aura* triggeredByAura = nullptr);
@@ -420,7 +417,9 @@ class Spell
         SpellCastResult CheckPower(bool strict);
         SpellCastResult CheckCasterAuras() const;
 
-        int32 CalculateDamage(SpellEffectIndex i, Unit* target) { return m_caster->CalculateSpellEffectValue(target, m_spellInfo, i, &m_currentBasePoints[i]); }
+        int32 CalculateSpellEffectValue(SpellEffectIndex i, Unit* target, bool maximum = false, bool finalUse = true)
+        { return m_trueCaster->CalculateSpellEffectValue(target, m_spellInfo, i, &m_currentBasePoints[i], maximum, finalUse); }
+        int32 CalculateSpellEffectDamage(Unit* unitTarget, int32 damage);
         static uint32 CalculatePowerCost(SpellEntry const* spellInfo, Unit* caster, Spell* spell = nullptr, Item* castItem = nullptr, bool finalUse = false);
 
         bool HaveTargetsForEffect(SpellEffectIndex effect) const;
@@ -451,6 +450,9 @@ class Spell
         bool DoSummonCritter(CreatureSummonPositions& list, SummonPropertiesEntry const* prop, SpellEffectIndex effIdx, uint32 level);
         bool DoSummonPossessed(CreatureSummonPositions& list, SummonPropertiesEntry const* prop, SpellEffectIndex effIdx, uint32 level);
 
+        void ProcessDispelList(std::list <std::pair<SpellAuraHolder*, uint32> >& dispelList, std::list<std::pair<SpellAuraHolder*, uint32> >& successList, std::list <uint32>& failList);
+        void EvaluateResultLists(std::list<std::pair<SpellAuraHolder*, uint32> >& successList, std::list <uint32>& failList);
+
         void WriteSpellGoTargets(WorldPacket& data);
         void WriteAmmoToPacket(WorldPacket& data) const;
 
@@ -467,20 +469,23 @@ class Spell
         void SendInterrupted(SpellCastResult result) const;
         void SendChannelUpdate(uint32 time, uint32 lastTick = 0) const;
         void SendChannelStart(uint32 duration);
-        void SendResurrectRequest(Player* target) const;
 
         void StopCast(SpellCastResult castResult);
 
-        void HandleEffects(Unit* pUnitTarget, Item* pItemTarget, GameObject* pGOTarget, SpellEffectIndex i, float DamageMultiplier = 1.0);
+        void ExecuteEffects(Unit* unitTarget, Item* itemTarget, GameObject* GOTarget, uint32 effectMask);
+        void HandleEffect(Unit* unitTarget, Item* itemTarget, GameObject* GOTarget, SpellEffectIndex effIdx, float damageMultiplier = 1.0);
         void HandleThreatSpells();
+        void ProcessAOECaps();
         // void HandleAddAura(Unit* Target);
+
+        void SetCastItem(Item* item);
+        Item* GetCastItem() { return m_CastItem; }
 
         SpellEntry const* m_spellInfo;
         SpellEntry const* m_triggeredBySpellInfo;
         int32 m_currentBasePoints[MAX_EFFECT_INDEX];        // cache SpellEntry::CalculateSimpleValue and use for set custom base points
 
         ObjectGuid m_CastItemGuid;
-        Item* m_CastItem;
         uint8 m_cast_count;
         SpellCastTargets m_targets;
 
@@ -497,6 +502,8 @@ class Spell
         bool m_ignoreGCD;
         bool m_ignoreCosts;
         bool m_ignoreCooldowns;
+        bool m_ignoreConcurrentCasts;
+        bool m_hideInCombatLog;
 
         int32 GetCastTime() const { return m_casttime; }
         uint32 GetCastedTime() const { return m_timer; }
@@ -549,14 +556,12 @@ class Spell
         Unit* GetAffectiveCaster() const { return m_originalCasterGUID ? m_originalCaster : m_caster; }
         // m_originalCasterGUID can store GO guid, and in this case this is visual caster
         WorldObject* GetCastingObject() const;
-
-        uint32 GetPowerCost() const { return m_powerCost; }
         // channels are generally instant - until more research provided all need to have speed 0
         float GetSpellSpeed() const;
 
         void UpdatePointers();                              // must be used at call Spell code after time delay (non triggered spell cast/update spell call/etc)
 
-        bool CheckTargetCreatureType(Unit* target) const;
+        static bool CheckTargetCreatureType(Unit* target, SpellEntry const* spellInfo);
 
         void AddTriggeredSpell(SpellEntry const* spellInfo) { m_TriggerSpells.push_back(spellInfo); }
         void AddPrecastSpell(SpellEntry const* spellInfo) { m_preCastSpells.push_back(spellInfo); }
@@ -574,6 +579,81 @@ class Spell
 
         uint64 GetScriptValue() const { return m_scriptValue; }
         void SetScriptValue(uint64 value) { m_scriptValue = value; }
+        void RegisterAuraProc(Aura* aura);
+        bool IsAuraProcced(Aura* aura);
+
+        // Spell Target Subsystem - public part
+        // Targets store structures and data
+        struct TargetInfo
+        {
+            ObjectGuid targetGUID;
+            uint64 timeDelay;
+            uint64 initialDelay; // Used to store reflect travel time so we can reset it on proc
+            uint32 HitInfo;
+            uint32 damage;
+            uint32 healing;
+            SpellMissInfo missCondition : 8;
+            SpellMissInfo reflectResult : 8;
+            uint8  effectHitMask : 8; // Used for all effects which actually hit a target
+            uint8  effectMask : 8; // Used for all effects a certain target was evaluated for
+            uint8  effectMaskProcessed : 8; // Used for all effects that were already processed
+            bool   processed : 1;
+            bool   magnet : 1;
+            bool   procReflect : 1; // Used to tell hit to proc reflect only and return reflect back
+            bool   isCrit : 1;
+            uint32 heartbeatResistChance;
+        };
+        uint8 m_needAliveTargetMask;                        // Mask req. alive targets
+        void ProcReflectProcs(TargetInfo& targetInfo);
+
+        struct GOTargetInfo
+        {
+            ObjectGuid targetGUID;
+            uint64 timeDelay;
+            uint8  effectMask : 8;
+            bool   processed : 1;
+        };
+
+        struct ItemTargetInfo
+        {
+            Item* item;
+            uint8 effectMask;
+        };
+
+        struct CorpseTargetInfo
+        {
+            ObjectGuid corpseGUID;
+            uint8 effectMask;
+        };
+
+        struct DestTargetInfo
+        {
+            uint32 effectMask;
+            uint64 timeDelay;
+            bool processed;
+            DestTargetInfo() : effectMask(0), timeDelay(0), processed(false) {}
+        };
+
+        typedef std::list<TargetInfo>     TargetList;
+        typedef std::list<GOTargetInfo>   GOTargetList;
+        typedef std::list<ItemTargetInfo> ItemTargetList;
+        typedef std::list<CorpseTargetInfo> CorpseTargetList;
+
+        struct TempTargetData
+        {
+            UnitList tmpUnitList[2];
+            GameObjectList tmpGOList[2];
+            std::list<Item*> tempItemList;
+            CorpseList tempCorpseList;
+        };
+        struct TempTargetingData
+        {
+            TempTargetData data[MAX_EFFECT_INDEX];
+            uint32 chainTargetCount[MAX_EFFECT_INDEX];
+            bool magnet;
+        };
+
+        SpellCastResult CheckScriptTargeting(SpellEffectIndex effIndex, uint32 chainTargets, float radius, uint32 targetMode, UnitList& tempUnitList, GameObjectList& tempGOList);
 
         // Scripting system
         SpellScript* GetSpellScript() const { return m_spellScript; }
@@ -583,12 +663,15 @@ class Spell
         void OnSuccessfulFinish();
         SpellCastResult OnCheckCast(bool strict);
         void OnEffectExecute(SpellEffectIndex effIndex);
+        void OnRadiusCalculate(SpellEffectIndex effIndex, bool targetB, float& radius);
         void OnDestTarget();
         bool OnCheckTarget(GameObject* target, SpellEffectIndex eff) const;
         bool OnCheckTarget(Unit* target, SpellEffectIndex eff) const;
         void OnCast();
-        void OnHit();
+        void OnHit(SpellMissInfo missInfo);
         void OnAfterHit();
+        void OnSummon(GameObject* summon);
+        void OnSummon(Creature* summon);
         // effect execution info access - only to be used in OnEffectExecute OnHit and OnAfterHit
         Unit* GetUnitTarget() { return unitTarget; }
         Item* GetItemTarget() { return itemTarget; }
@@ -602,7 +685,15 @@ class Spell
         void SetJumpRadius(float newValue) { m_jumpRadius = newValue; }
         // warning - always set scheme for first unique target in a row
         void SetFilteringScheme(SpellEffectIndex effIdx, bool targetB, SpellTargetFilterScheme scheme) { m_filteringScheme[effIdx][uint32(targetB)] = scheme; }
+        // onsuccessfulspellstart
+        uint32 GetPowerCost() const { return m_powerCost; }
+        void SetPowerCost(uint32 powerCost) { m_powerCost = powerCost; }
+        // access to targets
+        TargetList& GetTargetList() { return m_UniqueTargetInfo; }
 
+        // GO casting preparations
+        void SetFakeCaster(Unit* caster) { m_caster = caster; }
+        WorldObject* GetTrueCaster() const { return m_trueCaster; }
     protected:
         void SendLoot(ObjectGuid guid, LootType loottype, LockType lockType);
         bool IgnoreItemRequirements() const;                // some item use spells have unexpected reagent data
@@ -615,6 +706,8 @@ class Spell
         std::pair<float, float> GetMinMaxRange(bool strict);
 
         Unit* m_caster;
+        Item* m_CastItem;
+        bool m_itemCastSpell;
 
         ObjectGuid m_originalCasterGUID;                    // real source of cast (aura caster/etc), used for spell targets selection
         // e.g. damage around area spell trigered by victim aura and da,age emeies of aura caster
@@ -648,6 +741,7 @@ class Spell
         Unit* unitTarget;
         Item* itemTarget;
         GameObject* gameObjTarget;
+        Corpse* corpseTarget;
         SpellAuraHolder* m_spellAuraHolder;                 // spell aura holder for current target, created only if spell has aura applying effect
         int32 damage;
 
@@ -676,23 +770,11 @@ class Spell
         //*****************************************
         // Spell target filling
         //*****************************************
-        struct TempTargetData
-        {
-            UnitList tmpUnitList[2];
-            GameObjectList tmpGOList[2];
-            std::list<Item*> tempItemList;
-        };
-        struct TempTargetingData
-        {
-            TempTargetData data[MAX_EFFECT_INDEX];
-            uint32 chainTargetCount[MAX_EFFECT_INDEX];
-            bool magnet;
-        };
         void FillTargetMap();
         void SetTargetMap(SpellEffectIndex effIndex, uint32 targetMode, bool targetB, TempTargetingData& targetingData);
         bool CheckAndAddMagnetTarget(Unit* unitTarget, SpellEffectIndex effIndex, bool targetB, TempTargetingData& data);
         static void CheckSpellScriptTargets(SQLMultiStorage::SQLMSIteratorBounds<SpellTargetEntry>& bounds, UnitList& tempTargetUnitMap, UnitList& targetUnitMap, SpellEffectIndex effIndex);
-        void FilterTargetMap(UnitList& filterUnitList, SpellEffectIndex effIndex, SpellTargetFilterScheme scheme, uint32 chainTargetCount);
+        void FilterTargetMap(UnitList& filterUnitList, SpellTargetFilterScheme scheme, uint32 chainTargetCount);
         void FillFromTargetFlags(TempTargetingData& targetingData, SpellEffectIndex effIndex);
 
         void FillAreaTargets(UnitList& targetUnitMap, float radius, float cone, SpellNotifyPushType pushType, SpellTargets spellTargets, WorldObject* originalCaster = nullptr);
@@ -706,70 +788,27 @@ class Spell
         //*****************************************
         // Spell target subsystem
         //*****************************************
-        // Targets store structures and data
-        struct TargetInfo
-        {
-            ObjectGuid targetGUID;
-            uint64 timeDelay;
-            uint64 initialDelay; // Used to store reflect travel time so we can reset it on proc
-            uint32 HitInfo;
-            uint32 damage;
-            SpellMissInfo missCondition: 8;
-            SpellMissInfo reflectResult: 8;
-            uint8  effectHitMask : 8; // Used for all effects which actually hit a target
-            uint8  effectMask: 8; // Used for all effects a certain target was evaluated for
-            bool   processed: 1;
-            bool   magnet: 1;
-            bool   procReflect : 1; // Used to tell hit to proc reflect only and return reflect back
-            uint32 heartbeatResistChance;
-        };
-        uint8 m_needAliveTargetMask;                        // Mask req. alive targets
-        void ProcReflectProcs(TargetInfo& targetInfo);
-
-        struct GOTargetInfo
-        {
-            ObjectGuid targetGUID;
-            uint64 timeDelay;
-            uint8  effectMask: 8;
-            bool   processed: 1;
-        };
-
-        struct ItemTargetInfo
-        {
-            Item* item;
-            uint8 effectMask;
-        };
-
-        struct DestTargetInfo
-        {
-            uint32 effectMask;
-            uint64 timeDelay;
-            bool processed;
-            DestTargetInfo() : effectMask(0), timeDelay(0), processed(false) {}
-        };
-
-        typedef std::list<TargetInfo>     TargetList;
-        typedef std::list<GOTargetInfo>   GOTargetList;
-        typedef std::list<ItemTargetInfo> ItemTargetList;
-
         TargetList     m_UniqueTargetInfo;
         GOTargetList   m_UniqueGOTargetInfo;
         ItemTargetList m_UniqueItemInfo;
         uint32         m_targetlessMask;
         DestTargetInfo m_destTargetInfo;
+        CorpseTargetList m_uniqueCorpseTargetInfo;
 
         void AddUnitTarget(Unit* target, uint8 effectMask, CheckException exception = EXCEPTION_NONE);
         void AddGOTarget(GameObject* target, uint8 effectMask);
+        void AddCorpseTarget(Corpse* target, uint8 effectMask);
         void AddItemTarget(Item* item, uint8 effectMask);
         void AddDestExecution(SpellEffectIndex effIndex);
         void DoAllEffectOnTarget(TargetInfo* target);
-        void HandleDelayedSpellLaunch(TargetInfo* target);
+        void HandleImmediateEffectExecution(TargetInfo* target);
         void InitializeDamageMultipliers();
         void ResetEffectDamageAndHeal();
         void DoSpellHitOnUnit(Unit* unit, uint32 effectMask, TargetInfo* target, bool isReflected = false);
         void DoAllTargetlessEffects(bool dest);
         void DoAllEffectOnTarget(GOTargetInfo* target);
         void DoAllEffectOnTarget(ItemTargetInfo* target);
+        void DoAllEffectOnTarget(CorpseTargetInfo* target);
         bool IsAliveUnitPresentInTargetList();
         bool IsValidDeadOrAliveTarget(Unit const* unit) const;
         SpellCastResult CanOpenLock(SpellEffectIndex effIndex, uint32 lockid, SkillType& skillId, int32& reqSkillValue, int32& skillValue);
@@ -785,6 +824,7 @@ class Spell
         // Scripting System
         uint64 m_scriptValue; // persistent value for spell script state
         SpellScript* m_spellScript;
+        AuraScript* m_auraScript; // needed for some checks for value calculation
 
         uint32 m_spellState;
         uint32 m_timer;
@@ -798,6 +838,17 @@ class Spell
         float m_jumpRadius;
         SpellTargetFilterScheme m_filteringScheme[MAX_EFFECT_INDEX][2];
 
+        std::set<Aura*> m_procOnceHolder;
+
+        struct EffectSkillInfo
+        {
+            SkillType skillId = SKILL_NONE;
+            int32 reqSkillValue = 0;
+            int32 skillValue = 0;
+        };
+
+        EffectSkillInfo m_effectSkillInfo[MAX_EFFECT_INDEX];
+
         // if need this can be replaced by Aura copy
         // we can't store original aura link to prevent access to deleted auras
         // and in same time need aura data and after aura deleting.
@@ -805,6 +856,9 @@ class Spell
 
         // needed to store all log for this spell
         SpellLog m_spellLog;
+
+        // GO casting preparations
+        WorldObject* m_trueCaster;
 };
 
 enum ReplenishType
@@ -828,7 +882,7 @@ namespace MaNGOS
         SpellNotifierPlayer(Spell& spell, UnitList& data, const uint32& i, float radius)
             : i_data(data), i_spell(spell), i_index(i), i_radius(radius)
         {
-            i_originalCaster = i_spell.GetAffectiveCasterObject();
+            i_originalCaster = i_spell.GetCastingObject();
         }
 
         void Visit(PlayerMapType& m)
@@ -845,7 +899,7 @@ namespace MaNGOS
                 if (!i_originalCaster->CanAttackSpell(pPlayer, i_spell.m_spellInfo))
                     continue;
 
-                if (pPlayer->IsWithinDist3d(i_spell.m_targets.m_destX, i_spell.m_targets.m_destY, i_spell.m_targets.m_destZ, i_radius))
+                if (pPlayer->IsWithinDist3d(i_spell.m_targets.m_destPos.x, i_spell.m_targets.m_destPos.y, i_spell.m_targets.m_destPos.z, i_radius))
                     i_data.push_back(pPlayer);
             }
         }

@@ -44,9 +44,6 @@ MapManager::~MapManager()
     for (auto& i_map : i_maps)
         delete i_map.second;
 
-    for (auto m_Transport : m_Transports)
-        delete m_Transport;
-
     DeleteStateMachine();
 }
 
@@ -207,9 +204,6 @@ void MapManager::Update(uint32 diff)
     if (m_updater.activated())
         m_updater.wait();
 
-    for (Transport* m_Transport : m_Transports)
-        m_Transport->Update((uint32)i_timer.GetCurrent());
-
     // remove all maps which can be unloaded
     MapMapType::iterator iter = i_maps.begin();
     while (iter != i_maps.end())
@@ -309,24 +303,6 @@ uint32 MapManager::GetNumPlayersInInstances()
     return ret;
 }
 
-uint32 MapManager::GetMapUpdateMinTime(uint32 mapId, uint32 instance)
-{
-    std::lock_guard<std::mutex> lock(m_lock);
-    return i_maps[MapID(mapId, instance)]->GetUpdateTimeMin();
-}
-
-uint32 MapManager::GetMapUpdateMaxTime(uint32 mapId, uint32 instance)
-{
-    std::lock_guard<std::mutex> lock(m_lock);
-    return i_maps[MapID(mapId, instance)]->GetUpdateTimeMax();
-}
-
-uint32 MapManager::GetMapUpdateAvgTime(uint32 mapId, uint32 instance)
-{
-    std::lock_guard<std::mutex> lock(m_lock);
-    return i_maps[MapID(mapId, instance)]->GetUpdateTimeAvg();
-}
-
 ///// returns a new or existing Instance
 ///// in case of battlegrounds it will only return an existing map, those maps are created by bg-system
 Map* MapManager::CreateInstance(uint32 id, Player* player)
@@ -405,7 +381,7 @@ DungeonMap* MapManager::CreateDungeonMap(uint32 id, uint32 InstanceId, Difficult
 
 BattleGroundMap* MapManager::CreateBattleGroundMap(uint32 id, uint32 InstanceId, BattleGround* bg)
 {
-    DEBUG_LOG("MapInstanced::CreateBattleGroundMap: instance:%d for map:%d and bgType:%d created.", InstanceId, id, bg->GetTypeID());
+    DEBUG_LOG("MapInstanced::CreateBattleGroundMap: instance:%d for map:%d and bgType:%d created.", InstanceId, id, bg->GetTypeId());
 
     BattleGroundMap* map = new BattleGroundMap(id, i_gridCleanUpDelay, InstanceId);
     MANGOS_ASSERT(map->IsBattleGroundOrArena());

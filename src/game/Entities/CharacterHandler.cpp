@@ -77,7 +77,7 @@ bool LoginQueryHolder::Initialize()
                      "position_x, position_y, position_z, map, orientation, taximask, cinematic, totaltime, leveltime, rest_bonus, logout_time, is_logout_resting, resettalents_cost,"
                      "resettalents_time, trans_x, trans_y, trans_z, trans_o, transguid, extra_flags, stable_slots, at_login, zone, online, death_expire_time, taxi_path, dungeon_difficulty,"
                      "arenaPoints, totalHonorPoints, todayHonorPoints, yesterdayHonorPoints, totalKills, todayKills, yesterdayKills, chosenTitle, watchedFaction, drunk,"
-                     "health, power1, power2, power3, power4, power5, exploredZones, equipmentCache, ammoId, knownTitles, actionBars FROM characters WHERE guid = '%u'", m_guid.GetCounter());
+                     "health, power1, power2, power3, power4, power5, exploredZones, equipmentCache, ammoId, knownTitles, actionBars, grantableLevels FROM characters WHERE guid = '%u'", m_guid.GetCounter());
     res &= SetPQuery(PLAYER_LOGIN_QUERY_LOADGROUP,           "SELECT groupId FROM group_member WHERE memberGuid ='%u'", m_guid.GetCounter());
     res &= SetPQuery(PLAYER_LOGIN_QUERY_LOADBOUNDINSTANCES,  "SELECT id, permanent, map, difficulty, resettime FROM character_instance LEFT JOIN instance ON instance = id WHERE guid = '%u'", m_guid.GetCounter());
     res &= SetPQuery(PLAYER_LOGIN_QUERY_LOADAURAS,           "SELECT caster_guid,item_guid,spell,stackcount,remaincharges,basepoints0,basepoints1,basepoints2,periodictime0,periodictime1,periodictime2,maxduration,remaintime,effIndexMask FROM character_aura WHERE guid = '%u'", m_guid.GetCounter());
@@ -87,7 +87,7 @@ bool LoginQueryHolder::Initialize()
     res &= SetPQuery(PLAYER_LOGIN_QUERY_LOADWEEKLYQUESTSTATUS, "SELECT quest FROM character_queststatus_weekly WHERE guid = '%u'", m_guid.GetCounter());
     res &= SetPQuery(PLAYER_LOGIN_QUERY_LOADMONTHLYQUESTSTATUS, "SELECT quest FROM character_queststatus_monthly WHERE guid = '%u'", m_guid.GetCounter());
     res &= SetPQuery(PLAYER_LOGIN_QUERY_LOADREPUTATION,      "SELECT faction,standing,flags FROM character_reputation WHERE guid = '%u'", m_guid.GetCounter());
-    res &= SetPQuery(PLAYER_LOGIN_QUERY_LOADINVENTORY,       "SELECT data,bag,slot,item,item_template FROM character_inventory JOIN item_instance ON character_inventory.item = item_instance.guid WHERE character_inventory.guid = '%u' ORDER BY bag,slot", m_guid.GetCounter());
+    res &= SetPQuery(PLAYER_LOGIN_QUERY_LOADINVENTORY,       "SELECT itemEntry, creatorGuid, giftCreatorGuid, count, duration, charges, flags, enchantments, randomPropertyId, durability, itemTextId, bag, slot, item, item_template FROM character_inventory JOIN item_instance ON character_inventory.item = item_instance.guid WHERE character_inventory.guid = '%u' ORDER BY bag,slot", m_guid.GetCounter());
     res &= SetPQuery(PLAYER_LOGIN_QUERY_LOADITEMLOOT,        "SELECT guid,itemid,amount,suffix,property FROM item_loot WHERE owner_guid = '%u'", m_guid.GetCounter());
     res &= SetPQuery(PLAYER_LOGIN_QUERY_LOADACTIONS,         "SELECT button,action,type FROM character_action WHERE guid = '%u' ORDER BY button", m_guid.GetCounter());
     res &= SetPQuery(PLAYER_LOGIN_QUERY_LOADSOCIALLIST,      "SELECT friend,flags,note FROM character_social WHERE guid = '%u' LIMIT 255", m_guid.GetCounter());
@@ -99,9 +99,10 @@ bool LoginQueryHolder::Initialize()
     res &= SetPQuery(PLAYER_LOGIN_QUERY_LOADGUILD,           "SELECT guildid,`rank` FROM guild_member WHERE guid = '%u'", m_guid.GetCounter());
     res &= SetPQuery(PLAYER_LOGIN_QUERY_LOADARENAINFO,       "SELECT arenateamid, played_week, played_season, personal_rating FROM arena_team_member WHERE guid='%u'", m_guid.GetCounter());
     res &= SetPQuery(PLAYER_LOGIN_QUERY_LOADBGDATA,          "SELECT instance_id, team, join_x, join_y, join_z, join_o, join_map FROM character_battleground_data WHERE guid = '%u'", m_guid.GetCounter());
+    res &= SetPQuery(PLAYER_LOGIN_QUERY_LOADACCOUNTDATA,     "SELECT type, time, data FROM character_account_data WHERE guid='%u'", m_guid.GetCounter());
     res &= SetPQuery(PLAYER_LOGIN_QUERY_LOADSKILLS,          "SELECT skill, value, max FROM character_skills WHERE guid = '%u'", m_guid.GetCounter());
     res &= SetPQuery(PLAYER_LOGIN_QUERY_LOADMAILS,           "SELECT id,messageType,sender,receiver,subject,itemTextId,expire_time,deliver_time,money,cod,checked,stationery,mailTemplateId,has_items FROM mail WHERE receiver = '%u' ORDER BY id DESC", m_guid.GetCounter());
-    res &= SetPQuery(PLAYER_LOGIN_QUERY_LOADMAILEDITEMS,     "SELECT data, mail_id, item_guid, item_template FROM mail_items JOIN item_instance ON item_guid = guid WHERE receiver = '%u'", m_guid.GetCounter());
+    res &= SetPQuery(PLAYER_LOGIN_QUERY_LOADMAILEDITEMS,     "SELECT itemEntry, creatorGuid, giftCreatorGuid, count, duration, charges, flags, enchantments, randomPropertyId, durability, itemTextId, mail_id, item_guid, item_template FROM mail_items JOIN item_instance ON item_guid = guid WHERE receiver = '%u'", m_guid.GetCounter());
 
     return res;
 }
@@ -146,7 +147,7 @@ class CharacterHandler
 
             // The bot's WorldSession is owned by the bot's Player object
             // The bot's WorldSession is deleted by PlayerbotMgr::LogoutPlayerBot
-            WorldSession* botSession = new WorldSession(lqh->GetAccountId(), nullptr, SEC_PLAYER, masterSession->GetExpansion(), 0, LOCALE_enUS);
+            WorldSession* botSession = new WorldSession(lqh->GetAccountId(), nullptr, SEC_PLAYER, masterSession->GetExpansion(), 0, DEFAULT_LOCALE);
             botSession->HandlePlayerLogin(lqh); // will delete lqh
             masterSession->GetPlayer()->GetPlayerbotMgr()->OnBotLogin(botSession->GetPlayer());
         }
@@ -257,7 +258,15 @@ void WorldSession::HandleCharCreateOpcode(WorldPacket& recv_data)
     {
         data << (uint8)CHAR_CREATE_FAILED;
         SendPacket(data, true);
-        sLog.outError("Class: %u or Race %u not found in DBC (Wrong DBC files?) or Cheater?", class_, race_);
+        sLog.outError("Account:[%u] attempted to create character of invalid Class (%u) or Race (%u)", GetAccountId(), class_, race_);
+        return;
+    }
+
+    if (!Player::ValidateAppearance(race_, class_, gender, hairStyle, hairColor, face, facialHair, skin, true))
+    {
+        data << (uint8)CHAR_CREATE_FAILED;
+        SendPacket(data, true);
+        sLog.outError("Account:[%u] attempted to create character with invalid appearance attributes", GetAccountId());
         return;
     }
 
@@ -275,7 +284,7 @@ void WorldSession::HandleCharCreateOpcode(WorldPacket& recv_data)
     {
         data << (uint8)CHAR_NAME_NO_NAME;
         SendPacket(data, true);
-        sLog.outError("Account:[%d] but tried to Create character with empty [name]", GetAccountId());
+        sLog.outError("Account:[%u] attempted to create character with invalid name", GetAccountId());
         return;
     }
 
@@ -565,8 +574,7 @@ void WorldSession::HandlePlayerLogin(LoginQueryHolder* holder)
     ObjectGuid playerGuid = holder->GetGuid();
 
     Player* pCurrChar = new Player(this);
-    pCurrChar->GetMotionMaster()->Initialize();
-    SetPlayer(pCurrChar);
+    SetPlayer(pCurrChar, playerGuid);
     m_playerLoading = true;
 
     m_initialZoneUpdated = false;
@@ -577,7 +585,7 @@ void WorldSession::HandlePlayerLogin(LoginQueryHolder* holder)
     if (!pCurrChar->LoadFromDB(playerGuid, holder))
     {
         KickPlayer();                                       // disconnect client, player no set to session and it will not deleted or saved at kick
-        delete pCurrChar;                                   // delete it manually
+        // also deletes player
         delete holder;                                      // delete all unprocessed queries
         m_playerLoading = false;
 
@@ -589,22 +597,36 @@ void WorldSession::HandlePlayerLogin(LoginQueryHolder* holder)
         return;
     }
 
+    m_currentPlayerLevel = pCurrChar->getLevel();
+
+    pCurrChar->GetMotionMaster()->Initialize();
+
     Group* group = pCurrChar->GetGroup();
 
     pCurrChar->SendDungeonDifficulty(false);
 
     WorldPacket data(SMSG_LOGIN_VERIFY_WORLD, 20);
     data << pCurrChar->GetMapId();
-    data << pCurrChar->GetPositionX();
-    data << pCurrChar->GetPositionY();
-    data << pCurrChar->GetPositionZ();
-    data << pCurrChar->GetOrientation();
+    if (pCurrChar->GetTransport())
+    {
+        Position const& transportPosition = pCurrChar->m_movementInfo.GetTransportPos();
+        data << transportPosition.x;
+        data << transportPosition.y;
+        data << transportPosition.z;
+        data << transportPosition.o;
+    }
+    else
+    {
+        data << pCurrChar->GetPositionX();
+        data << pCurrChar->GetPositionY();
+        data << pCurrChar->GetPositionZ();
+        data << pCurrChar->GetOrientation();
+    }
     SendPacket(data);
 
-    data.Initialize(SMSG_ACCOUNT_DATA_TIMES, 128);
-    for (int i = 0; i < 32; ++i)
-        data << uint32(0);
-    SendPacket(data);
+    // load player specific part before send times
+    LoadAccountData(holder->GetResult(PLAYER_LOGIN_QUERY_LOADACCOUNTDATA), PER_CHARACTER_CACHE_MASK);
+    SendAccountDataTimes(PER_CHARACTER_CACHE_MASK);
 
     data.Initialize(SMSG_FEATURE_SYSTEM_STATUS, 2);         // added in 2.2.0
     data << uint8(2);                                       // Can complain (0 = disabled, 1 = enabled, don't auto ignore, 2 = enabled, auto ignore)
@@ -674,7 +696,7 @@ void WorldSession::HandlePlayerLogin(LoginQueryHolder* holder)
     uint32 miscRequirement = 0;
     AreaLockStatus lockStatus = AREA_LOCKSTATUS_OK;
     if (AreaTrigger const* at = sObjectMgr.GetMapEntranceTrigger(pCurrChar->GetMapId()))
-        lockStatus = pCurrChar->GetAreaTriggerLockStatus(at, miscRequirement);
+        lockStatus = pCurrChar->GetAreaTriggerLockStatus(at, miscRequirement, true);
     else
     {
         // Some basic checks in case of a map without areatrigger
@@ -745,7 +767,7 @@ void WorldSession::HandlePlayerLogin(LoginQueryHolder* holder)
     pCurrChar->LoadPet();
 
     // Set FFA PvP for non GM in non-rest mode
-    if (sWorld.IsFFAPvPRealm() && !pCurrChar->isGameMaster() && !pCurrChar->HasFlag(PLAYER_FLAGS, PLAYER_FLAGS_RESTING))
+    if (sWorld.IsFFAPvPRealm() && !pCurrChar->IsGameMaster() && !pCurrChar->HasFlag(PLAYER_FLAGS, PLAYER_FLAGS_RESTING))
         pCurrChar->SetPvPFreeForAll(true);
 
     if (pCurrChar->HasFlag(PLAYER_FLAGS, PLAYER_FLAGS_CONTESTED_PVP))
@@ -762,6 +784,13 @@ void WorldSession::HandlePlayerLogin(LoginQueryHolder* holder)
     {
         pCurrChar->resetTalents(true);
         SendNotification(LANG_RESET_TALENTS);               // we can use SMSG_TALENTS_INVOLUNTARILY_RESET here
+    }
+
+    // handle deserter flag for those who dared to leave their team in fight
+    if (pCurrChar->HasAtLoginFlag(AT_LOGIN_ADD_BG_DESERTER))
+    {
+        pCurrChar->CastSpell(pCurrChar, SPELL_ID_BATTLEGROUND_DESERTER, TRIGGERED_OLD_TRIGGERED);
+        pCurrChar->RemoveAtLoginFlag(AT_LOGIN_ADD_BG_DESERTER, true);
     }
 
     if (pCurrChar->HasAtLoginFlag(AT_LOGIN_RESET_TAXINODES))
@@ -781,7 +810,7 @@ void WorldSession::HandlePlayerLogin(LoginQueryHolder* holder)
     if (sWorld.getConfig(CONFIG_BOOL_ALL_TAXI_PATHS))
         pCurrChar->SetTaxiCheater(true);
 
-    if (pCurrChar->isGameMaster())
+    if (pCurrChar->IsGameMaster())
         SendNotification(LANG_GM_ON);
 
     if (!pCurrChar->isGMVisible())
@@ -911,7 +940,7 @@ void WorldSession::HandlePlayerReconnect()
     if (sWorld.getConfig(CONFIG_BOOL_ALL_TAXI_PATHS))
         _player->SetTaxiCheater(true);
 
-    if (_player->isGameMaster())
+    if (_player->IsGameMaster())
         SendNotification(LANG_GM_ON);
 
     std::string IP_str = GetRemoteAddress();

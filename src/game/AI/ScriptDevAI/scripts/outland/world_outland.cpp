@@ -16,9 +16,13 @@
 
 #include "AI/ScriptDevAI/include/sc_common.h"
 #include "world_outland.h"
+#include "AI/ScriptDevAI/scripts/world/world_map_scripts.h"
 #include "World/WorldState.h"
 #include "World/WorldStateDefines.h"
 #include "AI/ScriptDevAI/base/TimerAI.h"
+#include "Spells/Scripts/SpellScript.h"
+#include <G3D/Line.h>
+#include <ctime>
 
 /* *********************************************************
  *                     OUTLAND
@@ -89,14 +93,6 @@ enum BashirData
     CRYSTALFORGE_SLAVE_EVENT_CONTROLLER_ENTRY = 19656,
 
     GO_BASHIR_CRYSTALFORGE = 185921,
-};
-
-enum BashirActions
-{
-    BASHIR_ACTION_INTRO,
-    BASHIR_ACTION_SPAWN_ENEMY,
-    BASHIR_ACTION_ENEMY_ATTACK,
-    BASHIR_ACTION_OUTRO,
 };
 
 enum BashirPhases : uint32
@@ -206,25 +202,85 @@ float bashirCustomSpawnPositions[][4] =
     // {,,,},
 };
 
+enum OutlandActions
+{
+    BASHIR_ACTION_INTRO,
+    BASHIR_ACTION_SPAWN_ENEMY,
+    BASHIR_ACTION_ENEMY_ATTACK,
+    BASHIR_ACTION_OUTRO,
+    SHARTUUL_SPAWN_ADDS,
+    SHARTUUL_ADD_ATTACK,
+    SHARTUUL_EVENT_RESET,
+    SHARTUUL_SPAWN_SEQUENCE,
+};
+
+enum ShartuulPhases : uint32
+{
+    PHASE_0_SHARTUUL_DISABLED,
+    PHASE_1_FELGUARD_DEGRADER_ADDS,
+    PHASE_2_FELGUARD_DEGRADER_BOSS,
+    PHASE_3_DOOMGUARD_PUNISHER_ADDS,
+    PHASE_4_DOOMGUARD_PUNISHER_BOSS,
+    PHASE_5_SHIVAN_ASSASSIN_BOSS_1,
+    PHASE_6_SHIVAN_ASSASSIN_BOSS_2,
+    PHASE_7_SHIVAN_ASSASSIN_BOSS_3,
+};
+
+// #define FAST_SHARTUUL
+
+std::map<uint32, std::vector<ObjectGuid>> secondPhaseSpawns =
+{
+    {0, {}},
+    {1, {}},
+    {2, {}},
+    {3, {ObjectGuid(HIGHGUID_UNIT, NPC_GANARG_UNDERLING, 161427u), ObjectGuid(HIGHGUID_UNIT, NPC_GANARG_UNDERLING, 161432u), ObjectGuid(HIGHGUID_UNIT, NPC_GANARG_UNDERLING, 161429u),
+         ObjectGuid(HIGHGUID_UNIT, NPC_GANARG_UNDERLING, 161431u), ObjectGuid(HIGHGUID_UNIT, NPC_MOARG_TORMENTER, 161440u)}},
+    {4, {}},
+    {5, {ObjectGuid(HIGHGUID_UNIT, NPC_GANARG_UNDERLING, 161438u), ObjectGuid(HIGHGUID_UNIT, NPC_GANARG_UNDERLING, 161434u), ObjectGuid(HIGHGUID_UNIT, NPC_GANARG_UNDERLING, 161435u),
+         ObjectGuid(HIGHGUID_UNIT, NPC_GANARG_UNDERLING, 161437u), ObjectGuid(HIGHGUID_UNIT, NPC_MOARG_TORMENTER, 161441u)}},
+    {6, {}},
+    {7, {ObjectGuid(HIGHGUID_UNIT, NPC_GANARG_UNDERLING, 161436u), ObjectGuid(HIGHGUID_UNIT, NPC_GANARG_UNDERLING, 161430u), ObjectGuid(HIGHGUID_UNIT, NPC_GANARG_UNDERLING, 161433u),
+         ObjectGuid(HIGHGUID_UNIT, NPC_GANARG_UNDERLING, 161428u), ObjectGuid(HIGHGUID_UNIT, NPC_MOARG_TORMENTER, 161439u)}},
+};
+
+Position shartuulSpawnPosition = { 2663.466309f, 7147.761230f, 365.346497f, 5.814353f };
+Position shartuulMovePosition = { 2679.390137f, 7139.695801f, 365.924530f, 5.814353f };
+
+std::vector<std::pair<uint32, uint32>> pillarTargeting =
+{
+    {165042, 165016},
+    {165039, 165009},
+    {165017, 165036},
+    {165055, 165015},
+};
+
 struct world_map_outland : public ScriptedMap, public TimerManager
 {
-    world_map_outland(Map* pMap) : ScriptedMap(pMap) { Initialize(); }
+    world_map_outland(Map* pMap) : ScriptedMap(pMap), m_shadeData({ AREAID_AZURE_WATCH, AREAID_FALCONWING_SQUARE }) { Initialize(); }
 
     uint8 m_uiEmissaryOfHate_KilledAddCount;
     uint8 m_uiRazaan_KilledAddCount;
 
-    uint32 m_uiBellTimer;
-    uint32 m_uiBellTolls;
-    std::vector<std::pair<ObjectGuid, uint32>> m_vBellGuids;
+    ObjectGuid m_lastRingOfBlood;
 
     // Worldstate variables
     uint32 m_deathsDoorEventActive;
     int32 m_deathsDoorNorthHP;
     int32 m_deathsDoorSouthHP;
-
+    // Shartuul
     uint32 m_shartuulEventActive;
     uint32 m_shartuulShieldPercent;
-
+    ShartuulPhases m_shartuulPhase;
+    GuidVector m_shartuulAttackAdds;
+    uint32 m_shartuulWave;
+    Position m_spawnPosition;
+    uint32 m_shartuulSpawnSequenceStage;
+    ObjectGuid m_shartuulLargeAOI;
+    ObjectGuid m_playerGuid;
+    std::set<ObjectGuid> m_ignoredGuids;
+    GuidVector m_fires;
+    uint32 m_shartuulTimer;
+    // Bashir
     std::tm m_bashirTime;
     uint32 m_bashirTimer;
     BashirPhases m_bashirPhase;
@@ -237,6 +293,218 @@ struct world_map_outland : public ScriptedMap, public TimerManager
     uint32 m_bashirKillCounter;
     std::vector<BashirCombatSpawn*> m_bashirPhaseSpawnData;
     std::vector<BashirCombatSpawn*> m_bashirPhaseSpawnDataUsed;
+    // Shade of the Horseman village attack event
+    ShadeOfTheHorsemanData m_shadeData;
+
+    void Initialize() override
+    {
+        m_uiEmissaryOfHate_KilledAddCount = 0;
+        m_uiRazaan_KilledAddCount = 0;
+
+        m_deathsDoorEventActive = 1;
+        m_deathsDoorNorthHP = 100;
+        m_deathsDoorSouthHP = 100;
+
+        m_shartuulEventActive = 0;
+        m_shartuulShieldPercent = 1000;
+        m_shartuulPhase = PHASE_0_SHARTUUL_DISABLED;
+        m_shartuulTimer = 0;
+
+        std::time_t now = time(nullptr);
+        m_bashirTime = *std::gmtime(&now);
+        m_bashirTimer = (60 - m_bashirTime.tm_sec) * IN_MILLISECONDS;
+        m_bashirPhase = BASHIR_PHASE_NOT_ACTIVE;
+        AddCustomAction(BASHIR_ACTION_INTRO, true, [&] { ScriptAction(m_bashirIntroStage); });
+        AddCustomAction(BASHIR_ACTION_SPAWN_ENEMY, true, [&] { HandleBashirSpawnEnemy(); });
+        AddCustomAction(BASHIR_ACTION_ENEMY_ATTACK, true, [&] { HandleBashirEnemyAttack(); });
+        AddCustomAction(BASHIR_ACTION_OUTRO, true, [&] { HandleBashirOutro(); });
+        AddCustomAction(SHARTUUL_SPAWN_ADDS, true, [&] { HandleShartuulAddSpawns(); });
+        AddCustomAction(SHARTUUL_ADD_ATTACK, true, [&] { HandleShartuulAddAttack(); });
+        AddCustomAction(SHARTUUL_EVENT_RESET, true, [&] { HandleShartuulEventReset(); });
+        AddCustomAction(SHARTUUL_SPAWN_SEQUENCE, true, [&] { HandleShartuulSpawnSequence(); });
+
+        for (auto& data : secondPhaseSpawns)
+            for (ObjectGuid guid : data.second)
+                m_ignoredGuids.insert(guid);
+
+        m_shadeData.Reset();
+    }
+
+    uint32 GetData(uint32 type) const override
+    {
+        if (type >= TYPE_SHADE_OF_THE_HORSEMAN_ATTACK_PHASE && type <= TYPE_SHADE_OF_THE_HORSEMAN_MAX)
+            return m_shadeData.HandleGetData(type);
+        return 0;
+    }
+
+    void SetData(uint32 type, uint32 data) override
+    {
+        switch (type)
+        {
+            case TYPE_DEATHS_DOOR_NORTH:
+                m_deathsDoorNorthHP = std::max(0, 100 - int32(data * 15));
+                sWorldState.ExecuteOnAreaPlayers(AREAID_DEATHS_DOOR, [=](Player* player)->void {player->SendUpdateWorldState(WORLD_STATE_DEATHS_DOOR_NORTH_WARP_GATE_HEALTH, m_deathsDoorNorthHP); });
+                break;
+            case TYPE_DEATHS_DOOR_SOUTH:
+                m_deathsDoorSouthHP = std::max(0, 100 - int32(data * 15));
+                sWorldState.ExecuteOnAreaPlayers(AREAID_DEATHS_DOOR, [=](Player* player)->void {player->SendUpdateWorldState(WORLD_STATE_DEATHS_DOOR_SOUTH_WARP_GATE_HEALTH, m_deathsDoorSouthHP); });
+                break;
+            case TYPE_SHARTUUL:
+                if (data == EVENT_START)
+                {
+
+                }
+                else if (data == EVENT_SMASH_SHIELD)
+                {
+                    if (m_shartuulShieldPercent == 0)
+                        return;
+
+                    if (m_shartuulShieldPercent == 1000)
+                        ProgressShartuul(PHASE_1_FELGUARD_DEGRADER_ADDS);
+#ifdef FAST_SHARTUUL
+                    m_shartuulShieldPercent = 0;
+#else
+                    m_shartuulShieldPercent -= 125;
+#endif
+                    sWorldState.ExecuteOnAreaPlayers(AREAID_SHARTUUL_TRANSPORTER, [=](Player* player)->void
+                    {
+                        player->SendUpdateWorldState(WORLD_STATE_SHARTUUL_SHIELD_REMAINING, m_shartuulShieldPercent / 10);
+                    });
+                    if (m_shartuulShieldPercent == 750 || m_shartuulShieldPercent == 375)
+                    {
+                        if (Creature* overseer = GetSingleCreatureFromStorage(NPC_OVERSEER_SHARTUUL))
+                            if (Unit* demon = GetCurrentDemon())
+                                DoScriptText(m_shartuulShieldPercent == 750 ? SAY_SECOND_HAMMER : SAY_FIFTH_HAMMER, overseer, demon->GetOwner());
+                    }
+                    // TODO: demon exclaims when shield is hit
+                    if (m_shartuulShieldPercent == 0)
+                        ProgressShartuul(PHASE_2_FELGUARD_DEGRADER_BOSS);
+                }
+                else if (data == EVENT_DOOMGUARD_PUNISHER_DEATH)
+                {
+                    ProgressShartuul(PHASE_3_DOOMGUARD_PUNISHER_ADDS);
+                }
+                else if (data == EVENT_SHIVAN_ASSASSIN_DEATH)
+                {
+                    ProgressShartuul(PHASE_5_SHIVAN_ASSASSIN_BOSS_1);
+                }
+                else if (data == EVENT_EYE_OF_SHARTUUL_DEATH)
+                {
+                    ProgressShartuul(PHASE_6_SHIVAN_ASSASSIN_BOSS_2);
+                }
+                else if (data == EVENT_DREADMAW_DEATH)
+                {
+                    ProgressShartuul(PHASE_7_SHIVAN_ASSASSIN_BOSS_3);
+                }
+                else if (data == EVENT_SHARTUUL_DEATH)
+                {
+                    if (Unit* demon = GetCurrentDemon())
+                        demon->Suicide();
+
+                    ResetTimer(SHARTUUL_EVENT_RESET, 1000);
+                }
+                else if (data == EVENT_FAIL)
+                {
+                    HandleShartuulEventReset();
+                }
+                break;
+            case TYPE_BASHIR:
+                switch (data)
+                {
+                    case 0:
+                        DespawnCrystalforgeGuardians();
+                        break;
+                    case 1:
+                        StartPhase(BASHIR_PHASE_1);
+                        break;
+                    case 2:
+                        StartPhase(BashirPhases(uint32(m_bashirPhase) + 1));
+                        break;
+                    case 3:
+                        m_bashirPhase = BASHIR_PHASE_NOT_ACTIVE;
+                        break;
+                }
+                break;
+            case TYPE_MOGOR:
+                if (Creature* mogor = GetSingleCreatureFromStorage(NPC_MOGOR))
+                {
+                    if (mogor->IsAlive())
+                    {
+                        m_lastRingOfBlood = mogor->GetObjectGuid();
+                        if (Creature* gurthock = GetSingleCreatureFromStorage(NPC_GURTHOCK))
+                            gurthock->RemoveFlag(UNIT_NPC_FLAGS, UNIT_NPC_FLAG_QUESTGIVER);
+                    }
+                }
+                break;
+            default:
+                if (type >= TYPE_SHADE_OF_THE_HORSEMAN_ATTACK_PHASE && type <= TYPE_SHADE_OF_THE_HORSEMAN_MAX)
+                    return m_shadeData.HandleSetData(type, data);
+                break;
+        }
+    }
+
+    bool CheckConditionCriteriaMeet(Player const* player, uint32 instanceConditionId, WorldObject const* conditionSource, uint32 conditionSourceType) const override
+    {
+        switch (instanceConditionId)
+        {
+            case INSTANCE_CONDITION_ID_SOCRETHAR_GOSSIP:
+            {
+                Creature const* socrethar = GetSingleCreatureFromStorage(NPC_SOCRETHAR);
+                if (!socrethar || !socrethar->IsAlive() || socrethar->IsInCombat())
+                    return true;
+                return false;
+            }
+            case INSTANCE_CONDITION_ID_BASHIR_FLYING:
+                return m_bashirPhase == BASHIR_PHASE_START;
+            case INSTANCE_CONDITION_ID_BASHIR_IN_PROGRESS:
+                return m_bashirPhase > BASHIR_PHASE_START;
+        }
+        if (instanceConditionId >= INSTANCE_CONDITION_ID_FIRE_BRIGADE_PRACTICE_GOLDSHIRE && instanceConditionId <= INSTANCE_CONDITION_ID_LET_THE_FIRES_COME_HORDE)
+            return m_shadeData.IsConditionFulfilled(instanceConditionId, player->GetAreaId());
+
+        script_error_log("world_map_outland::CheckConditionCriteriaMeet called with unsupported Id %u. Called with param plr %s, src %s, condition source type %u",
+            instanceConditionId, player ? player->GetGuidStr().c_str() : "nullptr", conditionSource ? conditionSource->GetGuidStr().c_str() : "nullptr", conditionSourceType);
+        return false;
+    }
+
+    uint32 CalculateBashirTimerValue()
+    {
+        return 60 - m_bashirTime.tm_min + 60 * (m_bashirTime.tm_hour % 2);
+    }
+
+    void FillInitialWorldStates(ByteBuffer& data, uint32& count, uint32 /*zoneId*/, uint32 areaId) override
+    {
+        switch (areaId)
+        {
+            case AREAID_DEATHS_DOOR:
+            {
+                FillInitialWorldStateData(data, count, WORLD_STATE_DEATHS_DOOR_NORTH_WARP_GATE_HEALTH, m_deathsDoorNorthHP);
+                FillInitialWorldStateData(data, count, WORLD_STATE_DEATHS_DOOR_SOUTH_WARP_GATE_HEALTH, m_deathsDoorSouthHP);
+                FillInitialWorldStateData(data, count, WORLD_STATE_DEATHS_DOOR_EVENT_ACTIVE, m_deathsDoorEventActive);
+                break;
+            }
+            case AREAID_SHARTUUL_TRANSPORTER:
+            {
+                FillInitialWorldStateData(data, count, WORLD_STATE_SHARTUUL_SHIELD_REMAINING, m_shartuulShieldPercent / 10);
+                FillInitialWorldStateData(data, count, WORLD_STATE_SHARTUUL_EVENT_ACTIVE, m_shartuulEventActive);
+                break;
+            }
+            case AREAID_SKYGUARD_OUTPOST:
+            {
+                FillInitialWorldStateData(data, count, WORLD_STATE_BASHIR_TIMER_WOTLK, CalculateBashirTimerValue());
+                break;
+            }
+            case AREAID_AZURE_WATCH:
+            case AREAID_FALCONWING_SQUARE:
+            {
+                FillInitialWorldStateData(data, count, WORLD_STATE_SHADE_OF_THE_HORSEMAN_TIMER, m_shadeData.CalculateWorldstateTimerValue());
+                break;
+            }
+            default: break;
+        }
+    }
+
+    // bashir section
 
     uint32 GetIntroTimer(uint32 eventId)
     {
@@ -260,6 +528,395 @@ struct world_map_outland : public ScriptedMap, public TimerManager
             case 15: return 2600;
             default: return 0;
         }
+    }
+
+    void StartBashirLandingEvent()
+    {
+        if (!m_apprentice) // his grid wasnt loaded yet and autoload isnt on for performance reasons
+            return;
+        m_bashirIntroStage = 0;
+        m_apprentice->SummonCreature(NPC_SKYGUARD_AETHER_TECH,  bashirSpawnPositions[0][0], bashirSpawnPositions[0][1], bashirSpawnPositions[0][2], bashirSpawnPositions[0][3], TEMPSPAWN_CORPSE_TIMED_DESPAWN, 1000, true);
+        Creature* ranger = m_apprentice->SummonCreature(NPC_SKYGUARD_RANGER,      bashirSpawnPositions[1][0], bashirSpawnPositions[1][1], bashirSpawnPositions[1][2], bashirSpawnPositions[1][3], TEMPSPAWN_CORPSE_TIMED_DESPAWN, 1000, true);
+        ranger->AI()->SendAIEvent(AI_EVENT_CUSTOM_A, ranger, ranger, 2);
+        ranger = m_apprentice->SummonCreature(NPC_SKYGUARD_RANGER,      bashirSpawnPositions[2][0], bashirSpawnPositions[2][1], bashirSpawnPositions[2][2], bashirSpawnPositions[2][3], TEMPSPAWN_CORPSE_TIMED_DESPAWN, 1000, true);
+        ranger->AI()->SendAIEvent(AI_EVENT_CUSTOM_A, ranger, ranger, 3);
+        m_apprentice->SummonCreature(NPC_SKYGUARD_LIEUTENANT, bashirSpawnPositions[3][0], bashirSpawnPositions[3][1], bashirSpawnPositions[3][2], bashirSpawnPositions[3][3], TEMPSPAWN_CORPSE_TIMED_DESPAWN, 1000, true);
+        ranger = m_apprentice->SummonCreature(NPC_SKYGUARD_RANGER,      bashirSpawnPositions[4][0], bashirSpawnPositions[4][1], bashirSpawnPositions[4][2], bashirSpawnPositions[4][3], TEMPSPAWN_CORPSE_TIMED_DESPAWN, 1000, true);
+        ranger->AI()->SendAIEvent(AI_EVENT_CUSTOM_A, ranger, ranger, 4);
+        m_bashirPhase = BASHIR_PHASE_START;
+        m_deadTowerCounter = 0;
+        ResetTimer(BASHIR_ACTION_INTRO, GetIntroTimer(m_bashirIntroStage));
+    }
+
+    void SpawnAlliesAtCrystalforge(BashirPhases phaseId, Player* player)
+    {
+        player->SummonCreature(NPC_SKYGUARD_LIEUTENANT, bashirCustomSpawnPositions[0][0], bashirCustomSpawnPositions[0][1], bashirCustomSpawnPositions[0][2], bashirCustomSpawnPositions[0][3], TEMPSPAWN_CORPSE_TIMED_DESPAWN, 1000, true);
+        Creature* ranger = player->SummonCreature(NPC_SKYGUARD_RANGER, bashirCustomSpawnPositions[1][0], bashirCustomSpawnPositions[1][1], bashirCustomSpawnPositions[1][2], bashirCustomSpawnPositions[1][3], TEMPSPAWN_CORPSE_TIMED_DESPAWN, 1000, true);
+        ranger->AI()->SendAIEvent(AI_EVENT_CUSTOM_A, ranger, ranger, 2);
+        ranger = player->SummonCreature(NPC_SKYGUARD_RANGER, bashirCustomSpawnPositions[2][0], bashirCustomSpawnPositions[2][1], bashirCustomSpawnPositions[2][2], bashirCustomSpawnPositions[2][3], TEMPSPAWN_CORPSE_TIMED_DESPAWN, 1000, true);
+        ranger->AI()->SendAIEvent(AI_EVENT_CUSTOM_A, ranger, ranger, 3);
+        Creature* tech = player->SummonCreature(NPC_SKYGUARD_AETHER_TECH, bashirCustomSpawnPositions[3][0], bashirCustomSpawnPositions[3][1], bashirCustomSpawnPositions[3][2], bashirCustomSpawnPositions[3][3], TEMPSPAWN_CORPSE_TIMED_DESPAWN, 1000, true);
+        tech->HandleEmote(EMOTE_STATE_USESTANDING_NOSHEATHE);
+        ranger = player->SummonCreature(NPC_SKYGUARD_RANGER, bashirCustomSpawnPositions[4][0], bashirCustomSpawnPositions[4][1], bashirCustomSpawnPositions[4][2], bashirCustomSpawnPositions[4][3], TEMPSPAWN_CORPSE_TIMED_DESPAWN, 1000, true);
+        ranger->AI()->SendAIEvent(AI_EVENT_CUSTOM_A, ranger, ranger, 4);
+        Creature* vendor;
+        switch (phaseId)
+        {
+            case BASHIR_PHASE_ALL_VENDORS_SPAWNED:
+                vendor = player->SummonCreature(NPC_AETHER_TECH_MASTER, bashirCustomSpawnPositions[7][0], bashirCustomSpawnPositions[7][1], bashirCustomSpawnPositions[7][2], bashirCustomSpawnPositions[7][3], TEMPSPAWN_CORPSE_TIMED_DESPAWN, 1000, true);
+                vendor->HandleEmote(EMOTE_STATE_USESTANDING);
+                vendor->SetCanFly(false);
+                // no break
+            case BASHIR_PHASE_TRANSITION_3:
+            case BASHIR_PHASE_3:
+                vendor = player->SummonCreature(NPC_AETHER_TECH_ADEPT, bashirCustomSpawnPositions[6][0], bashirCustomSpawnPositions[6][1], bashirCustomSpawnPositions[6][2], bashirCustomSpawnPositions[6][3], TEMPSPAWN_CORPSE_TIMED_DESPAWN, 1000, true);
+                vendor->HandleEmote(EMOTE_STATE_USESTANDING);
+                vendor->SetCanFly(false);
+                // no break
+            case BASHIR_PHASE_TRANSITION_2:
+            case BASHIR_PHASE_2:
+                vendor = player->SummonCreature(NPC_AETHER_TECH_ASSISTANT, bashirCustomSpawnPositions[5][0], bashirCustomSpawnPositions[5][1], bashirCustomSpawnPositions[5][2], bashirCustomSpawnPositions[5][3], TEMPSPAWN_CORPSE_TIMED_DESPAWN, 1000, true);
+                vendor->HandleEmote(EMOTE_STATE_USESTANDING);
+                vendor->SetCanFly(false);
+                break;
+            default: break;
+        }
+    }
+
+    void StartBashirAtCustomSpot(BashirPhases phaseId, Player* player)
+    {
+        SpawnAlliesAtCrystalforge(phaseId, player);
+        DespawnCrystalforgeGuardians();
+        StartPhase(phaseId);
+    }
+
+    void HandleBashirMobDeath(Creature* creature)
+    {
+        for (auto itr = m_bashirPhaseSpawnDataUsed.begin(); itr != m_bashirPhaseSpawnDataUsed.end(); ++itr)
+        {
+            BashirCombatSpawn* data = (*itr);
+            float x, y, z;
+            creature->GetRespawnCoord(x, y, z);
+            if (data->x == x && data->y == y)
+            {
+                m_bashirPhaseSpawnDataUsed.erase(itr);
+                m_bashirPhaseSpawnData.push_back(data);
+                break;
+            }
+        }
+        ++m_bashirKillCounter;
+        uint32 bossSpawnCount = 0;
+        switch (m_bashirPhase)
+        {
+            case BASHIR_PHASE_1: bossSpawnCount = PHASE_1_KILL_COUNT; break;
+            case BASHIR_PHASE_2: bossSpawnCount = PHASE_2_KILL_COUNT; break;
+            case BASHIR_PHASE_3: bossSpawnCount = PHASE_3_KILL_COUNT; break;
+            default: return; // should never occur
+        }
+        if (bossSpawnCount == m_bashirKillCounter)
+            SpawnBoss(m_bashirPhase);
+        else
+            SpawnRandomBashirMob();
+    }
+
+    void SpawnRandomBashirMob()
+    {
+        uint32 randomIdx = urand(0, m_bashirPhaseSpawnData.size() - 1);
+        BashirCombatSpawn* data = m_bashirPhaseSpawnData[randomIdx];
+        m_bashirPhaseSpawnDataUsed.push_back(data);
+        m_bashirPhaseSpawnData.erase(m_bashirPhaseSpawnData.begin() + randomIdx);
+        Creature* tech = GetSingleCreatureFromStorage(NPC_SKYGUARD_AETHER_TECH); // Has to be alive during this so we can use him for summoning
+        uint32 entry;
+        switch (data->phaseId)
+        {
+            case BASHIR_PHASE_1: entry = NPC_SLAVERING_SLAVE; break;
+            case BASHIR_PHASE_2: entry = NPC_BASHIR_SUBPRIMAL; break;
+            case BASHIR_PHASE_3: entry = urand(0, 1) ? NPC_BASHIR_CONTROLLER : NPC_BASHIR_RECKONER; break;
+        }
+        Creature* mob = tech->SummonCreature(entry, data->x, data->y, data->z, data->ori, TEMPSPAWN_DEAD_DESPAWN, 0, true);
+        switch (entry)
+        {
+            case NPC_SLAVERING_SLAVE:
+            case NPC_BASHIR_SUBPRIMAL:
+                mob->CastSpell(nullptr, SPELL_SPIRIT_SPAWN_IN, TRIGGERED_NONE);
+                break;
+            default:
+                mob->CastSpell(nullptr, SPELL_ETHEREAL_TELEPORT, TRIGGERED_NONE);
+                break;
+        }
+    }
+
+    void SpawnTowerDefenders()
+    {
+        Creature* tech = GetSingleCreatureFromStorage(NPC_SKYGUARD_AETHER_TECH); // Has to be alive during this so we can use him for summoning
+        for (BashirCombatSpawn& data : bashirCombatDisruptorSpawnLocations)
+        {
+            Creature* mob = tech->SummonCreature(NPC_BASHIR_SUBPRIMAL, data.x, data.y, data.z, data.ori, TEMPSPAWN_DEAD_DESPAWN, 0, true);
+            mob->CastSpell(nullptr, SPELL_SPIRIT_SPAWN_IN, TRIGGERED_NONE);
+        }
+    }
+
+    void DespawnCrystalforgeGuardians()
+    {
+        if (GameObject* go = GetSingleGameObjectFromStorage(GO_BASHIR_CRYSTALFORGE))
+        {
+            CreatureList defenders;
+            GetCreatureListWithEntryInGrid(defenders, go, NPC_BASHIR_RAIDER, 60.f);
+            GetCreatureListWithEntryInGrid(defenders, go, NPC_BASHIR_SPELL_THIEF, 60.f);
+            for (Creature* defender : defenders)
+                defender->ForcedDespawn();
+        }
+    }
+
+    void DespawnBashir(bool all)
+    {
+        for (ObjectGuid guid : m_bashirSpawns)
+            if (all || guid.GetEntry() != NPC_SKYGUARD_AETHER_TECH)
+                if (Creature* spawn = instance->GetCreature(guid))
+                    spawn->ForcedDespawn();
+
+        for (ObjectGuid guid : m_bashirEnemySpawns)
+            if (Creature* spawn = instance->GetCreature(guid))
+                spawn->ForcedDespawn();
+
+        if (all)
+            m_bashirPhase = BASHIR_PHASE_NOT_ACTIVE;
+        else
+            m_bashirPhase = BASHIR_DESPAWN;
+    }
+
+    uint32 GetActionTimer(OutlandActions action)
+    {
+        switch (action)
+        {
+            case BASHIR_ACTION_INTRO: return 0;
+            case BASHIR_ACTION_SPAWN_ENEMY: return 20000;
+            case BASHIR_ACTION_ENEMY_ATTACK:
+            {
+                switch (m_bashirPhase)
+                {
+                    case BASHIR_PHASE_1: return 15000;
+                    case BASHIR_PHASE_2: return 15000;
+                    case BASHIR_PHASE_3: return 5000;
+                    default: break;
+                }
+            }
+            default: return 0;
+        }
+    }
+
+    void StartBattlePhase()
+    {
+        ResetTimer(BASHIR_ACTION_SPAWN_ENEMY, GetActionTimer(BASHIR_ACTION_SPAWN_ENEMY));
+        ResetTimer(BASHIR_ACTION_ENEMY_ATTACK, 10000);
+        m_bashirEnemySpawns.clear();
+        m_bashirEnemyWaveSpawns.clear();
+        m_bashirPhaseSpawnData.clear();
+        for (BashirCombatSpawn& data : bashirCombatSpawnLocations)
+            if (data.phaseId == m_bashirPhase || data.phaseId == m_bashirPhase - 2)
+                m_bashirPhaseSpawnData.push_back(&data);
+        uint32 initialSpawnCount;
+        switch (m_bashirPhase)
+        {
+            case BASHIR_PHASE_1:
+            {
+                initialSpawnCount = PHASE_1_INITIAL_SPAWN_COUNT;
+                break;
+            }
+            case BASHIR_PHASE_2:
+            {
+                initialSpawnCount = PHASE_2_INITIAL_SPAWN_COUNT;
+                break;
+            }
+            case BASHIR_PHASE_3:
+            {
+                initialSpawnCount = PHASE_3_INITIAL_SPAWN_COUNT;
+                break;
+            }
+            default: break;
+        }
+        for (uint32 i = 0; i < initialSpawnCount; ++i)
+            SpawnRandomBashirMob();
+    }
+
+    void StartTransitionPhase()
+    {
+        Creature* tech = GetSingleCreatureFromStorage(NPC_SKYGUARD_AETHER_TECH);
+        Creature* vendor;
+        switch (m_bashirPhase)
+        {
+            case BASHIR_PHASE_TRANSITION_1:
+                vendor = tech->SummonCreature(NPC_AETHER_TECH_ASSISTANT, bashirSpawnPositions[5][0], bashirSpawnPositions[5][1], bashirSpawnPositions[5][2], bashirSpawnPositions[5][3], TEMPSPAWN_CORPSE_TIMED_DESPAWN, 1000, true, true, 1);
+                break;
+            case BASHIR_PHASE_TRANSITION_2:
+                vendor = tech->SummonCreature(NPC_AETHER_TECH_ADEPT, bashirSpawnPositions[6][0], bashirSpawnPositions[6][1], bashirSpawnPositions[6][2], bashirSpawnPositions[6][3], TEMPSPAWN_CORPSE_TIMED_DESPAWN, 1000, true, true, 1);
+                break;
+            case BASHIR_PHASE_TRANSITION_3:
+                vendor = tech->SummonCreature(NPC_AETHER_TECH_MASTER, bashirSpawnPositions[7][0], bashirSpawnPositions[7][1], bashirSpawnPositions[7][2], bashirSpawnPositions[7][3], TEMPSPAWN_CORPSE_TIMED_DESPAWN, 1000, true, true, 1);
+                break;
+            default: break;
+        }
+        vendor->Mount(MOUNT_NETHER_RAY_DISPLAY_ID);
+        tech->AI()->SendAIEvent(AI_EVENT_CUSTOM_A, tech, tech);
+    }
+
+    void StartPhase(BashirPhases phase)
+    {
+        m_bashirPhase = phase;
+        switch (phase)
+        {
+            case BASHIR_PHASE_1:
+            case BASHIR_PHASE_2:
+            case BASHIR_PHASE_3:
+                StartBattlePhase();
+                break;
+            case BASHIR_PHASE_TRANSITION_1:
+            case BASHIR_PHASE_TRANSITION_2:
+            case BASHIR_PHASE_TRANSITION_3:
+                StartTransitionPhase();
+                break;
+            case BASHIR_PHASE_ALL_VENDORS_SPAWNED:
+                ResetTimer(BASHIR_ACTION_OUTRO, (4 * 60 + 40) * IN_MILLISECONDS); // 4 minutes 40 seconds
+                break;
+            default: break;
+        }
+    }
+
+    void SpawnBoss(BashirPhases phase)
+    {
+        Creature* tech = GetSingleCreatureFromStorage(NPC_SKYGUARD_AETHER_TECH); // Has to be alive during this so we can use him for summoning
+        Creature* mob;
+        switch (phase)
+        {
+            case BASHIR_PHASE_1:
+                mob = tech->SummonCreature(NPC_BASHIR_FLESH_FIEND, bashirSpawnPositions[8][0], bashirSpawnPositions[8][1], bashirSpawnPositions[8][2], bashirSpawnPositions[8][3], TEMPSPAWN_CORPSE_TIMED_DESPAWN, 2 * 60 * IN_MILLISECONDS, true);
+                mob->CastSpell(nullptr, SPELL_SPIRIT_SPAWN_IN, TRIGGERED_NONE);
+                break;
+            case BASHIR_PHASE_2:
+                SpawnTowerDefenders();
+                mob = tech->SummonCreature(NPC_DISRUPTOR_TOWER, bashirSpawnPositions[9][0],  bashirSpawnPositions[9][1],  bashirSpawnPositions[9][2],  bashirSpawnPositions[9][3],  TEMPSPAWN_CORPSE_TIMED_DESPAWN, 2 * 60 * IN_MILLISECONDS, true);
+                mob->CastSpell(nullptr, SPELL_SPIRIT_SPAWN_IN, TRIGGERED_NONE);
+                mob = tech->SummonCreature(NPC_DISRUPTOR_TOWER, bashirSpawnPositions[10][0], bashirSpawnPositions[10][1], bashirSpawnPositions[10][2], bashirSpawnPositions[10][3], TEMPSPAWN_CORPSE_TIMED_DESPAWN, 2 * 60 * IN_MILLISECONDS, true);
+                mob->CastSpell(nullptr, SPELL_SPIRIT_SPAWN_IN, TRIGGERED_NONE);
+                mob = tech->SummonCreature(NPC_DISRUPTOR_TOWER, bashirSpawnPositions[11][0], bashirSpawnPositions[11][1], bashirSpawnPositions[11][2], bashirSpawnPositions[11][3], TEMPSPAWN_CORPSE_TIMED_DESPAWN, 2 * 60 * IN_MILLISECONDS, true);
+                mob->CastSpell(nullptr, SPELL_SPIRIT_SPAWN_IN, TRIGGERED_NONE);
+                break;
+            case BASHIR_PHASE_3:
+                mob = tech->SummonCreature(NPC_GRAND_COLLECTOR, bashirSpawnPositions[12][0], bashirSpawnPositions[12][1], bashirSpawnPositions[12][2], bashirSpawnPositions[12][3], TEMPSPAWN_CORPSE_TIMED_DESPAWN, 2 * 60 * IN_MILLISECONDS, true);
+                mob->CastSpell(nullptr, SPELL_SPIRIT_SPAWN_IN, TRIGGERED_NONE);
+                break;
+            default: break;
+        }
+    }
+
+    void FinishPhase(BashirPhases phase)
+    {
+        DisableTimer(BASHIR_ACTION_SPAWN_ENEMY);
+        DisableTimer(BASHIR_ACTION_ENEMY_ATTACK);
+        Creature* tech = GetSingleCreatureFromStorage(NPC_SKYGUARD_AETHER_TECH);
+        switch (phase)
+        {
+            case BASHIR_PHASE_1:
+                DoScriptText(SAY_TECH_PHASE_1, tech);
+                break;
+            case BASHIR_PHASE_2:
+                DoScriptText(SAY_TECH_PHASE_2, tech);
+                break;
+            case BASHIR_PHASE_3:
+                DoScriptText(SAY_TECH_PHASE_3, tech);
+                break;
+            default: break;
+        }
+        for (ObjectGuid guid : m_bashirEnemySpawns)
+            if (Creature* spawn = instance->GetCreature(guid))
+                if (!spawn->IsInCombat())
+                    spawn->ForcedDespawn();
+        StartPhase(BashirPhases(uint32(phase) + 1));
+    }
+
+    void StartManaSlaveEvent()
+    {
+        if (GameObject* go = GetSingleGameObjectFromStorage(GO_BASHIR_CRYSTALFORGE))
+            if (Creature* controller = GetClosestCreatureWithEntry(go, CRYSTALFORGE_SLAVE_EVENT_CONTROLLER_ENTRY, 10.f))
+                instance->ScriptsStart(sRelayScripts, CRYSTALFORGE_SLAVE_EVENT_RELAY_ID, controller, controller);
+    }
+
+    void HandleBashirSpawnEnemy()
+    {
+        if (m_bashirPhaseSpawnData.size() > 0) // only when max is not spawned
+            SpawnRandomBashirMob();
+        ResetTimer(BASHIR_ACTION_SPAWN_ENEMY, GetActionTimer(BASHIR_ACTION_SPAWN_ENEMY));
+    }
+
+    void HandleBashirEnemyAttack()
+    {
+        if (m_bashirEnemyWaveSpawns.size() > 0)
+        {
+            switch (m_bashirPhase)
+            {
+                case BASHIR_PHASE_2:
+                {
+                    uint32 slaveCount = 0;
+                    for (ObjectGuid guid : m_bashirEnemyWaveSpawns)
+                        if (guid.GetEntry() == NPC_SLAVERING_SLAVE)
+                            ++slaveCount;
+                    uint32 randomSlave = urand(1, slaveCount);
+                    uint32 randomSubprimal = urand(1, m_bashirEnemyWaveSpawns.size() - slaveCount);
+                    bool slaveSpawned = slaveCount > 0 ? false : true;
+                    bool subprimalSpawned = m_bashirEnemyWaveSpawns.size() - slaveCount > 0 ? false : true;
+                    for (auto itr = m_bashirEnemyWaveSpawns.begin(); itr != m_bashirEnemyWaveSpawns.end();)
+                    {
+                        ObjectGuid guid = (*itr);
+                        if (guid.GetEntry() == NPC_SLAVERING_SLAVE)
+                        {
+                            if (slaveSpawned)
+                                continue;
+                            --randomSlave;
+                            if (randomSlave == 0)
+                            {
+                                slaveSpawned = true;
+                                if (Creature* waveMob = instance->GetCreature(guid))
+                                    waveMob->AI()->AttackStart(GetSingleCreatureFromStorage(NPC_SKYGUARD_AETHER_TECH));
+                                itr = m_bashirEnemyWaveSpawns.erase(itr);
+                            }
+                        }
+                        else if (guid.GetEntry() == NPC_BASHIR_SUBPRIMAL)
+                        {
+                            if (subprimalSpawned)
+                                continue;
+                            --randomSubprimal;
+                            if (randomSubprimal == 0)
+                            {
+                                subprimalSpawned = true;
+                                if (Creature* waveMob = instance->GetCreature(guid))
+                                    waveMob->AI()->AttackStart(GetSingleCreatureFromStorage(NPC_SKYGUARD_AETHER_TECH));
+                                itr = m_bashirEnemyWaveSpawns.erase(itr);
+                            }
+                        }
+                    }
+                    break;
+                }
+                default:
+                {
+                    uint32 index = urand(0, m_bashirEnemyWaveSpawns.size() - 1);
+                    if (Creature* waveMob = instance->GetCreature(m_bashirEnemyWaveSpawns[index]))
+                        waveMob->AI()->AttackStart(GetSingleCreatureFromStorage(NPC_SKYGUARD_AETHER_TECH));
+                    m_bashirEnemyWaveSpawns.erase(m_bashirEnemyWaveSpawns.begin() + index);
+                    break;
+                }
+            }
+        }
+        ResetTimer(BASHIR_ACTION_ENEMY_ATTACK, GetActionTimer(BASHIR_ACTION_ENEMY_ATTACK));
+    }
+
+    void HandleBashirOutro()
+    {
+        if (Creature* tech = GetSingleCreatureFromStorage(NPC_SKYGUARD_AETHER_TECH))
+        {
+            DoScriptText(SAY_TECH_END, tech);
+            tech->AI()->SendAIEvent(AI_EVENT_CUSTOM_B, tech, tech);
+        }
+        DespawnBashir(false);
     }
 
     void ScriptAction(uint32 eventId)
@@ -357,7 +1014,7 @@ struct world_map_outland : public ScriptedMap, public TimerManager
                 break;
             }
             case 15: // Tech paths
-                Creature* tech = GetSingleCreatureFromStorage(NPC_SKYGUARD_AETHER_TECH);
+                Creature * tech = GetSingleCreatureFromStorage(NPC_SKYGUARD_AETHER_TECH);
                 tech->GetMotionMaster()->MoveWaypoint(PATH_ID_BIG_PATH);
                 break;
         }
@@ -366,137 +1023,549 @@ struct world_map_outland : public ScriptedMap, public TimerManager
             ResetTimer(BASHIR_ACTION_INTRO, GetIntroTimer(m_bashirIntroStage));
     }
 
-    void Initialize() override
+    // shartuul section
+
+    Creature* GetShartuulManager()
     {
-        m_uiEmissaryOfHate_KilledAddCount = 0;
-        m_uiRazaan_KilledAddCount = 0;
-
-        m_deathsDoorEventActive = 1;
-        m_deathsDoorNorthHP = 100;
-        m_deathsDoorSouthHP = 100;
-
-        m_shartuulEventActive = 1;
-        m_shartuulShieldPercent = 100;
-
-        std::time_t now = time(nullptr);
-        m_bashirTime = *std::gmtime(&now);
-        m_bashirTimer = (60 - m_bashirTime.tm_sec) * IN_MILLISECONDS;
-        m_bashirPhase = BASHIR_PHASE_NOT_ACTIVE;
-        AddCustomAction(BASHIR_ACTION_INTRO, true, [&] { ScriptAction(m_bashirIntroStage); });
-        AddCustomAction(BASHIR_ACTION_SPAWN_ENEMY, true, [&]
-        {
-            if (m_bashirPhaseSpawnData.size() > 0) // only when max is not spawned
-                SpawnRandomBashirMob();
-            ResetTimer(BASHIR_ACTION_SPAWN_ENEMY, GetActionTimer(BASHIR_ACTION_SPAWN_ENEMY));
-        });
-        AddCustomAction(BASHIR_ACTION_ENEMY_ATTACK, true, [&]
-        {
-            if (m_bashirEnemyWaveSpawns.size() > 0)
-            {
-                switch (m_bashirPhase)
-                {
-                    case BASHIR_PHASE_2:
-                    {
-                        uint32 slaveCount = 0;
-                        for (ObjectGuid guid : m_bashirEnemyWaveSpawns)
-                            if (guid.GetEntry() == NPC_SLAVERING_SLAVE)
-                                ++slaveCount;
-                        uint32 randomSlave = urand(1, slaveCount);
-                        uint32 randomSubprimal = urand(1, m_bashirEnemyWaveSpawns.size() - slaveCount);
-                        bool slaveSpawned = slaveCount > 0 ? false : true;
-                        bool subprimalSpawned = m_bashirEnemyWaveSpawns.size() - slaveCount > 0 ? false : true;
-                        for (auto itr = m_bashirEnemyWaveSpawns.begin(); itr != m_bashirEnemyWaveSpawns.end();)
-                        {
-                            ObjectGuid guid = (*itr);
-                            if (guid.GetEntry() == NPC_SLAVERING_SLAVE)
-                            {
-                                if (slaveSpawned)
-                                    continue;
-                                --randomSlave;
-                                if (randomSlave == 0)
-                                {
-                                    slaveSpawned = true;
-                                    if (Creature* waveMob = instance->GetCreature(guid))
-                                        waveMob->AI()->AttackStart(GetSingleCreatureFromStorage(NPC_SKYGUARD_AETHER_TECH));
-                                    itr = m_bashirEnemyWaveSpawns.erase(itr);
-                                }
-                            }
-                            else if (guid.GetEntry() == NPC_BASHIR_SUBPRIMAL)
-                            {
-                                if (subprimalSpawned)
-                                    continue;
-                                --randomSubprimal;
-                                if (randomSubprimal == 0)
-                                {
-                                    subprimalSpawned = true;
-                                    if (Creature* waveMob = instance->GetCreature(guid))
-                                        waveMob->AI()->AttackStart(GetSingleCreatureFromStorage(NPC_SKYGUARD_AETHER_TECH));
-                                    itr = m_bashirEnemyWaveSpawns.erase(itr);
-                                }
-                            }
-                        }
-                        break;
-                    }
-                    default:
-                    {
-                        uint32 index = urand(0, m_bashirEnemyWaveSpawns.size() - 1);
-                        if (Creature* waveMob = instance->GetCreature(m_bashirEnemyWaveSpawns[index]))
-                            waveMob->AI()->AttackStart(GetSingleCreatureFromStorage(NPC_SKYGUARD_AETHER_TECH));
-                        m_bashirEnemyWaveSpawns.erase(m_bashirEnemyWaveSpawns.begin() + index);
-                        break;
-                    }
-                }
-            }
-            ResetTimer(BASHIR_ACTION_ENEMY_ATTACK, GetActionTimer(BASHIR_ACTION_ENEMY_ATTACK));
-        });
-        AddCustomAction(BASHIR_ACTION_OUTRO, true, [&]
-        {
-            if (Creature* tech = GetSingleCreatureFromStorage(NPC_SKYGUARD_AETHER_TECH))
-            {
-                DoScriptText(SAY_TECH_END, tech);
-                tech->AI()->SendAIEvent(AI_EVENT_CUSTOM_B, tech, tech);
-            }
-            DespawnBashir(false);
-        });
+        return GetSingleCreatureFromStorage(NPC_FEL_PORTAL_ALARM);
     }
 
-    uint32 GetActionTimer(BashirActions action)
+    Creature* GetCurrentDemon()
     {
-        switch (action)
+        uint32 entry = 0;
+        switch (m_shartuulPhase)
         {
-            case BASHIR_ACTION_INTRO: return 0;
-            case BASHIR_ACTION_SPAWN_ENEMY: return 20000;
-            case BASHIR_ACTION_ENEMY_ATTACK:
+            case PHASE_0_SHARTUUL_DISABLED:
+            case PHASE_1_FELGUARD_DEGRADER_ADDS:
+            case PHASE_2_FELGUARD_DEGRADER_BOSS: entry = NPC_FELGUARD_DEGRADER; break;
+            case PHASE_3_DOOMGUARD_PUNISHER_ADDS:
+            case PHASE_4_DOOMGUARD_PUNISHER_BOSS: entry = NPC_DOOMGUARD_PUNISHER; break;
+            case PHASE_5_SHIVAN_ASSASSIN_BOSS_1:
+            case PHASE_6_SHIVAN_ASSASSIN_BOSS_2:
+            case PHASE_7_SHIVAN_ASSASSIN_BOSS_3: entry = NPC_SHIVAN_ASSASSIN; break;
+            default: break;
+        }
+        if (entry)
+            return GetSingleCreatureFromStorage(entry);
+        return nullptr;
+    }
+
+    Player* GetCurrentPlayer()
+    {
+        return instance->GetPlayer(m_playerGuid);
+    }
+
+    void ProgressShartuul(ShartuulPhases phase)
+    {
+        m_shartuulPhase = phase;
+        switch (m_shartuulPhase)
+        {
+            case PHASE_1_FELGUARD_DEGRADER_ADDS:
             {
-                switch (m_bashirPhase)
+                m_shartuulEventActive = 1;
+                m_shartuulShieldPercent = 1000;
+                // TODO: Add time limit
+                // TODO: Add mob spawning periodically
+                if (Creature* warpGate = GetSingleCreatureFromStorage(NPC_WARP_GATE_SHIELD_SHARTUUL))
+                    warpGate->CastSpell(nullptr, SPELL_COSMETIC_VISUAL_SHELL_SHIELD, TRIGGERED_OLD_TRIGGERED);
+
+                for (auto& data : pillarTargeting)
                 {
-                    case BASHIR_PHASE_1: return 15000;
-                    case BASHIR_PHASE_2: return 15000;
-                    case BASHIR_PHASE_3: return 5000;
-                    default: break;
+                    ObjectGuid source(HIGHGUID_UNIT, NPC_LEGION_RING_EVENT_INVISMAN, data.first);
+                    ObjectGuid target(HIGHGUID_UNIT, NPC_LEGION_RING_EVENT_INVISMAN, data.second);
+                    if (Creature* pillarSource = instance->GetCreature(source))
+                        if (Creature* pillarTarget = instance->GetCreature(target))
+                            pillarSource->CastSpell(pillarTarget, SPELL_COSMETIC_LEGION_RING_GREEN_MATTER, TRIGGERED_NONE);
                 }
+                sWorldState.ExecuteOnAreaPlayers(AREAID_SHARTUUL_TRANSPORTER, [=](Player* player)->void
+                {
+                    player->SendUpdateWorldState(WORLD_STATE_SHARTUUL_SHIELD_REMAINING, m_shartuulShieldPercent / 10);
+                    player->SendUpdateWorldState(WORLD_STATE_SHARTUUL_EVENT_ACTIVE, m_shartuulEventActive);
+                });
+
+                if (Creature* overseer = GetSingleCreatureFromStorage(NPC_OVERSEER_SHARTUUL))
+                {
+                    if (Unit* demon = GetCurrentDemon())
+                    {
+                        Unit* owner = demon->GetCharmer();
+                        m_playerGuid = owner->GetObjectGuid();
+                        demon->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_PLAYER);
+                        demon->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_NPC);
+                        DoScriptText(SAY_SHARTUUL_START, overseer, owner);
+                        DoScriptText(SAY_FIRST_HAMMER, overseer, owner);
+                    }
+                }
+
+                ResetTimer(SHARTUUL_SPAWN_ADDS, 1000);
+                break;
             }
-            default: return 0;
+            case PHASE_2_FELGUARD_DEGRADER_BOSS:
+            {
+                DisableTimer(SHARTUUL_SPAWN_ADDS);
+                if (Creature* boss = GetSingleCreatureFromStorage(NPC_DOOMGUARD_PUNISHER))
+                {
+                    if (Creature* demon = GetCurrentDemon())
+                        boss->AI()->SendAIEvent(AI_EVENT_CUSTOM_A, demon, boss);
+                }
+                if (Creature* warpGate = GetSingleCreatureFromStorage(NPC_WARP_GATE_SHIELD_SHARTUUL))
+                {
+                    warpGate->RemoveAurasDueToSpell(SPELL_COSMETIC_VISUAL_SHELL_SHIELD);
+                    warpGate->CastSpell(nullptr, SPELL_LEGION_RING_SHIELD_EXPLODE, TRIGGERED_NONE);
+                }
+                if (Creature* overseer = GetSingleCreatureFromStorage(NPC_OVERSEER_SHARTUUL))
+                    if (Unit* demon = GetCurrentDemon())
+                        DoScriptText(SAY_LAST_HAMMER, overseer, demon->GetCharmer());
+                for (ObjectGuid guid : m_fires)
+                {
+                    if (GameObject* fire = instance->GetGameObject(guid))
+                    {
+                        fire->SetLootState(GO_READY);
+                        fire->SetRespawnTime(fire->GetRespawnDelay()); // database has timers for them already
+                        fire->Refresh();
+                    }
+                }
+                break;
+            }
+            case PHASE_3_DOOMGUARD_PUNISHER_ADDS:
+            {
+#ifdef FAST_SHARTUUL
+                m_shartuulWave = 7;
+#else
+                m_shartuulWave = 0;
+#endif
+                ResetTimer(SHARTUUL_SPAWN_ADDS, 15000);
+                break;
+            }
+            case PHASE_4_DOOMGUARD_PUNISHER_BOSS:
+            {
+                if (Creature* boss = GetSingleCreatureFromStorage(NPC_SHIVAN_ASSASSIN))
+                {
+                    if (Creature* demon = GetCurrentDemon())
+                        boss->AI()->SendAIEvent(AI_EVENT_CUSTOM_A, demon, boss);
+                }
+                if (Creature* overseer = GetSingleCreatureFromStorage(NPC_OVERSEER_SHARTUUL))
+                    if (Unit* demon = GetCurrentDemon())
+                        DoScriptText(SAY_AGGRO_SHIVAN, overseer, demon->GetCharmer());
+                break;
+            }
+            case PHASE_5_SHIVAN_ASSASSIN_BOSS_1:
+            {
+                ResetTimer(SHARTUUL_SPAWN_SEQUENCE, 10000);
+                m_shartuulSpawnSequenceStage = 0;
+                break;
+            }
+            case PHASE_6_SHIVAN_ASSASSIN_BOSS_2:
+            {
+                ResetTimer(SHARTUUL_SPAWN_SEQUENCE, 10000);
+                m_shartuulSpawnSequenceStage = 10;
+                break;
+            }
+            case PHASE_7_SHIVAN_ASSASSIN_BOSS_3:
+            {
+                if (Creature* overseer = GetSingleCreatureFromStorage(NPC_OVERSEER_SHARTUUL))
+                    if (Unit* demon = GetCurrentDemon())
+                        DoScriptText(SAY_DREADMAW_DEATH, overseer, demon->GetCharmer());
+                ResetTimer(SHARTUUL_SPAWN_SEQUENCE, 5000);
+                m_shartuulSpawnSequenceStage = 14;
+                break;
+            }
+            default: break;
         }
     }
+
+    uint32 GetSpellIdForEntry(uint32 entry)
+    {
+        switch (entry)
+        {
+            default:
+            case NPC_FEL_IMP_DEFENDER:  return SPELL_LEGION_RING_FEL_IMP_TRANSFORM;
+            case NPC_FELHOUND_DEFENDER: return SPELL_LEGION_RING_FEL_HOUND_TRANSFORM;
+            case NPC_GANARG_UNDERLING:  return SPELL_LEGION_RING_INFERNAL_TRANSFORM;
+            case NPC_MOARG_TORMENTER:   return SPELL_LEGION_RING_MOARG_TRANSFORM;
+        }
+    }
+
+    void HandleShartuulAddSpawns()
+    {   
+        bool genericSpawns = true;
+        std::vector<std::pair<Creature*, uint32>> selectedSpawns;
+        if (m_shartuulPhase == PHASE_3_DOOMGUARD_PUNISHER_ADDS)
+        {
+            if (m_shartuulWave == SHARTUUL_PHASE_2_MAX_WAVE)
+            {
+                ProgressShartuul(PHASE_4_DOOMGUARD_PUNISHER_BOSS);
+                return;
+            }
+            auto& data = secondPhaseSpawns[m_shartuulWave];
+            if (m_shartuulWave == 0 || m_shartuulWave == 3 || m_shartuulWave == 7)
+            {
+                int32 textId;
+                switch (m_shartuulWave)
+                {
+                    case 0: textId = SAY_FIRST_SPAWNS; break;
+                    case 3: textId = SAY_FIRST_MOARG; break;
+                    case 7:
+                    {
+                        if (Creature* demon = GetCurrentDemon())
+                            demon->SummonCreature(NPC_SHIVAN_ASSASSIN, m_spawnPosition.x, m_spawnPosition.y, m_spawnPosition.z, m_spawnPosition.o, TEMPSPAWN_TIMED_OOC_OR_CORPSE_DESPAWN, 300000, true);
+                        textId = SAY_LAST_MOARG;
+                        break;
+                    }
+                }
+                if (Creature* overseer = GetSingleCreatureFromStorage(NPC_OVERSEER_SHARTUUL))
+                    if (Unit* demon = GetCurrentDemon())
+                        DoScriptText(textId, overseer, demon->GetCharmer());
+            }
+            if (data.size())
+            {
+                genericSpawns = false;
+                for (ObjectGuid guid : data)
+                    if (Creature* spawn = instance->GetCreature(guid))
+                        selectedSpawns.push_back({ spawn , GetSpellIdForEntry(spawn->GetEntry())});
+            }
+            ++m_shartuulWave;
+        }
+
+        if (genericSpawns)
+        {
+            for (uint32 i = 0; i < 2; ++i)
+            {
+                uint32 entry = 0;
+                switch (m_shartuulPhase)
+                {
+                    case PHASE_1_FELGUARD_DEGRADER_ADDS: entry = urand(0, 1) ? NPC_FEL_IMP_DEFENDER : NPC_FELHOUND_DEFENDER; break;
+                    case PHASE_3_DOOMGUARD_PUNISHER_ADDS: entry = NPC_GANARG_UNDERLING; break;
+                    default: break;
+                }
+
+                uint32 spellId = GetSpellIdForEntry(entry);
+
+                Creature* selectedSpawn = nullptr;
+                GuidVector spawns;
+                GetCreatureGuidVectorFromStorage(entry, spawns);
+                for (auto guid : spawns)
+                {
+                    if (m_ignoredGuids.find(guid) != m_ignoredGuids.end())
+                        continue;
+
+                    if (Creature* spawn = instance->GetCreature(guid))
+                    {
+                        if (spawn->IsAlive() && !spawn->HasAura(spellId))
+                        {
+                            selectedSpawn = spawn;
+                            break;
+                        }
+                    }
+                }
+
+                if (selectedSpawn)
+                    selectedSpawns.emplace_back(selectedSpawn, spellId);
+            }
+        }
+
+        if (Creature* manager = GetSingleCreatureFromStorage(NPC_LEGION_RING_SHIELD_ZAPPER_INVISMAN))
+        {
+            for (auto& data : selectedSpawns)
+            {
+                manager->CastSpell(data.first, SPELL_SPAWN_LIGHTNING, TRIGGERED_NONE);
+
+                data.first->CastSpell(nullptr, data.second, TRIGGERED_OLD_TRIGGERED);
+                m_shartuulAttackAdds.push_back(data.first->GetObjectGuid());
+            }
+        }
+
+        if (m_shartuulAttackAdds.size())
+            ResetTimer(SHARTUUL_ADD_ATTACK, 3000);
+#ifdef FAST_SHARTUUL
+        ResetTimer(SHARTUUL_SPAWN_ADDS, m_shartuulPhase == PHASE_3_DOOMGUARD_PUNISHER_ADDS ? 4000 : 10000);
+#else
+        ResetTimer(SHARTUUL_SPAWN_ADDS, genericSpawns ? 10000 : 30000);
+#endif
+    }
+
+    void HandleShartuulAddAttack()
+    {
+        for (auto guid : m_shartuulAttackAdds)
+        {
+            if (Creature* spawn = instance->GetCreature(guid))
+            {
+                spawn->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_PLAYER);
+                spawn->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_NPC);
+                spawn->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE);
+                spawn->SetFactionTemporary(SHARTUUL_FACTION_HOSTILE, TEMPFACTION_RESTORE_RESPAWN | TEMPFACTION_RESTORE_REACH_HOME);
+                if (Creature* demon = GetCurrentDemon())
+                    spawn->AI()->AttackStart(demon);
+            }
+        }
+    }
+
+    void HandleShartuulEventReset()
+    {
+        if (Creature* demon = GetCurrentDemon())
+        {
+            demon->BreakCharmIncoming();
+            demon->ForcedDespawn();
+        }
+        if (Creature* spawn = instance->GetCreature(m_shartuulLargeAOI))
+            spawn->ForcedDespawn();
+        if (Creature* eye = GetSingleCreatureFromStorage(NPC_EYE_OF_SHARTUUL))
+            eye->ForcedDespawn();
+        if (Creature* shartuul = GetSingleCreatureFromStorage(NPC_SHARTUUL))
+            if (shartuul->IsAlive())
+                shartuul->ForcedDespawn();
+        if (Creature* dreadmaw = GetSingleCreatureFromStorage(NPC_DREADMAW))
+            dreadmaw->ForcedDespawn();
+        if (Creature* boss = GetSingleCreatureFromStorage(NPC_SHIVAN_ASSASSIN))
+            boss->ForcedDespawn();
+        if (Creature* boss = GetSingleCreatureFromStorage(NPC_DOOMGUARD_PUNISHER))
+            boss->ForcedDespawn();
+
+        if (Creature* degrader = GetSingleCreatureFromStorage(NPC_FELGUARD_DEGRADER))
+            degrader->Respawn();
+
+        if (Creature* punisher = GetSingleCreatureFromStorage(NPC_DOOMGUARD_PUNISHER))
+            punisher->Respawn();
+
+        GuidVector spawns;
+        std::vector<uint32> spawnEntries = { NPC_FELHOUND_DEFENDER, NPC_FEL_IMP_DEFENDER, NPC_GANARG_UNDERLING, NPC_MOARG_TORMENTER };
+        for (uint32 entry : spawnEntries)
+        {
+            GetCreatureGuidVectorFromStorage(entry, spawns);
+            for (auto guid : spawns)
+            {
+                if (Creature* spawn = instance->GetCreature(guid))
+                {
+                    spawn->ForcedDespawn();
+                    spawn->Respawn();
+                }
+            }
+            spawns.clear();
+        }
+
+        GuidVector eyeStalks;
+        GetCreatureGuidVectorFromStorage(NPC_FEL_EYE_STALK, eyeStalks);
+        for (auto guid : eyeStalks)
+        {
+            if (Creature* eyestalk = instance->GetCreature(guid))
+            {
+                eyestalk->RemoveAurasDueToSpell(SPELL_LEGION_RING_EYE_STALK_TRANSFORM);
+                eyestalk->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_PLAYER);
+                eyestalk->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_NPC);
+                eyestalk->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE);
+                static_cast<Creature*>(eyestalk)->ClearTemporaryFaction();
+                eyestalk->ForcedDespawn();
+            }
+        }
+
+        for (ObjectGuid guid : m_fires)
+        {
+            if (GameObject* fire = instance->GetGameObject(guid))
+            {
+                fire->SetLootState(GO_JUST_DEACTIVATED);
+                fire->SetForcedDespawn();
+            }
+        }
+
+        m_playerGuid = ObjectGuid();
+
+        m_shartuulPhase = PHASE_0_SHARTUUL_DISABLED;
+
+        m_shartuulShieldPercent = 1000;
+        m_shartuulEventActive = 0;
+
+        sWorldState.ExecuteOnAreaPlayers(AREAID_SHARTUUL_TRANSPORTER, [=](Player* player)->void
+        {
+            player->SendUpdateWorldState(WORLD_STATE_SHARTUUL_SHIELD_REMAINING, m_shartuulShieldPercent / 10);
+            player->SendUpdateWorldState(WORLD_STATE_SHARTUUL_EVENT_ACTIVE, m_shartuulEventActive);
+        });
+
+        for (auto& data : pillarTargeting)
+            if (Creature* pillarSource = instance->GetCreature(ObjectGuid(HIGHGUID_UNIT, NPC_LEGION_RING_EVENT_INVISMAN, data.first)))
+                pillarSource->InterruptSpell(CURRENT_CHANNELED_SPELL);
+    }
+
+    void HandleShartuulSpawnSequence()
+    {
+        uint32 timer = 0;
+        switch (m_shartuulSpawnSequenceStage)
+        {
+            case 0:
+            {
+                WorldObject::SummonCreature(TempSpawnSettings(nullptr, NPC_INVISIBLE_STALKER_LARGE_AOI, shartuulSpawnPosition.x, shartuulSpawnPosition.y, shartuulSpawnPosition.z, shartuulSpawnPosition.o, TEMPSPAWN_TIMED_DESPAWN, 27000), instance);
+                WorldObject::SummonCreature(TempSpawnSettings(nullptr, NPC_LEGION_RING_EVENT_INVISMAN_LG, shartuulSpawnPosition.x, shartuulSpawnPosition.y, shartuulSpawnPosition.z + 13.f, shartuulSpawnPosition.o, TEMPSPAWN_TIMED_DESPAWN, 27000), instance);
+                timer = 2000;
+                break;
+            }
+            case 1:
+            {
+                if (Creature* invisman = GetSingleCreatureFromStorage(NPC_LEGION_RING_EVENT_INVISMAN_LG))
+                    if (Creature* portal = GetSingleCreatureFromStorage(NPC_WARP_GATE_SHIELD_SHARTUUL))
+                        portal->CastSpell(invisman, SPELL_COSMETIC_LEGION_RING_PURPLE_LIGHTNING, TRIGGERED_NONE);
+                timer = 6000;
+                break;
+            }
+            case 2:
+            {
+                if (Creature* invisman = GetSingleCreatureFromStorage(NPC_LEGION_RING_EVENT_INVISMAN_LG))
+                {
+                    if (Creature* portal = GetSingleCreatureFromStorage(NPC_WARP_GATE_SHIELD_SHARTUUL))
+                    {
+                        portal->RemoveAurasDueToSpell(SPELL_COSMETIC_LEGION_RING_PURPLE_LIGHTNING);
+                        portal->CastSpell(invisman, SPELL_COSMETIC_EREDAR_PRE_GATE_BEAM, TRIGGERED_NONE);
+                    }
+                }
+                timer = 6000;
+                break;
+            }
+            case 3:
+            {
+                if (Creature* spawn = instance->GetCreature(m_shartuulLargeAOI))
+                    spawn->CastSpell(nullptr, SPELL_BOSS_SHADOW_PORTAL_STATE, TRIGGERED_OLD_TRIGGERED);
+                timer = 4000;
+                break;
+            }
+            case 4:
+            {
+                if (Creature* invisman = GetSingleCreatureFromStorage(NPC_LEGION_RING_EVENT_INVISMAN_LG))
+                    invisman->RemoveAurasDueToSpell(SPELL_COSMETIC_EREDAR_PRE_GATE_BEAM);
+                timer = 3000;
+                break;
+            }
+            case 5:
+            {
+                if (Creature* invisman = GetSingleCreatureFromStorage(NPC_LEGION_RING_EVENT_INVISMAN_LG))
+                    if (Creature* portal = GetSingleCreatureFromStorage(NPC_WARP_GATE_SHIELD_SHARTUUL))
+                        portal->CastSpell(invisman, SPELL_COSMETIC_LEGION_RING_EREDAR_LIGHTNING, TRIGGERED_NONE);
+                timer = 4000;
+                break;
+            }
+            case 6:
+            {
+                WorldObject::SummonCreature(TempSpawnSettings(GetCurrentPlayer(), NPC_SHARTUUL, shartuulSpawnPosition.x, shartuulSpawnPosition.y, shartuulSpawnPosition.z, shartuulSpawnPosition.o, TEMPSPAWN_TIMED_DESPAWN, 1200000), instance);
+                timer = 5000;
+                break;
+            }
+            case 7:
+            {
+                if (Creature* eye = GetSingleCreatureFromStorage(NPC_EYE_OF_SHARTUUL))
+                    if (Creature* shartuul = GetSingleCreatureFromStorage(NPC_SHARTUUL))
+                        shartuul->CastSpell(eye, SPELL_COSMETIC_LEGION_RING_EREDAR_LIGHTNING, TRIGGERED_OLD_TRIGGERED);
+                timer = 2000;
+                break;
+            }
+            case 8:
+            {
+                if (Creature* eye = GetSingleCreatureFromStorage(NPC_EYE_OF_SHARTUUL))
+                    eye->CastSpell(nullptr, SPELL_LEGION_RING_BEHOLDER_TRANSFORM, TRIGGERED_OLD_TRIGGERED);
+                timer = 5000;
+                break;
+            }
+            case 9:
+            {
+                if (Creature* eye = GetSingleCreatureFromStorage(NPC_EYE_OF_SHARTUUL))
+                {
+                    if (Creature* demon = GetCurrentDemon())
+                    {
+                        eye->AI()->SendAIEvent(AI_EVENT_CUSTOM_A, demon, eye);
+                        if (Creature* overseer = GetSingleCreatureFromStorage(NPC_OVERSEER_SHARTUUL))
+                            DoScriptText(SAY_EYE_SPAWN, overseer, demon->GetCharmer());
+                    }
+                }
+                break;
+            }
+            case 10:
+            {
+                if (Creature* shartuul = GetSingleCreatureFromStorage(NPC_SHARTUUL))
+                    if (Creature* cannon = instance->GetCreature(ObjectGuid(HIGHGUID_UNIT, uint32(NPC_PORTABLE_FEL_CANNON), 161399u)))
+                        shartuul->SummonCreature(NPC_DREADMAW, cannon->GetPositionX(), cannon->GetPositionY(), cannon->GetPositionZ(), cannon->GetOrientation(), TEMPSPAWN_TIMED_OOC_OR_DEAD_DESPAWN, 60000, true);
+                timer = 3000;
+                break;
+            }
+            case 11:
+            {
+                if (Creature* shartuul = GetSingleCreatureFromStorage(NPC_SHARTUUL))
+                    if (Creature* dreadmaw = GetSingleCreatureFromStorage(NPC_DREADMAW))
+                        shartuul->CastSpell(dreadmaw, SPELL_COSMETIC_LEGION_RING_EREDAR_LIGHTNING, TRIGGERED_OLD_TRIGGERED);
+                timer = 1000;
+                break;
+            }
+            case 12:
+            {
+                if (Creature* dreadmaw = GetSingleCreatureFromStorage(NPC_DREADMAW))
+                    dreadmaw->CastSpell(nullptr, SPELL_LEGION_RING_DREADMAW_TRANSFORM, TRIGGERED_OLD_TRIGGERED);
+                timer = 5000;
+                break;
+            }
+            case 13:
+            {
+                if (Creature* eye = GetSingleCreatureFromStorage(NPC_DREADMAW))
+                {
+                    if (Creature* demon = GetCurrentDemon())
+                    {
+                        eye->AI()->SendAIEvent(AI_EVENT_CUSTOM_A, demon, eye);
+                        if (Creature* overseer = GetSingleCreatureFromStorage(NPC_OVERSEER_SHARTUUL))
+                            DoScriptText(SAY_DREADMAW_SPAWN, overseer, demon->GetCharmer());
+                    }
+                }
+                break;
+            }
+            case 14:
+            {
+                if (Creature* shartuul = GetSingleCreatureFromStorage(NPC_SHARTUUL))
+                    shartuul->CastSpell(nullptr, SPELL_TOUCH_OF_MADNESS, TRIGGERED_NONE);
+                timer = 5000;
+                break;
+            }
+            case 15:
+            {
+                if (Creature* shartuul = GetSingleCreatureFromStorage(NPC_SHARTUUL))
+                    shartuul->GetMotionMaster()->MovePoint(POINT_SHARTUUL_FIGHT, shartuulMovePosition);
+                break;
+            }
+        }
+        ++m_shartuulSpawnSequenceStage;
+        if (timer)
+            ResetTimer(SHARTUUL_SPAWN_SEQUENCE, timer);
+    }
+
+    // generic section
 
     void OnCreatureCreate(Creature* creature) override
     {
         switch (creature->GetEntry())
         {
+            case NPC_FELHOUND_DEFENDER:
+            case NPC_FEL_IMP_DEFENDER:
+            case NPC_GANARG_UNDERLING:
+            case NPC_MOARG_TORMENTER:
+                creature->GetCombatManager().SetLeashingDisable(true);
             case NPC_VIMGOL_VISUAL_BUNNY:
+            case PHASE_0_SHARTUUL_DISABLED:
                 m_npcEntryGuidCollection[creature->GetEntry()].push_back(creature->GetObjectGuid());
                 break;
             case NPC_WYRM_FROM_BEYOND:
                 if (Creature* creature = instance->GetCreature(m_npcEntryGuidStore[NPC_OSCILLATING_FREQUENCY_SCANNER_BUNNY]))
                     creature->AI()->SendAIEvent(AI_EVENT_CUSTOM_A, creature, creature);
                 break;
+            case NPC_DOOMGUARD_PUNISHER:
             case NPC_EMISSARY_OF_HATE:
             case NPC_WHISPER_RAVEN_GOD_TEMPLATE:
             case NPC_OSCILLATING_FREQUENCY_SCANNER_BUNNY:
             case NPC_SOCRETHAR:
             case NPC_DEATHS_DOOR_NORTH_WARP_GATE:
             case NPC_DEATHS_DOOR_SOUTH_WARP_GATE:
+            case NPC_GURTHOCK:
+            case NPC_MOGOR:
+            case NPC_WARP_GATE_SHIELD_SHARTUUL:
+            case NPC_FEL_PORTAL_ALARM:
+            case NPC_FELGUARD_DEGRADER:
+            case NPC_SHIVAN_ASSASSIN:
+            case NPC_OVERSEER_SHARTUUL:
+            case NPC_SHARTUUL:
+            case NPC_EYE_OF_SHARTUUL:
+            case NPC_DREADMAW:
+            case NPC_LEGION_RING_SHIELD_ZAPPER_INVISMAN:
+            case NPC_LEGION_RING_EVENT_INVISMAN_LG:
                 m_npcEntryGuidStore[creature->GetEntry()] = creature->GetObjectGuid();
                 break;
             case NPC_SKYGUARD_AETHER_TECH:
@@ -537,6 +1606,93 @@ struct world_map_outland : public ScriptedMap, public TimerManager
                 if (creature->IsTemporarySummon()) // Only dragons summoned by the player (by using the respective egg gameobjects) should have UNIT_FLAG_IMMUNE_TO_PLAYER
                     creature->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_PLAYER);
                 break;
+            case NPC_MASKED_ORPHAN_MATRON:
+            case NPC_COSTUMED_ORPHAN_MATRON:
+                m_npcEntryGuidCollection[creature->GetEntry()].push_back(creature->GetObjectGuid());
+                break;
+        }
+    }
+
+    void OnCreatureRespawn(Creature* creature) override
+    {
+        switch (creature->GetEntry())
+        {
+            case NPC_BROKENTOE:
+            case NPC_MURKBLOOD_TWIN:
+            case NPC_ROKDAR:
+            case NPC_SKRAGATH:
+            case NPC_WARMAUL_CHAMPION:
+            case NPC_MOGOR:
+                creature->SetCorpseDelay(20);
+                creature->GetCombatManager().SetLeashingCheck([](Unit* unit, float /*x*/, float /*y*/, float /*z*/)
+                {
+                    return unit->GetDistance(-707.214f, 7877.495f, 45.191f, DIST_CALC_NONE) > 2500.f; // squared
+                });
+                if (creature->GetEntry() != NPC_MOGOR)
+                    m_lastRingOfBlood = creature->GetObjectGuid();
+                break;
+            case NPC_ETHEREUM_PRISONER: // Gameobject should close when Ethereum Prisoner respawns
+                if (GameObject* go = GetClosestGameObjectWithEntry(creature, GO_SALVAGED_ETHEREUM_PRISON, 3.f))
+                {
+                    go->ResetDoorOrButton();
+                }
+                break;
+            case NPC_INVISIBLE_STALKER_LARGE_AOI:
+                if (creature->IsTemporarySummon())
+                    m_shartuulLargeAOI = creature->GetObjectGuid();
+                else
+                    creature->CastSpell(nullptr, SPELL_BOSS_FEL_PORTAL_STATE, TRIGGERED_OLD_TRIGGERED);
+                break;
+            case NPC_DOOMGUARD_PUNISHER:
+                m_spawnPosition = creature->GetRespawnPosition();
+                break;
+            case NPC_WARP_GATE_SHIELD_SHARTUUL:
+                creature->AI()->SetReactState(REACT_PASSIVE);
+                creature->SetCanEnterCombat(false);
+                break;
+            case NPC_FEL_EYE_STALK:
+                if (m_shartuulPhase == PHASE_7_SHIVAN_ASSASSIN_BOSS_3)
+                {
+                    creature->CastSpell(nullptr, SPELL_LEGION_RING_EYE_STALK_TRANSFORM, TRIGGERED_OLD_TRIGGERED);
+                    creature->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_PLAYER);
+                    creature->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_NPC);
+                    creature->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE);
+                    static_cast<Creature*>(creature)->SetFactionTemporary(SHARTUUL_FACTION_HOSTILE, TEMPFACTION_RESTORE_RESPAWN | TEMPFACTION_RESTORE_REACH_HOME);
+                }
+                creature->SetCorpseDelay(2);
+                break;
+        }
+    }
+
+    void OnCreatureEvade(Creature* creature) override
+    {
+        switch (creature->GetEntry())
+        {
+            case NPC_BROKENTOE:
+            case NPC_MURKBLOOD_TWIN:
+            case NPC_ROKDAR:
+            case NPC_SKRAGATH:
+            case NPC_WARMAUL_CHAMPION:
+            case NPC_MOGOR:
+                creature->ForcedDespawn(1);
+                break;
+        }
+    }
+
+    void OnCreatureDespawn(Creature* creature) override
+    {
+        switch (creature->GetEntry())
+        {
+            case NPC_BROKENTOE:
+            case NPC_MURKBLOOD_TWIN:
+            case NPC_ROKDAR:
+            case NPC_SKRAGATH:
+            case NPC_WARMAUL_CHAMPION:
+            case NPC_MOGOR:
+                if (creature->GetObjectGuid() == m_lastRingOfBlood)
+                    if (Creature* gurthock = GetSingleCreatureFromStorage(NPC_GURTHOCK))
+                        gurthock->SetFlag(UNIT_NPC_FLAGS, UNIT_NPC_FLAG_QUESTGIVER);
+                break;
         }
     }
 
@@ -575,72 +1731,19 @@ struct world_map_outland : public ScriptedMap, public TimerManager
             case NPC_GRAND_COLLECTOR:
                 FinishPhase(BASHIR_PHASE_3);
                 break;
-        }
-    }
-
-    void HandleBashirMobDeath(Creature* creature)
-    {
-        for (auto itr = m_bashirPhaseSpawnDataUsed.begin(); itr != m_bashirPhaseSpawnDataUsed.end(); ++itr)
-        {
-            BashirCombatSpawn* data = (*itr);
-            float x, y, z;
-            creature->GetRespawnCoord(x,y,z);
-            if (data->x == x && data->y == y)
-            {
-                m_bashirPhaseSpawnDataUsed.erase(itr);
-                m_bashirPhaseSpawnData.push_back(data);
+            case NPC_FEL_EYE_STALK:
+                creature->RemoveAurasDueToSpell(SPELL_LEGION_RING_EYE_STALK_TRANSFORM);
                 break;
-            }
-        }
-        ++m_bashirKillCounter;
-        uint32 bossSpawnCount = 0;
-        switch (m_bashirPhase)
-        {
-            case BASHIR_PHASE_1: bossSpawnCount = PHASE_1_KILL_COUNT; break;
-            case BASHIR_PHASE_2: bossSpawnCount = PHASE_2_KILL_COUNT; break;
-            case BASHIR_PHASE_3: bossSpawnCount = PHASE_3_KILL_COUNT; break;
-            default: return; // should never occur
-        }
-        if (bossSpawnCount == m_bashirKillCounter)
-            SpawnBoss(m_bashirPhase);
-        else
-            SpawnRandomBashirMob();
-    }
-
-    void SpawnRandomBashirMob()
-    {
-        uint32 randomIdx = urand(0, m_bashirPhaseSpawnData.size() - 1);
-        BashirCombatSpawn* data = m_bashirPhaseSpawnData[randomIdx];
-        m_bashirPhaseSpawnDataUsed.push_back(data);
-        m_bashirPhaseSpawnData.erase(m_bashirPhaseSpawnData.begin() + randomIdx);
-        Creature* tech = GetSingleCreatureFromStorage(NPC_SKYGUARD_AETHER_TECH); // Has to be alive during this so we can use him for summoning
-        uint32 entry;
-        switch (data->phaseId)
-        {
-            case BASHIR_PHASE_1: entry = NPC_SLAVERING_SLAVE; break;
-            case BASHIR_PHASE_2: entry = NPC_BASHIR_SUBPRIMAL; break;
-            case BASHIR_PHASE_3: entry = urand(0, 1) ? NPC_BASHIR_CONTROLLER : NPC_BASHIR_RECKONER; break;
-        }
-        Creature* mob = tech->SummonCreature(entry, data->x, data->y, data->z, data->ori, TEMPSPAWN_DEAD_DESPAWN, 0, true);
-        switch (entry)
-        {
-            case NPC_SLAVERING_SLAVE:
-            case NPC_BASHIR_SUBPRIMAL:
-                mob->CastSpell(nullptr, SPELL_SPIRIT_SPAWN_IN, TRIGGERED_NONE);
+            case NPC_BROKENTOE:
+            case NPC_MURKBLOOD_TWIN:
+            case NPC_ROKDAR:
+            case NPC_SKRAGATH:
+            case NPC_WARMAUL_CHAMPION:
+            case NPC_MOGOR:
+                if (creature->GetObjectGuid() == m_lastRingOfBlood)
+                    if (Creature* gurthock = GetSingleCreatureFromStorage(NPC_GURTHOCK))
+                        gurthock->SetFlag(UNIT_NPC_FLAGS, UNIT_NPC_FLAG_QUESTGIVER);
                 break;
-            default:
-                mob->CastSpell(nullptr, SPELL_ETHEREAL_TELEPORT, TRIGGERED_NONE);
-                break;
-        }
-    }
-
-    void SpawnTowerDefenders()
-    {
-        Creature* tech = GetSingleCreatureFromStorage(NPC_SKYGUARD_AETHER_TECH); // Has to be alive during this so we can use him for summoning
-        for (BashirCombatSpawn& data : bashirCombatDisruptorSpawnLocations)
-        {
-            Creature* mob = tech->SummonCreature(NPC_BASHIR_SUBPRIMAL, data.x, data.y, data.z, data.ori, TEMPSPAWN_DEAD_DESPAWN, 0, true);
-            mob->CastSpell(nullptr, SPELL_SPIRIT_SPAWN_IN, TRIGGERED_NONE);
         }
     }
 
@@ -656,314 +1759,11 @@ struct world_map_outland : public ScriptedMap, public TimerManager
             case GO_BASHIR_CRYSTALFORGE:
                 m_goEntryGuidStore.emplace(go->GetEntry(), go->GetObjectGuid());
                 break;
-        }
-    }
-
-    void SetData(uint32 type, uint32 data) override
-    {
-        switch (type)
-        {
-            case TYPE_DEATHS_DOOR_NORTH:
-                m_deathsDoorNorthHP = std::max(0, 100 - int32(data * 15));
-                sWorldState.ExecuteOnAreaPlayers(AREAID_DEATHS_DOOR, [=](Player* player)->void {player->SendUpdateWorldState(WORLD_STATE_DEATHS_DOOR_NORTH_WARP_GATE_HEALTH, m_deathsDoorNorthHP); });
-                break;
-            case TYPE_DEATHS_DOOR_SOUTH:
-                m_deathsDoorSouthHP = std::max(0, 100 - int32(data * 15));
-                sWorldState.ExecuteOnAreaPlayers(AREAID_DEATHS_DOOR, [=](Player* player)->void {player->SendUpdateWorldState(WORLD_STATE_DEATHS_DOOR_SOUTH_WARP_GATE_HEALTH, m_deathsDoorSouthHP); });
-                break;
-            case TYPE_SHARTUUL:
-                // TODO: add calculation
-                break;
-            case TYPE_BASHIR:
-                switch (data)
-                {
-                    case 0:
-                        DespawnCrystalforgeGuardians();
-                        break;
-                    case 1:
-                        StartPhase(BASHIR_PHASE_1);
-                        break;
-                    case 2:
-                        StartPhase(BashirPhases(uint32(m_bashirPhase) + 1));
-                        break;
-                    case 3:
-                        m_bashirPhase = BASHIR_PHASE_NOT_ACTIVE;
-                        break;
-                }
+            case GO_WARP_GATE_FIRE_SMALL:
+            case GO_WARP_GATE_FIRE_BIG:
+                m_fires.push_back(go->GetObjectGuid());
                 break;
         }
-    }
-
-    bool CheckConditionCriteriaMeet(Player const* player, uint32 instanceConditionId, WorldObject const* conditionSource, uint32 conditionSourceType) const override
-    {
-        switch (instanceConditionId)
-        {
-            case INSTANCE_CONDITION_ID_SOCRETHAR_GOSSIP:
-            {
-                Creature const* socrethar = GetSingleCreatureFromStorage(NPC_SOCRETHAR);
-                if (!socrethar || !socrethar->IsAlive() || socrethar->IsInCombat())
-                    return true;
-                return false;
-            }
-            case INSTANCE_CONDITION_ID_BASHIR_FLYING:
-                return m_bashirPhase == BASHIR_PHASE_START;
-            case INSTANCE_CONDITION_ID_BASHIR_IN_PROGRESS:
-                return m_bashirPhase > BASHIR_PHASE_START;
-        }
-
-        script_error_log("world_map_outland::CheckConditionCriteriaMeet called with unsupported Id %u. Called with param plr %s, src %s, condition source type %u",
-            instanceConditionId, player ? player->GetGuidStr().c_str() : "nullptr", conditionSource ? conditionSource->GetGuidStr().c_str() : "nullptr", conditionSourceType);
-        return false;
-    }
-
-    uint32 CalculateBashirTimerValue()
-    {
-        return 60 - m_bashirTime.tm_min + 60 * (m_bashirTime.tm_hour % 2);
-    }
-
-    void FillInitialWorldStates(ByteBuffer& data, uint32& count, uint32 /*zoneId*/, uint32 areaId) override
-    {
-        switch (areaId)
-        {
-            case AREAID_DEATHS_DOOR:
-            {
-                FillInitialWorldStateData(data, count, WORLD_STATE_DEATHS_DOOR_NORTH_WARP_GATE_HEALTH, m_deathsDoorNorthHP);
-                FillInitialWorldStateData(data, count, WORLD_STATE_DEATHS_DOOR_SOUTH_WARP_GATE_HEALTH, m_deathsDoorSouthHP);
-                FillInitialWorldStateData(data, count, WORLD_STATE_DEATHS_DOOR_EVENT_ACTIVE, m_deathsDoorEventActive);
-                break;
-            }
-            case AREAID_SHARTUUL_TRANSPORTER:
-            {
-                FillInitialWorldStateData(data, count, WORLD_STATE_SHARTUUL_SHIELD_REMAINING, m_shartuulShieldPercent);
-                FillInitialWorldStateData(data, count, WORLD_STATE_SHARTUUL_EVENT_ACTIVE, m_shartuulEventActive);
-                break;
-            }
-            case AREAID_SKYGUARD_OUTPOST:
-            {
-                FillInitialWorldStateData(data, count, WORLD_STATE_BASHIR_TIMER_WOTLK, CalculateBashirTimerValue());
-                break;
-            }
-            default: break;
-        }
-    }
-
-    void StartBashirLandingEvent()
-    {
-        if (!m_apprentice) // his grid wasnt loaded yet and autoload isnt on for performance reasons
-            return;
-        m_bashirIntroStage = 0;
-        m_apprentice->SummonCreature(NPC_SKYGUARD_AETHER_TECH,  bashirSpawnPositions[0][0], bashirSpawnPositions[0][1], bashirSpawnPositions[0][2], bashirSpawnPositions[0][3], TEMPSPAWN_CORPSE_TIMED_DESPAWN, 1000, true);
-        Creature* ranger = m_apprentice->SummonCreature(NPC_SKYGUARD_RANGER,      bashirSpawnPositions[1][0], bashirSpawnPositions[1][1], bashirSpawnPositions[1][2], bashirSpawnPositions[1][3], TEMPSPAWN_CORPSE_TIMED_DESPAWN, 1000, true);
-        ranger->AI()->SendAIEvent(AI_EVENT_CUSTOM_A, ranger, ranger, 2);
-        ranger = m_apprentice->SummonCreature(NPC_SKYGUARD_RANGER,      bashirSpawnPositions[2][0], bashirSpawnPositions[2][1], bashirSpawnPositions[2][2], bashirSpawnPositions[2][3], TEMPSPAWN_CORPSE_TIMED_DESPAWN, 1000, true);
-        ranger->AI()->SendAIEvent(AI_EVENT_CUSTOM_A, ranger, ranger, 3);
-        m_apprentice->SummonCreature(NPC_SKYGUARD_LIEUTENANT, bashirSpawnPositions[3][0], bashirSpawnPositions[3][1], bashirSpawnPositions[3][2], bashirSpawnPositions[3][3], TEMPSPAWN_CORPSE_TIMED_DESPAWN, 1000, true);
-        ranger = m_apprentice->SummonCreature(NPC_SKYGUARD_RANGER,      bashirSpawnPositions[4][0], bashirSpawnPositions[4][1], bashirSpawnPositions[4][2], bashirSpawnPositions[4][3], TEMPSPAWN_CORPSE_TIMED_DESPAWN, 1000, true);
-        ranger->AI()->SendAIEvent(AI_EVENT_CUSTOM_A, ranger, ranger, 4);
-        m_bashirPhase = BASHIR_PHASE_START;
-        m_deadTowerCounter = 0;
-        ResetTimer(BASHIR_ACTION_INTRO, GetIntroTimer(m_bashirIntroStage));
-    }
-
-    void SpawnAlliesAtCrystalforge(BashirPhases phaseId, Player* player)
-    {
-        player->SummonCreature(NPC_SKYGUARD_LIEUTENANT, bashirCustomSpawnPositions[0][0], bashirCustomSpawnPositions[0][1], bashirCustomSpawnPositions[0][2], bashirCustomSpawnPositions[0][3], TEMPSPAWN_CORPSE_TIMED_DESPAWN, 1000, true);
-        Creature* ranger = player->SummonCreature(NPC_SKYGUARD_RANGER, bashirCustomSpawnPositions[1][0], bashirCustomSpawnPositions[1][1], bashirCustomSpawnPositions[1][2], bashirCustomSpawnPositions[1][3], TEMPSPAWN_CORPSE_TIMED_DESPAWN, 1000, true);
-        ranger->AI()->SendAIEvent(AI_EVENT_CUSTOM_A, ranger, ranger, 2);
-        ranger = player->SummonCreature(NPC_SKYGUARD_RANGER, bashirCustomSpawnPositions[2][0], bashirCustomSpawnPositions[2][1], bashirCustomSpawnPositions[2][2], bashirCustomSpawnPositions[2][3], TEMPSPAWN_CORPSE_TIMED_DESPAWN, 1000, true);
-        ranger->AI()->SendAIEvent(AI_EVENT_CUSTOM_A, ranger, ranger, 3);
-        Creature* tech = player->SummonCreature(NPC_SKYGUARD_AETHER_TECH, bashirCustomSpawnPositions[3][0], bashirCustomSpawnPositions[3][1], bashirCustomSpawnPositions[3][2], bashirCustomSpawnPositions[3][3], TEMPSPAWN_CORPSE_TIMED_DESPAWN, 1000, true);
-        tech->HandleEmote(EMOTE_STATE_USESTANDING_NOSHEATHE);
-        ranger = player->SummonCreature(NPC_SKYGUARD_RANGER, bashirCustomSpawnPositions[4][0], bashirCustomSpawnPositions[4][1], bashirCustomSpawnPositions[4][2], bashirCustomSpawnPositions[4][3], TEMPSPAWN_CORPSE_TIMED_DESPAWN, 1000, true);
-        ranger->AI()->SendAIEvent(AI_EVENT_CUSTOM_A, ranger, ranger, 4);
-        Creature* vendor;
-        switch (phaseId)
-        {
-            case BASHIR_PHASE_ALL_VENDORS_SPAWNED:
-                vendor = player->SummonCreature(NPC_AETHER_TECH_MASTER, bashirCustomSpawnPositions[7][0], bashirCustomSpawnPositions[7][1], bashirCustomSpawnPositions[7][2], bashirCustomSpawnPositions[7][3], TEMPSPAWN_CORPSE_TIMED_DESPAWN, 1000, true);
-                vendor->HandleEmote(EMOTE_STATE_USESTANDING);
-                vendor->SetCanFly(false);
-                // no break
-            case BASHIR_PHASE_TRANSITION_3:
-            case BASHIR_PHASE_3:
-                vendor = player->SummonCreature(NPC_AETHER_TECH_ADEPT, bashirCustomSpawnPositions[6][0], bashirCustomSpawnPositions[6][1], bashirCustomSpawnPositions[6][2], bashirCustomSpawnPositions[6][3], TEMPSPAWN_CORPSE_TIMED_DESPAWN, 1000, true);
-                vendor->HandleEmote(EMOTE_STATE_USESTANDING);
-                vendor->SetCanFly(false);
-                // no break
-            case BASHIR_PHASE_TRANSITION_2:
-            case BASHIR_PHASE_2:
-                vendor = player->SummonCreature(NPC_AETHER_TECH_ASSISTANT, bashirCustomSpawnPositions[5][0], bashirCustomSpawnPositions[5][1], bashirCustomSpawnPositions[5][2], bashirCustomSpawnPositions[5][3], TEMPSPAWN_CORPSE_TIMED_DESPAWN, 1000, true);
-                vendor->HandleEmote(EMOTE_STATE_USESTANDING);
-                vendor->SetCanFly(false);
-                break;
-        }
-    }
-
-    void StartBashirAtCustomSpot(BashirPhases phaseId, Player* player)
-    {
-        SpawnAlliesAtCrystalforge(phaseId, player);
-        DespawnCrystalforgeGuardians();
-        StartPhase(phaseId);
-    }
-
-    void DespawnCrystalforgeGuardians()
-    {
-        if (GameObject* go = GetSingleGameObjectFromStorage(GO_BASHIR_CRYSTALFORGE))
-        {
-            CreatureList defenders;
-            GetCreatureListWithEntryInGrid(defenders, go, NPC_BASHIR_RAIDER, 60.f);
-            GetCreatureListWithEntryInGrid(defenders, go, NPC_BASHIR_SPELL_THIEF, 60.f);
-            for (Creature* defender : defenders)
-                defender->ForcedDespawn();
-        }
-    }
-
-    void DespawnBashir(bool all)
-    {
-        for (ObjectGuid guid : m_bashirSpawns)
-            if (all || guid.GetEntry() != NPC_SKYGUARD_AETHER_TECH)
-                if (Creature* spawn = instance->GetCreature(guid))
-                    spawn->ForcedDespawn();
-
-        for (ObjectGuid guid : m_bashirEnemySpawns)
-            if (Creature* spawn = instance->GetCreature(guid))
-                spawn->ForcedDespawn();
-
-        if (all)
-            m_bashirPhase = BASHIR_PHASE_NOT_ACTIVE;
-        else
-            m_bashirPhase = BASHIR_DESPAWN;
-    }
-
-    void StartBattlePhase()
-    {
-        ResetTimer(BASHIR_ACTION_SPAWN_ENEMY, GetActionTimer(BASHIR_ACTION_SPAWN_ENEMY));
-        ResetTimer(BASHIR_ACTION_ENEMY_ATTACK, 10000);
-        m_bashirEnemySpawns.clear();
-        m_bashirEnemyWaveSpawns.clear();
-        m_bashirPhaseSpawnData.clear();
-        for (BashirCombatSpawn& data : bashirCombatSpawnLocations)
-            if (data.phaseId == m_bashirPhase || data.phaseId == m_bashirPhase - 2)
-                m_bashirPhaseSpawnData.push_back(&data);
-        uint32 initialSpawnCount;
-        switch (m_bashirPhase)
-        {
-            case BASHIR_PHASE_1:
-            {
-                initialSpawnCount = PHASE_1_INITIAL_SPAWN_COUNT;
-                break;
-            }
-            case BASHIR_PHASE_2:
-            {
-                initialSpawnCount = PHASE_2_INITIAL_SPAWN_COUNT;
-                break;
-            }
-            case BASHIR_PHASE_3:
-            {
-                initialSpawnCount = PHASE_3_INITIAL_SPAWN_COUNT;
-                break;
-            }
-        }
-        for (uint32 i = 0; i < initialSpawnCount; ++i)
-            SpawnRandomBashirMob();
-    }
-
-    void StartTransitionPhase()
-    {
-        Creature* tech = GetSingleCreatureFromStorage(NPC_SKYGUARD_AETHER_TECH);
-        Creature* vendor;
-        switch (m_bashirPhase)
-        {
-            case BASHIR_PHASE_TRANSITION_1:
-                vendor = tech->SummonCreature(NPC_AETHER_TECH_ASSISTANT, bashirSpawnPositions[5][0], bashirSpawnPositions[5][1], bashirSpawnPositions[5][2], bashirSpawnPositions[5][3], TEMPSPAWN_CORPSE_TIMED_DESPAWN, 1000, true, true, 1);
-                break;
-            case BASHIR_PHASE_TRANSITION_2:
-                vendor = tech->SummonCreature(NPC_AETHER_TECH_ADEPT, bashirSpawnPositions[6][0], bashirSpawnPositions[6][1], bashirSpawnPositions[6][2], bashirSpawnPositions[6][3], TEMPSPAWN_CORPSE_TIMED_DESPAWN, 1000, true, true, 1);
-                break;
-            case BASHIR_PHASE_TRANSITION_3:
-                vendor = tech->SummonCreature(NPC_AETHER_TECH_MASTER, bashirSpawnPositions[7][0], bashirSpawnPositions[7][1], bashirSpawnPositions[7][2], bashirSpawnPositions[7][3], TEMPSPAWN_CORPSE_TIMED_DESPAWN, 1000, true, true, 1);
-                break;
-        }
-        vendor->Mount(MOUNT_NETHER_RAY_DISPLAY_ID);
-        tech->AI()->SendAIEvent(AI_EVENT_CUSTOM_A, tech, tech);
-    }
-
-    void StartPhase(BashirPhases phase)
-    {
-        m_bashirPhase = phase;
-        switch (phase)
-        {
-            case BASHIR_PHASE_1:
-            case BASHIR_PHASE_2:
-            case BASHIR_PHASE_3:
-                StartBattlePhase();
-                break;
-            case BASHIR_PHASE_TRANSITION_1:
-            case BASHIR_PHASE_TRANSITION_2:
-            case BASHIR_PHASE_TRANSITION_3:
-                StartTransitionPhase();
-                break;
-            case BASHIR_PHASE_ALL_VENDORS_SPAWNED:
-                ResetTimer(BASHIR_ACTION_OUTRO, (4 * 60 + 40) * IN_MILLISECONDS); // 4 minutes 40 seconds
-                break;
-        }
-    }
-
-    void SpawnBoss(BashirPhases phase)
-    {
-        Creature* tech = GetSingleCreatureFromStorage(NPC_SKYGUARD_AETHER_TECH); // Has to be alive during this so we can use him for summoning
-        Creature* mob;
-        switch (phase)
-        {
-            case BASHIR_PHASE_1:
-                mob = tech->SummonCreature(NPC_BASHIR_FLESH_FIEND, bashirSpawnPositions[8][0], bashirSpawnPositions[8][1], bashirSpawnPositions[8][2], bashirSpawnPositions[8][3], TEMPSPAWN_CORPSE_TIMED_DESPAWN, 2 * 60 * IN_MILLISECONDS, true);
-                mob->CastSpell(nullptr, SPELL_SPIRIT_SPAWN_IN, TRIGGERED_NONE);
-                break;
-            case BASHIR_PHASE_2:
-                SpawnTowerDefenders();
-                mob = tech->SummonCreature(NPC_DISRUPTOR_TOWER, bashirSpawnPositions[9][0],  bashirSpawnPositions[9][1],  bashirSpawnPositions[9][2],  bashirSpawnPositions[9][3],  TEMPSPAWN_CORPSE_TIMED_DESPAWN, 2 * 60 * IN_MILLISECONDS, true);
-                mob->CastSpell(nullptr, SPELL_SPIRIT_SPAWN_IN, TRIGGERED_NONE);
-                mob = tech->SummonCreature(NPC_DISRUPTOR_TOWER, bashirSpawnPositions[10][0], bashirSpawnPositions[10][1], bashirSpawnPositions[10][2], bashirSpawnPositions[10][3], TEMPSPAWN_CORPSE_TIMED_DESPAWN, 2 * 60 * IN_MILLISECONDS, true);
-                mob->CastSpell(nullptr, SPELL_SPIRIT_SPAWN_IN, TRIGGERED_NONE);
-                mob = tech->SummonCreature(NPC_DISRUPTOR_TOWER, bashirSpawnPositions[11][0], bashirSpawnPositions[11][1], bashirSpawnPositions[11][2], bashirSpawnPositions[11][3], TEMPSPAWN_CORPSE_TIMED_DESPAWN, 2 * 60 * IN_MILLISECONDS, true);
-                mob->CastSpell(nullptr, SPELL_SPIRIT_SPAWN_IN, TRIGGERED_NONE);
-                break;
-            case BASHIR_PHASE_3:
-                mob = tech->SummonCreature(NPC_GRAND_COLLECTOR, bashirSpawnPositions[12][0], bashirSpawnPositions[12][1], bashirSpawnPositions[12][2], bashirSpawnPositions[12][3], TEMPSPAWN_CORPSE_TIMED_DESPAWN, 2 * 60 * IN_MILLISECONDS, true);
-                mob->CastSpell(nullptr, SPELL_SPIRIT_SPAWN_IN, TRIGGERED_NONE);
-                break;
-        }
-    }
-
-    void FinishPhase(BashirPhases phase)
-    {
-        DisableTimer(BASHIR_ACTION_SPAWN_ENEMY);
-        DisableTimer(BASHIR_ACTION_ENEMY_ATTACK);
-        Creature* tech = GetSingleCreatureFromStorage(NPC_SKYGUARD_AETHER_TECH);
-        switch (phase)
-        {
-            case BASHIR_PHASE_1:
-                DoScriptText(SAY_TECH_PHASE_1, tech);
-                break;
-            case BASHIR_PHASE_2:
-                DoScriptText(SAY_TECH_PHASE_2, tech);
-                break;
-            case BASHIR_PHASE_3:
-                DoScriptText(SAY_TECH_PHASE_3, tech);
-                break;
-        }
-        for (ObjectGuid guid : m_bashirEnemySpawns)
-            if (Creature* spawn = instance->GetCreature(guid))
-                if (!spawn->IsInCombat())
-                    spawn->ForcedDespawn();
-        StartPhase(BashirPhases(uint32(phase) + 1));
-    }
-
-    void StartManaSlaveEvent()
-    {
-        if (GameObject* go = GetSingleGameObjectFromStorage(GO_BASHIR_CRYSTALFORGE))
-            if (Creature* controller = GetClosestCreatureWithEntry(go, CRYSTALFORGE_SLAVE_EVENT_CONTROLLER_ENTRY, 10.f))
-                instance->ScriptsStart(sRelayScripts, CRYSTALFORGE_SLAVE_EVENT_RELAY_ID, controller, controller);
     }
 
     void Update(const uint32 diff) override
@@ -993,12 +1793,55 @@ struct world_map_outland : public ScriptedMap, public TimerManager
             }
         }
         else m_bashirTimer -= diff;
+
+        if (m_shartuulTimer <= diff)
+        {
+            Unit* demon = GetCurrentDemon();
+            if (m_shartuulPhase != PHASE_0_SHARTUUL_DISABLED || (demon && demon->GetCharmer()))
+            {
+                bool fail = false;
+                if (m_shartuulPhase == PHASE_1_FELGUARD_DEGRADER_ADDS || m_shartuulPhase == PHASE_3_DOOMGUARD_PUNISHER_ADDS)
+                    if (!demon || !demon->IsAlive())
+                        fail = true;
+
+                if (demon)
+                {
+                    G3D::Vector3 bottomLeft(2698.55f, 7184.32f, 382.842f);
+                    G3D::Vector3 topLeft(2798.31f, 7135.76f, 380.514f);
+                    G3D::Vector3 topRight(2741.51f, 7046.78f, 381.398f);
+                    G3D::Vector3 bottomRight(2640.11f, 7089.32f, 380.787f);
+                    G3D::Line bottomLine = G3D::Line::fromTwoPoints(bottomLeft, bottomRight);
+                    G3D::Line leftLine = G3D::Line::fromTwoPoints(bottomLeft, topLeft);
+                    G3D::Line rightLine = G3D::Line::fromTwoPoints(bottomRight, topRight);
+                    G3D::Line topLine = G3D::Line::fromTwoPoints(topLeft, topRight);
+                    G3D::Vector3 curPos(demon->GetPositionX(), demon->GetPositionY(), demon->GetPositionZ());
+                    if (bottomLine.closestPoint(curPos).x > curPos.x || topLine.closestPoint(curPos).x < curPos.x || leftLine.closestPoint(curPos).y < curPos.y || rightLine.closestPoint(curPos).y > curPos.y)
+                        fail = true;
+                }
+
+                if (fail)
+                    HandleShartuulEventReset();
+            }
+            m_shartuulTimer = 1000;
+        }
+        else
+            m_shartuulTimer -= diff;
+
+        if (m_shadeData.Update(diff))
+        {
+            // Falconwing Square
+            if (Creature* matron = instance->GetCreature(m_npcEntryGuidStore[NPC_MASKED_ORPHAN_MATRON]))
+                matron->AI()->SendAIEvent(AI_EVENT_CUSTOM_A, matron, matron);
+            // Azure Watch
+            if (Creature* matron = instance->GetCreature(m_npcEntryGuidStore[NPC_COSTUMED_ORPHAN_MATRON]))
+                matron->AI()->SendAIEvent(AI_EVENT_CUSTOM_A, matron, matron);
+        }
     }
 
     void ShowChatCommands(ChatHandler* handler) override
     {
         handler->SendSysMessage("This instance supports the following commands:\n bashir (0,1,2,3,4,5,6,7) starts event at stage respectively - start event, start phase 1, finish phase 1,"
-        "start phase 2, finish phase 2, start phase 3, finish phase 3, despawn event");
+        "start phase 2, finish phase 2, start phase 3, finish phase 3, despawn event\n debuggurthock\n shartuulitem, shartuulreset");
     }
 
     void ExecuteChatCommand(ChatHandler* handler, char* args) override
@@ -1025,7 +1868,7 @@ struct world_map_outland : public ScriptedMap, public TimerManager
                 case BASHIR_PHASE_3:
                 case BASHIR_PHASE_TRANSITION_3:
                 case BASHIR_PHASE_ALL_VENDORS_SPAWNED:
-                    StartBashirAtCustomSpot(BashirPhases(startPhase), handler->GetPlayer());
+                    StartBashirAtCustomSpot(BashirPhases(startPhase), handler->GetSession()->GetPlayer());
                     break;
                 case BASHIR_DESPAWN:
                     DespawnBashir(true);
@@ -1033,18 +1876,66 @@ struct world_map_outland : public ScriptedMap, public TimerManager
                 default: break;
             }
         }
+        else if (val == "debuggurthock")
+        {
+            handler->PSendSysMessage("Last ring of blood guid: %lu", m_lastRingOfBlood.GetRawValue());
+        }
+        else if (val == "shartuulitem")
+        {
+            Player* player = handler->GetSession()->GetPlayer();
+            ItemPosCountVec dest;
+            uint32 noSpaceForCount = 0;
+            uint8 msg = player->CanStoreNewItem(NULL_BAG, NULL_SLOT, dest, ITEM_CRYSTALFORGED_DARKRUNE, 1, &noSpaceForCount);
+            if (msg == EQUIP_ERR_OK)
+            {
+                Item* item = player->StoreNewItem(dest, ITEM_CRYSTALFORGED_DARKRUNE, true, Item::GenerateItemRandomPropertyId(ITEM_CRYSTALFORGED_DARKRUNE));
+                if (item)
+                    player->SendNewItem(item, 1, false, true);
+            }
+        }
+        else if (val == "shartuulreset")
+        {
+            HandleShartuulEventReset();
+        }
     }
 };
 
-InstanceData* GetInstanceData_world_map_outland(Map* map)
+struct PossessDemonShartuul : public SpellScript
 {
-    return new world_map_outland(map);
-}
+    void OnEffectExecute(Spell* spell, SpellEffectIndex effIdx) const override
+    {
+        if (effIdx == EFFECT_INDEX_0)
+        {
+            // TODO: safeguard event in progress
+            spell->GetCaster()->CastSpell(nullptr, SPELL_LEGION_RING_CHARM_NORTH_01, TRIGGERED_OLD_TRIGGERED);
+            if (InstanceData* instance = spell->GetCaster()->GetMap()->GetInstanceData())
+                instance->SetData(TYPE_SHARTUUL, EVENT_START);
+        }
+    }
+};
+
+struct SmashShield : public SpellScript
+{
+    void OnEffectExecute(Spell* spell, SpellEffectIndex effIdx) const override
+    {
+        if (effIdx == EFFECT_INDEX_0)
+        {
+            if (!spell->GetCaster()->GetCharmer())
+                return;
+
+            if (InstanceData* instance = spell->GetCaster()->GetMap()->GetInstanceData())
+                instance->SetData(TYPE_SHARTUUL, EVENT_SMASH_SHIELD);
+        }
+    }
+};
 
 void AddSC_OutlandWorldScript()
 {
     Script* pNewScript = new Script;
     pNewScript->Name = "world_map_outland";
-    pNewScript->GetInstanceData = &GetInstanceData_world_map_outland;
+    pNewScript->GetInstanceData = &GetNewInstanceScript<world_map_outland>;
     pNewScript->RegisterSelf();
+
+    RegisterSpellScript<PossessDemonShartuul>("spell_possess_demon_shartuul");
+    RegisterSpellScript<SmashShield>("spell_smash_shield");
 }

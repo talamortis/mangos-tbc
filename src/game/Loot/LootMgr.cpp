@@ -25,7 +25,6 @@
 #include "Globals/SharedDefines.h"
 #include "Server/DBCStores.h"
 #include "Server/SQLStorages.h"
-#include "BattleGround/BattleGroundAV.h"
 #include "Entities/ItemEnchantmentMgr.h"
 #include "Tools/Language.h"
 #include <sstream>
@@ -396,7 +395,7 @@ LootItem::LootItem(uint32 _itemId, uint32 _count, uint32 _randomSuffix, int32 _r
 
 
 // Basic checks for player/item compatibility - if false no chance to see the item in the loot
-bool LootItem::AllowedForPlayer(Player const* player, WorldObject const* lootTarget) const
+bool LootItem::AllowedForPlayer(Player const* player, WorldObject const* lootTarget, Player const* masterLooter) const
 {
     if (!itemProto)
         return false;
@@ -423,7 +422,7 @@ bool LootItem::AllowedForPlayer(Player const* player, WorldObject const* lootTar
     }
 
     // Not quest only drop (check quest starting items for already accepted non-repeatable quests)
-    if (itemProto->StartQuest && player->GetQuestStatus(itemProto->StartQuest) != QUEST_STATUS_NONE && !player->HasQuestForItem(itemId))
+    if (player != masterLooter && itemProto->StartQuest && player->GetQuestStatus(itemProto->StartQuest) != QUEST_STATUS_NONE && !player->HasQuestForItem(itemId))
         return false;
 
     return true;
@@ -448,7 +447,10 @@ LootSlotType LootItem::GetSlotTypeForSharedLoot(Player const* player, Loot const
                 return LOOT_SLOT_OWNER;
 
             default:
-                if (loot->m_isChest)
+                if (!isUnderThreshold && lootItemType == LOOTITEM_TYPE_CONDITIONNAL && loot->m_lootMethod == MASTER_LOOT)
+                    break;
+
+                if (loot->m_isChest || loot->m_lootType == LOOT_FISHINGHOLE)
                     return LOOT_SLOT_OWNER;
 
                 if (isBlocked)
@@ -470,7 +472,7 @@ LootSlotType LootItem::GetSlotTypeForSharedLoot(Player const* player, Loot const
         {
             if (!isBlocked)
             {
-                if (loot->m_isChest)
+                if (loot->m_isChest || loot->m_lootType == LOOT_FISHINGHOLE)
                     return LOOT_SLOT_NORMAL;
 
                 if (isReleased || currentLooterPass || player->GetObjectGuid() == loot->m_currentLooterGuid)
@@ -504,7 +506,7 @@ LootSlotType LootItem::GetSlotTypeForSharedLoot(Player const* player, Loot const
         }
         case ROUND_ROBIN:
         {
-            if (loot->m_isChest)
+            if (loot->m_isChest || loot->m_lootType == LOOT_FISHINGHOLE)
                 return LOOT_SLOT_NORMAL;
 
             if (isReleased || currentLooterPass || player->GetObjectGuid() == loot->m_currentLooterGuid)
@@ -525,7 +527,7 @@ bool LootItem::IsAllowed(Player const* player, Loot const* loot) const
         return allowedGuid.find(player->GetObjectGuid()) != allowedGuid.end();
 
     if (allowedGuid.empty() || (freeForAll && allowedGuid.find(player->GetObjectGuid()) == allowedGuid.end()))
-        return AllowedForPlayer(player, loot->GetLootTarget());
+        return AllowedForPlayer(player, loot->GetLootTarget(), nullptr);
 
     return false;
 }
@@ -613,6 +615,9 @@ void GroupLootRoll::SendLootRollWon(ObjectGuid const& targetGuid, uint32 rollNum
             case ROLL_NOT_VALID:
                 SendRoll(itr->first, 128, 128);
                 break;
+            case ROLL_GREED:
+                if (rollType == ROLL_NEED)
+                    break;
             default:
                 SendRoll(itr->first, itr->second.number, itr->second.vote);
                 break;
@@ -907,7 +912,7 @@ bool Loot::FillLoot(uint32 loot_id, LootStore const& store, Player* lootOwner, b
         // assign permission for non chest items
         for (auto lootItem : m_lootItems)
         {
-            if (player && (lootItem->AllowedForPlayer(player, GetLootTarget())))
+            if (player && (lootItem->AllowedForPlayer(player, GetLootTarget(), masterLooter)))
             {
                 if (!m_isChest)
                     lootItem->allowedGuid.emplace(player->GetObjectGuid());
@@ -1022,6 +1027,9 @@ bool Loot::CanLoot(Player const* player)
         return true;
 
     if (m_lootMethod == NOT_GROUP_TYPE_LOOT || m_lootMethod == FREE_FOR_ALL)
+        return true;
+
+    if (m_lootType == LOOT_FISHINGHOLE)
         return true;
 
     if (m_haveItemOverThreshold)
@@ -1710,7 +1718,7 @@ Loot::Loot(Player* player, GameObject* gameObject, LootType type) :
     // And permit out of range GO with no owner in case fishing hole
     if ((type != LOOT_FISHINGHOLE &&
             ((type != LOOT_FISHING && type != LOOT_FISHING_FAIL) || gameObject->GetOwnerGuid() != player->GetObjectGuid()) &&
-            !gameObject->IsWithinDistInMap(player, INTERACTION_DISTANCE)))
+            !gameObject->IsAtInteractDistance(player)))
     {
         sLog.outError("Loot::CreateLoot> cannot create game object loot, basic check failed for gameobject %u!", gameObject->GetEntry());
         return;
@@ -1719,16 +1727,6 @@ Loot::Loot(Player* player, GameObject* gameObject, LootType type) :
     // generate loot only if ready for open and spawned in world
     if (gameObject->GetLootState() == GO_READY && gameObject->IsSpawned())
     {
-        if ((gameObject->GetEntry() == BG_AV_OBJECTID_MINE_N || gameObject->GetEntry() == BG_AV_OBJECTID_MINE_S))
-        {
-            if (BattleGround* bg = player->GetBattleGround())
-                if (bg->GetTypeID() == BATTLEGROUND_AV)
-                    if (!(((BattleGroundAV*)bg)->PlayerCanDoMineQuest(gameObject->GetEntry(), player->GetTeam())))
-                    {
-                        return;
-                    }
-        }
-
         switch (type)
         {
             case LOOT_FISHING_FAIL:
@@ -1820,7 +1818,7 @@ Loot::Loot(Player* player, Corpse* corpse, LootType type) :
          m_lootMethod = NOT_GROUP_TYPE_LOOT;
          m_clientLootType = CLIENT_LOOT_CORPSE;
 
-        if (player->GetBattleGround()->GetTypeID() == BATTLEGROUND_AV)
+        if (player->GetBattleGround()->GetTypeId() == BATTLEGROUND_AV)
             FillLoot(0, LootTemplates_Creature, player, false);
 
         // It may need a better formula
@@ -1938,7 +1936,7 @@ InventoryResult Loot::SendItem(Player* target, uint32 itemSlot)
     return SendItem(target, lootItem);
 }
 
-InventoryResult Loot::SendItem(Player* target, LootItem* lootItem)
+InventoryResult Loot::SendItem(Player* target, LootItem* lootItem, bool sendError)
 {
     if (!target)
         return EQUIP_ERR_OUT_OF_RANGE;
@@ -1987,7 +1985,7 @@ InventoryResult Loot::SendItem(Player* target, LootItem* lootItem)
             playerGotItem = true;
             m_isChanged = true;
         }
-        else
+        else if (sendError)
             target->SendEquipError(msg, nullptr, nullptr, lootItem->itemId);
     }
 
@@ -2088,10 +2086,6 @@ void Loot::ForceLootAnimationClientUpdate() const
             break;
         case TYPEID_GAMEOBJECT:
             return;
-            // we have to update sparkles/loot for this object
-            if (m_isChest)
-                m_lootTarget->ForceValuesUpdateAtIndex(GAMEOBJECT_DYN_FLAGS);
-            break;
         default:
             break;
     }
@@ -2310,7 +2304,7 @@ LootStoreItem const* LootTemplate::LootGroup::Roll(Loot const& loot, Player cons
             lootStoreItemVector.push_back(&itr);
 
         // randomize the new vector
-        random_shuffle(lootStoreItemVector.begin(), lootStoreItemVector.end());
+        shuffle(lootStoreItemVector.begin(), lootStoreItemVector.end(), *GetRandomGenerator());
 
         float chance = rand_chance_f();
 
@@ -2343,7 +2337,7 @@ LootStoreItem const* LootTemplate::LootGroup::Roll(Loot const& loot, Player cons
             lootStoreItemVector.push_back(&itr);
 
         // randomize the new vector
-        random_shuffle(lootStoreItemVector.begin(), lootStoreItemVector.end());
+        std::shuffle(lootStoreItemVector.begin(), lootStoreItemVector.end(), *GetRandomGenerator());
 
         // as the new vector is randomized we can start from first element and stop at first one that meet the condition
         for (std::vector <LootStoreItem const*>::const_iterator itr = lootStoreItemVector.begin(); itr != lootStoreItemVector.end(); ++itr)

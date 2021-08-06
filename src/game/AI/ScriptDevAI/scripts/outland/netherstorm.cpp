@@ -39,6 +39,7 @@ EndContentData */
 #include "AI/ScriptDevAI/base/escort_ai.h"
 #include "AI/ScriptDevAI/base/pet_ai.h"
 #include "AI/ScriptDevAI/scripts/outland/world_outland.h"
+#include "Spells/Scripts/SpellScript.h"
 
 /*######
 ## npc_manaforge_control_console
@@ -56,7 +57,8 @@ enum
     SAY_MANFORGE_SHUTDOWN_2 = -1000475,
     YEL_MANFORGE_SHUTDOWN = -1000476,
 
-    GOSSIP_TEXT_CONSOLE = 10340,
+    GOSSIP_TEXT_CONSOLE = 10045,
+    GOSSIP_TEXT_CONSOLE_NOQUEST = 9922,
 
     GO_BANAAR_C_CONSOLE = 183770,
     GO_CORUU_C_CONSOLE = 183956,
@@ -97,7 +99,7 @@ enum
     SPELL_INTERRUPT_2 = 35176,
 };
 
-#define GOSSIP_ITEM_SHUTDOWN "<Begin emergency shutdown>"
+#define GOSSIP_ITEM_SHUTDOWN "<Begin emergency shutdown.>"
 
 static float m_afBanaarTechCoords[7][3] =
 {
@@ -179,7 +181,9 @@ struct npc_manaforge_spawnAI : public ScriptedAI
         Creature *manaforge;
 
         if (m_manaforgeGuid)
-            if (manaforge = m_creature->GetMap()->GetCreature(m_manaforgeGuid))
+        {
+            manaforge = m_creature->GetMap()->GetCreature(m_manaforgeGuid);
+            if (manaforge)
             {
                 uint32 uiManaforgeEntry = manaforge->GetEntry();
 
@@ -228,6 +232,7 @@ struct npc_manaforge_spawnAI : public ScriptedAI
                     m_creature->GetMotionMaster()->MovePoint(uiMPID, fX, fY, m_creature->GetPositionZ());
                 }
             }
+        }
     }
 
     void UpdateAI(const uint32 /*uiDiff*/) override
@@ -244,7 +249,6 @@ UnitAI* GetAI_npc_manaforge_spawnAI(Creature* pCreature)
     return new npc_manaforge_spawnAI(pCreature);
 }
 
-
 struct npc_manaforge_control_consoleAI : public ScriptedAI
 {
     npc_manaforge_control_consoleAI(Creature* pCreature) : ScriptedAI(pCreature) { Reset(); }
@@ -254,6 +258,7 @@ struct npc_manaforge_control_consoleAI : public ScriptedAI
     uint32 m_uiEventTimer;
     uint32 m_uiWaveTimer;
     uint32 m_uiPhase;
+    uint32 m_uiHardResetTimer;
     bool   m_bWave;
     bool   m_bShutdownSaid;
     std::vector<ObjectGuid> m_vSummonGuids;
@@ -267,15 +272,18 @@ struct npc_manaforge_control_consoleAI : public ScriptedAI
         m_uiPhase = 1;
         m_bWave = false;
         m_bShutdownSaid = false;
+        m_uiHardResetTimer = 3 * MINUTE * IN_MILLISECONDS;
+    }
 
-        for (ObjectGuid &guid : m_vSummonGuids)
+    void ResetControlConsoleAndDespawn()
+    {
+        for (ObjectGuid& guid : m_vSummonGuids)
         {
             if (Creature* summon = m_creature->GetMap()->GetCreature(guid))
                 summon->ForcedDespawn(100); // requires delay, to prevent calling spell::cancel, as the call can originate from channeled spell finish
         }
         m_vSummonGuids.clear();
 
-        // Be sure to reset Gobject
         switch (m_creature->GetEntry())
         {
             case NPC_BNAAR_C_CONSOLE:
@@ -295,18 +303,22 @@ struct npc_manaforge_control_consoleAI : public ScriptedAI
                     pGo->RemoveFlag(GAMEOBJECT_FLAGS, GO_FLAG_IN_USE);
                 break;
         }
+        m_creature->ForcedDespawn();
     }
 
     void DoFailEvent()
     {
         DoScriptText(EMOTE_ABORT, m_creature);
+
         // Fail players quests
         // Handle all players in group (if they took quest)
 
         if (Player* pPlayer = m_creature->GetMap()->GetPlayer(m_playerGuid))
+        {
             if (Group* pGroup = pPlayer->GetGroup())
             {
                 for (GroupReference* pRef = pGroup->GetFirstMember(); pRef != nullptr; pRef = pRef->next())
+                {
                     if (Player* pMember = pRef->getSource())
                     {
                         switch (m_creature->GetEntry())
@@ -337,8 +349,10 @@ struct npc_manaforge_control_consoleAI : public ScriptedAI
                                 break;
                         }
                     }
+                }
             }
             else
+            {
                 switch (m_creature->GetEntry())
                 {
                     case NPC_BNAAR_C_CONSOLE:
@@ -366,9 +380,10 @@ struct npc_manaforge_control_consoleAI : public ScriptedAI
                             pPlayer->FailQuest(QUEST_SHUTDOWN_ARA_SCRYERS);
                         break;
                 }
+            }
+        }
 
-        Reset();
-        m_creature->ForcedDespawn();
+        ResetControlConsoleAndDespawn();
     }
 
     void DoWaveSpawnForCreature(Creature* pCreature)
@@ -464,7 +479,7 @@ struct npc_manaforge_control_consoleAI : public ScriptedAI
                             pAdd->GetMotionMaster()->MovePoint(0, m_afAraTechCoords[i + 3][0], m_afAraTechCoords[i + 3][1], m_afAraTechCoords[i + 3][2]);
                         }
                     if (!urand(0, 2)) // 1 in 3 chance to spawn a engineer
-                        if (pAdd = m_creature->SummonCreature(NPC_ARA_ENGI, m_afAraTechCoords[0][0], m_afAraTechCoords[0][1], m_afAraTechCoords[0][2], 0.0f, TEMPSPAWN_TIMED_OOC_OR_DEAD_DESPAWN, 120000))
+                        if ((pAdd = m_creature->SummonCreature(NPC_ARA_ENGI, m_afAraTechCoords[0][0], m_afAraTechCoords[0][1], m_afAraTechCoords[0][2], 0.0f, TEMPSPAWN_TIMED_OOC_OR_DEAD_DESPAWN, 120000)))
                             pAdd->GetMotionMaster()->MovePoint(0, m_afAraTechCoords[3][0], m_afAraTechCoords[3][1], m_afAraTechCoords[3][2]);
                 }
                 else if (route == 1)
@@ -476,7 +491,7 @@ struct npc_manaforge_control_consoleAI : public ScriptedAI
                             pAdd->GetMotionMaster()->MovePoint(0, m_afAraTechCoords[i + 3][0], m_afAraTechCoords[i + 3][1], m_afAraTechCoords[i + 3][2]);
                         }
                     if (!urand(0, 2)) // 1 in 3 chance to spawn a engineer
-                        if (pAdd = m_creature->SummonCreature(NPC_ARA_ENGI, m_afAraTechCoords[6][0], m_afAraTechCoords[6][1], m_afAraTechCoords[6][2], 0.0f, TEMPSPAWN_TIMED_OOC_OR_DEAD_DESPAWN, 120000))
+                        if ((pAdd = m_creature->SummonCreature(NPC_ARA_ENGI, m_afAraTechCoords[6][0], m_afAraTechCoords[6][1], m_afAraTechCoords[6][2], 0.0f, TEMPSPAWN_TIMED_OOC_OR_DEAD_DESPAWN, 120000)))
                             pAdd->GetMotionMaster()->MovePoint(0, m_afAraTechCoords[9][0], m_afAraTechCoords[9][1], m_afAraTechCoords[9][2]);
                 }
                 else
@@ -488,7 +503,7 @@ struct npc_manaforge_control_consoleAI : public ScriptedAI
                             pAdd->GetMotionMaster()->MovePoint(0, m_afAraTechCoords[i + 3][0], m_afAraTechCoords[i + 3][1], m_afAraTechCoords[i + 3][2]);
                         }
                     if (!urand(0, 2)) // 1 in 3 chance to spawn a engineer
-                        if (pAdd = m_creature->SummonCreature(NPC_ARA_ENGI, m_afAraTechCoords[12][0], m_afAraTechCoords[12][1], m_afAraTechCoords[12][2], 0.0f, TEMPSPAWN_TIMED_OOC_OR_DEAD_DESPAWN, 120000))
+                        if ((pAdd = m_creature->SummonCreature(NPC_ARA_ENGI, m_afAraTechCoords[12][0], m_afAraTechCoords[12][1], m_afAraTechCoords[12][2], 0.0f, TEMPSPAWN_TIMED_OOC_OR_DEAD_DESPAWN, 120000)))
                             pAdd->GetMotionMaster()->MovePoint(0, m_afAraTechCoords[15][0], m_afAraTechCoords[15][1], m_afAraTechCoords[15][2]);
                 }
                 m_uiWaveTimer = 15000;
@@ -537,7 +552,7 @@ struct npc_manaforge_control_consoleAI : public ScriptedAI
                 if ((pAdd = m_creature->SummonCreature(NPC_ARA_GORKLONN, m_afAraTechCoords[12][0], m_afAraTechCoords[12][1], m_afAraTechCoords[12][2], 4.44f, TEMPSPAWN_TIMED_OOC_OR_DEAD_DESPAWN, 120000)))
                 {
                     Player* pPlayer;
-                    if (pPlayer = m_creature->GetMap()->GetPlayer(m_playerGuid))
+                    if ((pPlayer = m_creature->GetMap()->GetPlayer(m_playerGuid)))
                         pAdd->AI()->AttackStart(pPlayer);
                     else
                         pAdd->GetMotionMaster()->MovePoint(0, m_afAraTechCoords[15][0], m_afAraTechCoords[15][1], m_afAraTechCoords[15][2]);
@@ -658,16 +673,29 @@ struct npc_manaforge_control_consoleAI : public ScriptedAI
 
     void UpdateAI(const uint32 uiDiff) override
     {
+        if (m_uiHardResetTimer <= uiDiff)
+        {
+            m_uiWaveTimer = 0;
+            m_uiPhase = 1;
+            m_bWave = false;
+            m_bShutdownSaid = false;
+            // why are we here? event should have failed or completed by now...
+            sLog.outCustomLog("Manaforge invalid state, helper creature: %s (%u)", m_creature->GetName(), m_creature->GetEntry());
+            sLog.outCustomLog("uiWaveTimer: %u", m_uiWaveTimer);
+            sLog.outCustomLog("uiPhase: %u", m_uiPhase);
+            sLog.outCustomLog("bWave: %s", (m_bWave ? "true" : "false"));
+            ResetControlConsoleAndDespawn();
+        }
+        else
+            m_uiHardResetTimer -= uiDiff;
+
         if (m_uiEventTimer < uiDiff)
         {
             Player* pPlayer = m_creature->GetMap()->GetPlayer(m_playerGuid);
 
             if (!pPlayer)
             {
-                // Reset Event
-                Reset();
-                m_creature->ForcedDespawn();
-
+                ResetControlConsoleAndDespawn();
                 return;
             }
 
@@ -705,7 +733,9 @@ struct npc_manaforge_control_consoleAI : public ScriptedAI
                     if (Group* pGroup = pPlayer->GetGroup())
                     {
                         for (GroupReference* pRef = pGroup->GetFirstMember(); pRef != nullptr; pRef = pRef->next())
+                        {
                             if (Player* pMember = pRef->getSource())
+                            {
                                 switch (m_creature->GetEntry())
                                 {
                                     case NPC_BNAAR_C_CONSOLE:
@@ -729,8 +759,11 @@ struct npc_manaforge_control_consoleAI : public ScriptedAI
                                             pMember->KilledMonsterCredit(m_creature->GetEntry(), m_creature->GetObjectGuid());
                                         break;
                                 }
+                            }
+                        }
                     }
                     else
+                    {
                         switch (m_creature->GetEntry())
                         {
                             case NPC_BNAAR_C_CONSOLE:
@@ -752,8 +785,9 @@ struct npc_manaforge_control_consoleAI : public ScriptedAI
                                     pPlayer->KilledMonsterCredit(m_creature->GetEntry(), m_creature->GetObjectGuid());
                                 break;
                         }
+                    }
 
-                    Reset();
+                    ResetControlConsoleAndDespawn();
                     break;
             }
         }
@@ -799,6 +833,10 @@ bool GossipHello_go_manaforge(Player* pPlayer, GameObject* pGo)
                 pPlayer->ADD_GOSSIP_ITEM(GOSSIP_ICON_CHAT, GOSSIP_ITEM_SHUTDOWN, GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF + 1);
                 pPlayer->SEND_GOSSIP_MENU(GOSSIP_TEXT_CONSOLE, pGo->GetObjectGuid());
             }
+            else
+            {
+                pPlayer->SEND_GOSSIP_MENU(GOSSIP_TEXT_CONSOLE_NOQUEST, pGo->GetObjectGuid());
+            }
             break;
         case 3730:                                          // coruu
             if ((pPlayer->GetQuestStatus(QUEST_SHUTDOWN_CORUU_ALDOR) == QUEST_STATUS_INCOMPLETE
@@ -807,6 +845,10 @@ bool GossipHello_go_manaforge(Player* pPlayer, GameObject* pGo)
             {
                 pPlayer->ADD_GOSSIP_ITEM(GOSSIP_ICON_CHAT, GOSSIP_ITEM_SHUTDOWN, GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF + 1);
                 pPlayer->SEND_GOSSIP_MENU(GOSSIP_TEXT_CONSOLE, pGo->GetObjectGuid());
+            }
+            else
+            {
+                pPlayer->SEND_GOSSIP_MENU(GOSSIP_TEXT_CONSOLE_NOQUEST, pGo->GetObjectGuid());
             }
             break;
         case 3734:                                          // duro
@@ -817,6 +859,10 @@ bool GossipHello_go_manaforge(Player* pPlayer, GameObject* pGo)
                 pPlayer->ADD_GOSSIP_ITEM(GOSSIP_ICON_CHAT, GOSSIP_ITEM_SHUTDOWN, GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF + 1);
                 pPlayer->SEND_GOSSIP_MENU(GOSSIP_TEXT_CONSOLE, pGo->GetObjectGuid());
             }
+            else
+            {
+                pPlayer->SEND_GOSSIP_MENU(GOSSIP_TEXT_CONSOLE_NOQUEST, pGo->GetObjectGuid());
+            }
             break;
         case 3722:                                          // ara
             if ((pPlayer->GetQuestStatus(QUEST_SHUTDOWN_ARA_ALDOR) == QUEST_STATUS_INCOMPLETE
@@ -825,6 +871,10 @@ bool GossipHello_go_manaforge(Player* pPlayer, GameObject* pGo)
             {
                 pPlayer->ADD_GOSSIP_ITEM(GOSSIP_ICON_CHAT, GOSSIP_ITEM_SHUTDOWN, GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF + 1);
                 pPlayer->SEND_GOSSIP_MENU(GOSSIP_TEXT_CONSOLE, pGo->GetObjectGuid());
+            }
+            else
+            {
+                pPlayer->SEND_GOSSIP_MENU(GOSSIP_TEXT_CONSOLE_NOQUEST, pGo->GetObjectGuid());
             }
             break;
     }
@@ -845,25 +895,25 @@ bool GossipSelect_go_manaforge(Player* pPlayer, GameObject* pGo, uint32 /*uiSend
                 if ((pPlayer->GetQuestStatus(QUEST_SHUTDOWN_BNAAR_ALDOR) == QUEST_STATUS_INCOMPLETE
                     || pPlayer->GetQuestStatus(QUEST_SHUTDOWN_BNAAR_SCRYERS) == QUEST_STATUS_INCOMPLETE)
                     && pPlayer->HasItemCount(ITEM_BNAAR_ACESS_CRYSTAL, 1))
-                    pManaforge = pPlayer->SummonCreature(NPC_BNAAR_C_CONSOLE, 2918.95f, 4189.98f, 164.5f, 0.34f, TEMPSPAWN_TIMED_OOC_OR_CORPSE_DESPAWN, 125000, true);
+                    pManaforge = pPlayer->SummonCreature(NPC_BNAAR_C_CONSOLE, 2918.95f, 4189.98f, 164.5f, 0.34f, TEMPSPAWN_TIMED_OOC_OR_CORPSE_DESPAWN, 5 * MINUTE * IN_MILLISECONDS, true);
                 break;
             case 3730:                                          // coruu
                 if ((pPlayer->GetQuestStatus(QUEST_SHUTDOWN_CORUU_ALDOR) == QUEST_STATUS_INCOMPLETE
                     || pPlayer->GetQuestStatus(QUEST_SHUTDOWN_CORUU_SCRYERS) == QUEST_STATUS_INCOMPLETE)
                     && pPlayer->HasItemCount(ITEM_CORUU_ACESS_CRYSTAL, 1))
-                    pManaforge = pPlayer->SummonCreature(NPC_CORUU_C_CONSOLE, 2423.36f, 2755.72f, 135.5f, 2.14f, TEMPSPAWN_TIMED_OOC_OR_CORPSE_DESPAWN, 125000, true);
+                    pManaforge = pPlayer->SummonCreature(NPC_CORUU_C_CONSOLE, 2423.36f, 2755.72f, 135.5f, 2.14f, TEMPSPAWN_TIMED_OOC_OR_CORPSE_DESPAWN, 5 * MINUTE * IN_MILLISECONDS, true);
                 break;
             case 3734:                                          // duro
                 if ((pPlayer->GetQuestStatus(QUEST_SHUTDOWN_DURO_ALDOR) == QUEST_STATUS_INCOMPLETE
                     || pPlayer->GetQuestStatus(QUEST_SHUTDOWN_DURO_SCRYERS) == QUEST_STATUS_INCOMPLETE)
                     && pPlayer->HasItemCount(ITEM_DURO_ACESS_CRYSTAL, 1))
-                    pManaforge = pPlayer->SummonCreature(NPC_DURO_C_CONSOLE, 2976.48f, 2183.29f, 166.00f, 1.85f, TEMPSPAWN_TIMED_OOC_OR_CORPSE_DESPAWN, 125000, true);
+                    pManaforge = pPlayer->SummonCreature(NPC_DURO_C_CONSOLE, 2976.48f, 2183.29f, 166.00f, 1.85f, TEMPSPAWN_TIMED_OOC_OR_CORPSE_DESPAWN, 5 * MINUTE * IN_MILLISECONDS, true);
                 break;
             case 3722:                                          // ara
                 if ((pPlayer->GetQuestStatus(QUEST_SHUTDOWN_ARA_ALDOR) == QUEST_STATUS_INCOMPLETE
                     || pPlayer->GetQuestStatus(QUEST_SHUTDOWN_ARA_SCRYERS) == QUEST_STATUS_INCOMPLETE)
                     && pPlayer->HasItemCount(ITEM_ARA_ACESS_CRYSTAL, 1))
-                    pManaforge = pPlayer->SummonCreature(NPC_ARA_C_CONSOLE, 4013.71f, 4028.76f, 195.00f, 1.25f, TEMPSPAWN_TIMED_OOC_OR_CORPSE_DESPAWN, 125000, true);
+                    pManaforge = pPlayer->SummonCreature(NPC_ARA_C_CONSOLE, 4013.71f, 4028.76f, 195.00f, 1.25f, TEMPSPAWN_TIMED_OOC_OR_CORPSE_DESPAWN, 5 * MINUTE * IN_MILLISECONDS, true);
                 break;
         }
 
@@ -1184,7 +1234,11 @@ enum
 
     NPC_THADELL          = 20464,
     NPC_TORMENTED_SOUL   = 20512,
-    NPC_SEVERED_SPIRIT   = 19881
+    NPC_SEVERED_SPIRIT   = 19881,
+
+    SAY_ESCORT_1         = -1015100,
+    SAY_ESCORT_2         = -1015101,
+    SAY_THADELL          = -1015102
 };
 
 struct npc_bessyAI : public npc_escortAI
@@ -1196,27 +1250,28 @@ struct npc_bessyAI : public npc_escortAI
         switch (uiPointId)
         {
             case 4:
-                m_creature->SummonCreature(NPC_TORMENTED_SOUL, 2449.67f, 2183.11f, 96.85f, 6.20f, TEMPSPAWN_TIMED_OOC_OR_DEAD_DESPAWN, 25000);
-                m_creature->SummonCreature(NPC_TORMENTED_SOUL, 2449.53f, 2184.43f, 96.36f, 6.27f, TEMPSPAWN_TIMED_OOC_OR_DEAD_DESPAWN, 25000);
-                m_creature->SummonCreature(NPC_TORMENTED_SOUL, 2449.85f, 2186.34f, 97.57f, 6.08f, TEMPSPAWN_TIMED_OOC_OR_DEAD_DESPAWN, 25000);
+                DoScriptText(SAY_ESCORT_2, m_creature);
+                if (Creature* pSpirit = m_creature->SummonCreature(NPC_SEVERED_SPIRIT, 2438.142f, 2200.449f, 101.5952f, 4.63704f, TEMPSPAWN_TIMED_OOC_OR_DEAD_DESPAWN, 25000, false, true))
+                    pSpirit->GetMotionMaster()->MoveWaypoint(1);
                 break;
             case 8:
-                m_creature->SummonCreature(NPC_SEVERED_SPIRIT, 2309.64f, 2186.24f, 92.25f, 6.06f, TEMPSPAWN_TIMED_OOC_OR_DEAD_DESPAWN, 25000);
-                m_creature->SummonCreature(NPC_SEVERED_SPIRIT, 2309.25f, 2183.46f, 91.75f, 6.22f, TEMPSPAWN_TIMED_OOC_OR_DEAD_DESPAWN, 25000);
+                if (Creature* pSpirit = m_creature->SummonCreature(NPC_SEVERED_SPIRIT, 2279.846f, 2188.402f, 91.61183f, 6.22683f, TEMPSPAWN_TIMED_OOC_OR_DEAD_DESPAWN, 25000, false, true))
+                    pSpirit->GetMotionMaster()->MoveWaypoint(2);
                 break;
             case 13:
+                if (Creature* pThadell = GetClosestCreatureWithEntry(m_creature, NPC_THADELL, 20.0f))
+                    DoScriptText(SAY_THADELL, pThadell);
+
                 if (Player* pPlayer = GetPlayerForEscort())
                     pPlayer->RewardPlayerAndGroupAtEventExplored(QUEST_COWS_COME_HOME, m_creature);
                 break;
         }
     }
 
-    void JustSummoned(Creature* pSummoned) override
+    void Reset() override
     {
-        pSummoned->AI()->AttackStart(m_creature);
+        m_creature->SetWalk(true);
     }
-
-    void Reset() override {}
 };
 
 bool QuestAccept_npc_bessy(Player* pPlayer, Creature* pCreature, const Quest* pQuest)
@@ -1225,8 +1280,10 @@ bool QuestAccept_npc_bessy(Player* pPlayer, Creature* pCreature, const Quest* pQ
     {
         pCreature->SetFactionTemporary(FACTION_ESCORT_N_NEUTRAL_ACTIVE, TEMPFACTION_RESTORE_RESPAWN | TEMPFACTION_TOGGLE_NON_ATTACKABLE);
 
+        DoScriptText(SAY_ESCORT_1, pCreature);
+
         if (npc_bessyAI* pBessyAI = dynamic_cast<npc_bessyAI*>(pCreature->AI()))
-            pBessyAI->Start(true, pPlayer, pQuest);
+            pBessyAI->Start(false, pPlayer, pQuest);
     }
     return true;
 }
@@ -1406,7 +1463,10 @@ struct npc_zeppitAI : public ScriptedPetAI
 {
     npc_zeppitAI(Creature* pCreature) : ScriptedPetAI(pCreature) { Reset(); }
 
-    void Reset() override { }
+    void Reset() override
+    {
+        SetReactState(REACT_PASSIVE);
+    }
 
     void OwnerKilledUnit(Unit* pVictim) override
     {
@@ -1416,7 +1476,7 @@ struct npc_zeppitAI : public ScriptedPetAI
             if (m_creature->IsWithinDistInMap(pVictim, 10.0f))
             {
                 DoScriptText(EMOTE_GATHER_BLOOD, m_creature);
-                m_creature->CastSpell(m_creature, SPELL_GATHER_WARP_BLOOD, TRIGGERED_NONE);
+                m_creature->CastSpell(nullptr, SPELL_GATHER_WARP_BLOOD, TRIGGERED_NONE);
             }
         }
     }
@@ -1444,13 +1504,15 @@ enum
     SAY_FINISH_1                    = -1000899,
     SAY_FINISH_2                    = -1000900,
 
+    SPELL_SPAWN                     = 12980,
+
     // SPELL_ETHEREAL_TELEPORT         = 34427,
     SPELL_PROTECTORATE              = 35679,                // dummy aura applied on player
 
     NPC_NEXUS_STALKER               = 20474,
     NPC_ARCHON                      = 20458,
 
-    FACTION_FRIENDLY                = 35,
+    FACTION_ESCORT                  = 1795,
 
     QUEST_ID_DELIVERING_MESSAGE     = 10406,
 };
@@ -1462,12 +1524,15 @@ struct npc_protectorate_demolitionistAI : public npc_escortAI
     uint32 m_uiEventTimer;
     uint8 m_uiEventStage;
 
+    bool m_spawnAnim;
+
     void Reset() override
     {
         if (!HasEscortState(STATE_ESCORT_ESCORTING))
         {
             m_uiEventTimer = 0;
             m_uiEventStage = 0;
+            m_spawnAnim = false;
         }
     }
 
@@ -1491,7 +1556,7 @@ struct npc_protectorate_demolitionistAI : public npc_escortAI
             {
                 if (m_creature->IsWithinDistInMap(pWho, 10.0f))
                 {
-                    m_creature->SetFactionTemporary(FACTION_FRIENDLY, TEMPFACTION_RESTORE_RESPAWN);
+                    m_creature->SetFactionTemporary(FACTION_ESCORT, TEMPFACTION_RESTORE_RESPAWN);
                     Start(false, (Player*)pWho);
                 }
             }
@@ -1544,6 +1609,12 @@ struct npc_protectorate_demolitionistAI : public npc_escortAI
 
     void UpdateEscortAI(const uint32 uiDiff) override
     {
+        if (!m_spawnAnim)
+        {
+            DoCastSpellIfCan(nullptr, SPELL_SPAWN);
+            m_spawnAnim = true;
+        }
+
         if (m_uiEventTimer)
         {
             if (m_uiEventTimer <= uiDiff)
@@ -1602,6 +1673,8 @@ enum
 
     NPC_COMMANDER_AMEER             = 20448,
 
+    NPC_ETHEREUM_GLADIATOR          = 20854,
+
     QUEST_ID_ESCAPE_STAGING_GROUNDS = 10425,
 };
 
@@ -1611,6 +1684,7 @@ struct npc_captured_vanguardAI : public npc_escortAI
 
     uint32 m_uiGlaiveTimer;
     uint32 m_uiHamstringTimer;
+    bool m_bOfferQuest;
 
     void Reset() override
     {
@@ -1618,10 +1692,28 @@ struct npc_captured_vanguardAI : public npc_escortAI
         m_uiHamstringTimer = urand(8000, 13000);
     }
 
+    void JustRespawned() override
+    {
+        m_bOfferQuest = true;
+        m_creature->RemoveFlag(UNIT_NPC_FLAGS, UNIT_NPC_FLAG_QUESTGIVER);
+    }
+
+    void JustDied(Unit* killer) override
+    {
+        npc_escortAI::JustDied(killer);
+        if (Creature* gladiator = GetClosestCreatureWithEntry(m_creature, NPC_ETHEREUM_GLADIATOR, 50.f, true))
+            gladiator->ForcedDespawn();
+    }
+
     void JustReachedHome() override
     {
         // Happens only if the player helps the npc in the fight - otherwise he dies
-        DoScriptText(SAY_VANGUARD_INTRO, m_creature);
+        if (m_bOfferQuest)
+        {
+            DoScriptText(SAY_VANGUARD_INTRO, m_creature);
+            m_creature->SetFlag(UNIT_NPC_FLAGS, UNIT_NPC_FLAG_QUESTGIVER);
+            m_bOfferQuest = false;
+        }
     }
 
     void WaypointReached(uint32 uiPointId) override
@@ -2657,10 +2749,7 @@ struct npc_scrap_reaverAI : ScriptedPetAI
 {
     npc_scrap_reaverAI(Creature* creature) : ScriptedPetAI(creature)
     {
-        m_dontDoAnything = false;
-        m_despawnTimer = 0;
-        m_scriptTimer = 0;
-        m_areaCheckTimer = 1000;
+
     }
 
     ObjectGuid m_negatron;
@@ -2681,12 +2770,18 @@ struct npc_scrap_reaverAI : ScriptedPetAI
     void JustRespawned() override
     {
         m_creature->SetStandState(UNIT_STAND_STATE_STAND);
+        m_dontDoAnything = false;
+        m_despawnTimer = 0;
+        m_scriptTimer = 0;
+        m_areaCheckTimer = 1000;
     }
 
     void ReceiveAIEvent(AIEventType eventType, Unit* /*sender*/, Unit* /*invoker*/, uint32 /*miscValue*/) override
     {
         if (eventType == AI_EVENT_CUSTOM_A && !m_dontDoAnything)
             Die();
+        else if (eventType == AI_EVENT_CUSTOM_B)
+            m_creature->ForcedDespawn();
     }
 
     void Die()
@@ -2761,7 +2856,7 @@ struct npc_scrap_reaverAI : ScriptedPetAI
                 m_scriptTimer -= diff;
         }
 
-        if (m_areaCheckTimer)
+        if (m_areaCheckTimer && !m_despawnTimer) // Area check should not run if despawnTimer is already set
         {
             if (m_areaCheckTimer <= diff)
             {
@@ -2832,10 +2927,29 @@ struct npc_scrap_reaverAI : ScriptedPetAI
     }
 };
 
-UnitAI* GetAI_npc_scrap_reaver(Creature* creature)
+struct ScrapReaverSpell : public SpellScript, public AuraScript
 {
-    return new npc_scrap_reaverAI(creature);
-}
+    bool OnCheckTarget(const Spell* spell, Unit* target, SpellEffectIndex /*eff*/) const
+    {
+        // Only one player can control the scrap reaver
+        if (target->HasAura(SPELL_SCRAP_REAVER))
+            return false;
+        return true;
+    }
+
+    void OnApply(Aura* aura, bool apply) const override
+    {
+        if (aura->GetEffIndex() == EFFECT_INDEX_0 && !apply)
+        {
+            AIEventType eventId = AI_EVENT_CUSTOM_B;
+            Unit* caster = aura->GetCaster();
+            if (caster && caster->IsAlive())
+                eventId = AI_EVENT_CUSTOM_A;
+            if (aura->GetTarget()->AI())
+                aura->GetTarget()->AI()->SendAIEvent(eventId, aura->GetTarget(), aura->GetTarget());
+        }
+    }
+};
 
 enum
 {
@@ -3158,6 +3272,7 @@ struct npc_adyen_the_lightwardenAI : public ScriptedAI
 {
     npc_adyen_the_lightwardenAI(Creature* creature) : ScriptedAI(creature), m_crusaderStrikeTimer(0), m_hammerOfJusticeTimer(0), m_eventStarted(false)
     {
+        m_creature->GetCombatManager().SetLeashingDisable(true);
     }
 
     ObjectGuid m_playerGuid;
@@ -3643,6 +3758,7 @@ struct npc_kaylaan_the_lostAI : public ScriptedAI
 {
     npc_kaylaan_the_lostAI(Creature* creature) : ScriptedAI(creature), m_deathPrevented(false), m_avengersShieldTimer(0), m_burningLightTimer(0), m_healTimer(0), m_holySlamTimer(0)
     {
+        m_creature->GetCombatManager().SetLeashingDisable(true);
     }
 
     bool m_deathPrevented;
@@ -3673,7 +3789,7 @@ struct npc_kaylaan_the_lostAI : public ScriptedAI
             target->RemoveAurasDueToSpell(SPELL_PERMANENT_FEIGN_DEATH);
     }
 
-    void DamageTaken(Unit* /*killer*/, uint32& damage, DamageEffectType /*damagetype*/, SpellEntry const* /*spellInfo*/) override
+    void DamageTaken(Unit* /*dealer*/, uint32& damage, DamageEffectType /*damagetype*/, SpellEntry const* /*spellInfo*/) override
     {
         if (damage < m_creature->GetHealth())
             return;
@@ -3818,16 +3934,6 @@ struct npc_kaylaan_the_lostAI : public ScriptedAI
     }
 };
 
-UnitAI* Getnpc_adyen_the_lightwardenAI(Creature* creature)
-{
-    return new npc_adyen_the_lightwardenAI(creature);
-}
-
-UnitAI* Getnpc_kaylaan_the_lostAI(Creature* creature)
-{
-    return new npc_kaylaan_the_lostAI(creature);
-}
-
 bool AreaTrigger_at_socrethar_seat(Player* player, AreaTriggerEntry const* /*at*/)
 {
     if (player->IsCurrentQuest(QUEST_DEATHBLOW_TO_THE_LEGION))
@@ -3878,6 +3984,61 @@ bool GossipSelect_npc_adyen_the_lightwarden(Player* player, Creature* creature, 
     }
     return false;
 }
+
+struct Soulbind : public SpellScript
+{
+    void OnEffectExecute(Spell* spell, SpellEffectIndex /*effIdx*/) const override
+    {
+        Unit* caster = spell->GetCaster();
+        Unit* target = spell->GetUnitTarget();
+        if (!target)
+            return;
+
+        caster->CastSpell(target, 36141, TRIGGERED_OLD_TRIGGERED); // spell id is in spell effect value
+    }
+};
+
+struct UltraDeconsolodationZapper : public SpellScript
+{
+    void OnEffectExecute(Spell* spell, SpellEffectIndex effIdx) const override
+    {
+        if (effIdx != EFFECT_INDEX_2)
+            return;
+
+        Unit* target = spell->GetUnitTarget();
+        if (!target)
+            return;
+
+        target->CastSpell(nullptr, 34427, TRIGGERED_OLD_TRIGGERED); // Ethereal Teleport
+    }
+};
+
+enum
+{
+    NPC_BOOM = 20284,
+    NPC_BOOM_BOT = 19692,
+};
+
+struct ThrowBoomsDoom : public SpellScript
+{
+    bool OnCheckTarget(const Spell* /*spell*/, GameObject* target, SpellEffectIndex /*eff*/) const
+    {
+        // prevent exploit of killing anything else
+        if (target->GetEntry() != NPC_BOOM && target->GetEntry() != NPC_BOOM_BOT)
+            return false;
+        return true;
+    }
+};
+
+struct RingOfFlame : public AuraScript
+{
+    void OnApply(Aura* aura, bool apply) const override
+    {
+        if (!apply && aura->GetRemoveMode() != AURA_REMOVE_BY_EXPIRE)
+
+            aura->GetTarget()->CastSpell(nullptr, 35995, TRIGGERED_OLD_TRIGGERED); // Immolation
+    }
+};
 
 void AddSC_netherstorm()
 {
@@ -3974,7 +4135,7 @@ void AddSC_netherstorm()
 
     pNewScript = new Script;
     pNewScript->Name = "npc_scrap_reaver";
-    pNewScript->GetAI = &GetAI_npc_scrap_reaver;
+    pNewScript->GetAI = &GetNewAIInstance<npc_scrap_reaverAI>;
     pNewScript->RegisterSelf();
 
     pNewScript = new Script;
@@ -3989,13 +4150,19 @@ void AddSC_netherstorm()
 
     pNewScript = new Script;
     pNewScript->Name = "npc_adyen_the_lightwarden";
-    pNewScript->GetAI = &Getnpc_adyen_the_lightwardenAI;
+    pNewScript->GetAI = &GetNewAIInstance<npc_adyen_the_lightwardenAI>;
     pNewScript->pGossipHello = &GossipHello_npc_adyen_the_lightwarden;
     pNewScript->pGossipSelect = &GossipSelect_npc_adyen_the_lightwarden;
     pNewScript->RegisterSelf();
 
     pNewScript = new Script;
     pNewScript->Name = "npc_kaylaan_the_lost";
-    pNewScript->GetAI = &Getnpc_kaylaan_the_lostAI;
+    pNewScript->GetAI = &GetNewAIInstance<npc_kaylaan_the_lostAI>;
     pNewScript->RegisterSelf();
+
+    RegisterSpellScript<Soulbind>("spell_soulbind");
+    RegisterAuraScript<RingOfFlame>("spell_ring_of_flame");
+    RegisterSpellScript<UltraDeconsolodationZapper>("spell_ultra_deconsolodation_zapper");
+    RegisterSpellScript<ThrowBoomsDoom>("spell_throw_booms_doom");
+    RegisterScript<ScrapReaverSpell>("spell_scrap_reaver_spell");
 }

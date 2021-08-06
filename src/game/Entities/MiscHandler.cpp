@@ -766,46 +766,11 @@ void WorldSession::HandleAreaTriggerOpcode(WorldPacket& recv_data)
     // ghost resurrected at enter attempt to dungeon with corpse (including fail enter cases)
     if (!player->IsAlive() && targetMapEntry->IsDungeon())
     {
-        uint32 corpseMapId = 0;
-        if (Corpse* corpse = player->GetCorpse())
-            corpseMapId = corpse->GetMapId();
-
-        // check back way from corpse to entrance
-        uint32 instance_map = corpseMapId;
-        do
-        {
-            // most often fast case
-            if (instance_map == targetMapEntry->MapID)
-                break;
-
-            InstanceTemplate const* instance = ObjectMgr::GetInstanceTemplate(instance_map);
-            instance_map = instance ? instance->parent : 0;
-        }
-        while (instance_map);
-
-        // corpse not in dungeon or some linked deep dungeons
-        if (!instance_map)
-        {
-            player->GetSession()->SendAreaTriggerMessage("You cannot enter %s while in a ghost mode",
-                    targetMapEntry->name[player->GetSession()->GetSessionDbcLocale()]);
-            return;
-        }
-
-        // need find areatrigger to inner dungeon for landing point
-        if (at->target_mapId != corpseMapId)
-        {
-            if (AreaTrigger const* corpseAt = sObjectMgr.GetMapEntranceTrigger(corpseMapId))
-            {
-                at = corpseAt;
-                targetMapEntry = sMapStore.LookupEntry(at->target_mapId);
-                if (!targetMapEntry)
-                    return;
-            }
-        }
-
-        // now we can resurrect player, and then check teleport requirements
-        player->ResurrectPlayer(0.5f);
-        player->SpawnCorpseBones();
+        auto data = player->CheckAndRevivePlayerOnDungeonEnter(targetMapEntry, at->target_mapId);
+		if (!data.first)
+			return;
+		if (data.second)
+			at = data.second;
     }
 
     if (at->conditionId && !sObjectMgr.IsConditionSatisfied(at->conditionId, player, player->GetMap(), nullptr, CONDITION_FROM_AREATRIGGER_TELEPORT))
@@ -821,14 +786,81 @@ void WorldSession::HandleAreaTriggerOpcode(WorldPacket& recv_data)
 void WorldSession::HandleUpdateAccountData(WorldPacket& recv_data)
 {
     DETAIL_LOG("WORLD: Received opcode CMSG_UPDATE_ACCOUNT_DATA");
-    recv_data.rpos(recv_data.wpos());                       // prevent spam at unimplemented packet
-    // recv_data.hexlike();
+
+    uint32 type, decompressedSize;
+    recv_data >> type >> decompressedSize;
+
+    DEBUG_LOG("UAD: type %u, decompressedSize %u", type, decompressedSize);
+
+    if (type > NUM_ACCOUNT_DATA_TYPES)
+        return;
+
+    if (decompressedSize == 0)                              // erase
+    {
+        SetAccountData(AccountDataType(type), 0, "");
+        return;
+    }
+
+    if (decompressedSize > 0xFFFF)
+    {
+        recv_data.rpos(recv_data.wpos());                   // unnneded warning spam in this case
+        sLog.outError("UAD: Account data packet too big, size %u", decompressedSize);
+        return;
+    }
+
+    ByteBuffer dest;
+    dest.resize(decompressedSize);
+
+    uLongf realSize = decompressedSize;
+    if (uncompress(const_cast<uint8*>(dest.contents()), &realSize, const_cast<uint8*>(recv_data.contents() + recv_data.rpos()), recv_data.size() - recv_data.rpos()) != Z_OK)
+    {
+        recv_data.rpos(recv_data.wpos());                   // unneded warning spam in this case
+        sLog.outError("UAD: Failed to decompress account data");
+        return;
+    }
+
+    recv_data.rpos(recv_data.wpos());                       // uncompress read (recv_data.size() - recv_data.rpos())
+
+    std::string adata;
+    dest >> adata;
+
+    SetAccountData(AccountDataType(type), 0, adata);
 }
 
-void WorldSession::HandleRequestAccountData(WorldPacket& /*recv_data*/)
+void WorldSession::HandleRequestAccountData(WorldPacket& recv_data)
 {
     DETAIL_LOG("WORLD: Received opcode CMSG_REQUEST_ACCOUNT_DATA");
-    // recv_data.hexlike();
+
+    uint32 type;
+    recv_data >> type;
+
+    DEBUG_LOG("RAD: type %u", type);
+
+    if (type > NUM_ACCOUNT_DATA_TYPES)
+        return;
+
+    AccountData* adata = GetAccountData(AccountDataType(type));
+
+    uint32 size = adata->Data.size();
+
+    uLongf destSize = compressBound(size);
+
+    ByteBuffer dest;
+    dest.resize(destSize);
+
+    if (size && compress(const_cast<uint8*>(dest.contents()), &destSize, (uint8*)adata->Data.c_str(), size) != Z_OK)
+    {
+        DEBUG_LOG("RAD: Failed to compress account data");
+        return;
+    }
+
+    dest.resize(destSize);
+
+    WorldPacket data(SMSG_UPDATE_ACCOUNT_DATA, 4 + 4 + destSize + 1);
+    data << uint32(type);                                   // type (0-7)
+    data << uint32(size);                                   // decompressed length
+    data.append(dest);                                      // compressed data
+    SendPacket(data);
 }
 
 void WorldSession::HandleSetActionButtonOpcode(WorldPacket& recv_data)
@@ -975,7 +1007,7 @@ void WorldSession::HandleSetActionBarTogglesOpcode(WorldPacket& recv_data)
         return;
     }
 
-    GetPlayer()->SetByteValue(PLAYER_FIELD_BYTES, 2, ActionBar);
+    GetPlayer()->SetByteValue(PLAYER_FIELD_BYTES, PLAYER_FIELD_BYTES_OFFSET_ACTION_BAR_TOGGLES, ActionBar);
 }
 
 void WorldSession::HandleWardenDataOpcode(WorldPacket& recv_data)
@@ -1022,7 +1054,7 @@ void WorldSession::HandleInspectOpcode(WorldPacket& recv_data)
     for (uint32 i = 0; i < talent_points; ++i)
         data << uint8(0);
 
-    if (sWorld.getConfig(CONFIG_BOOL_TALENTS_INSPECTING) || _player->isGameMaster())
+    if (sWorld.getConfig(CONFIG_BOOL_TALENTS_INSPECTING) || _player->IsGameMaster())
     {
         // find class talent tabs (all players have 3 talent tabs)
         uint32 const* talentTabIds = GetTalentTabPages(plr->getClass());
@@ -1182,7 +1214,7 @@ void WorldSession::HandleWhoisOpcode(WorldPacket& recv_data)
 
     uint32 accid = plr->GetSession()->GetAccountId();
 
-    QueryResult* result = LoginDatabase.PQuery("SELECT username,email,last_ip FROM account WHERE id=%u", accid);
+    QueryResult* result = LoginDatabase.PQuery("SELECT username,email,ip FROM account a JOIN account_logons b ON(a.id=b.accountId) WHERE a.id=%u ORDER BY loginTime DESC LIMIT 1", accid);
     if (!result)
     {
         SendNotification(LANG_ACCOUNT_FOR_PLAYER_NOT_FOUND, charname.c_str());
@@ -1461,7 +1493,7 @@ void WorldSession::HandleCommentatorModeOpcode(WorldPacket& recv_data)
     Player* _player = GetPlayer();
 
     // Allow commentator mode only for players in GM mode
-    if (!_player->isGameMaster())
+    if (!_player->IsGameMaster())
         return;
 
     // This opcode can be used in three ways:

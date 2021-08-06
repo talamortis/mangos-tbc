@@ -16,8 +16,8 @@
 
 /* ScriptData
 SDName: Boss_Reliquary_of_Souls
-SD%Complete: 90
-SDComment: Persistent Area Auras for each Essence (Aura of Suffering, Aura of Desire, Aura of Anger) requires core support.
+SD%Complete: 100
+SDComment:
 SDCategory: Black Temple
 EndScriptData */
 
@@ -190,8 +190,8 @@ struct boss_reliquary_of_soulsAI : public Scripted_NoMovementAI, public TimerMan
     // TODO: use LOS triggers
     void MoveInLineOfSight(Unit* who) override
     {
-        if (m_phase == PHASE_0_NOT_BEGUN && who->GetTypeId() == TYPEID_PLAYER && !static_cast<Player*>(who)->isGameMaster() &&
-                m_creature->IsWithinDistInMap(who, m_creature->GetAttackDistance(who)) && m_creature->IsWithinLOSInMap(who))
+        if (m_phase == PHASE_0_NOT_BEGUN && who->GetTypeId() == TYPEID_PLAYER && !static_cast<Player*>(who)->IsGameMaster() &&
+            m_creature->IsWithinDistInMap(who, m_creature->GetAttackDistance(who)) && m_creature->IsWithinLOSInMap(who))
             StartEvent();
     }
 
@@ -247,6 +247,10 @@ struct boss_reliquary_of_soulsAI : public Scripted_NoMovementAI, public TimerMan
         m_creature->RemoveAurasDueToSpell(SPELL_SUBMERGE_VISUAL);
         ResetTimer(RELIQUARY_ACTION_SUMMON_SOUL, 1000);
         ResetTimer(RELIQUARY_ACTION_SUBMERGE, 41000);
+
+        if (m_instance)
+            if (Creature* trigger = m_instance->GetSingleCreatureFromStorage(NPC_RELIQUARY_COMBAT_TRIGGER))
+                trigger->SetInCombatWithZone();
     }
 
     // Wrapper to count the dead spirits
@@ -274,12 +278,20 @@ struct essence_base_AI : public ScriptedAI, public CombatActions
     essence_base_AI(Creature* creature, uint32 maxActions) : ScriptedAI(creature), CombatActions(maxActions), m_instance(static_cast<ScriptedInstance*>(creature->GetInstanceData()))
     {
         SetDeathPrevention(true);
-        SetReactState(REACT_DEFENSIVE);
+        SetReactState(REACT_PASSIVE);
         m_bIsPhaseFinished = false;
         AddCustomAction(ESSENCE_GENERIC_ACTION_ATTACK, 3500u, [&]()
         {
+            SetReactState(REACT_AGGRESSIVE);
             m_creature->SetInCombatWithZone();
+            AttackClosestEnemy();
+            if (!m_creature->GetVictim())
+                JustReachedHome();
         });
+        m_creature->GetCombatManager().SetLeashingCheck([&](Unit*, float x, float y, float z)
+            {
+                return x > 660.9f && y > 66.8902f;
+            });
     }
 
     ScriptedInstance* m_instance;
@@ -316,7 +328,7 @@ struct essence_base_AI : public ScriptedAI, public CombatActions
 
         // Move to home position
         if (Creature* pReliquary = m_instance->GetSingleCreatureFromStorage(NPC_RELIQUARY_OF_SOULS))
-            m_creature->GetMotionMaster()->MovePoint(1, pReliquary->GetPositionX(), pReliquary->GetPositionY(), pReliquary->GetPositionZ());
+            m_creature->GetMotionMaster()->MovePoint(1, pReliquary->GetPositionX(), pReliquary->GetPositionY(), pReliquary->GetPositionZ(), FORCED_MOVEMENT_RUN);
 
         m_bIsPhaseFinished = true;
 
@@ -489,7 +501,7 @@ struct boss_essence_of_desireAI : public essence_base_AI
         {
             case DESIRE_ACTION_RUNE_SHIELD: return 15000;
             case DESIRE_ACTION_DEADEN: return 30000;
-            case DESIRE_ACTION_SPIRIT_SHOCK: return 5000; // chain cast during tbc
+            case DESIRE_ACTION_SPIRIT_SHOCK: return 2000; // chain cast during tbc
             default: return 0;
         }
     }
@@ -515,11 +527,18 @@ struct boss_essence_of_desireAI : public essence_base_AI
         DoScriptText(DESI_SAY_RECAP, m_creature);
     }
 
-    void DamageTaken(Unit* doneBy, uint32& damage, DamageEffectType damagetype, SpellEntry const* spellInfo) override
+    void DamageTaken(Unit* dealer, uint32& damage, DamageEffectType damagetype, SpellEntry const* spellInfo) override
     {
         int32 damageTaken = ((int32)damage) / 2;
-        doneBy->CastCustomSpell(doneBy, SPELL_AURA_OF_DESIRE_SELF_DMG, &damageTaken, nullptr, nullptr, TRIGGERED_OLD_TRIGGERED);
-        ScriptedAI::DamageTaken(doneBy, damage, damagetype, spellInfo);
+        if (dealer)
+            dealer->CastCustomSpell(dealer, SPELL_AURA_OF_DESIRE_SELF_DMG, &damageTaken, nullptr, nullptr, TRIGGERED_OLD_TRIGGERED);
+        ScriptedAI::DamageTaken(dealer, damage, damagetype, spellInfo);
+    }
+
+    void OnSpellInterrupt(SpellEntry const* spellInfo)
+    {
+        if (spellInfo->Id == SPELL_SPIRIT_SHOCK)
+            ResetCombatAction(DESIRE_ACTION_SPIRIT_SHOCK, 5000);
     }
 
     void ExecuteActions() override
@@ -582,11 +601,16 @@ struct boss_essence_of_angerAI : public ScriptedAI, public CombatActions
 {
     boss_essence_of_angerAI(Creature* pCreature) : ScriptedAI(pCreature), CombatActions(ANGER_ACTION_MAX), m_instance(static_cast<ScriptedInstance*>(pCreature->GetInstanceData()))
     {
+        SetReactState(REACT_PASSIVE);
         AddCombatAction(ANGER_ACTION_SOUL_SCREAM, 0u);
         AddCombatAction(ANGER_ACTION_SPITE, 0u);
         AddCustomAction(ESSENCE_GENERIC_ACTION_ATTACK, 3500u, [&]()
         {
+            SetReactState(REACT_AGGRESSIVE);
             m_creature->SetInCombatWithZone();
+            AttackClosestEnemy();
+            if (!m_creature->GetVictim())
+                JustReachedHome();
         });
     }
 
@@ -802,7 +826,7 @@ struct npc_reliquary_LOS_aggro_triggerAI : ScriptedAI
             return;
 
         Player* player = static_cast<Player*>(who);
-        if (player->isGameMaster())
+        if (player->IsGameMaster())
             return;
 
         if (m_instance->GetData(TYPE_RELIQUIARY) == IN_PROGRESS || m_instance->GetData(TYPE_RELIQUIARY) == DONE)

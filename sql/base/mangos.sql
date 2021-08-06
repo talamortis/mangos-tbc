@@ -23,7 +23,7 @@ DROP TABLE IF EXISTS `db_version`;
 CREATE TABLE `db_version` (
   `version` varchar(120) DEFAULT NULL,
   `creature_ai_version` varchar(120) DEFAULT NULL,
-  `required_s2414_01_mangos_ability_sets` bit(1) DEFAULT NULL
+  `required_s2428_01_mangos_column_fix` bit(1) DEFAULT NULL
 ) ENGINE=MyISAM DEFAULT CHARSET=utf8 ROW_FORMAT=DYNAMIC COMMENT='Used DB version notes';
 
 --
@@ -411,21 +411,6 @@ INSERT INTO `command` VALUES
 ('account set password',4,'Syntax: .account set password (#accountId|$accountName) $password $password\r\n\r\nSet password for account.'),
 ('additem',3,'Syntax: .additem #itemid/[#itemname]/#shift-click-item-link #itemcount\r\n\r\nAdds the specified number of items of id #itemid (or exact (!) name $itemname in brackets, or link created by shift-click at item in inventory or recipe) to your or selected character inventory. If #itemcount is omitted, only one item will be added.\r\n.'),
 ('additemset',3,'Syntax: .additemset #itemsetid\r\n\r\nAdd items from itemset of id #itemsetid to your or selected character inventory. Will add by one example each item from itemset.'),
-('ahbot items amount',3,'Syntax: .ahbot items amount $GreyItems $WhiteItems $GreenItems $BlueItems $PurpleItems $OrangeItems $YellowItems\r\n\r\nSet amount of each items color be selled on auction.'),
-('ahbot items amount blue',3,'Syntax: .ahbot items amount blue $BlueItems\r\n\r\nSet amount of Blue color items be selled on auction.'),
-('ahbot items amount green',3,'Syntax: .ahbot items amount green $GreenItems\r\n\r\nSet amount of Green color items be selled on auction.'),
-('ahbot items amount grey',3,'Syntax: .ahbot items amount grey $GreyItems\r\n\r\nSet amount of Grey color items be selled on auction.'),
-('ahbot items amount orange',3,'Syntax: .ahbot items amount orange $OrangeItems\r\n\r\nSet amount of Orange color items be selled on auction.'),
-('ahbot items amount purple',3,'Syntax: .ahbot items amount purple $PurpleItems\r\n\r\nSet amount of Purple color items be selled on auction.'),
-('ahbot items amount white',3,'Syntax: .ahbot items amount white $WhiteItems\r\n\r\nSet amount of White color items be selled on auction.'),
-('ahbot items amount yellow',3,'Syntax: .ahbot items amount yellow $YellowItems\r\n\r\nSet amount of Yellow color items be selled on auction.'),
-('ahbot items ratio',3,'Syntax: .ahbot items ratio $allianceratio $horderatio $neutralratio\r\n\r\nSet ratio of items in 3 auctions house.'),
-('ahbot items ratio alliance',3,'Syntax: .ahbot items ratio alliance $allianceratio\r\n\r\nSet ratio of items in alliance auction house.'),
-('ahbot items ratio horde',3,'Syntax: .ahbot items ratio horde $horderatio\r\n\r\nSet ratio of items in horde auction house.'),
-('ahbot items ratio neutral',3,'Syntax: .ahbot items ratio neutral $neutralratio\r\n\r\nSet ratio of items in $neutral auction house.'),
-('ahbot rebuild',3,'Syntax: .ahbot rebuild [all]\r\n\r\nExpire all actual auction of ahbot except bided by player. Bided auctions could be forced to expire by using \"all\" option. AHBot will re-fill auctions using current settings.'),
-('ahbot reload',3,'Syntax: .ahbot reload\r\n\r\nReload AHBot settings from configuration file.'),
-('ahbot status',3,'Syntax: .ahbot status [all]\r\n\r\nShow current ahbot state data in short form, and with \"all\" with details.'),
 ('announce',1,'Syntax: .announce $MessageToBroadcast\r\n\r\nSend a global message to all players online in chat log.'),
 ('auction',3,'Syntax: .auction\r\n\r\nShow your team auction store.'),
 ('auction alliance',3,'Syntax: .auction alliance\r\n\r\nShow alliance auction store independent from your team.'),
@@ -451,7 +436,7 @@ INSERT INTO `command` VALUES
 ('channel list',1,'Syntax: .channel list [#max] [static]\r\n\r\nShow list of custom channels with amounts of players joined.'),
 ('channel static',1,'Syntax: .channel static $channelname on|off\r\n\r\nEnable or disable static mode for a custom channel with name $channelname. Static custom channel upon conversion acquires a set of properties identical to global channes.'),
 ('character deleted delete',4,'Syntax: .character deleted delete #guid|$name\r\n\r\nCompletely deletes the selected characters.\r\nIf $name is supplied, only characters with that string in their name will be deleted, if #guid is supplied, only the character with that GUID will be deleted.'),
-('character deleted list',3,'Syntax: .character deleted list [#guid|$name]\r\n\r\nShows a list with all deleted characters.\r\nIf $name is supplied, only characters with that string in their name will be selected, if #guid is supplied, only the character with that GUID will be selected.'),
+('character deleted list',4,'Syntax: .character deleted list [#guid|$name]\r\n\r\nShows a list with all deleted characters.\r\nIf $name is supplied, only characters with that string in their name will be selected, if #guid is supplied, only the character with that GUID will be selected.'),
 ('character deleted old',4,'Syntax: .character deleted old [#keepDays]\r\n\r\nCompletely deletes all characters with deleted time longer #keepDays. If #keepDays not provided the  used value from mangosd.conf option \'CharDelete.KeepDays\'. If referenced config option disabled (use 0 value) then command can\'t be used without #keepDays.'),
 ('character deleted restore',3,'Syntax: .character deleted restore #guid|$name [$newname] [#new account]\r\n\r\nRestores deleted characters.\r\nIf $name is supplied, only characters with that string in their name will be restored, if $guid is supplied, only the character with that GUID will be restored.\r\nIf $newname is set, the character will be restored with that name instead of the original one. If #newaccount is set, the character will be restored to specific account character list. This works only with one character!'),
 ('character erase',4,'Syntax: .character erase $name\r\n\r\nDelete character $name. Character finally deleted in case any deleting options.'),
@@ -459,7 +444,7 @@ INSERT INTO `command` VALUES
 ('character rename',2,'Syntax: .character rename [$name]\r\n\r\nMark selected in game or by $name in command character for rename at next login.'),
 ('character reputation',2,'Syntax: .character reputation [$player_name]\r\n\r\nShow reputation information for selected player or player find by $player_name.'),
 ('character titles',2,'Syntax: .character titles [$player_name]\r\n\r\nShow known titles list for selected player or player find by $player_name.'),
-('combatstop',2,'Syntax: .combatstop [$playername]\r\nStop combat for selected character. If selected non-player then command applied to self. If $playername provided then attempt applied to online player $playername.'),
+('combat stop',2,'Syntax: .combatstop [$playername]\r\nStop combat for selected character. If selected non-player then command applied to self. If $playername provided then attempt applied to online player $playername.'),
 ('commands',0,'Syntax: .commands\r\n\r\nDisplay a list of available commands for your account level.'),
 ('cooldown list',3,'Syntax: .cooldown list  Active cooldown from selected unit.'),
 ('cooldown clear',3,'Syntax: .cooldown clear [spell id] Remove cooldown from selected unit.'),
@@ -489,14 +474,14 @@ INSERT INTO `command` VALUES
 ('event stop',2,'Syntax: .event stop #event_id\r\nStop event #event_id. Set start time for event to time in past that make current moment is event stop time (change not saved in DB).'),
 ('explorecheat',3,'Syntax: .explorecheat #flag\r\n\r\nReveal  or hide all maps for the selected player. If no player is selected, hide or reveal maps to you.\r\n\r\nUse a #flag of value 1 to reveal, use a #flag value of 0 to hide all maps.'),
 ('flusharenapoints',3,'Syntax: .flusharenapoints\r\n\r\nUse it to distribute arena points based on arena team ratings, and start a new week.'),
-('gm',1,'Syntax: .gm [on/off]\r\n\r\nEnable or Disable in game GM MODE or show current state of on/off not provided.'),
-('gm chat',1,'Syntax: .gm chat [on/off]\r\n\r\nEnable or disable chat GM MODE (show gm badge in messages) or show current state of on/off not provided.'),
+('gm',3,'Syntax: .gm [on/off]\r\n\r\nEnable or Disable in game GM MODE or show current state of on/off not provided.'),
+('gm chat',3,'Syntax: .gm chat [on/off]\r\n\r\nEnable or disable chat GM MODE (show gm badge in messages) or show current state of on/off not provided.'),
 ('gm fly',3,'Syntax: .gm fly [on/off]\r\nEnable/disable gm fly mode.'),
-('gm ingame',0,'Syntax: .gm ingame\r\n\r\nDisplay a list of available in game Game Masters.'),
+('gm ingame',3,'Syntax: .gm ingame\r\n\r\nDisplay a list of available in game Game Masters.'),
 ('gm list',3,'Syntax: .gm list\r\n\r\nDisplay a list of all Game Masters accounts and security levels.'),
-('gm mountup',1,'Syntax: .gm mountup [fast|slow|#displayid|target]\r\n\r\nIf #displayid is provided, visually mounts your character on a provided creature likeness. If your target is a creature and corresponding arg is provided, visually mounts your character on the likeness of targeted creature. In other cases this command mounts your character on a random unusual land mount according to provided or omitted args.'),
-('gm setview',1,'Syntax: .gm setview\r\n\r\nSet farsight view on selected unit. Select yourself to set view back.'),
-('gm visible',1,'Syntax: .gm visible on/off\r\n\r\nOutput current visibility state or make GM visible(on) and invisible(off) for other players.'),
+('gm mountup',3,'Syntax: .gm mountup [fast|slow|#displayid|target]\r\n\r\nIf #displayid is provided, visually mounts your character on a provided creature likeness. If your target is a creature and corresponding arg is provided, visually mounts your character on the likeness of targeted creature. In other cases this command mounts your character on a random unusual land mount according to provided or omitted args.'),
+('gm setview',3,'Syntax: .gm setview\r\n\r\nSet farsight view on selected unit. Select yourself to set view back.'),
+('gm visible',3,'Syntax: .gm visible on/off\r\n\r\nOutput current visibility state or make GM visible(on) and invisible(off) for other players.'),
 ('go',1,'Syntax: .go  [$playername|pointlink|#x #y #z [#mapid]]\r\nTeleport your character to point with coordinates of player $playername, or coordinates of one from shift-link types: player, tele, taxinode, creature/creature_entry, gameobject/gameobject_entry, or explicit #x #y #z #mapid coordinates.'),
 ('go creature',1,'Syntax: .go creature (#creature_guid|$creature_name|id #creature_id)\r\nTeleport your character to creature with guid #creature_guid, or teleport your character to creature with name including as part $creature_name substring, or teleport your character to a creature that was spawned from the template with this entry #creature_id.'),
 ('go graveyard',1,'Syntax: .go graveyard #graveyardId\r\n Teleport to graveyard with the graveyardId specified.'),
@@ -592,9 +577,9 @@ INSERT INTO `command` VALUES
 ('modify standstate',2,'Syntax: .modify standstate #emoteid\r\n\r\nChange the emote of your character while standing to #emoteid.'),
 ('modify swim',1,'Syntax: .modify swim #rate\r\n\r\nModify the swim speed of the selected player to \"normal swim speed\"*rate. If no player is selected, modify your speed.\r\n\r\n #rate may range from 0.1 to 10.'),
 ('modify tp',1,'Syntax: .modify tp #amount\r\n\r\nSet free talent pointes for selected character or character\'s pet. It will be reset to default expected at next levelup/login/quest reward.'),
-('movement movegens',3,'Syntax: .movement movegens  Show movement generators stack for selected creature or player.'),
+('movement movegens',2,'Syntax: .movement movegens  Show movement generators stack for selected creature or player.'),
 ('movement cometome',3,'Syntax: .movement cometome  Move selected creature to you.'),
-('movement movespeed',3,'Syntax: .movement movespeed  Show speed of selected creature.'),
+('movement movespeed',2,'Syntax: .movement movespeed  Show speed of selected creature.'),
 ('mute',1,'Syntax: .mute [$playerName] $timeInMinutes\r\n\r\nDisible chat messaging for any character from account of character $playerName (or currently selected) at $timeInMinutes minutes. Player can be offline.'),
 ('namego',1,'Syntax: .namego [$charactername]\r\n\r\nTeleport the given character to you. Character can be offline.'),
 ('neargrave',3,'Syntax: .neargrave [alliance|horde]\r\n\r\nFind nearest graveyard linked to zone (or only nearest from accepts alliance or horde faction ghosts).'),
@@ -962,6 +947,53 @@ CREATE TABLE `creature_conditional_spawn` (
 LOCK TABLES `creature_conditional_spawn` WRITE;
 /*!40000 ALTER TABLE `creature_conditional_spawn` DISABLE KEYS */;
 /*!40000 ALTER TABLE `creature_conditional_spawn` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `creature_spawn_data`
+--
+
+DROP TABLE IF EXISTS `creature_spawn_data`;
+CREATE TABLE `creature_spawn_data` (
+  `Guid` int unsigned NOT NULL COMMENT 'guid of creature',
+  `Id` int unsigned NOT NULL COMMENT 'ID of template',
+  PRIMARY KEY (`Guid`)
+) ENGINE=MyISAM DEFAULT CHARSET=utf8 ROW_FORMAT=DYNAMIC COMMENT='Creature System (Spawn Data)';
+
+--
+-- Dumping data for table `creature_spawn_data`
+--
+
+LOCK TABLES `creature_spawn_data` WRITE;
+/*!40000 ALTER TABLE `creature_spawn_data` DISABLE KEYS */;
+/*!40000 ALTER TABLE `creature_spawn_data` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `creature_spawn_data_template`
+--
+
+DROP TABLE IF EXISTS `creature_spawn_data_template`;
+CREATE TABLE `creature_spawn_data_template` (
+  `Entry` int unsigned NOT NULL COMMENT 'ID of template',
+  `UnitFlags` bigint NOT NULL DEFAULT '-1',
+  `Faction` int unsigned NOT NULL DEFAULT '0',
+  `ModelId` mediumint unsigned NOT NULL DEFAULT '0',
+  `EquipmentId` mediumint NOT NULL DEFAULT '0',
+  `CurHealth` int unsigned NOT NULL DEFAULT '0',
+  `CurMana` int unsigned NOT NULL DEFAULT '0',
+  `SpawnFlags` int unsigned NOT NULL DEFAULT '0',
+  PRIMARY KEY (`Entry`,`UnitFlags`,`ModelId`,`EquipmentId`,`CurHealth`,`CurMana`,`SpawnFlags`)
+) ENGINE=MyISAM DEFAULT CHARSET=utf8 ROW_FORMAT=DYNAMIC COMMENT='Creature System (Spawn Data Template)';
+
+--
+-- Dumping data for table `creature_spawn_data_template`
+--
+
+LOCK TABLES `creature_spawn_data_template` WRITE;
+/*!40000 ALTER TABLE `creature_spawn_data_template` DISABLE KEYS */;
+INSERT INTO `creature_spawn_data_template` (`Entry`) VALUES (0);
+/*!40000 ALTER TABLE `creature_spawn_data_template` ENABLE KEYS */;
 UNLOCK TABLES;
 
 --
@@ -1440,7 +1472,9 @@ CREATE TABLE `creature_template_spells` (
   `spell6` mediumint(8) unsigned NOT NULL DEFAULT '0',
   `spell7` mediumint(8) unsigned NOT NULL DEFAULT '0',
   `spell8` mediumint(8) unsigned NOT NULL DEFAULT '0',
-  PRIMARY KEY (`entry`)
+  `spell9` mediumint(8) unsigned NOT NULL DEFAULT '0',
+  `spell10` mediumint(8) unsigned NOT NULL DEFAULT '0',
+  PRIMARY KEY (`entry`,`setId`)
 ) ENGINE=MyISAM DEFAULT CHARSET=utf8 ROW_FORMAT=DYNAMIC COMMENT='Creature System (Spells used by creature)';
 
 --
@@ -4320,6 +4354,7 @@ INSERT INTO `mangos_string` VALUES
 (746,'Done flushing Arena points.',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL),
 (747,'Awarding Arena Season rewards for Season %u.',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL),
 (748,'Awarded Arena Season rewards and wiped old stats.',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL),
+(749,'Someone in your party is still inside an arena.', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL),
 (750,'Not enough players. This game will close in %u mins.',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL),
 (751,'Not enough players. This game will close in %u seconds.',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL),
 (752,'Only the Alliance can use that portal',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL),
@@ -4462,8 +4497,8 @@ INSERT INTO `mangos_string` VALUES
 (1168,'Scripting library reloaded.',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL),
 (1169,'Scripting library build for different mangosd revision.',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL),
 (1170,'Player selected: %s.\nFaction: %u.\nnpcFlags: %u.\nBase Entry: %u, Spawned Entry %u (Difficulty %u).\nDisplayID: %u (Native: %u).',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL),
-(1171,'All config are reloaded from ahbot configuration file.',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL),
-(1172,'Error while trying to reload ahbot config.',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL),
+(1171,'Reloaded AHBot configuration.',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL),
+(1172,'Error while trying to reload AHBot configuration.',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL),
 (1173,'==========================================================',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL),
 (1174,'|--------------------------------------------------------|',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL),
 (1175,'|            | Alliance |  Horde   | Neutral  |  Total   |',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL),
@@ -4471,18 +4506,6 @@ INSERT INTO `mangos_string` VALUES
 (1177,'| %-10s | %8u | %8u | %8u | %8u |',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL),
 (1178,'%-10s = %6u / %6u / %6u / %6u',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL),
 (1179,'Count',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL),
-(1180,'Item Ratio',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL),
-(1181,'|            | Alliance |   Horde  | Neutral  |  Amount  |',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL),
-(1182,'          Alliance/Horde/Neutral/Amount',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL),
-(1183,'Grey',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL),
-(1184,'White',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL),
-(1185,'Green',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL),
-(1186,'Blue',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL),
-(1187,'Purple',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL),
-(1188,'Orange',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL),
-(1189,'Yellow',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL),
-(1190,'Amount of %s items is set to %u.',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL),
-(1191,'Items ratio for %s is set to %u.',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL),
 (1194,'Current State Information: GOState %u, LootState %u. Collision %s',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL),
 (1195,'Current State Information: GOState %u, LootState %u. Collision %s, (door %s by default)',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL),
 (1196,'Debug output for taxi flights is now %s.',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL),

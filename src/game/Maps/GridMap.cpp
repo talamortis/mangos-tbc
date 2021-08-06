@@ -838,6 +838,10 @@ float TerrainInfo::GetHeightStatic(float x, float y, float z, bool useVmaps/*=tr
             if (vmapHeight <= INVALID_HEIGHT)
                 vmapHeight = vmgr->getHeight(GetMapId(), x, y, z2, 10000.0f);
 
+            // look upwards
+            if (vmapHeight <= INVALID_HEIGHT && mapHeight > z2 && std::abs(z2 - mapHeight) > 30.f)
+                vmapHeight = vmgr->getHeight(GetMapId(), x, y, z2, -maxSearchDist);
+
             // still not found, look near terrain height
             if (vmapHeight <= INVALID_HEIGHT && mapHeight > INVALID_HEIGHT && z2 < mapHeight)
                 vmapHeight = vmgr->getHeight(GetMapId(), x, y, mapHeight + 2.0f, DEFAULT_HEIGHT_SEARCH);
@@ -909,16 +913,21 @@ uint16 TerrainInfo::GetAreaFlag(float x, float y, float z, bool* isOutdoors) con
 {
     uint32 mogpFlags;
     int32 adtId, rootId, groupId;
-    WMOAreaTableEntry const* wmoEntry = nullptr;
     AreaTableEntry const* atEntry = nullptr;
     bool haveAreaInfo = false;
 
     if (GetAreaInfo(x, y, z, mogpFlags, adtId, rootId, groupId))
     {
         haveAreaInfo = true;
-        wmoEntry = GetWMOAreaTableEntryByTripple(rootId, adtId, groupId);
-        if (wmoEntry)
-            atEntry = GetAreaEntryByAreaID(wmoEntry->areaId);
+        auto wmoEntries = GetWMOAreaTableEntriesByTripple(rootId, adtId, groupId);
+        for (auto wmoEntry : wmoEntries)
+        {
+            auto areaEntry = GetAreaEntryByAreaID(wmoEntry->areaId);
+            if (areaEntry && areaEntry->mapid == GetMapId())
+            {
+                atEntry = areaEntry;
+            }
+        }
     }
 
     uint16 areaflag;
@@ -1090,7 +1099,7 @@ bool TerrainInfo::IsUnderWater(float x, float y, float z) const
  *
  * @param x, y, z    Coordinates original point at floor level
  *
- * @param pGround    optional arg for return calculated by function work ground height, it let avoid in caller code recalculate height for point if it need
+ * @param groundZ    precalculated Z through getHeight
  *
  * @param swim       z coordinate can be calculated for select above/at or under z coordinate (for fly or swim/walking by bottom)
  *                   in last cases for in water returned under water height for avoid client set swimming unit as stay at water.
@@ -1099,34 +1108,29 @@ bool TerrainInfo::IsUnderWater(float x, float y, float z) const
  *
  * @return           calculated z coordinate
  */
-float TerrainInfo::GetWaterOrGroundLevel(float x, float y, float z, float* pGround /*= nullptr*/, bool swim /*= false*/, float minWaterDeep /*= DEFAULT_COLLISION_HEIGHT*/) const
+float TerrainInfo::GetWaterOrGroundLevel(float x, float y, float z, float& groundZ, bool swim /*= false*/, float minWaterDeep /*= DEFAULT_COLLISION_HEIGHT*/) const
 {
     if (const_cast<TerrainInfo*>(this)->GetGrid(x, y))
     {
-        // we need ground level (including grid height version) for proper return water level in point
-        float ground_z = GetHeightStatic(x, y, z, true, DEFAULT_WATER_SEARCH);
-        if (pGround)
-            *pGround = ground_z;
-
         GridMapLiquidData liquid_status;
 
-        GridMapLiquidStatus res = getLiquidStatus(x, y, ground_z, MAP_ALL_LIQUIDS, &liquid_status);
+        GridMapLiquidStatus res = getLiquidStatus(x, y, groundZ, MAP_ALL_LIQUIDS, &liquid_status);
 
         if (res)
         {
             if (swim)
             {
-                if (liquid_status.level - ground_z > minWaterDeep)  // check if its shallow water
+                if (liquid_status.level - groundZ > minWaterDeep)  // check if its shallow water
                     return liquid_status.level - minWaterDeep;
 
                 // its shallow water so return ground under it
-                return ground_z;
+                return groundZ;
             }
             
             return liquid_status.level;
         }
 
-        return ground_z;
+        return groundZ;
     }
 
     return VMAP_INVALID_HEIGHT_VALUE;

@@ -4,6 +4,8 @@
 
 enum
 {
+    // TYPE_SHADE_OF_HEADLESS_HORSEMAN = 1000, // High number against collisions
+
     // Quest 4740
     NPC_GREYMIST_COASTRUNNNER   = 2202,
     NPC_GREYMIST_WARRIOR        = 2205,
@@ -22,6 +24,9 @@ enum
     GO_ROCKET_CLUSTER           = 180875,
     SPELL_OMEN_MOONLIGHT        = 26392,
     MAX_ROCKETS                 = 30,
+
+    // Quest 6132
+    NPC_HORNIZZ                 = 6019,
 };
 
 enum Encounters

@@ -27,7 +27,7 @@
 class CombatAI : public ScriptedAI, public CombatActions
 {
     public:
-        CombatAI(Creature* creature, uint32 combatActions) : ScriptedAI(creature), CombatActions(combatActions) { }
+        CombatAI(Creature* creature, uint32 combatActions);
 
         void Reset() override
         {
@@ -38,7 +38,13 @@ class CombatAI : public ScriptedAI, public CombatActions
 
         virtual void ExecuteAction(uint32 action) = 0;
 
+        void HandleDelayedInstantAnimation(SpellEntry const* spellInfo) override;
+        void HandleTargetRestoration();
+        bool IsTargetingRestricted();
+
         void UpdateAI(const uint32 diff) override;
+    private:
+        ObjectGuid m_storedTarget;
 };
 
 // Implementation is identical to EAI
@@ -56,6 +62,8 @@ class RangedCombatAI : public CombatAI
 
         void SetRangedMode(bool state, float distance, RangeModeType type);
         void SetCurrentRangedMode(bool state);
+
+        bool GetCurrentRangedMode() { return m_currentRangedMode; }
 
         virtual void JustStoppedMovementOfTarget(SpellEntry const* spell, Unit* victim) override;
         virtual void OnSpellInterrupt(SpellEntry const* spellInfo) override;

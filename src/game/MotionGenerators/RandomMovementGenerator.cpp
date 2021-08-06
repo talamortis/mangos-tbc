@@ -33,7 +33,7 @@ void AbstractRandomMovementGenerator::Initialize(Unit& owner)
     else if (owner.AI())
     {
         owner.SetTarget(nullptr);
-        owner.SendMeleeAttackStop(owner.GetVictim());
+        owner.MeleeAttackStop(owner.GetVictim());
     }
 
     // Stop any previously dispatched splines no matter the source
@@ -232,6 +232,17 @@ bool FleeingMovementGenerator::_getLocation(Unit& owner, float& x, float& y, flo
         i_radius = frand(0.6f, 1.2f) * (MAX_QUIET_DISTANCE - MIN_QUIET_DISTANCE);
 
     owner.GetPosition(x, y, z);
+
+    if (owner.IsPlayer())
+    {
+        float angle = 2.0f * M_PI_F * rand_norm_f();
+        Position pos(owner.GetPosition());
+        owner.MovePositionToFirstCollision(pos, i_radius, angle);
+        x = pos.x;
+        y = pos.y;
+        z = pos.z + 1;
+        return true;
+    }
 
     return owner.GetMap()->GetReachableRandomPosition(&owner, x, y, z, i_radius, false);
 }

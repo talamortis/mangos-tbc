@@ -58,6 +58,9 @@ enum
     // These points are a placeholder for the air phase movement. The dragon should do some circles around the area before landing again
     POINT_ID_AIR                = 1,
     POINT_ID_GROUND             = 2,
+
+    POINT_INTRO_END             = 11,
+    POINT_LANDING_END           = 6,
 };
 
 enum NightbaneActions
@@ -83,7 +86,7 @@ struct boss_nightbaneAI : public CombatAI
     {
         AddCombatAction(NIGHTBANE_PHASE_RESET, true);
         AddTimerlessCombatAction(NIGHTBANE_PHASE_2, true);
-        AddCombatAction(NIGHTBANE_BELLOWING_ROAR, 30000, 45000);
+        AddCombatAction(NIGHTBANE_BELLOWING_ROAR, 55000, 60000);
         AddCombatAction(NIGHTBANE_CHARRED_EARTH, 10000, 15000);
         AddCombatAction(NIGHTBANE_SMOLDERING_BREATH, 9000, 13000);
         AddCombatAction(NIGHTBANE_TAIL_SWEEP, 12000, 15000);
@@ -121,15 +124,15 @@ struct boss_nightbaneAI : public CombatAI
         m_creature->SetLevitate(true);
         SetDeathPrevention(false);
         m_creature->SetSupportThreatOnly(false);
+        SetCombatScriptStatus(false);
+        SetMeleeEnabled(true);
 
         m_skeletons.clear();
     }
 
     void StartIntro()
     {
-        m_creature->SetWalk(false);
-        auto wpPath = sWaypointMgr.GetPathFromOrigin(m_creature->GetEntry(), m_creature->GetGUIDLow(), 0, PATH_FROM_EXTERNAL);
-        m_creature->GetMotionMaster()->MovePath(*wpPath);
+        m_creature->GetMotionMaster()->MovePath(0, PATH_FROM_EXTERNAL, FORCED_MOVEMENT_RUN);
     }
 
     void Aggro(Unit* /*who*/) override
@@ -176,26 +179,43 @@ struct boss_nightbaneAI : public CombatAI
     void SummonedCreatureJustDied(Creature* summoned) override
     {
         m_skeletons.erase(std::remove(m_skeletons.begin(), m_skeletons.end(), summoned->GetObjectGuid()), m_skeletons.end());
+        if (m_skeletons.empty() && m_phase == PHASE_AIR && !m_creature->HasAura(SPELL_RAIN_OF_BONES))
+            ResetCombatAction(NIGHTBANE_PHASE_RESET, 1000);
     }
 
     void MovementInform(uint32 motionType, uint32 pointId) override
     {
         if (motionType == PATH_MOTION_TYPE)
         {
-            // Set in combat after the intro is done
-            if (pointId == 10)
+            if (m_bCombatStarted) // combat movement
             {
-                m_creature->GetMotionMaster()->Clear(false, true);
-                m_creature->GetMotionMaster()->MoveIdle();
-                m_creature->HandleEmote(EMOTE_ONESHOT_LAND);
-                m_creature->SetCanFly(false);
-                m_creature->RemoveByteFlag(UNIT_FIELD_BYTES_1, 3, UNIT_BYTE1_FLAG_FLY_ANIM);
-                m_creature->SetLevitate(false);
-                m_creature->SetHover(false);
-                m_creature->SetByteFlag(UNIT_FIELD_BYTES_1, 3, UNIT_BYTE1_FLAG_ALWAYS_STAND);
+                if (pointId == POINT_LANDING_END)
+                {
+                    m_creature->SetIgnoreMMAP(false);
+                    m_creature->RemoveByteFlag(UNIT_FIELD_BYTES_1, 3, UNIT_BYTE1_FLAG_FLY_ANIM);
+                    m_creature->SetByteFlag(UNIT_FIELD_BYTES_1, 3, UNIT_BYTE1_FLAG_ALWAYS_STAND);
+                    m_creature->SetCanFly(false);
+                    m_creature->SetHover(false);
+                    m_creature->GetMotionMaster()->MovePoint(POINT_ID_GROUND, -11162.23f, -1900.329f, 91.47265f); // noted as falling in sniff
+                }
+            }
+            else // intro movement
+            {
+                // Set in combat after the intro is done
+                if (pointId == POINT_INTRO_END)
+                {
+                    m_creature->GetMotionMaster()->Clear(false, true);
+                    m_creature->GetMotionMaster()->MoveIdle();
+                    m_creature->HandleEmote(EMOTE_ONESHOT_LAND);
+                    m_creature->SetCanFly(false);
+                    m_creature->RemoveByteFlag(UNIT_FIELD_BYTES_1, 3, UNIT_BYTE1_FLAG_FLY_ANIM);
+                    m_creature->SetLevitate(false);
+                    m_creature->SetHover(false);
+                    m_creature->SetByteFlag(UNIT_FIELD_BYTES_1, 3, UNIT_BYTE1_FLAG_ALWAYS_STAND);
 
-                m_bCombatStarted = true;
-                ResetTimer(NIGHTBANE_ATTACK_DELAY, 2000);
+                    m_bCombatStarted = true;
+                    ResetTimer(NIGHTBANE_ATTACK_DELAY, 2000);
+                }
             }
         }
         // avoid overlapping of escort and combat movement
@@ -205,15 +225,12 @@ struct boss_nightbaneAI : public CombatAI
             {
                 case POINT_ID_AIR:
                     m_phase = PHASE_AIR;
+                    SetCombatScriptStatus(false);
+                    HandlePhaseTransition();
                     break;
                 case POINT_ID_GROUND:
                     // TODO: remove this once MMAPs are more reliable in the area
                     m_creature->HandleEmote(EMOTE_ONESHOT_LAND);
-                    m_creature->SetIgnoreMMAP(false);
-                    m_creature->RemoveByteFlag(UNIT_FIELD_BYTES_1, 3, UNIT_BYTE1_FLAG_FLY_ANIM);
-                    m_creature->SetByteFlag(UNIT_FIELD_BYTES_1, 3, UNIT_BYTE1_FLAG_ALWAYS_STAND);
-                    m_creature->SetCanFly(false);
-                    m_creature->SetHover(false);
                     m_phase = PHASE_GROUND;
                     SetCombatMovement(true);
                     SetDeathPrevention(false);
@@ -223,8 +240,6 @@ struct boss_nightbaneAI : public CombatAI
                     ResetTimer(NIGHTBANE_ATTACK_DELAY, 2000);
                     break;
             }
-            SetCombatScriptStatus(false);
-            HandlePhaseTransition();
         }
     }
 
@@ -232,7 +247,9 @@ struct boss_nightbaneAI : public CombatAI
     {
         m_creature->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_PLAYER);
         m_creature->SetInCombatWithZone();
+        SetCombatScriptStatus(false);
         AttackClosestEnemy();
+        HandlePhaseTransition();
     }
 
     // Wrapper to handle movement to the closest trigger
@@ -307,8 +324,9 @@ struct boss_nightbaneAI : public CombatAI
             case NIGHTBANE_PHASE_RESET:
             {
                 DoScriptText(urand(0, 1) ? SAY_LAND_PHASE_1 : SAY_LAND_PHASE_2, m_creature);
-                DoMoveToClosestTrigger(true);
+                m_creature->GetMotionMaster()->MovePath(1, PATH_FROM_ENTRY, FORCED_MOVEMENT_WALK);
                 m_phase = PHASE_TRANSITION;
+                SetCombatScriptStatus(true);
                 DisableCombatAction(action);
                 break;
             }
@@ -340,7 +358,11 @@ struct boss_nightbaneAI : public CombatAI
             case NIGHTBANE_BELLOWING_ROAR:
             {
                 if (DoCastSpellIfCan(nullptr, SPELL_BELLOWING_ROAR) == CAST_OK)
+#ifdef PRENERF_2_0_3
                     ResetCombatAction(action, urand(30000, 45000));
+#else
+                    ResetCombatAction(action, urand(38000, 48000));
+#endif
                 break;
             }
             case NIGHTBANE_CHARRED_EARTH:
@@ -396,7 +418,7 @@ struct boss_nightbaneAI : public CombatAI
             case NIGHTBANE_FIREBALL_BARRAGE:
             {
                 if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_FARTHEST_AWAY, 0, SPELL_FIREBALL_BARRAGE, SELECT_FLAG_PLAYER))
-                    if (target->IsWithinDist(m_creature, 60.f) || m_creature->CastSpell(m_creature->GetVictim(), SPELL_FIREBALL_BARRAGE, TRIGGERED_NONE) == SPELL_CAST_OK)
+                    if (m_creature->GetDistance(target, false, DIST_CALC_COMBAT_REACH) < 60.f || (m_creature->CastSpell(m_creature->GetVictim(), SPELL_FIREBALL_BARRAGE, TRIGGERED_NONE) == SPELL_CAST_OK))
                         ResetCombatAction(action, urand(3000, 6000)); // if farthest target is 40+ yd away
                 break;
             }

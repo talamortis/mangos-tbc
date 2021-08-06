@@ -16,8 +16,8 @@
 
 /* ScriptData
 SDName: Boss_Warlord_Najentus
-SD%Complete: 90
-SDComment: Core spell support for Needle Spine (spells 39992, 39835) missing, no change from SD2 needed
+SD%Complete: 100
+SDComment:
 SDCategory: Black Temple
 EndScriptData */
 
@@ -72,6 +72,10 @@ struct boss_najentusAI : public ScriptedAI, CombatActions
         AddCombatAction(NAJENTUS_ACTION_ENRAGE, 0u);
         AddCombatAction(NAJENTUS_ACTION_IMPALING_SPINE, 0u);
         AddCombatAction(NAJENTUS_ACTION_NEEDLE_SPINE, 0u);
+        m_creature->GetCombatManager().SetLeashingCheck([](Unit*, float x, float, float)
+        {
+            return x < 300.f;
+        });
         Reset();
     }
 
@@ -230,8 +234,6 @@ struct boss_najentusAI : public ScriptedAI, CombatActions
 
         if (!m_creature->SelectHostileTarget() || !m_creature->GetVictim())
             return;
-
-        EnterEvadeIfOutOfCombatArea(diff);
 
         ExecuteActions();
         DoMeleeAttackIfReady();

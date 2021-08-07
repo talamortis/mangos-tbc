@@ -2663,7 +2663,7 @@ void Player::GiveXP(uint32 xp, Creature* victim, float groupRate)
 
     sScriptDevMgr.OnGivePlayerXP(this, xp, victim);
 
-    SendLogXPGain(xp, victim, rested_bonus_xp, groupRate);
+    SendLogXPGain(xp, victim, bonus_xp, recruitAFriend, groupRate);
 
     uint32 curXP = GetUInt32Value(PLAYER_XP);
     uint32 nextLvlXP = GetUInt32Value(PLAYER_NEXT_LEVEL_XP);

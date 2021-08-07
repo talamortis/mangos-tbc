@@ -10,3 +10,4 @@
 # Doxygen generic files
 #
 bnetd
+game/GenLoader.cpp

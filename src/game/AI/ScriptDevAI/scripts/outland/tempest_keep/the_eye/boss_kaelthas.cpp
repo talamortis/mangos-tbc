@@ -196,11 +196,6 @@ enum
     MAX_MIND_CONTROL                    = 3,
 };
 
-enum Timers
-{
-    TIMER_PHASE_2_WEAPONS_DURATION = 90000, // very early pre 2.1 - 90s (90000), later 120s (120000)
-};
-
 static const uint32 m_auiSpellSummonWeapon[MAX_WEAPONS] =
 {
     SPELL_SUMMON_WEAPONA, SPELL_SUMMON_WEAPONB, SPELL_SUMMON_WEAPONC, SPELL_SUMMON_WEAPOND,
@@ -511,7 +506,10 @@ struct boss_kaelthasAI : public ScriptedAI
 #ifdef FAST_TIMERS
             m_uiPhaseTimer = 10000;
 #else
-            m_uiPhaseTimer = TIMER_PHASE_2_WEAPONS_DURATION;
+            m_uiPhaseTimer = 120000;
+#endif
+#ifdef PRENERF_2_0_3
+            m_uiPhaseTimer = 90000; // very early pre 2.1 - 90s (90000), later 120s (120000);
 #endif
         }
     }
@@ -977,6 +975,9 @@ struct boss_kaelthasAI : public ScriptedAI
                                 m_uiPhaseTimer = 10000;
 #else
                                 m_uiPhaseTimer = 180000;
+#endif
+#ifdef PRENERF_2_0_3
+                                m_uiPhaseTimer = 120000;
 #endif
                             }
                             break;
@@ -1921,6 +1922,19 @@ struct RemoveWeapons : public SpellScript
     }
 };
 
+struct spell_gravity_lapse_knockup : public AuraScript
+{
+    void OnPeriodicTickEnd(Aura* aura) const override
+    {
+        Unit* target = aura->GetTarget();
+        float x, y, z;
+        target->GetPosition(x, y, z);
+        float floorZ = target->GetMap()->GetHeight(x, y, z);
+        if (std::abs(z - floorZ) < 4.f) // knock up player if he is too close to the ground
+            target->CastSpell(nullptr, 35938, TRIGGERED_OLD_TRIGGERED);
+    }
+};
+
 void AddSC_boss_kaelthas()
 {
     Script* pNewScript = new Script;
@@ -1958,4 +1972,5 @@ void AddSC_boss_kaelthas()
     RegisterSpellScript<NetherVaporSummon>("spell_nether_vapor_summon");
     RegisterSpellScript<NetherVaporSummonParent>("spell_nether_vapor_summon_parent");
     RegisterSpellScript<RemoveWeapons>("spell_remove_weapons");
+    RegisterAuraScript<spell_gravity_lapse_knockup>("spell_gravity_lapse_knockup");
 }

@@ -1033,6 +1033,7 @@ struct npc_skyguard_prisonerAI : public npc_escortAI
         }
         DoCastSpellIfCan(m_creature, SPELL_CAGE_SUMMON);
         m_creature->SetActiveObjectState(false);
+        m_creature->SetImmuneToNPC(true); // hack, cage should break los and prevent any interaction with npcs outside the cage befor the escort is started
     }
 
     void ReceiveAIEvent(AIEventType eventType, Unit* /*pSender*/, Unit* pInvoker, uint32 uiMiscValue) override
@@ -1040,6 +1041,7 @@ struct npc_skyguard_prisonerAI : public npc_escortAI
         if (eventType == AI_EVENT_START_ESCORT && pInvoker->GetTypeId() == TYPEID_PLAYER)
         {
             m_creature->SetFactionTemporary(FACTION_ESCORT_N_NEUTRAL_ACTIVE, TEMPFACTION_RESTORE_RESPAWN);
+            m_creature->SetImmuneToNPC(false); // hack, cage should break los and prevent any interaction with npcs outside the cage befor the escort is started
 
             Start(false, (Player*)pInvoker, GetQuestTemplateStore(uiMiscValue));
 
@@ -1492,6 +1494,26 @@ UnitAI* GetAI_npc_vengeful_harbinger(Creature* pCreature)
     return new npc_vengeful_harbinger(pCreature);
 }
 
+/*######
+## go_monstrous_kaliri_egg
+######*/
+
+struct go_monstrous_kaliri_egg : public GameObjectAI
+{
+    go_monstrous_kaliri_egg(GameObject* go) : GameObjectAI(go) {}
+
+    void OnLootStateChange() override
+    {
+        if (m_go->GetLootState() == GO_ACTIVATED)
+            m_go->SetForcedDespawn();
+    }
+};
+
+GameObjectAI* GetAI_go_monstrous_kaliri_egg(GameObject* go)
+{
+    return new go_monstrous_kaliri_egg(go);
+}
+
 struct ShadowyDisguise : public AuraScript
 {
     void OnApply(Aura* aura, bool apply) const override
@@ -1572,6 +1594,11 @@ void AddSC_terokkar_forest()
     pNewScript = new Script;
     pNewScript->Name = "npc_vengeful_harbinger";
     pNewScript->GetAI = &GetAI_npc_vengeful_harbinger;
+    pNewScript->RegisterSelf();
+
+    pNewScript = new Script;
+    pNewScript->Name = "go_monstrous_kaliri_egg";
+    pNewScript->GetGameObjectAI = &GetAI_go_monstrous_kaliri_egg;
     pNewScript->RegisterSelf();
 
     RegisterAuraScript<ShadowyDisguise>("spell_shadowy_disguise");

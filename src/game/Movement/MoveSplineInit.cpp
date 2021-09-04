@@ -48,10 +48,12 @@ namespace Movement
         if (!move_spline.Finalized())
             real_position = move_spline.ComputePosition();
 
+        bool pathEmpty = false;
         if (args.path.empty())
         {
             // should i do the things that user should do?
             MoveTo(real_position);
+            pathEmpty = true;
         }
 
         // corrent first vertex
@@ -71,9 +73,9 @@ namespace Movement
         if (!args.Validate(&unit))
             return 0;
 
-        if (moveFlags & MOVEFLAG_ROOT && !args.path.empty())
+        if (moveFlags & MOVEFLAG_ROOT && !pathEmpty)
         {
-            sLog.outCustomLog("Invalid movement during root.");
+            sLog.outCustomLog("Invalid movement during root. Entry: %u IsImmobilized %s, moveflags %u", unit.GetEntry(), unit.IsImmobilizedState() ? "true" : "false", moveFlags);
             sLog.traceLog();
             return 0;
         }
@@ -134,6 +136,8 @@ namespace Movement
 
         // current first vertex
         args.path[0] = real_position;
+
+        args.splineId = splineCounter++;
 
         args.flags = MoveSplineFlag::Done;
         unit.m_movementInfo.RemoveMovementFlag(MovementFlags(MOVEFLAG_FORWARD | MOVEFLAG_SPLINE_ENABLED));

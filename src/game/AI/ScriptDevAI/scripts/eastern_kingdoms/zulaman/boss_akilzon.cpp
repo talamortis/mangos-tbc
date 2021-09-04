@@ -96,9 +96,14 @@ struct boss_akilzonAI : public CombatAI
         AddCombatAction(AKILZON_ACTION_SUMMON_EAGLE, 62000u);
         AddCustomAction(AKILZON_WIND_WALL_DELAY, true, [&]()
         {
-            if (m_creature->IsInCombat())
+            if (m_creature->IsInCombat() && !m_creature->GetCombatManager().IsEvadingHome())
                 m_instance->DoUseDoorOrButton(GO_WIND_DOOR);
         });
+        m_creature->GetCombatManager().SetLeashingCheck([](Unit*, float x, float y, float z)
+        {
+            return x < 336.259f;
+        });
+        AddOnKillText(SAY_SLAY1, SAY_SLAY2);
     }
 
     instance_zulaman* m_instance;
@@ -119,11 +124,6 @@ struct boss_akilzonAI : public CombatAI
             m_instance->SetData(TYPE_AKILZON, IN_PROGRESS);
 
         ResetTimer(AKILZON_WIND_WALL_DELAY, 5000);
-    }
-
-    void KilledUnit(Unit* /*victim*/) override
-    {
-        DoScriptText(urand(0, 1) ? SAY_SLAY1 : SAY_SLAY2, m_creature);
     }
 
     void JustDied(Unit* /*killer*/) override
@@ -265,19 +265,7 @@ struct boss_akilzonAI : public CombatAI
             }
         }
     }
-
-    void UpdateAI(const uint32 diff) override
-    {
-        CombatAI::UpdateAI(diff);
-        if (m_creature->IsInCombat())
-            EnterEvadeIfOutOfCombatArea(diff);
-    }
 };
-
-UnitAI* GetAI_boss_akilzon(Creature* creature)
-{
-    return new boss_akilzonAI(creature);
-}
 
 struct mob_soaring_eagleAI : public ScriptedAI
 {
@@ -363,11 +351,6 @@ struct mob_soaring_eagleAI : public ScriptedAI
     }
 };
 
-UnitAI* GetAI_mob_soaring_eagle(Creature* creature)
-{
-    return new mob_soaring_eagleAI(creature);
-}
-
 struct TeleportSelf : public SpellScript
 {
     void OnDestTarget(Spell* spell) const override
@@ -380,12 +363,12 @@ void AddSC_boss_akilzon()
 {
     Script* pNewScript = new Script;
     pNewScript->Name = "boss_akilzon";
-    pNewScript->GetAI = &GetAI_boss_akilzon;
+    pNewScript->GetAI = &GetNewAIInstance<boss_akilzonAI>;
     pNewScript->RegisterSelf();
 
     pNewScript = new Script;
     pNewScript->Name = "mob_soaring_eagle";
-    pNewScript->GetAI = &GetAI_mob_soaring_eagle;
+    pNewScript->GetAI = &GetNewAIInstance<mob_soaring_eagleAI>;
     pNewScript->RegisterSelf();
 
     RegisterSpellScript<TeleportSelf>("spell_teleport_self_akilzon");

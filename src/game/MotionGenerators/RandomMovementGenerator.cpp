@@ -152,7 +152,7 @@ int32 AbstractRandomMovementGenerator::_setLocation(Unit& owner)
 ConfusedMovementGenerator::ConfusedMovementGenerator(float x, float y, float z) :
     AbstractRandomMovementGenerator(UNIT_STAT_CONFUSED, UNIT_STAT_CONFUSED_MOVE, 500, 1500)
 {
-    i_radius = 10.0f;
+    i_radius = 2.5f;
     i_x = x;
     i_y = y;
     i_z = z;
@@ -233,18 +233,12 @@ bool FleeingMovementGenerator::_getLocation(Unit& owner, float& x, float& y, flo
 
     owner.GetPosition(x, y, z);
 
-    if (owner.IsPlayer())
-    {
-        float angle = 2.0f * M_PI_F * rand_norm_f();
-        Position pos(owner.GetPosition());
-        owner.MovePositionToFirstCollision(pos, i_radius, angle);
-        x = pos.x;
-        y = pos.y;
-        z = pos.z + 1;
-        return true;
-    }
-
-    return owner.GetMap()->GetReachableRandomPosition(&owner, x, y, z, i_radius, false);
+    float angle = 2.0f * M_PI_F * rand_norm_f();
+    Position pos = owner.GetFirstRandomAngleCollisionPosition(i_radius, angle);
+    x = pos.x;
+    y = pos.y;
+    z = pos.z + 1;
+    return true;
 }
 
 void PanicMovementGenerator::Initialize(Unit& owner)

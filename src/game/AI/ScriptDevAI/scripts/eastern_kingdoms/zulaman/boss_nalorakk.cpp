@@ -46,6 +46,7 @@ enum
     SPELL_BRUTAL_SWIPE      = 42384,
     SPELL_MANGLE            = 42389,
     SPELL_SURGE             = 42402,
+    SPELL_SURGE_MELEE_SUPPRESS = 44960,
     SPELL_BEAR_SHAPE        = 42377,
 
     // Defines for Bear form
@@ -79,6 +80,11 @@ struct boss_nalorakkAI : public CombatAI
         AddCombatAction(NALORAKK_ACTION_SLASH, true);
         AddCombatAction(NALORAKK_ACTION_REND, true);
         AddCombatAction(NALORAKK_ACTION_ROAR, true);
+        m_creature->GetCombatManager().SetLeashingCheck([](Unit*, float x, float y, float z)
+        {
+            return y > 1378.009f;
+        });
+        AddOnKillText(SAY_SLAY1, SAY_SLAY2);
         Reset();
     }
 
@@ -140,11 +146,6 @@ struct boss_nalorakkAI : public CombatAI
 
         if (m_instance)
             m_instance->SetData(TYPE_NALORAKK, IN_PROGRESS);
-    }
-
-    void KilledUnit(Unit* /*victim*/) override
-    {
-        DoScriptText(urand(0, 1) ? SAY_SLAY1 : SAY_SLAY2, m_creature);
     }
 
     void JustDied(Unit* /*killer*/) override
@@ -247,24 +248,22 @@ struct boss_nalorakkAI : public CombatAI
             }
         }
     }
-
-    void UpdateAI(const uint32 diff) override
-    {
-        CombatAI::UpdateAI(diff);
-        if (m_creature->IsInCombat())
-            EnterEvadeIfOutOfCombatArea(diff);
-    }
 };
 
-UnitAI* GetAI_boss_nalorakk(Creature* creature)
+struct SurgeNalorakk : public SpellScript
 {
-    return new boss_nalorakkAI(creature);
-}
+    void OnCast(Spell* spell) const override
+    {
+        spell->GetCaster()->CastSpell(nullptr, SPELL_SURGE_MELEE_SUPPRESS, TRIGGERED_OLD_TRIGGERED);
+    }
+};
 
 void AddSC_boss_nalorakk()
 {
     Script* pNewScript = new Script;
     pNewScript->Name = "boss_nalorakk";
-    pNewScript->GetAI = &GetAI_boss_nalorakk;
+    pNewScript->GetAI = &GetNewAIInstance<boss_nalorakkAI>;
     pNewScript->RegisterSelf();
+
+    RegisterSpellScript<SurgeNalorakk>("spell_surge_nalorakk");
 }

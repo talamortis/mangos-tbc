@@ -25,9 +25,9 @@
 enum AuraFlags
 {
     AFLAG_NONE                  = 0x00,
-    AFLAG_HELPFUL               = 0x01,
-    AFLAG_HARMFUL               = 0x02,
-    AFLAG_PASSIVE_DEPRECATED    = 0x04,     // Pre-WotLK: debuffs can't be queried using this flag. Unused in UI since 1.10.0, new meaning unknown (still the same?)
+    AFLAG_EFFECT_0              = 0x01,
+    AFLAG_EFFECT_1              = 0x02,
+    AFLAG_EFFECT_2              = 0x04,
     AFLAG_UNK4                  = 0x08,     // Pre-WotLK: unused in UI
     AFLAG_CANCELABLE            = 0x10,
     AFLAG_NOT_CANCELABLE        = 0x20,
@@ -364,7 +364,7 @@ enum AuraType
     SPELL_AURA_PERIODIC_TRIGGER_SPELL_WITH_VALUE = 227,
     SPELL_AURA_DETECT_STEALTH = 228,
     SPELL_AURA_MOD_AOE_DAMAGE_AVOIDANCE = 229,
-    SPELL_AURA_230 = 230,
+    SPELL_AURA_MOD_INCREASE_MAX_HEALTH = 230,
     SPELL_AURA_PROC_TRIGGER_SPELL_WITH_VALUE = 231,
     SPELL_AURA_MECHANIC_DURATION_MOD = 232,
     SPELL_AURA_233 = 233,
@@ -395,7 +395,7 @@ enum AuraType
     SPELL_AURA_258 = 258,
     SPELL_AURA_259 = 259,
     SPELL_AURA_260 = 260,
-    SPELL_AURA_PHASE = 261, // TODO: Implement for GameObjects, not needed for creatures in TBC
+    SPELL_AURA_PHASE = 261,
     TOTAL_AURAS = 262
 };
 

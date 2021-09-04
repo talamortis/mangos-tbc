@@ -26,6 +26,7 @@ ConfVersion=2021021901
 #    LoginDatabaseInfo
 #    WorldDatabaseInfo
 #    CharacterDatabaseInfo
+#    LogsDatabaseInfo
 #        Database connection settings for the world server.
 #        Default:
 #                ---MYSQL---
@@ -40,6 +41,7 @@ ConfVersion=2021021901
 #    LoginDatabaseConnections
 #    WorldDatabaseConnections
 #    CharacterDatabaseConnections
+#    LogsDatabaseConnections
 #        Amount of connections to database which will be used for SELECT queries. Maximum 16 connections per database.
 #        Please, note, for data consistency only one connection for each database is used for transactions and async SELECTs.
 #        So formula to find out how many connections will be established: X = #_connections + 1
@@ -68,9 +70,11 @@ LogsDir = ""
 LoginDatabaseInfo     = "127.0.0.1;3306;mangos;mangos;tbcrealmd"
 WorldDatabaseInfo     = "127.0.0.1;3306;mangos;mangos;tbcmangos"
 CharacterDatabaseInfo = "127.0.0.1;3306;mangos;mangos;tbccharacters"
+LogsDatabaseInfo      = "127.0.0.1;3306;mangos;mangos;tbclogs"
 LoginDatabaseConnections = 1
 WorldDatabaseConnections = 1
 CharacterDatabaseConnections = 1
+LogsDatabaseConnections = 1
 MaxPingTime = 30
 WorldServerPort = 8085
 BindIP = "0.0.0.0"
@@ -939,6 +943,10 @@ TalentsInspecting = 1
 #        The delay between when a creature spawns and when it can be aggroed by nearby movement.
 #        Default: 5000 (5s)
 #
+#    LeashRadius
+#        Radius for default leash due to being too far from refresh position
+#        Default: 30 (yards)
+#
 #    CreatureFamilyFleeAssistanceRadius
 #        Radius which creature will use to seek for a near creature for assistance. Creature will flee to this creature.
 #        Default: 30
@@ -952,6 +960,14 @@ TalentsInspecting = 1
 #    CreatureFamilyAssistanceDelay
 #        Reaction time for creature assistance call
 #        Default: 1500 (1.5s)
+#
+#    CreatureCheckForHelpRadius
+#        Range at which a close moving npc can be assisted
+#        Default: 5 yards
+#
+#    CreatureCheckForHelpAggroDelay
+#        Time during which at combat start check for help is disabled
+#        Default: 2000 (2 seconds)
 #
 #    CreatureFamilyFleeDelay
 #        Time during which creature can flee when no assistant found
@@ -1035,9 +1051,12 @@ TalentsInspecting = 1
 
 Rate.Creature.Aggro = 1
 CreatureRespawnAggroDelay = 5000
+LeashRadius = 30
 CreatureFamilyFleeAssistanceRadius = 30
 CreatureFamilyAssistanceRadius = 10
 CreatureFamilyAssistanceDelay = 1500
+CreatureCheckForHelpRadius = 5
+CreatureCheckForHelpAggroDelay = 2000
 CreatureFamilyFleeDelay = 10000
 WorldBossLevelDiff = 3
 Corpse.EmptyLootShow = 1

@@ -1666,8 +1666,8 @@ Loot::Loot(Player* player, Creature* creature, LootType type) :
             }
 
             // Generate extra money for pick pocket loot
-            const uint32 a = urand(0, creature->getLevel() / 2);
-            const uint32 b = urand(0, player->getLevel() / 2);
+            const uint32 a = urand(0, creature->GetLevel() / 2);
+            const uint32 b = urand(0, player->GetLevel() / 2);
             m_gold = uint32(10 * (a + b) * sWorld.getConfig(CONFIG_FLOAT_RATE_DROP_MONEY));
 
             break;
@@ -1693,7 +1693,7 @@ Loot::Loot(Player* player, Creature* creature, LootType type) :
     return;
 }
 
-Loot::Loot(Player* player, GameObject* gameObject, LootType type) :
+Loot::Loot(Player* player, GameObject* gameObject, LootType type, bool lootSnapshot) :
     m_lootTarget(nullptr), m_itemTarget(nullptr), m_gold(0), m_maxSlot(0), m_lootType(type),
     m_clientLootType(CLIENT_LOOT_CORPSE), m_lootMethod(NOT_GROUP_TYPE_LOOT), m_threshold(ITEM_QUALITY_UNCOMMON), m_maxEnchantSkill(0), m_haveItemOverThreshold(false),
     m_isChecked(false), m_isChest(false), m_isChanged(false), m_isFakeLoot(false), m_createTime(World::GetCurrentClockTime())
@@ -1716,12 +1716,15 @@ Loot::Loot(Player* player, GameObject* gameObject, LootType type) :
 
     // not check distance for GO in case owned GO (fishing bobber case, for example)
     // And permit out of range GO with no owner in case fishing hole
-    if ((type != LOOT_FISHINGHOLE &&
+    if (!lootSnapshot) // ignores distance
+    {
+        if ((type != LOOT_FISHINGHOLE &&
             ((type != LOOT_FISHING && type != LOOT_FISHING_FAIL) || gameObject->GetOwnerGuid() != player->GetObjectGuid()) &&
             !gameObject->IsAtInteractDistance(player)))
-    {
-        sLog.outError("Loot::CreateLoot> cannot create game object loot, basic check failed for gameobject %u!", gameObject->GetEntry());
-        return;
+        {
+            sLog.outError("Loot::CreateLoot> cannot create game object loot, basic check failed for gameobject %u!", gameObject->GetEntry());
+            return;
+        }
     }
 
     // generate loot only if ready for open and spawned in world
@@ -1810,9 +1813,9 @@ Loot::Loot(Player* player, Corpse* corpse, LootType type) :
         corpse->lootForBody = true;
         uint32 pLevel;
         if (Player* plr = sObjectAccessor.FindPlayer(corpse->GetOwnerGuid()))
-            pLevel = plr->getLevel();
+            pLevel = plr->GetLevel();
         else
-            pLevel = player->getLevel(); // TODO:: not correct, need to save real player level in the corpse data in case of logout
+            pLevel = player->GetLevel(); // TODO:: not correct, need to save real player level in the corpse data in case of logout
 
          m_ownerSet.insert(player->GetObjectGuid());
          m_lootMethod = NOT_GROUP_TYPE_LOOT;

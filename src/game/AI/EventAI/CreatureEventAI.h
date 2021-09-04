@@ -23,6 +23,7 @@
 #include "Entities/Creature.h"
 #include "AI/BaseAI/CreatureAI.h"
 #include "Entities/Unit.h"
+#include "AI/ScriptDevAI/base/TimerAI.h"
 #include <set>
 
 class Player;
@@ -74,6 +75,7 @@ enum EventAI_Type
     EVENT_T_FACING_TARGET           = 33,                   // Position, unused, RepeatMin, RepeatMax
     EVENT_T_SPELLHIT_TARGET         = 34,                   // SpellID, School, RepeatMin, RepeatMax
     EVENT_T_DEATH_PREVENTED         = 35,                   //
+    EVENT_T_TARGET_NOT_REACHABLE    = 36,                   //
 
     EVENT_T_END,
 };
@@ -143,6 +145,7 @@ enum EventAI_ActionType
     ACTION_T_SET_SPELL_SET              = 60,               // SetId
     ACTION_T_SET_IMMOBILIZED_STATE      = 61,               // state (true - rooted), combatonly (true - autoremoved on combat stop)
     ACTION_T_SET_DESPAWN_AGGREGATION    = 62,               // mask, entry, entry2
+    ACTION_T_SET_IMMUNITY_SET           = 63,               // SetId - creature_immunities
 
     ACTION_T_END,
 };
@@ -569,6 +572,11 @@ struct CreatureEventAI_Action
             uint32 entry;
             uint32 entry2;
         } despawnAggregation;
+        // ACTION_T_SET_IMMUNITY_SET
+        struct
+        {
+            uint32 setId;
+        } immunitySet;
         // RAW
         struct
         {
@@ -760,6 +768,11 @@ struct CreatureEventAI_Event
         {
             uint32 unused;
         } deathPrevented;
+        // EVENT_T_TARGET_NOT_REACHABLE                     = 36
+        struct
+        {
+            uint32 unused;
+        } unreachable;
         // RAW
         struct
         {
@@ -818,7 +831,7 @@ struct CreatureEventAIHolder
     bool UpdateRepeatTimer(Creature* creature, uint32 repeatMin, uint32 repeatMax);
 };
 
-class CreatureEventAI : public CreatureAI
+class CreatureEventAI : public CreatureAI, public TimerManager
 {
     public:
         explicit CreatureEventAI(Creature* creature);
@@ -850,6 +863,7 @@ class CreatureEventAI : public CreatureAI
         void SummonedCreatureJustDied(Creature* summoned) override;
         void SummonedCreatureDespawn(Creature* summoned) override;
         void ReceiveAIEvent(AIEventType eventType, Unit* sender, Unit* invoker, uint32 miscValue) override;
+        void CorpseRemoved(uint32& respawnDelay) override;
         // bool IsControllable() const override { return true; }
 
         static int Permissible(const Creature* creature);
@@ -934,6 +948,9 @@ class CreatureEventAI : public CreatureAI
         SpellSchoolMask m_mainAttackMask;
 
         MovementGeneratorType m_defaultMovement; // TODO: Extend to all of AI
+
+        // Distancer
+        bool m_distancingCooldown;
 };
 
 #endif

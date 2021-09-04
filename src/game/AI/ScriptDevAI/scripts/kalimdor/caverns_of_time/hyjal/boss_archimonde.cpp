@@ -118,6 +118,7 @@ struct boss_archimondeAI : public CombatAI
         AddCombatAction(ARCHIMONDE_ACTION_HAND_OF_DEATH, uint32(10 * MINUTE * IN_MILLISECONDS));
         AddCombatAction(ARCHIMONDE_ACTION_SOUL_CHARGE, 5000u);
         SetDeathPrevention(true);
+        AddOnKillText(SAY_SLAY1, SAY_SLAY2, SAY_SLAY3);
         Reset();
     }
 
@@ -152,6 +153,8 @@ struct boss_archimondeAI : public CombatAI
         SetMeleeEnabled(true);
 
         m_soulChargeId = 0;
+
+        m_creature->SetRespawnDelay(7 * DAY);
     }
 
     uint32 GetSubsequentActionTimer(const uint32 action) const
@@ -174,21 +177,9 @@ struct boss_archimondeAI : public CombatAI
         DoScriptText(SAY_AGGRO, m_creature);
     }
 
-    void KilledUnit(Unit* victim) override
-    {
-        if (victim->GetTypeId() != TYPEID_PLAYER)
-            return;
-
-        switch (urand(0, 2))
-        {
-            case 0: DoScriptText(SAY_SLAY1, m_creature); break;
-            case 1: DoScriptText(SAY_SLAY2, m_creature); break;
-            case 2: DoScriptText(SAY_SLAY3, m_creature); break;
-        }
-    }
-
     void JustRespawned() override
     {
+        CombatAI::JustRespawned();
         m_drainNordrassilTimer = 5000;
     }
 

@@ -1210,7 +1210,7 @@ void BattleGround::RemovePlayerAtLeave(ObjectGuid playerGuid, bool isOnTransport
                 player->RemovePet(PET_SAVE_NOT_IN_SLOT);
                 player->ResummonPetTemporaryUnSummonedIfAny();
 
-                if (IsRated() && GetStatus() == STATUS_IN_PROGRESS)
+                if (IsRated() && (GetStatus() == STATUS_WAIT_JOIN || GetStatus() == STATUS_IN_PROGRESS))
                 {
                     // left a rated match while the encounter was in progress, consider as loser
                     ArenaTeam* winner_arena_team = sObjectMgr.GetArenaTeamById(GetArenaTeamIdForTeam(GetOtherTeam(team)));
@@ -1369,7 +1369,7 @@ void BattleGround::AddPlayer(Player* player)
     {
         player->RemoveArenaSpellCooldowns();
         player->RemoveArenaAuras();
-        player->RemoveAllEnchantments(TEMP_ENCHANTMENT_SLOT);
+        player->RemoveAllEnchantments(TEMP_ENCHANTMENT_SLOT, true);
 
         if (team == ALLIANCE)                               // gold
         {
@@ -2021,7 +2021,7 @@ uint32 BattleGround::GetAlivePlayersCountByTeam(Team team) const
         if (m_Player.second.playerTeam == team)
         {
             Player* pl = sObjectMgr.GetPlayer(m_Player.first);
-            if (pl && pl->IsAlive())
+            if (pl && pl->IsAlive() && pl->GetShapeshiftForm() != FORM_SPIRITOFREDEMPTION)
                 ++count;
         }
     }

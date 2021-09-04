@@ -235,7 +235,7 @@ uint32 WaypointMovementGenerator<Creature>::BuildIntPath(PointsArray& path, Crea
     auto speedType = MovementInfo::GetSpeedType(creature.m_movementInfo.GetMovementFlags());
     float creatureSpeed = creature.GetSpeed(speedType);
 
-    PathFinder pathfinder(&creature);
+    PathFinder pathfinder(&creature, true);
     pathfinder.calculate(startPos, endPos, true);
     auto genPath = pathfinder.getPath();
 
@@ -285,6 +285,7 @@ void WaypointMovementGenerator<Creature>::SendNextWayPointPath(Creature& creatur
     }
 
     creature.addUnitState(UNIT_STAT_ROAMING_MOVE);
+    m_speedChanged = false;
 
     WaypointNode const* nextNode = &m_currentWaypointNode->second;
 
@@ -370,7 +371,12 @@ void WaypointMovementGenerator<Creature>::SendNextWayPointPath(Creature& creatur
     init.MovebyPath(genPath);
     if (nextNode->orientation != 100 && nextNode->delay != 0)
         init.SetFacing(nextNode->orientation);
-    init.SetWalk(!creature.hasUnitState(UNIT_STAT_RUNNING));
+    if (m_forcedMovement == FORCED_MOVEMENT_WALK)
+        init.SetWalk(true);
+    else if (m_forcedMovement == FORCED_MOVEMENT_RUN)
+        init.SetWalk(false);
+    else
+        init.SetWalk(!creature.hasUnitState(UNIT_STAT_RUNNING));
 
     // send path to client
     m_pathDuration = init.Launch();
@@ -411,7 +417,7 @@ bool WaypointMovementGenerator<Creature>::Update(Creature& creature, const uint3
         return true;
     }
 
-    if (Stopped(creature))
+    if (Stopped(creature) || m_speedChanged)
     {
         // If a script just have set the waypoint to be paused or stopped we have to check
         // if the client did get a path for this creature. If it is the case, we have to

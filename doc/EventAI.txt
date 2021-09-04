@@ -101,6 +101,7 @@ Some events such as EVENT_T_AGGRO, EVENT_T_DEATH, EVENT_T_SPAWNED, and EVENT_T_E
 33  EVENT_T_FACING_TARGET               BackOrFront, unused, RepeatMin, RepeatMax                               Expires when the NPC is in back (Param1=0) or in front (Param1=1) of its current target. Will repeat after Param3 and Param4.
 34  EVENT_T_SPELLHIT_TARGET             SpellID, Schoolmask, RepeatMin, RepeatMax                               Expires upon Spell Hit of the NPC. When (param1) is set, it is the specific Spell ID used as the trigger. With (param2) specified, the expiration is limited to specific spell schools (-1 for all) and Spell ID value is ignored. Will repeat Event Conditions Check between every (Param3) and (Param4). Only A Spell ID or Spell School may be Specified but NOT both.
 35  EVENT_T_DEATH_PREVENTED             NONE                                                                    Expires when Death prevention kicks in
+36  EVENT_T_TARGET_NOT_REACHABLE        NONE                                                                    Expires when target is not reachable
 
 =========================================
 Action Types
@@ -175,6 +176,7 @@ For all ACTION_T_RANDOM Actions, When a Particular Param is selected for the Eve
 60  ACTION_T_SET_SPELL_SET                  SetId                               Set for possess
 61  ACTION_T_SET_IMMOBILIZED_STATE          Apply, CombatOnly                   CombatOnly is autoremoved on combat stop (death, evade, despawn)
 62  ACTION_T_SET_DESPAWN_AGGREGATION        Mask, Entry1, Entry2                Enable aggregation of guids for despawn on event (death, evade). To be used mostly on spawn.
+63  ACTION_T_SET_IMMUNITY_SET               SetId                               Immunity Set ID - creature_immunities
 
 * = Use -1 where the param is expected to do nothing. Random constant is generated for each event, so if you have a random yell and a random sound, they will be linked up with each other (ie. param2 with param2).
 
@@ -541,6 +543,11 @@ NOTE: For Repeat Events the Repeat Timer ONLY Re-Check's Event Conditions to see
 35 = EVENT_T_DEATH_PREVENTED:
 -----------------------------
 Expires when death prevention kicks in. It expires once, and then death prevention has to be reset for it to happen again.
+
+---------------------------------
+36 = EVENT_T_TARGET_NOT_REACHABLE
+---------------------------------
+Expires when main aggro target is not reachable by ChaseMovementGenerator - example of usage is teleporting player to creature
 
 (Name ==> School ==> School Bitmask Values)
 -------------------------------------------
@@ -1117,6 +1124,11 @@ Parameter 2: combatOnly - autoremoved on combat stop
 --------------------------------
 Parameter 1: Mask - 0x1 - enabled, 0x2 - despawn on evade, 0x4 - despawn on death
 Parameter 2 and 3: Creature Entry - in case only specific entries should be despawned, else all despawn, can be appended over multiple action calls
+
+------------------------------
+63 - ACTION_T_SET_IMMUNITY_SET
+------------------------------
+Parameter 1: Set ID - creature_immunities
 
 =========================================
 Target Types

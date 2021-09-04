@@ -37,6 +37,7 @@
 #include "Mails/Mail.h"
 #include "Util.h"
 #include "AI/ScriptDevAI/ScriptDevAIMgr.h"
+#include "Anticheat/Anticheat.hpp"
 #include "Spells/SpellMgr.h"
 #include "Entities/Transports.h"
 #ifdef _DEBUG_VMAPS
@@ -1830,7 +1831,10 @@ bool ChatHandler::HandleGoXYZCommand(char* args)
 
     Player* _player = m_session->GetPlayer();
 
-    char* px = strtok((char*)args, " ");
+    std::string argsStr(args);
+    std::replace(argsStr.begin(), argsStr.end(), ',', ' ');
+
+    char* px = strtok((char*)argsStr.c_str(), " ");
     char* py = strtok(nullptr, " ");
     char* pz = strtok(nullptr, " ");
     char* pmapid = strtok(nullptr, " ");
@@ -2012,7 +2016,7 @@ bool ChatHandler::ModifyMountCommandHelper(Player* target, char* args)
         slow = true;
     else
     {
-        const uint32 level = target->getLevel();
+        const uint32 level = target->GetLevel();
         fast = (level >= 60);
         slow = (!fast && level >= 30);
     }
@@ -2282,5 +2286,12 @@ bool ChatHandler::HandleChannelStaticCommand(char* args)
         PSendSysMessage(LANG_COMMAND_CHANNEL_STATIC_SUCCESS, channel->GetName().c_str(), GetMangosString((state ? LANG_ON : LANG_OFF)));
     }
 
+    return true;
+}
+
+bool ChatHandler::HandleReloadAnticheatCommand(char*)
+{
+    sAnticheatLib->Reload();
+    SendSysMessage(">> Anticheat data reloaded");
     return true;
 }

@@ -2695,7 +2695,7 @@ void Player::GiveLevel(uint32 level)
     if (level == GetLevel())
         return;
 
-    sScriptDevMgr.OnPlayerLevelChanged(this, getLevel(), level);
+    sScriptDevMgr.OnPlayerLevelChanged(this, GetLevel(), level);
 
     uint32 plClass = getClass();
 

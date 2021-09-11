@@ -1206,7 +1206,7 @@ void Unit::HandleDamageDealt(Unit* dealer, Unit* victim, uint32& damage, CleanDa
 
     if (dealer)
     {
-        if (victim->CanAttack(dealer) && (!spellProto || (!spellProto->HasAttribute(SPELL_ATTR_EX3_NO_INITIAL_AGGRO) &&
+        if (victim->CanAttack(dealer) && (!spellProto || (!spellProto->HasAttribute(SPELL_ATTR_EX2_NO_INITIAL_THREAT) &&
             !spellProto->HasAttribute(SPELL_ATTR_EX_NO_THREAT))) && dealer->CanEnterCombat() && victim->CanEnterCombat())
         {
             float threat = damage * sSpellMgr.GetSpellThreatMultiplier(spellProto);
@@ -1340,7 +1340,7 @@ void Unit::JustKilledCreature(Unit* killer, Creature* victim, Player* responsibl
 
     // Interrupt channeling spell when a Possessed Summoned is killed
     SpellEntry const* spellInfo = sSpellTemplate.LookupEntry<SpellEntry>(victim->GetUInt32Value(UNIT_CREATED_BY_SPELL));
-    if (spellInfo && spellInfo->HasAttribute(SPELL_ATTR_EX_FARSIGHT) && spellInfo->HasAttribute(SPELL_ATTR_EX_CHANNELED_1))
+    if (spellInfo && spellInfo->HasAttribute(SPELL_ATTR_EX_TOGGLE_FARSIGHT) && spellInfo->HasAttribute(SPELL_ATTR_EX_CHANNELED_1))
     {
         Unit* creator = victim->GetMap()->GetUnit(victim->GetCreatorGuid());
         if (creator && creator->GetCharmGuid() == victim->GetObjectGuid())
@@ -1719,7 +1719,7 @@ void Unit::CalculateSpellDamage(SpellNonMeleeDamage* spellDamageInfo, int32 dama
     }
 
     // if crit add critical bonus
-    if (crit && !spellInfo->HasAttribute(SPELL_ATTR_EX3_NO_DONE_BONUS))
+    if (crit && !spellInfo->HasAttribute(SPELL_ATTR_EX3_IGNORE_CASTER_MODIFIERS))
     {
         spellDamageInfo->HitInfo |= SPELL_HIT_TYPE_CRIT;
         damage = CalculateCritAmount(pVictim, damage, spellInfo);
@@ -1768,7 +1768,7 @@ void Unit::DealSpellDamage(Unit* affectiveCaster, SpellNonMeleeDamage* spellDama
         for (SpellAuraHolderMap::const_iterator itr = vAuras.begin(); itr != vAuras.end(); ++itr)
         {
             SpellEntry const* spellInfo = (*itr).second->GetSpellProto();
-            if (spellInfo->HasAttribute(SPELL_ATTR_EX3_CANT_MISS) && spellInfo->SpellFamilyName == SPELLFAMILY_PALADIN)
+            if (spellInfo->HasAttribute(SPELL_ATTR_EX3_ALWAYS_HIT) && spellInfo->SpellFamilyName == SPELLFAMILY_PALADIN)
                 (*itr).second->RefreshHolder();
         }
     }
@@ -2186,7 +2186,7 @@ void Unit::DealMeleeDamage(CalcDamageInfo* calcDamageInfo, bool durabilityLoss)
             for (SpellAuraHolderMap::const_iterator itr = vAuras.begin(); itr != vAuras.end(); ++itr)
             {
                 SpellEntry const* spellInfo = (*itr).second->GetSpellProto();
-                if (spellInfo->HasAttribute(SPELL_ATTR_EX3_CANT_MISS) && spellInfo->SpellFamilyName == SPELLFAMILY_PALADIN && ((*itr).second->GetCasterGuid() == GetObjectGuid()))
+                if (spellInfo->HasAttribute(SPELL_ATTR_EX3_ALWAYS_HIT) && spellInfo->SpellFamilyName == SPELLFAMILY_PALADIN && ((*itr).second->GetCasterGuid() == GetObjectGuid()))
                     (*itr).second->RefreshHolder(); // TODO: Judgement - make this into a cast which should consume grounding totem
             }
         }
@@ -3010,7 +3010,7 @@ SpellMissInfo Unit::SpellHitResult(WorldObject* caster, Unit* pVictim, SpellEntr
         if (roll_chance_combat(chance))
             return SPELL_MISS_REFLECT;
     }
-    if (!spell->HasAttribute(SPELL_ATTR_UNAFFECTED_BY_INVULNERABILITY))
+    if (!spell->HasAttribute(SPELL_ATTR_NO_IMMUNITIES))
     {
         // TODO: improve for partial application
         // Check for immune
@@ -4000,7 +4000,7 @@ float Unit::CalculateSpellCritChance(const Unit* victim, SpellSchoolMask schoolM
 
 float Unit::CalculateSpellMissChance(const Unit* victim, SpellSchoolMask schoolMask, const SpellEntry* spell) const
 {
-    if (!spell || spell->HasAttribute(SPELL_ATTR_EX3_CANT_MISS))
+    if (!spell || spell->HasAttribute(SPELL_ATTR_EX3_ALWAYS_HIT))
         return 0.0f;
 
     float chance = 0.0f;
@@ -4194,7 +4194,7 @@ float Unit::CalculateSpellResistChance(const Unit* victim, SpellSchoolMask schoo
         chance += CalculateSpellMissChance(victim, schoolMask, spell);
 
     // Chance to fully resist a spell by magic resistance
-    // TODO: check if binaries are affected by SPELL_ATTR_EX3_CANT_MISS
+    // TODO: check if binaries are affected by SPELL_ATTR_EX3_ALWAYS_HIT
     if (IsResistableSpell(spell) && spell->DmgClass == SPELL_DAMAGE_CLASS_MAGIC)
     {
         const bool binary = IsBinarySpell(*spell);
@@ -4873,7 +4873,7 @@ bool Unit::AddSpellAuraHolder(SpellAuraHolder* holder)
                     continue;
 
                 // Carry over removed Aura's remaining damage if Aura still has ticks remaining
-                if (foundHolder->GetSpellProto()->HasAttribute(SPELL_ATTR_EX4_STACK_DOT_MODIFIER))
+                if (foundHolder->GetSpellProto()->Id == 12654) // Rolling ignites
                 {
                     for (int32 i = 0; i < MAX_EFFECT_INDEX; ++i)
                     {
@@ -5637,7 +5637,7 @@ void Unit::RemoveArenaAuras(bool onleave)
         if ((!iter->second->GetSpellProto()->HasAttribute(SPELL_ATTR_EX4_UNK21) &&
                 // don't remove stances, shadowform, pally/hunter auras
                 !iter->second->IsPassive() &&               // don't remove passive auras
-                (!iter->second->GetSpellProto()->HasAttribute(SPELL_ATTR_UNAFFECTED_BY_INVULNERABILITY) ||
+                (!iter->second->GetSpellProto()->HasAttribute(SPELL_ATTR_NO_IMMUNITIES) ||
                  !iter->second->GetSpellProto()->HasAttribute(SPELL_ATTR_HIDE_IN_COMBAT_LOG)) &&
                 !HasAreaAuraEffect(iter->second->GetSpellProto()) &&
                 // not unaffected by invulnerability auras or not having that unknown flag (that seemed the most probable)
@@ -6138,18 +6138,19 @@ void Unit::CasterHitTargetWithSpell(Unit* realCaster, Unit* target, SpellEntry c
 
     if (realCaster->CanAttack(target))
     {
-        if (spellInfo->HasAttribute(SPELL_ATTR_EX3_NO_INITIAL_AGGRO) && !spellInfo->HasAttribute(SPELL_ATTR_EX3_OUT_OF_COMBAT_ATTACK))
+        if (spellInfo->HasAttribute(SPELL_ATTR_EX2_NO_INITIAL_THREAT) && !spellInfo->HasAttribute(SPELL_ATTR_EX3_OUT_OF_COMBAT_ATTACK))
             return;
 
         // we want to change the stand state of each character if possible/required
-         // Since patch 1.5.0 sitting creature always stand up on attack (even if stunned)
+        // Since patch 1.5.0 sitting creature always stand up on attack (even if stunned)
         if (success && !target->IsStandState() && target->IsPlayer())
             target->SetStandState(UNIT_STAND_STATE_STAND);
 
         // Hostile spell hits count as attack made against target (if detected), stealth removed at Spell::cast if spell break it
         const bool attack = (!IsPositiveSpell(spellInfo->Id, realCaster, target) && realCaster->IsVisibleForOrDetect(target, target, false) && realCaster->CanEnterCombat() && target->CanEnterCombat());
 
-        if (attack && !spellInfo->HasAttribute(SPELL_ATTR_EX3_NO_INITIAL_AGGRO) && !spellInfo->HasAttribute(SPELL_ATTR_EX_NO_THREAT))
+        // Mind soothe confirmed to aggro on resist
+        if (attack && (!success || !spellInfo->HasAttribute(SPELL_ATTR_EX_THREAT_ONLY_ON_MISS)) && !spellInfo->HasAttribute(SPELL_ATTR_EX_NO_THREAT))
         {
             if (success)
             {
@@ -6178,7 +6179,7 @@ void Unit::CasterHitTargetWithSpell(Unit* realCaster, Unit* target, SpellEntry c
     else if (realCaster->CanAssist(target) && target->IsInCombat())
     {
         // assisting case, healing and resurrection
-        if (!spellInfo->HasAttribute(SPELL_ATTR_EX3_NO_INITIAL_AGGRO) && !spellInfo->HasAttribute(SPELL_ATTR_EX_NO_THREAT) && realCaster->CanEnterCombat() && target->CanEnterCombat())
+        if (!spellInfo->HasAttribute(SPELL_ATTR_EX2_NO_INITIAL_THREAT) && !spellInfo->HasAttribute(SPELL_ATTR_EX_NO_THREAT) && realCaster->CanEnterCombat() && target->CanEnterCombat())
         {
             realCaster->SetInCombatWithAssisted(target);
             target->getHostileRefManager().threatAssist(realCaster, 0.0f, spellInfo, false, triggered);
@@ -6334,7 +6335,7 @@ void Unit::SetPowerType(Powers new_powertype)
 
 FactionTemplateEntry const* Unit::GetFactionTemplateEntry() const
 {
-    FactionTemplateEntry const* entry = sFactionTemplateStore.LookupEntry(getFaction());
+    FactionTemplateEntry const* entry = sFactionTemplateStore.LookupEntry(GetFaction());
     if (!entry)
     {
         static ObjectGuid guid;                             // prevent repeating spam same faction problem
@@ -6345,9 +6346,9 @@ FactionTemplateEntry const* Unit::GetFactionTemplateEntry() const
 
             if (guid.GetHigh() == HIGHGUID_PET)
                 sLog.outError("%s (base creature entry %u) have invalid faction template id %u, owner %s",
-                    GetGuidStr().c_str(), GetEntry(), getFaction(), ((Pet*)this)->GetOwnerGuid().GetString().c_str());
+                    GetGuidStr().c_str(), GetEntry(), GetFaction(), ((Pet*)this)->GetOwnerGuid().GetString().c_str());
             else
-                sLog.outError("%s have invalid faction template id %u", GetGuidStr().c_str(), getFaction());
+                sLog.outError("%s have invalid faction template id %u", GetGuidStr().c_str(), GetFaction());
         }
     }
     return entry;
@@ -7066,7 +7067,7 @@ Unit* Unit::SelectMagnetTarget(Unit* victim, Spell* spell)
     // Magic case
     if (spell && (spell->m_spellInfo->DmgClass == SPELL_DAMAGE_CLASS_NONE || spell->m_spellInfo->DmgClass == SPELL_DAMAGE_CLASS_MAGIC))
     {
-        if (spell->m_spellInfo->HasAttribute(SPELL_ATTR_ABILITY) || spell->m_spellInfo->HasAttribute(SPELL_ATTR_EX_CANT_BE_REDIRECTED) || spell->m_spellInfo->HasAttribute(SPELL_ATTR_UNAFFECTED_BY_INVULNERABILITY))
+        if (spell->m_spellInfo->HasAttribute(SPELL_ATTR_ABILITY) || spell->m_spellInfo->HasAttribute(SPELL_ATTR_EX_CANT_BE_REDIRECTED) || spell->m_spellInfo->HasAttribute(SPELL_ATTR_NO_IMMUNITIES))
             return nullptr;
 
         Unit::AuraList const& magnetAuras = victim->GetAurasByType(SPELL_AURA_SPELL_MAGNET);
@@ -7219,7 +7220,7 @@ uint32 Unit::SpellDamageBonusDone(Unit* victim, SpellEntry const* spellProto, ui
         return pdamage;
 
     // Some spells don't benefit from done mods
-    if (spellProto->HasAttribute(SPELL_ATTR_EX3_NO_DONE_BONUS))
+    if (spellProto->HasAttribute(SPELL_ATTR_EX3_IGNORE_CASTER_MODIFIERS))
         return pdamage;
 
     // For totems get damage bonus from owner (statue isn't totem in fact)
@@ -7371,7 +7372,7 @@ uint32 Unit::SpellDamageBonusDone(Unit* victim, SpellEntry const* spellProto, ui
  */
 uint32 Unit::SpellDamageBonusTaken(Unit* caster, SpellEntry const* spellProto, uint32 pdamage, DamageEffectType damagetype, uint32 stack)
 {
-    if (!spellProto || damagetype == DIRECT_DAMAGE)
+    if (!spellProto || damagetype == DIRECT_DAMAGE || spellProto->HasAttribute(SPELL_ATTR_EX4_IGNORE_DAMAGE_TAKEN_MODIFIERS))
         return pdamage;
 
     uint32 schoolMask = spellProto->SchoolMask;
@@ -7488,7 +7489,7 @@ int32 Unit::SpellBaseDamageBonusTaken(SpellSchoolMask schoolMask) const
 uint32 Unit::SpellHealingBonusDone(Unit* victim, SpellEntry const* spellProto, int32 healamount, DamageEffectType damagetype, uint32 stack)
 {
     // Some spells don't benefit from done mods
-    if (spellProto->HasAttribute(SPELL_ATTR_EX3_NO_DONE_BONUS))
+    if (spellProto->HasAttribute(SPELL_ATTR_EX3_IGNORE_CASTER_MODIFIERS))
         return healamount;
 
     // For totems get healing bonus from owner (statue isn't totem in fact)
@@ -7749,7 +7750,7 @@ bool Unit::IsImmuneToSpell(SpellEntry const* spellInfo, bool /*castOnSelf*/, uin
 
 bool Unit::IsImmuneToSpellEffect(SpellEntry const* spellInfo, SpellEffectIndex index, bool /*castOnSelf*/) const
 {
-    if (spellInfo->HasAttribute(SPELL_ATTR_UNAFFECTED_BY_INVULNERABILITY))
+    if (spellInfo->HasAttribute(SPELL_ATTR_NO_IMMUNITIES))
         return false;
 
     // If m_immuneToEffect type contain this effect type, IMMUNE effect.
@@ -7807,7 +7808,7 @@ uint32 Unit::MeleeDamageBonusDone(Unit* victim, uint32 pdamage, WeaponAttackType
         return pdamage;
 
     // Some spells don't benefit from done mods
-    if (spellProto && spellProto->HasAttribute(SPELL_ATTR_EX3_NO_DONE_BONUS))
+    if (spellProto && spellProto->HasAttribute(SPELL_ATTR_EX3_IGNORE_CASTER_MODIFIERS))
         return pdamage;
 
     // differentiate for weapon damage based spells
@@ -7998,6 +7999,9 @@ uint32 Unit::MeleeDamageBonusDone(Unit* victim, uint32 pdamage, WeaponAttackType
 uint32 Unit::MeleeDamageBonusTaken(Unit* caster, uint32 pdamage, WeaponAttackType attType, SpellSchoolMask schoolMask, SpellEntry const* spellProto, DamageEffectType damagetype, uint32 stack, bool flat)
 {
     if (pdamage == 0)
+        return pdamage;
+
+    if (spellProto && spellProto->HasAttribute(SPELL_ATTR_EX4_IGNORE_DAMAGE_TAKEN_MODIFIERS))
         return pdamage;
 
     // differentiate for weapon damage based spells
@@ -10997,7 +11001,7 @@ void Unit::RemoveAurasAtMechanicImmunity(uint32 mechMask, uint32 exceptSpellId, 
             ++iter;
         else if (non_positive && iter->second->IsPositive())
             ++iter;
-        else if (spell->HasAttribute(SPELL_ATTR_UNAFFECTED_BY_INVULNERABILITY))
+        else if (spell->HasAttribute(SPELL_ATTR_NO_IMMUNITIES))
             ++iter;
         else if (iter->second->HasMechanicMask(mechMask))
         {
@@ -11218,7 +11222,7 @@ void Unit::RestoreOriginalFaction()
         if (creature->IsPet() || creature->IsTotem())
         {
             if (Unit* owner = GetOwner())
-                setFaction(owner->getFaction());
+                setFaction(owner->GetFaction());
         }
         else
             setFaction(creature->GetCreatureInfo()->Faction);
@@ -11587,7 +11591,7 @@ Unit* Unit::TakePossessOf(SpellEntry const* spellEntry, SummonPropertiesEntry co
 
     Player* player = GetTypeId() == TYPEID_PLAYER ? static_cast<Player*>(this) : nullptr;
 
-    possessed->SetFactionTemporary(getFaction(), TEMPFACTION_NONE);     // set same faction than player
+    possessed->SetFactionTemporary(GetFaction(), TEMPFACTION_NONE);     // set same faction than player
     possessed->SetRespawnCoord(pos);                                    // set spawn coord
     possessed->SetCharmerGuid(GetObjectGuid());                         // save guid of the charmer
     possessed->SetCreatorGuid(GetObjectGuid());                         // save guid of the creator
@@ -11691,7 +11695,7 @@ bool Unit::TakePossessOf(Unit* possessed)
     {
         possessedCreature = static_cast<Creature*>(possessed);
         possessedCreature->GetCombatStartPosition(combatStartPosition);
-        possessedCreature->SetFactionTemporary(getFaction(), TEMPFACTION_NONE);
+        possessedCreature->SetFactionTemporary(GetFaction(), TEMPFACTION_NONE);
 
         charmInfo->SetCharmState("PossessedAI");
         possessedCreature->SetWalk(IsWalking(), true);
@@ -11704,7 +11708,7 @@ bool Unit::TakePossessOf(Unit* possessed)
         if (player && player->IsInDuelWith(possessedPlayer))
             possessedPlayer->SetUInt32Value(PLAYER_DUEL_TEAM, player->GetUInt32Value(PLAYER_DUEL_TEAM));
         else
-            possessedPlayer->setFaction(getFaction());
+            possessedPlayer->setFaction(GetFaction());
 
         charmInfo->SetCharmState("PossessedAI");
     }
@@ -11807,7 +11811,7 @@ bool Unit::TakeCharmOf(Unit* charmed, uint32 spellId, bool advertised /*= true*/
         if (charmerPlayer && charmerPlayer->IsInDuelWith(charmedPlayer))
             charmedPlayer->SetUInt32Value(PLAYER_DUEL_TEAM, charmerPlayer->GetUInt32Value(PLAYER_DUEL_TEAM));
         else
-            charmedPlayer->setFaction(getFaction());
+            charmedPlayer->setFaction(GetFaction());
 
         charmInfo->SetCharmState("PetAI");
 
@@ -11840,7 +11844,7 @@ bool Unit::TakeCharmOf(Unit* charmed, uint32 spellId, bool advertised /*= true*/
 
         getHostileRefManager().deleteReference(charmedCreature);
 
-        charmedCreature->SetFactionTemporary(getFaction(), TEMPFACTION_NONE);
+        charmedCreature->SetFactionTemporary(GetFaction(), TEMPFACTION_NONE);
 
         if (isPossessCharm)
             charmInfo->InitPossessCreateSpells();
@@ -12077,7 +12081,7 @@ void Unit::Uncharm(Unit* charmed, uint32 spellId)
         {
             // safeguard against nullptr on totem elemental despawn
             if (Unit* owner = charmedCreature->GetOwner())
-                charmed->setFaction(owner->getFaction());
+                charmed->setFaction(owner->GetFaction());
 
             charmInfo->ResetCharmState();
 

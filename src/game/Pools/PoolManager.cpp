@@ -312,7 +312,7 @@ void PoolGroup<Creature>::Despawn1Object(MapPersistentState& mapState, uint32 gu
             dataMapState->RemoveCreatureFromGrid(guid, data);
 
             if (Map* dataMap = dataMapState->GetMap())
-                if (Creature* pCreature = dataMap->GetCreature(data->GetObjectGuid(guid)))
+                if (Creature* pCreature = dataMap->GetCreature(guid))
                     pCreature->AddObjectToRemoveList();
         }
     }
@@ -330,7 +330,7 @@ void PoolGroup<GameObject>::Despawn1Object(MapPersistentState& mapState, uint32 
             dataMapState->RemoveGameobjectFromGrid(guid, data);
 
             if (Map* dataMap = dataMapState->GetMap())
-                if (GameObject* pGameobject = dataMap->GetGameObject(ObjectGuid(HIGHGUID_GAMEOBJECT, data->id, guid)))
+                if (GameObject* pGameobject = dataMap->GetGameObject(guid))
                     pGameobject->AddObjectToRemoveList();
         }
     }
@@ -369,21 +369,15 @@ template<>
 bool PoolGroup<Creature>::CanSpawn(PoolObject* object, MapPersistentState& mapState)
 {
     if (Map* map = mapState.GetMap()) // for world maps this will fail on world start
-        return map->GetCreatureLinkingHolder()->CanSpawn(object->guid, map, nullptr, 0.f, 0.f);
+        map->CanSpawn(TYPEID_UNIT, object->guid);
     return true;
 }
 
 template<>
 bool PoolGroup<GameObject>::CanSpawn(PoolObject* object, MapPersistentState& mapState)
 {
-    if (GameObjectData const* data = sObjectMgr.GetGOData(object->guid))
-    {
-        if (Map* map = mapState.GetMap()) // for world maps this will fail on world start
-        {
-            if ((data->spawnMask & (1 << map->GetDifficulty())) == 0)
-                return false;
-        }
-    }
+    if (Map* map = mapState.GetMap()) // for world maps this will fail on world start
+        return map->CanSpawn(TYPEID_GAMEOBJECT, object->guid);
     return true;
 }
 
@@ -503,14 +497,24 @@ void PoolGroup<GameObject>::Spawn1Object(MapPersistentState& mapState, PoolObjec
                     if (sWorld.getConfig(CONFIG_BOOL_SAVE_RESPAWN_TIME_IMMEDIATELY))
                         pGameobject->SaveRespawnTime();
                 }
-                dataMap->Add(pGameobject);
             }
         }
         // for not loaded grid just update respawn time (avoid work for instances until implemented support)
         else if (!instantly)
+        {
             // for spawned by default object only
             if (data->spawntimesecsmin >= 0)
-                mapState.SaveGORespawnTime(obj->guid, time(nullptr) + data->GetRandomRespawnTime());
+            {
+                uint32 respawnTime = data->GetRandomRespawnTime();
+                mapState.SaveGORespawnTime(obj->guid, time(nullptr) + respawnTime);
+                if (dataMap)
+                {
+                    GameObjectInfo const* goinfo = ObjectMgr::GetGameObjectInfo(data->id);
+                    if (!goinfo || goinfo->ExtraFlags & GAMEOBJECT_EXTRA_FLAG_DYNGUID)
+                        dataMap->GetSpawnManager().RespawnGameObject(obj->guid, respawnTime);
+                }
+            }
+        }
     }
 }
 
@@ -530,7 +534,7 @@ void PoolGroup<Creature>::ReSpawn1Object(MapPersistentState& mapState, PoolObjec
         // for non-instanceable maps pool spawn can be at different map from provided mapState
         if (MapPersistentState* dataMapState = mapState.GetMapId() == data->mapid ? &mapState : sMapPersistentStateMgr.GetPersistentState(data->mapid, 0))
             if (Map* dataMap = dataMapState->GetMap())
-                if (Creature* pCreature = dataMap->GetCreature(data->GetObjectGuid(obj->guid)))
+                if (Creature* pCreature = dataMap->GetCreature(obj->guid))
                     pCreature->GetMap()->Add(pCreature);
     }
 }
@@ -544,7 +548,7 @@ void PoolGroup<GameObject>::ReSpawn1Object(MapPersistentState& mapState, PoolObj
         // for non-instanceable maps pool spawn can be at different map from provided mapState
         if (MapPersistentState* dataMapState = mapState.GetMapId() == data->mapid ? &mapState : sMapPersistentStateMgr.GetPersistentState(data->mapid, 0))
             if (Map* dataMap = dataMapState->GetMap())
-                if (GameObject* pGameobject = dataMap->GetGameObject(ObjectGuid(HIGHGUID_GAMEOBJECT, data->id, obj->guid)))
+                if (GameObject* pGameobject = dataMap->GetGameObject(obj->guid))
                     pGameobject->GetMap()->Add(pGameobject);
     }
 }

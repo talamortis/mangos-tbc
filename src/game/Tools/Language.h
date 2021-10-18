@@ -90,6 +90,7 @@ enum MangosStrings
     LANG_GM_NO_WHISPER                  = 64,
     //                                    65, not used
     LANG_USING_SCRIPT_LIB_NONE          = 66,
+    LANG_GM_ANNOUNCE_COLOR              = 67,
     // Room for more level 0              67-99 not used
 
     // level 1 chat
@@ -754,7 +755,7 @@ enum MangosStrings
     LANG_DIST_ARENA_POINTS_END          = 746,
     LANG_DIST_ARENA_REWARDS_START       = 747,
     LANG_DIST_ARENA_REWARDS_END         = 748,
-//                                      = 749, not used
+    LANG_BG_GROUP_MEMBER_IN_ARENA       = 749,
     LANG_BATTLEGROUND_PREMATURE_FINISH_WARNING      = 750,  // "Not enough players. This game will close in %u mins."
     LANG_BATTLEGROUND_PREMATURE_FINISH_WARNING_SECS = 751,  // "Not enough players. This game will close in %u seconds."
     LANG_BATTLEGROUND_ONLY_ALLIANCE_USE = 752,              // "Only The Alliance can use that portal"
@@ -1092,7 +1093,5 @@ enum MangosStrings
     // Use for custom patches             11000-11999
 
     // NOT RESERVED IDS                   12000-1999999999
-    // `dbscript_string` table index     2000000000-2000999999 (MIN_DB_SCRIPT_STRING_ID-MAX_DB_SCRIPT_STRING_ID)
-    // For other tables maybe             2001000000-2147483647 (max index)
 };
 #endif

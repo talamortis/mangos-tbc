@@ -71,7 +71,7 @@ void AbstractPathMovementGenerator::Initialize(Unit& unit)
 
     if (m_path.empty())
     {
-        sLog.outError("AbstractPathMovementGenerator::Initialize Path empty for unit name %s entry %u counter %u.", unit.GetName(), unit.GetEntry(), unit.GetGUIDLow());
+        sLog.outError("AbstractPathMovementGenerator::Initialize Path empty for unit name %s entry %u dbguid %u.", unit.GetName(), unit.GetEntry(), unit.GetDbGuid());
         return;
     }
 
@@ -143,7 +143,12 @@ bool AbstractPathMovementGenerator::Update(Unit& unit, const uint32& diff)
     {
         // Foolproofing if current spline was tampered with or ran out of splines in the path:
         if (unit.movespline->FinalDestination() != m_spline.back())
-            return false;
+        {
+            if (unit.movespline->Finalized()) // stopped movement evidence
+                Initialize(unit);
+            else
+                return false;
+        }
 
         if (m_cyclic)
         {
@@ -221,14 +226,14 @@ void AbstractPathMovementGenerator::MovementInform(Unit& unit)
 }
 
 FixedPathMovementGenerator::FixedPathMovementGenerator(Unit& creature, int32 pathId, WaypointPathOrigin wpOrigin, ForcedMovement forcedMovement, bool flying, float speed, int32 offset, bool cyclic) :
-    AbstractPathMovementGenerator((pathId || wpOrigin != PATH_NO_PATH ? sWaypointMgr.GetPathFromOrigin(creature.GetEntry(), creature.GetGUIDLow(), pathId, (wpOrigin == PATH_NO_PATH && pathId ? PATH_FROM_ENTRY : wpOrigin))
-        : sWaypointMgr.GetDefaultPath(creature.GetEntry(), creature.GetGUIDLow())), offset, cyclic), m_flying(flying), m_speed(speed), m_forcedMovement(forcedMovement)
+    AbstractPathMovementGenerator((pathId || wpOrigin != PATH_NO_PATH ? sWaypointMgr.GetPathFromOrigin(creature.GetEntry(), creature.GetDbGuid(), pathId, (wpOrigin == PATH_NO_PATH && pathId ? PATH_FROM_ENTRY : wpOrigin))
+        : sWaypointMgr.GetDefaultPath(creature.GetEntry(), creature.GetDbGuid())), offset, cyclic), m_flying(flying), m_speed(speed), m_forcedMovement(forcedMovement)
 {
 }
 
 FixedPathMovementGenerator::FixedPathMovementGenerator(Creature& creature) :
-    AbstractPathMovementGenerator((creature.GetMotionMaster()->GetPathId() ? sWaypointMgr.GetPathFromOrigin(creature.GetEntry(), creature.GetGUIDLow(), creature.GetMotionMaster()->GetPathId(), PATH_FROM_ENTRY)
-        : sWaypointMgr.GetDefaultPath(creature.GetEntry(), creature.GetGUIDLow())), 0, true), m_flying(true), m_speed(0.f), m_forcedMovement(FORCED_MOVEMENT_NONE)
+    AbstractPathMovementGenerator((creature.GetMotionMaster()->GetPathId() ? sWaypointMgr.GetPathFromOrigin(creature.GetEntry(), creature.GetDbGuid(), creature.GetMotionMaster()->GetPathId(), PATH_FROM_ENTRY)
+        : sWaypointMgr.GetDefaultPath(creature.GetEntry(), creature.GetDbGuid())), 0, true), m_flying(true), m_speed(0.f), m_forcedMovement(FORCED_MOVEMENT_NONE)
 {
 }
 
@@ -242,7 +247,6 @@ void FixedPathMovementGenerator::Initialize(Unit& unit)
     {
         m_firstCycle = true;
         m_startPoint = m_pathIndex;
-        m_flightSplineSyncTimer.Reset(5000);
         unit.addUnitState(UNIT_STAT_ROAMING_MOVE);
     }
 }
@@ -263,24 +267,6 @@ void FixedPathMovementGenerator::Reset(Unit& unit)
 {
     unit.addUnitState(UNIT_STAT_ROAMING);
     AbstractPathMovementGenerator::Reset(unit);
-}
-
-bool FixedPathMovementGenerator::Update(Unit& unit, const uint32& diff)
-{
-    m_flightSplineSyncTimer.Update(diff);
-    if (m_flightSplineSyncTimer.Passed())
-    {
-        if (!unit.movespline->Finalized())
-        {
-            WorldPacket packet(SMSG_FLIGHT_SPLINE_SYNC, 4 + 8);
-            packet << unit.movespline->GetElapsedValue();
-            packet << unit.GetObjectGuid();
-            unit.SendMessageToSet(packet, true);
-            m_flightSplineSyncTimer.Reset(5000);
-        }
-    }
-
-    return AbstractPathMovementGenerator::Update(unit, diff);
 }
 
 bool FixedPathMovementGenerator::Move(Unit& unit) const

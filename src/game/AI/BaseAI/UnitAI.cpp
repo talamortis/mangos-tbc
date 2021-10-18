@@ -68,7 +68,7 @@ void UnitAI::MoveInLineOfSight(Unit* who)
         return;
 
     if (who->GetObjectGuid().IsCreature() && who->IsInCombat())
-        CheckForHelp(who, m_unit, 10.0);
+        CheckForHelp(who, m_unit, sWorld.getConfig(CONFIG_FLOAT_CREATURE_CHECK_FOR_HELP_RADIUS));
 
     if (!HasReactState(REACT_AGGRESSIVE)) // mobs who are aggressive can still assist
         return;
@@ -104,6 +104,11 @@ void UnitAI::EnterEvadeMode()
     }
 
     m_unit->TriggerEvadeEvents();
+}
+
+void UnitAI::JustDied(Unit* killer)
+{
+    ClearSelfRoot();
 }
 
 void UnitAI::AttackedBy(Unit* attacker)
@@ -188,7 +193,11 @@ CanCastResult UnitAI::DoCastSpellIfCan(Unit* target, uint32 spellId, uint32 cast
             if (flags == TRIGGERED_NONE)
                 flags |= TRIGGERED_NORMAL_COMBAT_CAST;
 
-            SpellCastResult result = caster->CastSpell(target, spellInfo, flags);
+            SpellCastResult result;
+            if (castFlags & CAST_ONLY_XYZ)
+                result = caster->CastSpell(target->GetPositionX(), target->GetPositionY(), target->GetPositionZ(), spellInfo, flags);
+            else
+                result = caster->CastSpell(target, spellInfo, flags);
             if (result != SPELL_CAST_OK)
             {
                 switch (result) // temporary adapter
@@ -201,6 +210,13 @@ CanCastResult UnitAI::DoCastSpellIfCan(Unit* target, uint32 spellId, uint32 cast
                         return CAST_FAIL_NOT_IN_LOS;
                     case SPELL_FAILED_PACIFIED:
                     case SPELL_FAILED_SILENCED:
+                        return CAST_FAIL_CAST_PREVENTED;
+                    case SPELL_FAILED_PREVENTED_BY_MECHANIC:
+                        if (!caster->IsCrowdControlled())
+                            return CAST_FAIL_CAST_PREVENTED;
+                    case SPELL_FAILED_STUNNED:
+                    case SPELL_FAILED_CONFUSED:
+                    case SPELL_FAILED_FLEEING:
                         return CAST_FAIL_STATE;
                     case SPELL_FAILED_NOT_READY:
                         return CAST_FAIL_COOLDOWN;
@@ -208,7 +224,9 @@ CanCastResult UnitAI::DoCastSpellIfCan(Unit* target, uint32 spellId, uint32 cast
                         return CAST_FAIL_POWER;
                     case SPELL_FAILED_CASTER_AURASTATE: // valid - doesnt need logging
                     case SPELL_FAILED_BAD_TARGETS:
+                    case SPELL_FAILED_DONT_REPORT:
                         return CAST_FAIL_OTHER;
+                    default: break;
                 }
                 sLog.outBasic("DoCastSpellIfCan by %s attempt to cast spell %u but spell failed due to unknown result %u.", m_unit->GetObjectGuid().GetString().c_str(), spellId, result);
                 return CAST_FAIL_OTHER;
@@ -257,9 +275,20 @@ void UnitAI::SetCombatMovement(bool enable, bool stopOrStartMovement /*=false*/)
     }
 }
 
+void UnitAI::SetFollowMovement(bool enable)
+{
+    if (enable)
+        m_unit->clearUnitState(UNIT_STAT_NO_FOLLOW_MOVEMENT);
+    else
+        m_unit->addUnitState(UNIT_STAT_NO_FOLLOW_MOVEMENT);
+
+    if (m_unit->IsMoving() && m_unit->GetMotionMaster()->GetCurrentMovementGeneratorType() == FOLLOW_MOTION_TYPE)
+        m_unit->InterruptMoving();
+}
+
 bool UnitAI::IsCombatMovement() const
 {
-    return m_unit && !m_unit->hasUnitState(UNIT_STAT_NO_COMBAT_MOVEMENT);
+    return !m_unit->hasUnitState(UNIT_STAT_NO_COMBAT_MOVEMENT);
 }
 
 void UnitAI::HandleMovementOnAttackStart(Unit* victim) const
@@ -288,12 +317,12 @@ void UnitAI::OnSpellCastStateChange(Spell const* spell, bool state, WorldObject*
         return;
 
     SpellEntry const* spellInfo = spell->m_spellInfo;
-    if (spellInfo->HasAttribute(SPELL_ATTR_EX4_CAN_CAST_WHILE_CASTING) || spellInfo->HasAttribute(SPELL_ATTR_ON_NEXT_SWING_1) || spellInfo->HasAttribute(SPELL_ATTR_ON_NEXT_SWING_2) || spellInfo->HasAttribute(SPELL_ATTR_EX5_DONT_TURN_DURING_CAST))
+    if (spellInfo->HasAttribute(SPELL_ATTR_EX4_CAN_CAST_WHILE_CASTING) || spellInfo->HasAttribute(SPELL_ATTR_ON_NEXT_SWING_NO_DAMAGE) || spellInfo->HasAttribute(SPELL_ATTR_ON_NEXT_SWING) || spellInfo->HasAttribute(SPELL_ATTR_EX5_AI_DOESNT_FACE_TARGET))
         return;
 
     // Creature should always stop before it will cast a non-instant spell
     if (state)
-        if ((spell->GetCastTime() && spellInfo->InterruptFlags & SPELL_INTERRUPT_FLAG_MOVEMENT) || (IsChanneledSpell(spellInfo) && spellInfo->ChannelInterruptFlags & CHANNEL_FLAG_MOVEMENT))
+        if ((spell->GetCastTime() && spellInfo->InterruptFlags & SPELL_INTERRUPT_FLAG_MOVEMENT) || (IsChanneledSpell(spellInfo) && spellInfo->ChannelInterruptFlags & AURA_INTERRUPT_FLAG_MOVE))
             m_unit->InterruptMoving();
 
     bool forceTarget = false;
@@ -335,14 +364,24 @@ void UnitAI::OnSpellCastStateChange(Spell const* spell, bool state, WorldObject*
     }
     else
     {
-        if (m_unit->GetVictim() && !GetCombatScriptStatus())
-            m_unit->SetTarget(m_unit->GetVictim());
+        std::set<uint32> spellIdsForTurning = { 31306, 33813, 38739, 44811, 46292 };
+        if (!spell->GetCastTime() && spellIdsForTurning.find(spellInfo->Id) != spellIdsForTurning.end())
+        {
+            HandleDelayedInstantAnimation(spellInfo);
+        }
         else
-            m_unit->SetTarget(nullptr);
+        {
+            if (m_unit->GetVictim() && !IsTargetingRestricted())
+                m_unit->SetTarget(m_unit->GetVictim());
+            else
+                m_unit->SetTarget(nullptr);
+        }
     }
 
     if (state)
+    {
         m_currentSpell = spell;
+    }
 }
 
 void UnitAI::OnChannelStateChange(Spell const* spell, bool state, WorldObject* target)
@@ -357,6 +396,9 @@ void UnitAI::OnChannelStateChange(Spell const* spell, bool state, WorldObject* t
         if (spellInfo->HasAttribute(SPELL_ATTR_EX4_CAN_CAST_WHILE_CASTING))
             return;
     }
+
+    if (spellInfo->Id == 45661) // Felmyst Encapsulate - cast time tracks target but channel time ignores him
+        return;
 
     bool forceTarget = true; // Different default than normal cast
 
@@ -374,7 +416,7 @@ void UnitAI::OnChannelStateChange(Spell const* spell, bool state, WorldObject* t
 
     if (state)
     {
-        if ((spellInfo->ChannelInterruptFlags & CHANNEL_FLAG_TURNING && !spellInfo->HasAttribute(SPELL_ATTR_EX_CHANNEL_TRACK_TARGET)) || !forceTarget)
+        if ((spellInfo->ChannelInterruptFlags & AURA_INTERRUPT_FLAG_TURNING && !spellInfo->HasAttribute(SPELL_ATTR_EX_CHANNEL_TRACK_TARGET)) || !forceTarget)
         {
             m_unit->SetFacingTo(m_unit->GetOrientation());
             m_unit->SetTarget(nullptr);
@@ -392,7 +434,7 @@ void UnitAI::OnChannelStateChange(Spell const* spell, bool state, WorldObject* t
     }
     else
     {
-        if (m_unit->GetVictim() && !GetCombatScriptStatus())
+        if (m_unit->GetVictim() && !IsTargetingRestricted())
             m_unit->SetTarget(m_unit->GetVictim());
         else
             m_unit->SetTarget(nullptr);
@@ -406,17 +448,14 @@ void UnitAI::CheckForHelp(Unit* who, Unit* me, float distance)
     if (!victim)
         return;
 
-    if (me->IsInCombat())
+    if (me->IsInCombat() || !me->CanCallForAssistance() || !who->CanCallForAssistance() || !me->CanCheckForHelp())
         return;
 
     // pulling happens once panic/retreating ends
     if (who->hasUnitState(UNIT_STAT_PANIC | UNIT_STAT_RETREATING))
         return;
 
-    if (me->GetMap()->Instanceable())
-        distance = distance / 2.5f;
-
-    if (me->CanInitiateAttack() && me->CanAttackOnSight(victim) && victim->isInAccessablePlaceFor(me))
+    if (me->CanInitiateAttack() && me->CanAttackOnSight(victim) && victim->isInAccessablePlaceFor(me) && victim->IsVisibleForOrDetect(me, me, false))
     {
         if (me->IsWithinDistInMap(who, distance) && me->IsWithinLOSInMap(who, true))
         {
@@ -494,6 +533,8 @@ class AiDelayEventAround : public BasicEvent
         bool Execute(uint64 /*e_time*/, uint32 /*p_time*/) override
         {
             Unit* pInvoker = m_owner.GetMap()->GetUnit(m_invokerGuid);
+            if (!pInvoker)
+                return true;
 
             for (GuidVector::const_reverse_iterator itr = m_receiverGuids.rbegin(); itr != m_receiverGuids.rend(); ++itr)
             {
@@ -502,15 +543,7 @@ class AiDelayEventAround : public BasicEvent
                     pReceiver->AI()->ReceiveAIEvent(m_eventType, &m_owner, pInvoker, m_miscValue);
                     // Special case for type 0 (call-assistance)
                     if (m_eventType == AI_EVENT_CALL_ASSISTANCE)
-                    {
-                        if (pReceiver->IsInCombat() || !pInvoker)
-                            continue;
-                        if (pReceiver->CanAssist(&m_owner) && pReceiver->CanAttackOnSight(pInvoker))
-                        {
-                            pReceiver->SetNoCallAssistance(true);
-                            pReceiver->AI()->AttackStart(pInvoker);
-                        }
-                    }
+                        pReceiver->AI()->HandleAssistanceCall(&m_owner, pInvoker);
                 }
             }
             m_receiverGuids.clear();
@@ -540,19 +573,32 @@ void UnitAI::SendAIEventAround(AIEventType eventType, Unit* invoker, uint32 dela
         {
             MaNGOS::AnyUnitInObjectRangeCheck u_check(m_unit, radius);
             MaNGOS::CreatureListSearcher<MaNGOS::AnyUnitInObjectRangeCheck> searcher(receiverList, u_check);
-            Cell::VisitGridObjects(m_unit, searcher, radius);
+            Cell::VisitAllObjects(m_unit, searcher, radius);
         }
         else // TODO: Expand functionality in future if needed
         {
             MaNGOS::AnyAssistCreatureInRangeCheck u_check(m_unit, invoker, radius);
             MaNGOS::CreatureListSearcher<MaNGOS::AnyAssistCreatureInRangeCheck> searcher(receiverList, u_check);
-            Cell::VisitGridObjects(m_unit, searcher, radius);
+            Cell::VisitAllObjects(m_unit, searcher, radius);
         }
 
         if (!receiverList.empty())
         {
-            AiDelayEventAround* e = new AiDelayEventAround(eventType, invoker ? invoker->GetObjectGuid() : ObjectGuid(), *m_unit, receiverList, miscValue);
-            m_unit->m_events.AddEvent(e, m_unit->m_events.CalculateTime(delay));
+            if (delay)
+            {
+                AiDelayEventAround* e = new AiDelayEventAround(eventType, invoker ? invoker->GetObjectGuid() : ObjectGuid(), *m_unit, receiverList, miscValue);
+                m_unit->m_events.AddEvent(e, m_unit->m_events.CalculateTime(delay));
+            }
+            else
+            {
+                for (Creature* receiver : receiverList)
+                {
+                    receiver->AI()->ReceiveAIEvent(eventType, m_unit, invoker, miscValue);
+                    // Special case for type 0 (call-assistance)
+                    if (eventType == AI_EVENT_CALL_ASSISTANCE)
+                        receiver->AI()->HandleAssistanceCall(m_unit, invoker);
+                }
+            }
         }
     }
 }
@@ -614,12 +660,12 @@ void UnitAI::SetMeleeEnabled(bool state)
     m_meleeEnabled = state;
     if (m_unit->IsInCombat())
     {
-        if (m_meleeEnabled)
+        if (m_meleeEnabled && !m_unit->hasUnitState(UNIT_STAT_MELEE_ATTACKING))
         {
             if (m_unit->GetVictim())
                 m_unit->MeleeAttackStart(m_unit->GetVictim());
         }
-        else
+        else if (m_unit->hasUnitState(UNIT_STAT_MELEE_ATTACKING))
             m_unit->MeleeAttackStop(m_unit->GetVictim());
     }
 }
@@ -719,7 +765,20 @@ void UnitAI::ClearSelfRoot()
 void UnitAI::DespawnGuids(GuidVector& spawns)
 {
     for (ObjectGuid& guid : spawns)
-        if (Creature* spawn = m_unit->GetMap()->GetAnyTypeCreature(guid))
-            spawn->ForcedDespawn();
+    {
+        if (guid.IsAnyTypeCreature())
+        {
+            if (Creature* spawn = m_unit->GetMap()->GetAnyTypeCreature(guid))
+                spawn->ForcedDespawn();
+        }
+        else if (guid.IsGameObject())
+        {
+            if (GameObject* spawn = m_unit->GetMap()->GetGameObject(guid))
+            {
+                spawn->SetLootState(GO_JUST_DEACTIVATED);
+                spawn->SetForcedDespawn();
+            }
+        }
+    }
     spawns.clear();
 }

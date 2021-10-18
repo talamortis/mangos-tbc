@@ -164,8 +164,16 @@ struct boss_kelidan_the_breakerAI : public CombatAI
         for (GuidVector::const_iterator itr = m_vAddGuids.begin(); itr != m_vAddGuids.end(); ++itr)
         {
             Creature* pAdd = m_instance->instance->GetCreature(*itr);
-            if (pAdd && !pAdd->IsAlive())
-                pAdd->Respawn();
+            if (pAdd)
+            {
+                if (pAdd->GetCombatManager().IsEvadingHome())
+                {
+                    ResetTimer(KELIDAN_SETUP_ADDS, 3000);
+                    return;
+                }
+                if (!pAdd->IsAlive())
+                    pAdd->Respawn();
+            }
         }
 
         // Cast pentagram
@@ -231,7 +239,7 @@ struct boss_kelidan_the_breakerAI : public CombatAI
                 }
                 break;
             case KELIDAN_SHADOW_BOLT_VOLLEY:
-                if (DoCastSpellIfCan(nullptr, m_isRegularMode ? SPELL_SHADOW_BOLT_VOLLEY : SPELL_SHADOW_BOLT_VOLLEY_H) == CAST_OK)
+                if (DoCastSpellIfCan(m_creature->GetVictim(), m_isRegularMode ? SPELL_SHADOW_BOLT_VOLLEY : SPELL_SHADOW_BOLT_VOLLEY_H) == CAST_OK)
                     ResetCombatAction(action, urand(5000, 13000));
                 break;
             case KELIDAN_CORRUPTION:
@@ -267,6 +275,10 @@ struct mob_shadowmoon_channelerAI : public CombatAI
     mob_shadowmoon_channelerAI(Creature* creature) : CombatAI(creature, CHANNELER_ACTION_MAX), m_instance(static_cast<instance_blood_furnace*>(creature->GetInstanceData())),
         m_isRegularMode(creature->GetMap()->IsRegularDifficulty())
     {
+        m_creature->GetCombatManager().SetLeashingCheck([](Unit*, float, float y, float)
+            {
+                return y < -158.23f;
+            });
         AddCombatAction(CHANNELER_MARK_OF_SHADOW, 5000, 7000);
         AddCombatAction(CHANNELER_SHADOW_BOLT, 1000, 2000);
         AddCustomAction(CHANNELER_SETUP_TIMER, true, [&]() { HandleSetup(); });

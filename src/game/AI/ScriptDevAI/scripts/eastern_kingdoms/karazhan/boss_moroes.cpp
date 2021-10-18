@@ -24,6 +24,7 @@ EndScriptData */
 #include "AI/ScriptDevAI/include/sc_common.h"
 #include "karazhan.h"
 #include "AI/ScriptDevAI/base/CombatAI.h"
+#include "Spells/Scripts/SpellScript.h"
 
 enum
 {
@@ -92,6 +93,7 @@ struct boss_moroesAI : public CombatAI
         {
             return x < -11030.f || x > -10943.f || y < -1955.f || y > -1860.f;
         });
+        AddOnKillText(SAY_KILL_1, SAY_KILL_2, SAY_KILL_3);
         Reset();
     }
 
@@ -140,16 +142,6 @@ struct boss_moroesAI : public CombatAI
 
         if (m_instance)
             m_instance->SetData(TYPE_MOROES, IN_PROGRESS);
-    }
-
-    void KilledUnit(Unit* /*pVictim*/) override
-    {
-        switch (urand(0, 2))
-        {
-            case 0: DoScriptText(SAY_KILL_1, m_creature); break;
-            case 1: DoScriptText(SAY_KILL_2, m_creature); break;
-            case 2: DoScriptText(SAY_KILL_3, m_creature); break;
-        }
     }
 
     void JustReachedHome() override
@@ -255,9 +247,14 @@ struct boss_moroesAI : public CombatAI
             }
             case MOROES_ACTION_BLIND:
             {
-                if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_NEAREST_BY, 0, SPELL_BLIND, SELECT_FLAG_PLAYER | SELECT_FLAG_SKIP_TANK))
-                    if (DoCastSpellIfCan(target, SPELL_BLIND) == CAST_OK)
-                        ResetCombatAction(action, GetSubsequentActionTimer(action));
+                Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_NEAREST_BY, 0, SPELL_GARROTE, SELECT_FLAG_PLAYER | SELECT_FLAG_NOT_AURA | SELECT_FLAG_SKIP_TANK);
+                if (!target) // if no target without garrote found - select any random
+                    target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, nullptr, SELECT_FLAG_PLAYER);
+                if (!target)
+                    break;
+
+                if (DoCastSpellIfCan(target, SPELL_BLIND) == CAST_OK)
+                    ResetCombatAction(action, GetSubsequentActionTimer(action));
                 break;
             }
             case MOROES_ACTION_GOUGE:
@@ -282,10 +279,21 @@ struct boss_moroesAI : public CombatAI
     }
 };
 
+struct MoroesVanish : public AuraScript
+{
+    void OnApply(Aura* aura, bool apply) const override
+    {
+        if (!apply)
+            aura->GetTarget()->AI()->SendAIEvent(AI_EVENT_CUSTOM_A, aura->GetTarget(), aura->GetTarget());
+    }
+};
+
 void AddSC_boss_moroes()
 {
     Script* pNewScript = new Script;
     pNewScript->Name = "boss_moroes";
     pNewScript->GetAI = &GetNewAIInstance<boss_moroesAI>;
     pNewScript->RegisterSelf();
+
+    RegisterAuraScript<MoroesVanish>("spell_moroes_vanish");
 }

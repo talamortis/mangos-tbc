@@ -22,7 +22,7 @@
 #include "Server/DBCEnums.h"
 #include "MotionGenerators/Path.h"
 #include "Platform/Define.h"
-#include "Globals/SharedDefines.h"
+#include "Spells/SpellDefines.h"
 
 #include <map>
 #include <set>
@@ -157,6 +157,41 @@ struct ChatChannelsEntry
     // 36 string flags
 };
 
+struct CharacterFacialHairStylesEntry
+{
+    uint32 RaceID;                                          // 0
+    uint32 SexID;                                           // 1
+    uint32 VariationID;                                     // 2
+  //uint32 Geoset[5];                                       // 3-7
+};
+
+enum CharSectionFlags
+{
+    SECTION_FLAG_UNAVAILABLE = 0x01,
+};
+
+enum CharSectionType
+{
+    SECTION_TYPE_SKIN = 0,
+    SECTION_TYPE_FACE = 1,
+    SECTION_TYPE_FACIAL_HAIR = 2,
+    SECTION_TYPE_HAIR = 3,
+    SECTION_TYPE_UNDERWEAR = 4
+};
+
+struct CharSectionsEntry
+{
+    //uint32 Id;
+    uint32 Race;
+    uint32 Gender;
+    uint32 BaseSection;
+    uint32 VariationIndex;
+    uint32 ColorIndex;
+    //char* TexturePath[3];
+    uint32 Flags;
+    inline bool HasFlag(CharSectionFlags flag) const { return (Flags & flag) != 0; }
+};
+
 struct ChrClassesEntry
 {
     uint32  ClassID;                                        // 0        m_ID
@@ -220,7 +255,7 @@ struct CinematicSequencesEntry
 struct CreatureDisplayInfoEntry
 {
     uint32      Displayid;                                  // 0        m_ID
-    uint32      ModelId;                                    // 1        
+    uint32      ModelId;                                    // 1
     // 2        m_soundID
     uint32      ExtendedDisplayInfoID;                      // 3        m_extendedDisplayInfoID -> CreatureDisplayInfoExtraEntry::DisplayExtraId
     float       scale;                                      // 4        m_creatureModelScale
@@ -962,6 +997,17 @@ struct SpellEntry
 
         // custom
         bool HasAttribute(SpellAttributesServerside attribute) const { return (AttributesServerside & attribute) != 0; }
+
+        uint32 GetAllEffectsMechanicMask() const
+        {
+            uint32 mask = 0;
+            if (Mechanic)
+                mask |= 1 << Mechanic;
+            for (uint8 i = 0; i < MAX_EFFECT_INDEX; ++i)
+                if (Effect[i] && EffectMechanic[i])
+                    mask |= 1 << EffectMechanic[i];
+            return mask;
+        }
 
     private:
         // prevent creating custom entries (copy data from original in fact)

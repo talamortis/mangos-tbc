@@ -140,6 +140,7 @@ class SpellAuraHolder
         bool IsDeleted() const { return m_deleted;}
         bool IsEmptyHolder() const;
         bool IsSaveToDbHolder() const;
+        bool IsCharm() const;
 
         void SetDeleted() { m_deleted = true; m_spellAuraHolderState = SPELLAURAHOLDER_STATE_REMOVING; }
 
@@ -165,9 +166,13 @@ class SpellAuraHolder
         uint32 GetAuraCharges() const { return m_procCharges; }
         void SetAuraCharges(uint32 charges, bool update = true);
 
+        // SpellMods
         bool DropAuraCharge();                               // return true if last charge dropped
+        void ResetSpellModCharges();
+        bool HasModifier(const uint64& modId) const;
 
-        time_t GetAuraApplyTime() const { return m_applyTime; }
+        uint32 GetAuraApplyTime() const { return m_applyTime; }
+        uint32 GetAuraApplyMSTime() const { return m_applyMSTime; } // milliseconds time
 
         void SetRemoveMode(AuraRemoveMode mode) { m_removeMode = mode; }
         void SetLoadedState(ObjectGuid const& casterGUID, ObjectGuid const& itemGUID, uint32 stackAmount, uint32 charges, int32 maxduration, int32 duration)
@@ -184,6 +189,7 @@ class SpellAuraHolder
         bool HasMechanicMask(uint32 mechanicMask) const;
 
         void UpdateAuraDuration();
+        void SendAuraDurationForTarget(uint32 slot = MAX_AURAS);
         void SendAuraDurationForCaster(Player* caster);
 
         void SetAura(uint32 slot, bool remove) { m_target->SetUInt32Value(UNIT_FIELD_AURA + slot, remove ? 0 : GetId()); }
@@ -191,6 +197,11 @@ class SpellAuraHolder
         void SetAuraLevel(uint32 slot, uint32 level);
 
         void SetCreationDelayFlag();
+
+        bool HasAuraType(AuraType type);
+
+        bool IsReducedProcChancePast60() { return m_reducedProcChancePast60; }
+        void SetReducedProcChancePast60() { m_reducedProcChancePast60 = true; }
 
         // Scripting system
         AuraScript* GetAuraScript() const { return m_auraScript; }
@@ -210,6 +221,7 @@ class SpellAuraHolder
         ObjectGuid m_casterGuid;
         ObjectGuid m_castItemGuid;                          // it is NOT safe to keep a pointer to the item because it may get deleted
         time_t m_applyTime;
+        uint32 m_applyMSTime;
         SpellEntry const* m_triggeredBy;                    // Spell responsible for this holder
         SpellAuraHolderState m_spellAuraHolderState;        // State used to be sure init part is finished (ex there is still some aura to add or effect to process)
 
@@ -235,6 +247,8 @@ class SpellAuraHolder
         bool m_isRemovedOnShapeLost: 1;
         bool m_deleted: 1;
         bool m_skipUpdate: 1;
+
+        bool m_reducedProcChancePast60;
 
         // Scripting System
         AuraScript* m_auraScript;
@@ -416,6 +430,7 @@ class Aura
         void HandlePrayerOfMending(bool apply, bool Real);
         void HandleAuraDetaunt(bool Apply, bool Real);
         void HandleOverrideClassScript(bool apply, bool real);
+        void HandleAuraPhase(bool apply, bool real);
 
         virtual ~Aura();
 
@@ -447,8 +462,6 @@ class Aura
             return maxDuration > 0 && m_modifier.periodictime > 0 ? maxDuration / m_modifier.periodictime : 0;
         }
         uint32 GetStackAmount() const { return GetHolder()->GetStackAmount(); }
-
-        bool DropAuraCharge();                               // return true if last charge dropped
 
         void SetLoadedState(int32 damage, uint32 periodicTime)
         {
@@ -497,12 +510,16 @@ class Aura
         void UseMagnet() { m_magnetUsed = true; }
         bool IsMagnetUsed() const { return m_magnetUsed; }
 
+        static uint32 CalculateAuraEffectValue(Unit* caster, Unit* target, SpellEntry const* spellProto, SpellEffectIndex effIdx, uint32 value);
+
         // Scripting system
         AuraScript* GetAuraScript() const { return GetHolder()->GetAuraScript(); }
         // hooks
+        void OnAuraInit();
         int32 OnAuraValueCalculate(Unit* caster, int32 currentValue);
         void OnDamageCalculate(int32& advertisedBenefit, float& totalMod);
         void OnApply(bool apply);
+        void OnAfterApply(bool apply);
         bool OnCheckProc(ProcExecutionData& data);
         SpellAuraProcResult OnProc(ProcExecutionData& data);
         void OnAbsorb(int32& currentAbsorb, uint32& reflectedSpellId, int32& reflectDamage, bool& preventedDeath);
@@ -512,6 +529,7 @@ class Aura
         void OnPeriodicDummy();
         void OnPeriodicTickEnd();
         void OnPeriodicCalculateAmount(uint32& amount);
+        void OnHeartbeat();
         // Hook Requirements
         void ForcePeriodicity(uint32 periodicTime);
         void SetScriptValue(uint64 value) { m_scriptValue = value; }

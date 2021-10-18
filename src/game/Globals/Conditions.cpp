@@ -238,9 +238,9 @@ bool inline ConditionEntry::Evaluate(WorldObject const* target, Map const* map, 
             Unit const* unit = static_cast<Unit const*>(target);
             switch (m_value2)
             {
-                case 0: return unit->getLevel() == m_value1;
-                case 1: return unit->getLevel() >= m_value1;
-                case 2: return unit->getLevel() <= m_value1;
+                case 0: return unit->GetLevel() == m_value1;
+                case 1: return unit->GetLevel() >= m_value1;
+                case 2: return unit->GetLevel() <= m_value1;
             }
             return false;
         }
@@ -410,7 +410,7 @@ bool inline ConditionEntry::Evaluate(WorldObject const* target, Map const* map, 
                         for (GroupReference* itr = grp->GetFirstMember(); itr != nullptr; itr = itr->next())
                         {
                             Player* pl = itr->getSource();
-                            if (pl && pl->IsAlive() && !pl->isGameMaster() && (!m_value2 || !source || source->IsWithinDistInMap(pl, m_value2)))
+                            if (pl && pl->IsAlive() && !pl->IsGameMaster() && (!m_value2 || !source || source->IsWithinDistInMap(pl, m_value2)))
                                 return false;
                         }
                         return true;
@@ -427,7 +427,7 @@ bool inline ConditionEntry::Evaluate(WorldObject const* target, Map const* map, 
                     for (const auto& itr : map->GetPlayers())
                     {
                         Player const* plr = itr.getSource();
-                        if (plr && plr->IsAlive() && !plr->isGameMaster() && (!m_value2 || !source || source->IsWithinDistInMap(plr, m_value2)))
+                        if (plr && plr->IsAlive() && !plr->IsGameMaster() && (!m_value2 || !source || source->IsWithinDistInMap(plr, m_value2)))
                             return false;
                     }
                     return true;

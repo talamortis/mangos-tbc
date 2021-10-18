@@ -81,12 +81,14 @@ set(SRC_GRP_MT
     Multithreading/Messager.cpp
 )
 
-set(SRC_GRP_METRIC
-    Metric/Measurement.cpp
-    Metric/Measurement.h
-    Metric/Metric.cpp
-    Metric/Metric.h
-)
+if(BUILD_METRICS)
+    set(SRC_GRP_METRIC
+        Metric/Measurement.cpp
+        Metric/Measurement.h
+        Metric/Metric.cpp
+        Metric/Metric.h
+    )
+endif()
 
 set(SRC_GRP_NETWORK
     Network/PacketBuffer.cpp
@@ -164,10 +166,12 @@ source_group("Log"
     ${SRC_GRP_LOG}
 )
 
-source_group("Metric"
-  FILES
-    ${SRC_GRP_METRIC}
-)
+if(BUILD_METRICS)
+    source_group("Metric"
+    FILES
+        ${SRC_GRP_METRIC}
+    )
+endif()
 
 source_group("Util"
   FILES
@@ -236,6 +240,7 @@ endif()
 
 if(POSTGRESQL AND POSTGRESQL_FOUND)
   target_include_directories(${LIBRARY_NAME} PUBLIC ${PostgreSQL_INCLUDE_DIRS})
+  target_link_libraries(${LIBRARY_NAME} PUBLIC ${PostgreSQL_LIBRARIES})
 else()
   target_include_directories(${LIBRARY_NAME} PUBLIC ${MYSQL_INCLUDE_DIR})
   target_link_libraries(${LIBRARY_NAME} PUBLIC ${MYSQL_LIBRARY})
@@ -245,6 +250,11 @@ else()
     add_custom_command(TARGET ${LIBRARY_NAME} POST_BUILD
       COMMAND xcopy /Y \"${LibFolder}\\*.dll\" \"${DEV_BIN_DIR}\\*.dll\")
   endif()
+endif()
+
+# Specific definition for an issue with boost/stacktrace when building on macOS
+if(APPLE)
+  add_compile_definitions(_GNU_SOURCE)
 endif()
 
 # Generate precompiled header

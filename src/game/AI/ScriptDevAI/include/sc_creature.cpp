@@ -330,14 +330,23 @@ CreatureList ScriptedAI::DoFindFriendlyCC(float range)
     return creatureList;
 }
 
-CreatureList ScriptedAI::DoFindFriendlyMissingBuff(float range, uint32 spellId)
+CreatureList ScriptedAI::DoFindFriendlyMissingBuff(float range, uint32 spellId, bool inCombat)
 {
     CreatureList creatureList;
+    
+    if (inCombat == false)
+    {
+        MaNGOS::FriendlyMissingBuffInRangeInCombatCheck u_check(m_creature, range, spellId);
+        MaNGOS::CreatureListSearcher<MaNGOS::FriendlyMissingBuffInRangeInCombatCheck> searcher(creatureList, u_check);
+        Cell::VisitGridObjects(m_creature, searcher, range);
+    }
+    else if (inCombat == true)
+    {
+        MaNGOS::FriendlyMissingBuffInRangeNotInCombatCheck u_check(m_creature, range, spellId);
+        MaNGOS::CreatureListSearcher<MaNGOS::FriendlyMissingBuffInRangeNotInCombatCheck> searcher(creatureList, u_check);
 
-    MaNGOS::FriendlyMissingBuffInRangeCheck u_check(m_creature, range, spellId);
-    MaNGOS::CreatureListSearcher<MaNGOS::FriendlyMissingBuffInRangeCheck> searcher(creatureList, u_check);
-
-    Cell::VisitGridObjects(m_creature, searcher, range);
+        Cell::VisitGridObjects(m_creature, searcher, range);
+    }    
 
     return creatureList;
 }
@@ -359,19 +368,23 @@ void ScriptedAI::SetEquipmentSlots(bool loadDefault, int32 mainHand, int32 offHa
     if (loadDefault)
     {
         m_creature->LoadEquipment(m_creature->GetCreatureInfo()->EquipmentTemplateId, true);
+        if (m_creature->hasWeapon(OFF_ATTACK))
+            m_creature->SetCanDualWield(true);
+        else
+            m_creature->SetCanDualWield(false);
         return;
     }
 
     if (mainHand >= 0)
-    { 
+    {
         m_creature->SetVirtualItem(VIRTUAL_ITEM_SLOT_0, mainHand);
-        m_creature->UpdateDamagePhysical(BASE_ATTACK);            
+        m_creature->UpdateDamagePhysical(BASE_ATTACK);
     }
 
     if (offHand >= 0)
-    { 
+    {
         m_creature->SetVirtualItem(VIRTUAL_ITEM_SLOT_1, offHand);
-        if(offHand == 1)
+        if (offHand >= 1)
             m_creature->SetCanDualWield(true);
         else
             m_creature->SetCanDualWield(false);
@@ -381,97 +394,6 @@ void ScriptedAI::SetEquipmentSlots(bool loadDefault, int32 mainHand, int32 offHa
         m_creature->SetVirtualItem(VIRTUAL_ITEM_SLOT_2, ranged);
         m_creature->UpdateDamagePhysical(RANGED_ATTACK);
     }
-}
-
-// Hacklike storage used for misc creatures that are expected to evade of outside of a certain area.
-// It is assumed the information is found elswehere and can be handled by mangos. So far no luck finding such information/way to extract it.
-enum
-{
-    NPC_BROODLORD               = 12017,
-    NPC_TALON_KING_IKISS        = 18473,
-    NPC_KARGATH_BLADEFIST       = 16808,
-
-    // Black Temple
-    NPC_HIGH_WARLORD_NAJENTUS   = 22887,
-    NPC_GURTOGG_BLOODBOIL       = 22948,
-
-    // Zul'Aman
-    NPC_AKILZON                 = 23574,
-    NPC_NALORAKK                = 23576,
-    NPC_JANALAI                 = 23578,
-    NPC_HALAZZI                 = 23577,
-    NPC_MALACRASS               = 24239,
-};
-
-bool ScriptedAI::EnterEvadeIfOutOfCombatArea(const uint32 diff)
-{
-    if (m_uiEvadeCheckCooldown < diff)
-        m_uiEvadeCheckCooldown = 2500;
-    else
-    {
-        m_uiEvadeCheckCooldown -= diff;
-        return false;
-    }
-
-    if (m_creature->GetCombatManager().IsInEvadeMode() || !m_creature->GetVictim())
-        return false;
-
-    float x = m_creature->GetPositionX();
-    float y = m_creature->GetPositionY();
-    float z = m_creature->GetPositionZ();
-
-    switch (m_creature->GetEntry())
-    {
-        case NPC_BROODLORD:                                 // broodlord (not move down stairs)
-            if (z > 448.60f)
-                return false;
-            break;
-        case NPC_TALON_KING_IKISS:
-        {
-            m_creature->GetRespawnCoord(x, y, z);
-            if (m_creature->GetDistance2d(x, y) < 70.0f)
-                return false;
-            break;
-        }
-        case NPC_KARGATH_BLADEFIST:
-            if (x < 270.0f && x > 185.0f)
-                return false;
-            break;
-        case NPC_HIGH_WARLORD_NAJENTUS:
-            if (x > 300.f)
-                return false;
-            break;
-        case NPC_GURTOGG_BLOODBOIL:
-            if (y > 140.f)
-                return false;
-            break;
-        case NPC_AKILZON:
-            if (x > 336.259f)
-                return false;
-            break;
-        case NPC_NALORAKK:
-            if (y < 1378.009f)
-                return false;
-            break;
-        case NPC_JANALAI:
-            if (x < -8.f && x > -57.f)
-                return false;
-            break;
-        case NPC_HALAZZI:
-            if (x > 307.f && y > 1036.f)
-                return false;
-            break;
-        case NPC_MALACRASS:
-            if (y < 1025.f)
-                return false;
-            break;
-        default:
-            script_error_log("EnterEvadeIfOutOfCombatArea used for creature entry %u, but does not have any definition.", m_creature->GetEntry());
-            return false;
-    }
-
-    EnterEvadeMode();
-    return true;
 }
 
 void Scripted_NoMovementAI::GetAIInformation(ChatHandler& reader)

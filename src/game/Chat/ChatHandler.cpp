@@ -35,6 +35,7 @@
 #include "Grids/GridNotifiersImpl.h"
 #include "Grids/CellImpl.h"
 #include "GMTickets/GMTicketMgr.h"
+#include "Anticheat/Anticheat.hpp"
 
 bool WorldSession::CheckChatMessage(std::string& msg, bool addon/* = false*/)
 {
@@ -126,7 +127,7 @@ void WorldSession::HandleMessagechatOpcode(WorldPacket& recv_data)
     else
     {
         // send in universal language if player in .gmon mode (ignore spell effects)
-        if (_player->isGameMaster())
+        if (_player->IsGameMaster())
             lang = LANG_UNIVERSAL;
         else
         {
@@ -192,11 +193,26 @@ void WorldSession::HandleMessagechatOpcode(WorldPacket& recv_data)
                 return;
 
             if (type == CHAT_MSG_SAY)
+            {
                 GetPlayer()->Say(msg, lang);
+
+                if (lang != LANG_ADDON && !m_anticheat->IsSilenced())
+                    m_anticheat->Say(msg);
+            }
             else if (type == CHAT_MSG_EMOTE)
+            {
                 GetPlayer()->TextEmote(msg);
+
+                if (lang != LANG_ADDON && !m_anticheat->IsSilenced())
+                    m_anticheat->Say(msg);
+            }
             else if (type == CHAT_MSG_YELL)
+            {
                 GetPlayer()->Yell(msg, lang);
+
+                if (lang != LANG_ADDON && !m_anticheat->IsSilenced())
+                    m_anticheat->Say(msg);
+            }
         } break;
 
         case CHAT_MSG_WHISPER:
@@ -254,6 +270,9 @@ void WorldSession::HandleMessagechatOpcode(WorldPacket& recv_data)
             }
 
             GetPlayer()->Whisper(msg, lang, player->GetObjectGuid());
+
+            if (lang != LANG_ADDON && !m_anticheat->IsSilenced())
+                m_anticheat->Whisper(msg, player->GetObjectGuid());
         } break;
 
         case CHAT_MSG_PARTY:
@@ -278,10 +297,7 @@ void WorldSession::HandleMessagechatOpcode(WorldPacket& recv_data)
             // battleground raid is always in Player->GetGroup(), never in GetOriginalGroup()
             Group* group = _player->GetGroup();
 
-            if (!group)
-                return;
-
-            if (group->isBattleGroup())
+            if (group && group->isBattleGroup())
                 group = _player->GetOriginalGroup();
 
             if (!group)
@@ -501,8 +517,15 @@ void WorldSession::HandleMessagechatOpcode(WorldPacket& recv_data)
                 return;
 
             if (ChannelMgr* cMgr = channelMgr(_player->GetTeam()))
+            {
                 if (Channel* chn = cMgr->GetChannel(channel, _player))
+                {
                     chn->Say(_player, msg.c_str(), lang);
+
+                    if (lang != LANG_ADDON && (chn->HasFlag(Channel::ChannelFlags::CHANNEL_FLAG_GENERAL) || chn->IsStatic()))
+                        m_anticheat->Channel(msg);
+                }
+            }
         } break;
 
         case CHAT_MSG_AFK:
@@ -526,6 +549,8 @@ void WorldSession::HandleMessagechatOpcode(WorldPacket& recv_data)
                 {
                     if (!CheckChatMessage(msg))
                         msg = GetMangosString(type == CHAT_MSG_AFK ? LANG_PLAYER_AFK_DEFAULT : LANG_PLAYER_DND_DEFAULT);
+                    else
+                        m_anticheat->AutoReply(msg);
 
                     _player->autoReplyMsg = msg;
                 }
@@ -534,6 +559,8 @@ void WorldSession::HandleMessagechatOpcode(WorldPacket& recv_data)
             {
                 if (msg.empty() || !CheckChatMessage(msg))
                     msg = GetMangosString(type == CHAT_MSG_AFK ? LANG_PLAYER_AFK_DEFAULT : LANG_PLAYER_DND_DEFAULT);
+                else
+                    m_anticheat->AutoReply(msg);
 
                 _player->autoReplyMsg = msg;
 
@@ -563,16 +590,17 @@ void WorldSession::HandleMessagechatOpcode(WorldPacket& recv_data)
 
 void WorldSession::HandleEmoteOpcode(WorldPacket& recv_data)
 {
-    if (!GetPlayer()->IsAlive() || GetPlayer()->IsFeigningDeath())
-        return;
-
     uint32 emote;
     recv_data >> emote;
+
+    if (!GetPlayer()->IsAlive() || GetPlayer()->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PREVENT_ANIM))
+        return;
 
     // restrict to the only emotes hardcoded in client
     if (emote != EMOTE_ONESHOT_NONE && emote != EMOTE_ONESHOT_WAVE)
         return;
 
+    GetPlayer()->InterruptSpellsAndAurasWithInterruptFlags(AURA_INTERRUPT_FLAG_ANIM_CANCELS);
     GetPlayer()->HandleEmoteCommand(emote);
 }
 
@@ -610,7 +638,14 @@ namespace MaNGOS
 
 void WorldSession::HandleTextEmoteOpcode(WorldPacket& recv_data)
 {
-    if (!GetPlayer()->IsAlive())
+    uint32 text_emote, emoteNum;
+    ObjectGuid guid;
+
+    recv_data >> text_emote;
+    recv_data >> emoteNum;
+    recv_data >> guid;
+
+    if (!GetPlayer()->IsAlive() || GetPlayer()->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PREVENT_ANIM))
         return;
 
     if (!GetPlayer()->CanSpeak())
@@ -619,13 +654,6 @@ void WorldSession::HandleTextEmoteOpcode(WorldPacket& recv_data)
         SendNotification(GetMangosString(LANG_WAIT_BEFORE_SPEAKING), timeStr.c_str());
         return;
     }
-
-    uint32 text_emote, emoteNum;
-    ObjectGuid guid;
-
-    recv_data >> text_emote;
-    recv_data >> emoteNum;
-    recv_data >> guid;
 
     EmotesTextEntry const* em = sEmotesTextStore.LookupEntry(text_emote);
     if (!em)
@@ -642,10 +670,7 @@ void WorldSession::HandleTextEmoteOpcode(WorldPacket& recv_data)
             break;
         default:
         {
-            // in feign death state allowed only text emotes.
-            if (GetPlayer()->IsFeigningDeath())
-                break;
-
+            GetPlayer()->InterruptSpellsAndAurasWithInterruptFlags(AURA_INTERRUPT_FLAG_ANIM_CANCELS);
             GetPlayer()->HandleEmoteCommand(emote_id);
             break;
         }

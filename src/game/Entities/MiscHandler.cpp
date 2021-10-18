@@ -173,7 +173,7 @@ void WorldSession::HandleWhoOpcode(WorldPacket& recv_data)
             continue;
 
         // check if target's level is in level range
-        uint32 lvl = pl->getLevel();
+        uint32 lvl = pl->GetLevel();
         if (lvl < level_min || lvl > level_max)
             continue;
 
@@ -381,7 +381,7 @@ void WorldSession::HandleSetTargetOpcode(WorldPacket& recv_data)
     if (!unit)
         return;
 
-    if (FactionTemplateEntry const* factionTemplateEntry = sFactionTemplateStore.LookupEntry(unit->getFaction()))
+    if (FactionTemplateEntry const* factionTemplateEntry = sFactionTemplateStore.LookupEntry(unit->GetFaction()))
         _player->GetReputationMgr().SetVisible(factionTemplateEntry);
 }
 
@@ -401,7 +401,7 @@ void WorldSession::HandleSetSelectionOpcode(WorldPacket& recv_data)
     if (!unit)
         return;
 
-    if (FactionTemplateEntry const* factionTemplateEntry = sFactionTemplateStore.LookupEntry(unit->getFaction()))
+    if (FactionTemplateEntry const* factionTemplateEntry = sFactionTemplateStore.LookupEntry(unit->GetFaction()))
         _player->GetReputationMgr().SetVisible(factionTemplateEntry);
 }
 
@@ -420,6 +420,11 @@ void WorldSession::HandleStandStateChangeOpcode(WorldPacket& recv_data)
         default:
             return;
     }
+
+    if (_player->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PREVENT_ANIM))
+        return;
+
+    _player->InterruptSpellsAndAurasWithInterruptFlags(AURA_INTERRUPT_FLAG_ANIM_CANCELS);
 
     _player->SetStandState(uint8(animstate), true);
 }
@@ -766,46 +771,11 @@ void WorldSession::HandleAreaTriggerOpcode(WorldPacket& recv_data)
     // ghost resurrected at enter attempt to dungeon with corpse (including fail enter cases)
     if (!player->IsAlive() && targetMapEntry->IsDungeon())
     {
-        uint32 corpseMapId = 0;
-        if (Corpse* corpse = player->GetCorpse())
-            corpseMapId = corpse->GetMapId();
-
-        // check back way from corpse to entrance
-        uint32 instance_map = corpseMapId;
-        do
-        {
-            // most often fast case
-            if (instance_map == targetMapEntry->MapID)
-                break;
-
-            InstanceTemplate const* instance = ObjectMgr::GetInstanceTemplate(instance_map);
-            instance_map = instance ? instance->parent : 0;
-        }
-        while (instance_map);
-
-        // corpse not in dungeon or some linked deep dungeons
-        if (!instance_map)
-        {
-            player->GetSession()->SendAreaTriggerMessage("You cannot enter %s while in a ghost mode",
-                    targetMapEntry->name[player->GetSession()->GetSessionDbcLocale()]);
-            return;
-        }
-
-        // need find areatrigger to inner dungeon for landing point
-        if (at->target_mapId != corpseMapId)
-        {
-            if (AreaTrigger const* corpseAt = sObjectMgr.GetMapEntranceTrigger(corpseMapId))
-            {
-                at = corpseAt;
-                targetMapEntry = sMapStore.LookupEntry(at->target_mapId);
-                if (!targetMapEntry)
-                    return;
-            }
-        }
-
-        // now we can resurrect player, and then check teleport requirements
-        player->ResurrectPlayer(0.5f);
-        player->SpawnCorpseBones();
+        auto data = player->CheckAndRevivePlayerOnDungeonEnter(targetMapEntry, at->target_mapId);
+		if (!data.first)
+			return;
+		if (data.second)
+			at = data.second;
     }
 
     if (at->conditionId && !sObjectMgr.IsConditionSatisfied(at->conditionId, player, player->GetMap(), nullptr, CONDITION_FROM_AREATRIGGER_TELEPORT))
@@ -950,85 +920,6 @@ void WorldSession::HandleNextCinematicCamera(WorldPacket& /*recv_data*/)
     GetPlayer()->StartCinematic();
 }
 
-void WorldSession::HandleFeatherFallAck(WorldPacket& recv_data)
-{
-    DEBUG_LOG("WORLD: Received opcode CMSG_MOVE_FEATHER_FALL_ACK");
-
-    // no used
-    recv_data.rpos(recv_data.wpos());                       // prevent warnings spam
-}
-
-void WorldSession::HandleMoveUnRootAck(WorldPacket& recv_data)
-{
-    DEBUG_LOG("WORLD: Received opcode CMSG_FORCE_MOVE_UNROOT_ACK");
-    // Pre-Wrath: broadcast unroot
-    ObjectGuid guid;
-    recv_data >> guid;
-    // no used
-    recv_data.rpos(recv_data.wpos());                       // prevent warnings spam
-
-    Unit* mover = _player->GetMover();
-    if (mover && mover->GetObjectGuid() == guid && mover->m_movementInfo.HasMovementFlag(MOVEFLAG_ROOT))
-    {
-        mover->m_movementInfo.RemoveMovementFlag(MOVEFLAG_ROOT);
-        mover->SendMoveRoot(false, true);
-    }
-    /*
-        ObjectGuid guid;
-        recv_data >> guid;
-
-        // now can skip not our packet
-        if(_player->GetGUID() != guid)
-        {
-            recv_data.rpos(recv_data.wpos());               // prevent warnings spam
-            return;
-        }
-
-        DEBUG_LOG("WORLD: Received opcode CMSG_FORCE_MOVE_UNROOT_ACK");
-
-        recv_data.read_skip<uint32>();                      // unk
-
-        MovementInfo movementInfo;
-        ReadMovementInfo(recv_data, &movementInfo);
-    */
-}
-
-void WorldSession::HandleMoveRootAck(WorldPacket& recv_data)
-{
-    DEBUG_LOG("WORLD: Received opcode CMSG_FORCE_MOVE_ROOT_ACK");
-    // Pre-Wrath: broadcast root
-    ObjectGuid guid;
-    recv_data >> guid;
-    // no used
-    recv_data.rpos(recv_data.wpos());                       // prevent warnings spam
-
-    Unit* mover = _player->GetMover();
-    if (mover && mover->GetObjectGuid() == guid && !mover->m_movementInfo.HasMovementFlag(MOVEFLAG_ROOT))
-    {
-        mover->m_movementInfo.RemoveMovementFlag(movementFlagsMask);
-        mover->m_movementInfo.AddMovementFlag(MOVEFLAG_ROOT);
-        mover->SendMoveRoot(true, true);
-    }
-    /*
-        ObjectGuid guid;
-        recv_data >> guid;
-
-        // now can skip not our packet
-        if(_player->GetObjectGuid() != guid)
-        {
-            recv_data.rpos(recv_data.wpos());               // prevent warnings spam
-            return;
-        }
-
-        DEBUG_LOG("WORLD: Received opcode CMSG_FORCE_MOVE_ROOT_ACK");
-
-        recv_data.read_skip<uint32>();                      // unk
-
-        MovementInfo movementInfo;
-        ReadMovementInfo(recv_data, &movementInfo);
-    */
-}
-
 void WorldSession::HandleSetActionBarTogglesOpcode(WorldPacket& recv_data)
 {
     uint8 ActionBar;
@@ -1042,17 +933,7 @@ void WorldSession::HandleSetActionBarTogglesOpcode(WorldPacket& recv_data)
         return;
     }
 
-    GetPlayer()->SetByteValue(PLAYER_FIELD_BYTES, 2, ActionBar);
-}
-
-void WorldSession::HandleWardenDataOpcode(WorldPacket& recv_data)
-{
-    recv_data.read_skip<uint8>();
-    /*
-        uint8 tmp;
-        recv_data >> tmp;
-        DEBUG_LOG("Received opcode CMSG_WARDEN_DATA, not resolve.uint8 = %u", tmp);
-    */
+    GetPlayer()->SetByteValue(PLAYER_FIELD_BYTES, PLAYER_FIELD_BYTES_OFFSET_ACTION_BAR_TOGGLES, ActionBar);
 }
 
 void WorldSession::HandlePlayedTime(WorldPacket& /*recv_data*/)
@@ -1089,7 +970,7 @@ void WorldSession::HandleInspectOpcode(WorldPacket& recv_data)
     for (uint32 i = 0; i < talent_points; ++i)
         data << uint8(0);
 
-    if (sWorld.getConfig(CONFIG_BOOL_TALENTS_INSPECTING) || _player->isGameMaster())
+    if (sWorld.getConfig(CONFIG_BOOL_TALENTS_INSPECTING) || _player->IsGameMaster())
     {
         // find class talent tabs (all players have 3 talent tabs)
         uint32 const* talentTabIds = GetTalentTabPages(plr->getClass());
@@ -1440,7 +1321,7 @@ void WorldSession::HandleSetDungeonDifficultyOpcode(WorldPacket& recv_data)
     }
 
     // Exception to set mode to normal for low-level players
-    if (_player->getLevel() < LEVELREQUIREMENT_HEROIC && mode > REGULAR_DIFFICULTY)
+    if (_player->GetLevel() < LEVELREQUIREMENT_HEROIC && mode > REGULAR_DIFFICULTY)
         return;
 
     if (Group* pGroup = _player->GetGroup())
@@ -1481,22 +1362,6 @@ void WorldSession::HandleCancelMountAuraOpcode(WorldPacket& /*recv_data*/)
     _player->Unmount();
 }
 
-void WorldSession::HandleMoveSetCanFlyAckOpcode(WorldPacket& recv_data)
-{
-    // fly mode on/off
-    DEBUG_LOG("WORLD: Received opcode CMSG_MOVE_SET_CAN_FLY_ACK");
-    // recv_data.hexlike();
-
-    MovementInfo movementInfo;
-
-    recv_data >> Unused<uint64>();                          // guid
-    recv_data >> Unused<uint32>();                          // unk
-    recv_data >> movementInfo;
-    recv_data >> Unused<uint32>();                          // unk2
-
-    _player->m_movementInfo.SetMovementFlags(movementInfo.GetMovementFlags());
-}
-
 void WorldSession::HandleRequestPetInfoOpcode(WorldPacket& /*recv_data */)
 {
     if (_player->GetPet())
@@ -1528,7 +1393,7 @@ void WorldSession::HandleCommentatorModeOpcode(WorldPacket& recv_data)
     Player* _player = GetPlayer();
 
     // Allow commentator mode only for players in GM mode
-    if (!_player->isGameMaster())
+    if (!_player->IsGameMaster())
         return;
 
     // This opcode can be used in three ways:

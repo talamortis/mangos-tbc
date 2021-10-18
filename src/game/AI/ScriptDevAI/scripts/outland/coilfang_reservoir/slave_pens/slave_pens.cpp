@@ -90,11 +90,6 @@ void instance_slave_pens::Update(const uint32 diff)
     }
 }
 
-InstanceData* GetInstanceData_instance_slave_pens(Map* map)
-{
-    return new instance_slave_pens(map);
-}
-
 /*######
 ## at_naturalist_bite
 ######*/
@@ -126,7 +121,7 @@ bool AreaTrigger_at_naturalist_bite(Player* player, AreaTriggerEntry const* /*pA
 bool GossipHello_npc_naturalist_bite(Player* player, Creature* creature)
 {
     // custom code required because it utilizes two entries
-    uint32 gossipId = creature->getFaction() == FACTION_RELEASED ? GOSSIP_RELEASED : GOSSIP_CAGED;
+    uint32 gossipId = creature->GetFaction() == FACTION_RELEASED ? GOSSIP_RELEASED : GOSSIP_CAGED;
     player->PrepareGossipMenu(creature, gossipId);
     player->SendPreparedGossip(creature);
 
@@ -137,7 +132,7 @@ void AddSC_instance_slave_pens()
 {
     Script* pNewScript = new Script;
     pNewScript->Name = "instance_slave_pens";
-    pNewScript->GetInstanceData = &GetInstanceData_instance_slave_pens;
+    pNewScript->GetInstanceData = &GetNewInstanceScript<instance_slave_pens>;
     pNewScript->RegisterSelf();
 
     pNewScript = new Script;

@@ -190,7 +190,7 @@ struct ScriptedAI : public CreatureAI
         CreatureList DoFindFriendlyCC(float range);
 
         // Returns a list of all friendly units missing a specific buff within range
-        CreatureList DoFindFriendlyMissingBuff(float range, uint32 spellId);
+        CreatureList DoFindFriendlyMissingBuff(float range, uint32 spellId, bool inCombat);
 
         // Return a player with at least minimumRange from m_creature
         Player* GetPlayerAtMinimumRange(float minimumRange) const;
@@ -202,8 +202,6 @@ struct ScriptedAI : public CreatureAI
         bool CanCast(Unit* target, SpellEntry const* spellInfo, bool triggered = false);
 
         void SetEquipmentSlots(bool loadDefault, int32 mainHand = EQUIP_NO_CHANGE, int32 offHand = EQUIP_NO_CHANGE, int32 ranged = EQUIP_NO_CHANGE);
-
-        bool EnterEvadeIfOutOfCombatArea(const uint32 diff);
 
     protected:
         std::string GetAIName() override { return m_creature->GetAIName(); }

@@ -49,7 +49,7 @@ void HomeMovementGenerator<Creature>::_setTargetLocation(Creature& owner)
 
     if (pos.IsEmpty())
         owner.GetRespawnCoord(pos.x, pos.y, pos.z, &pos.o);
-    if (owner.GetDistance(pos.GetPositionX(), pos.GetPositionY(), pos.GetPositionZ(), DIST_CALC_NONE) > 150.f * 150.f)
+    if (owner.GetDistance(pos.GetPositionX(), pos.GetPositionY(), pos.GetPositionZ(), DIST_CALC_NONE, owner.GetTransport()) > 150.f * 150.f)
     {
         if (!owner.IsInWorld() || !owner.GetMap()->IsDungeon())
         {
@@ -63,7 +63,9 @@ void HomeMovementGenerator<Creature>::_setTargetLocation(Creature& owner)
 
     PathFinder path(&owner);
 
-    path.calculate(pos.GetPositionX(), pos.GetPositionY(), pos.GetPositionZ(), true);
+    Position curPos = owner.GetPosition(owner.GetTransport());
+    // source and target pos must be local coords
+    path.calculate(G3D::Vector3(curPos.GetPositionX(), curPos.GetPositionY(), curPos.GetPositionZ()), G3D::Vector3(pos.GetPositionX(), pos.GetPositionY(), pos.GetPositionZ()), true);
 
     Movement::MoveSplineInit init(owner);
     init.MovebyPath(path.getPath());
@@ -91,7 +93,6 @@ void HomeMovementGenerator<Creature>::Finalize(Creature& owner)
         if (owner.GetTemporaryFactionFlags() & TEMPFACTION_RESTORE_REACH_HOME)
             owner.ClearTemporaryFaction();
 
-        owner.SetWalk(!owner.hasUnitState(UNIT_STAT_RUNNING_STATE), false);
         owner.LoadCreatureAddon(true);
         owner.AI()->JustReachedHome();
 

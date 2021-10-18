@@ -23,9 +23,7 @@ EndScriptData */
 
 /* Pre-nerf Changes
 Add Dragon's Breath ability - used shortly after Flame Wreath dissipates (random target in melee range).
-
-Patches
-2.1.0 - Shade of Aran will no longer cast Dragon's Breath.
+Patch_2.1.0 - Shade of Aran will no longer cast Dragon's Breath.
 */
 
 #include "AI/ScriptDevAI/include/sc_common.h"
@@ -94,7 +92,14 @@ enum
     MAX_SHADOWS_OF_ARAN         = 5,                    // this is not confirmed
 
     NORMAL_SPELL_COUNT          = 3,
+
+    ITEM_ATIESH_1               = 22589,
+    ITEM_ATIESH_2               = 22632,
+    ITEM_ATIESH_3               = 22631,
+    ITEM_ATIESH_4               = 22630,
 };
+
+static std::set<uint32> atieshStaves = { ITEM_ATIESH_1, ITEM_ATIESH_2, ITEM_ATIESH_3, ITEM_ATIESH_4 };
 
 enum SuperSpells
 {
@@ -119,7 +124,7 @@ enum AranActions // order based on priority
 
 struct boss_aranAI : public RangedCombatAI
 {
-    boss_aranAI(Creature* creature) : RangedCombatAI(creature, ARAN_ACTION_MAX), m_instance(static_cast<instance_karazhan*>(creature->GetInstanceData()))
+    boss_aranAI(Creature* creature) : RangedCombatAI(creature, ARAN_ACTION_MAX), m_instance(static_cast<instance_karazhan*>(creature->GetInstanceData())), m_atiesh(false)
     {
         AddTimerlessCombatAction(ARAN_ACTION_DRINK, true);
         AddTimerlessCombatAction(ARAN_ACTION_POTION, true);
@@ -143,6 +148,7 @@ struct boss_aranAI : public RangedCombatAI
     uint8 m_uiManaRecoveryStage;
 
     bool m_bDrinkInterrupted;
+    bool m_atiesh;
 
     std::vector<uint32> m_choiceVector;
 
@@ -188,6 +194,23 @@ struct boss_aranAI : public RangedCombatAI
             case SPELL_ARCANE_MISSILES: return 7000;
             case SPELL_FIREBALL:        return 3000;
             case SPELL_FROSTBOLT:       return 3000;
+        }
+    }
+
+    void MoveInLineOfSight(Unit* who) override
+    {
+        RangedCombatAI::MoveInLineOfSight(who);
+        if (!m_atiesh && who->IsPlayer())
+        {
+            Player* player = static_cast<Player*>(who);
+            if (Item* weapon = player->GetWeaponForAttack(BASE_ATTACK))
+            {
+                if (atieshStaves.find(weapon->GetEntry()) != atieshStaves.end())
+                {
+                    m_atiesh = true;
+                    DoScriptText(SAY_ATIESH, m_creature, who);
+                }
+            }
         }
     }
 
@@ -349,9 +372,10 @@ struct boss_aranAI : public RangedCombatAI
                 DisableCombatAction(action);
                 return;
             }
+
             case ARAN_ACTION_DRAGONS_BREATH:
             {
-                if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, uint32(0), SELECT_FLAG_PLAYER))
+                if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, uint32(0), (SELECT_FLAG_PLAYER | SELECT_FLAG_IN_MELEE_RANGE)))
                 {
                     DoCastSpellIfCan(target, SPELL_DRAGONS_BREATH, CAST_TRIGGERED);
                     DisableCombatAction(action);
@@ -384,7 +408,9 @@ struct boss_aranAI : public RangedCombatAI
                         if (DoCastSpellIfCan(m_creature, SPELL_FLAME_WREATH) == CAST_OK)
                         {
                             DoScriptText(urand(0, 1) ? SAY_FLAMEWREATH1 : SAY_FLAMEWREATH2, m_creature);
+#ifdef PRENERF_2_0_3
                             ResetCombatAction(ARAN_ACTION_DRAGONS_BREATH, 27000);
+#endif
                         }
                         break;
                     case SUPER_BLIZZARD:

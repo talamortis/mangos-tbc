@@ -2467,7 +2467,7 @@ void PlayerbotAI::HandleBotOutgoingPacket(const WorldPacket& packet)
                     {
                         // calculate skill requirement
                         uint32 skillValue = m_bot->GetSkillValue(reqSkill);
-                        uint32 targetLevel = c->getLevel();
+                        uint32 targetLevel = c->GetLevel();
                         uint32 reqSkillValue = targetLevel < 10 ? 0 : targetLevel < 20 ? (targetLevel - 10) * 10 : targetLevel * 5;
                         if (skillValue >= reqSkillValue)
                         {
@@ -3312,7 +3312,7 @@ void PlayerbotAI::DoNextCombatManeuver()
 
     // check for new targets
     if (m_ScenarioType == SCENARIO_PVP_DUEL)
-        GetDuelTarget(GetMaster()); // TODO: Wow... wait... what? So not right.
+        GetDuelTarget(GetMaster()); // TODO: Woah... wait... what? So not right.
     else
         Attack();
 
@@ -3903,7 +3903,7 @@ void PlayerbotAI::DoLoot()
 
     if (m_bot->GetDistance(wo) > CONTACT_DISTANCE + wo->GetObjectBoundingRadius())
     {
-        m_bot->GetMotionMaster()->MovePoint(wo->GetMapId(), wo->GetPositionX(), wo->GetPositionY(), wo->GetPositionZ());
+        m_bot->GetMotionMaster()->MovePoint(wo->GetMapId(), wo->GetPositionX(), wo->GetPositionY(), wo->GetPositionZ(), FORCED_MOVEMENT_RUN);
         // give time to move to point before trying again
         SetIgnoreUpdateTime(1);
         if (m_debugWhisper)
@@ -3938,7 +3938,7 @@ void PlayerbotAI::DoLoot()
                                                  (HasCollectFlag(COLLECT_FLAG_SKIN) && skillId == SKILL_SKINNING)))
                 {
                     // calculate skinning skill requirement
-                    uint32 targetLevel = c->getLevel();
+                    uint32 targetLevel = c->GetLevel();
                     reqSkillValue = targetLevel < 10 ? 0 : targetLevel < 20 ? (targetLevel - 10) * 10 : targetLevel * 5;
                 }
 
@@ -4233,7 +4233,7 @@ void PlayerbotAI::TurnInQuests(WorldObject* questgiver)
 
         // auto complete every completed quest this NPC has
         m_bot->PrepareQuestMenu(giverGUID);
-        QuestMenu& questMenu = m_bot->PlayerTalkClass->GetQuestMenu();
+        QuestMenu& questMenu = m_bot->GetPlayerMenu()->GetQuestMenu();
         for (uint32 iI = 0; iI < questMenu.MenuItemCount(); ++iI)
         {
             QuestMenuItem const& qItem = questMenu.GetItem(iI);
@@ -5585,7 +5585,7 @@ SpellCastResult PlayerbotAI::CastSpell(uint32 spellId)
 
                     // auto accept every available quest this NPC has
                     m_bot->PrepareQuestMenu(m_lootCurrent);
-                    QuestMenu& questMenu = m_bot->PlayerTalkClass->GetQuestMenu();
+                    QuestMenu& questMenu = m_bot->GetPlayerMenu()->GetQuestMenu();
                     for (uint32 iI = 0; iI < questMenu.MenuItemCount(); ++iI)
                     {
                         QuestMenuItem const& qItem = questMenu.GetItem(iI);
@@ -5694,7 +5694,7 @@ SpellCastResult PlayerbotAI::Buff(uint32 spellId, Unit* target, void (*beforeCas
         return SPELL_FAILED_BAD_IMPLICIT_TARGETS;
 
     // Select appropriate spell rank for target's level
-    spellProto = sSpellMgr.SelectAuraRankForLevel(spellProto, target->getLevel());
+    spellProto = sSpellMgr.SelectAuraRankForLevel(spellProto, target->GetLevel());
     if (!spellProto)
         return SPELL_NOT_FOUND;
 
@@ -6776,7 +6776,7 @@ void PlayerbotAI::findNearbyCreature()
             {
                 float x, y, z;
                 wo->GetContactPoint(m_bot, x, y, z, wo->GetObjectBoundingRadius());
-                m_bot->GetMotionMaster()->MovePoint(wo->GetMapId(), x, y, z, FORCED_MOVEMENT_NONE, false);
+                m_bot->GetMotionMaster()->MovePoint(wo->GetMapId(), x, y, z, FORCED_MOVEMENT_RUN, false);
                 // give time to move to point before trying again
                 SetIgnoreUpdateTime(1);
             }
@@ -7446,14 +7446,14 @@ void PlayerbotAI::_doSellItem(Item* const item, std::ostringstream& report, std:
         // We'll check to make sure its not a tradeskill tool, quest item etc, things that we don't want to lose.
         if (pProto->SellPrice > 0 && (pProto->Quality == ITEM_QUALITY_NORMAL || pProto->Quality == ITEM_QUALITY_UNCOMMON) && pProto->SubClass != ITEM_SUBCLASS_QUEST)
         {
-            if (pProto->RequiredLevel < (m_bot->getLevel() - m_mgr.gConfigSellLevelDiff) && pProto->SubClass != ITEM_SUBCLASS_WEAPON_MISC && pProto->FoodType == 0)
+            if (pProto->RequiredLevel < (m_bot->GetLevel() - m_mgr.gConfigSellLevelDiff) && pProto->SubClass != ITEM_SUBCLASS_WEAPON_MISC && pProto->FoodType == 0)
             {
                 if (pProto->Class == ITEM_CLASS_WEAPON)
                     autosell = 1;
                 if (pProto->Class == ITEM_CLASS_ARMOR)
                     autosell = 1;
             }
-            if (pProto->SubClass == ITEM_SUBCLASS_FOOD && (pProto->RequiredLevel < (m_bot->getLevel() - m_mgr.gConfigSellLevelDiff)))
+            if (pProto->SubClass == ITEM_SUBCLASS_FOOD && (pProto->RequiredLevel < (m_bot->GetLevel() - m_mgr.gConfigSellLevelDiff)))
             {
                 autosell = 1;
             }
@@ -7814,7 +7814,7 @@ void PlayerbotAI::ListQuests(WorldObject* questgiver)
 
     // list all bot quests this NPC has
     m_bot->PrepareQuestMenu(questgiver->GetObjectGuid());
-    QuestMenu& questMenu = m_bot->PlayerTalkClass->GetQuestMenu();
+    QuestMenu& questMenu = m_bot->GetPlayerMenu()->GetQuestMenu();
     std::ostringstream out;
     for (uint32 iI = 0; iI < questMenu.MenuItemCount(); ++iI)
     {
@@ -8398,7 +8398,7 @@ void PlayerbotAI::HandleCommand(const std::string& text, Player& fromPlayer)
             if (!pNpc)
                 return;
 
-            QuestMenu& questMenu = m_bot->PlayerTalkClass->GetQuestMenu();
+            QuestMenu& questMenu = m_bot->GetPlayerMenu()->GetQuestMenu();
             for (uint32 iI = 0; !wasRewarded && iI < questMenu.MenuItemCount(); ++iI)
             {
                 QuestMenuItem const& qItem = questMenu.GetItem(iI);
@@ -9591,7 +9591,26 @@ void PlayerbotAI::_HandleCommandTalent(std::string& text, Player& fromPlayer)
                     if (!spellInfo || !SpellMgr::IsSpellValid(spellInfo, m_bot, false))
                         continue;
 
-                    out << "|cff4e96f7|Htalent:" << talentInfo->RankID[curtalent_maxrank] << ":" << curtalent_maxrank << "|h[" << spellInfo->SpellName[GetMaster()->GetSession()->GetSessionDbcLocale()] << "]|h|r";
+                    // Get default locale for Spellnames by Master
+                    // e.g. 0 = eng | 3 = ger etc.
+                    int loc = GetMaster()->GetSession()->GetSessionDbcLocale();
+
+                    // fallback if master is not found/empty ?? correct me here if I'm wrong. :)
+                    if (!GetMaster())
+                    {
+                        loc = m_bot->GetSession()->GetSessionDbcLocale();
+                    }
+
+                    // Get Spells Name for link based on locale
+                    const char* bot_spell_to_learn = spellInfo->SpellName[loc];
+
+                    // fallback if nothing in current locale but locale is supported/found (e.g. spellname not available in loc = 3)
+                    if (spellInfo->SpellName[loc][0] == '\0')
+                    {
+                        bot_spell_to_learn = spellInfo->SpellName[0];
+                    }
+
+                    out << "|cff4e96f7|Htalent:" << talentInfo->TalentID << ":" << curtalent_maxrank << "|h[" << bot_spell_to_learn << "]|h|r";
                 }
             }
             SendWhisper(out.str(), fromPlayer);
@@ -9815,7 +9834,7 @@ void PlayerbotAI::_HandleCommandFind(std::string& text, Player& /*fromPlayer*/)
     }
 
     SetMovementOrder(MOVEMENT_STAY);
-    m_bot->GetMotionMaster()->MovePoint(go->GetMapId(), go->GetPositionX(), go->GetPositionY(), go->GetPositionZ());
+    m_bot->GetMotionMaster()->MovePoint(go->GetMapId(), go->GetPositionX(), go->GetPositionY(), go->GetPositionZ(), FORCED_MOVEMENT_RUN);
     m_lootTargets.clear();
     m_lootCurrent = ObjectGuid();
 }

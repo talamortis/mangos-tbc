@@ -114,7 +114,7 @@ bool AreaTrigger_at_shadowforge_bridge(Player* pPlayer, AreaTriggerEntry const* 
 {
     if (instance_blackrock_depths* pInstance = (instance_blackrock_depths*)pPlayer->GetInstanceData())
     {
-        if (pPlayer->isGameMaster() || !pPlayer->IsAlive() || pInstance->GetData(TYPE_BRIDGE) == DONE)
+        if (pPlayer->IsGameMaster() || !pPlayer->IsAlive() || pInstance->GetData(TYPE_BRIDGE) == DONE)
             return false;
 
         Creature* pPyromancer = pInstance->GetSingleCreatureFromStorage(NPC_LOREGRAIN);
@@ -213,7 +213,7 @@ bool AreaTrigger_at_ring_of_law(Player* pPlayer, AreaTriggerEntry const* pAt)
         if (pInstance->GetData(TYPE_RING_OF_LAW) == IN_PROGRESS || pInstance->GetData(TYPE_RING_OF_LAW) == DONE || pInstance->GetData(TYPE_RING_OF_LAW) == SPECIAL)
             return false;
 
-        if (pPlayer->isGameMaster())
+        if (pPlayer->IsGameMaster())
             return false;
 
         pInstance->SetData(TYPE_RING_OF_LAW, pInstance->GetData(TYPE_RING_OF_LAW) == DATA_BANNER_BEFORE_EVENT ? SPECIAL : IN_PROGRESS);
@@ -268,7 +268,7 @@ struct npc_grimstoneAI : public npc_escortAI
 
     void Reset() override
     {
-        m_creature->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NON_ATTACKABLE);
+        m_creature->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_SPAWNING);
 
         m_uiEventTimer        = 1000;
         m_uiEventPhase        = 0;

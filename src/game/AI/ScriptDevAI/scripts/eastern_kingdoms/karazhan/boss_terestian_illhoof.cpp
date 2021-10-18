@@ -83,6 +83,7 @@ struct boss_terestianAI : public CombatAI
         AddCombatAction(ILLHOOF_ACTION_SHADOWBOLT, 5000, 7000);
         AddCombatAction(ILLHOOF_ACTION_SUMMON, 10000u);
         AddCombatAction(ILLHOOF_ACTION_BERSERK, uint32(10 * MINUTE * IN_MILLISECONDS));
+        AddOnKillText(SAY_SLAY1, SAY_SLAY2);
     }
 
     ScriptedInstance* m_instance;
@@ -104,7 +105,11 @@ struct boss_terestianAI : public CombatAI
     {
         switch (id)
         {
+#ifdef PRENERF_2_0_3
             case ILLHOOF_ACTION_SUMMON_KILREK: return 30000;
+#else
+            case ILLHOOF_ACTION_SUMMON_KILREK: return 45000;
+#endif
             case ILLHOOF_ACTION_SACRIFICE: return urand(40000, 50000);
             case ILLHOOF_ACTION_SHADOWBOLT: return urand(6000, 16000);
             default: return 0; // never occurs but for compiler
@@ -123,7 +128,11 @@ struct boss_terestianAI : public CombatAI
             }
             case ILLHOOF_ACTION_SACRIFICE:
             {
+#ifdef PRENERF_2_0_3
                 if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, SPELL_SACRIFICE, SELECT_FLAG_PLAYER))
+#else
+                if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 1, SPELL_SACRIFICE, SELECT_FLAG_PLAYER))
+#endif
                 {
                     if (DoCastSpellIfCan(target, SPELL_SACRIFICE) == CAST_OK)
                     {
@@ -165,11 +174,6 @@ struct boss_terestianAI : public CombatAI
             m_instance->SetData(TYPE_TERESTIAN, IN_PROGRESS);
     }
 
-    void KilledUnit(Unit* /*victim*/) override
-    {
-        DoScriptText(urand(0, 1) ? SAY_SLAY1 : SAY_SLAY2, m_creature);
-    }
-
     void JustReachedHome() override
     {
         Creature* kilrek = m_creature->GetMap()->GetAnyTypeCreature(m_kilrekGuid);
@@ -200,7 +204,11 @@ struct boss_terestianAI : public CombatAI
             case NPC_KILREK:
                 m_kilrekGuid = summoned->GetObjectGuid();
                 if (m_creature->IsInCombat())
+                {
                     summoned->SetInCombatWithZone();
+                    summoned->AI()->AttackClosestEnemy();
+                }
+                m_creature->RemoveAurasDueToSpell(SPELL_BROKEN_PACT);
                 break;
             case NPC_DEMONCHAINS:
                 m_chainsGuid = summoned->GetObjectGuid();
@@ -232,17 +240,6 @@ struct boss_terestianAI : public CombatAI
 
         if (m_instance)
             m_instance->SetData(TYPE_TERESTIAN, DONE);
-    }
-
-    void UpdateAI(const uint32 uiDiff) override
-    {
-        if (!m_creature->SelectHostileTarget() || !m_creature->GetVictim())
-            return;
-
-        UpdateTimers(uiDiff, m_creature->IsInCombat());
-        ExecuteActions();
-
-        DoMeleeAttackIfReady();
     }
 };
 

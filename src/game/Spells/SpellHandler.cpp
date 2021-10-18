@@ -276,6 +276,9 @@ void WorldSession::HandleGameObjectUseOpcode(WorldPacket& recv_data)
     if (!_player->IsSelfMover())
         return;
 
+    if (_player->IsBeingTeleported())
+        return;
+
     GameObject* obj = _player->GetMap()->GetGameObject(guid);
     if (!obj)
         return;
@@ -378,7 +381,7 @@ void WorldSession::HandleCastSpellOpcode(WorldPacket& recvPacket)
     if (Unit* target = targets.getUnitTarget())
     {
         // if rank not found then function return nullptr but in explicit cast case original spell can be casted and later failed with appropriate error message
-        if (SpellEntry const* actualSpellInfo = sSpellMgr.SelectAuraRankForLevel(spellInfo, target->getLevel()))
+        if (SpellEntry const* actualSpellInfo = sSpellMgr.SelectAuraRankForLevel(spellInfo, target->GetLevel()))
             spellInfo = actualSpellInfo;
     }
 
@@ -391,6 +394,7 @@ void WorldSession::HandleCastSpellOpcode(WorldPacket& recvPacket)
     bool handled = false;
     Spell* spell = new Spell(mover, spellInfo, TRIGGERED_NONE);
     spell->m_cast_count = cast_count;                       // set count of casts
+    spell->m_clientCast = true;
     if (mover->HasGCD(spellInfo) || !mover->IsSpellReady(*spellInfo))
     {
         if (mover->HasGCDOrCooldownWithinMargin(*spellInfo))
@@ -426,10 +430,6 @@ void WorldSession::HandleCancelCastOpcode(WorldPacket& recvPacket)
         return;
 
     if (!_player->IsClientControlled(_player))
-        return;
-
-    // FIXME: hack, ignore unexpected client cancel Deadly Throw cast
-    if (spellId == 26679)
         return;
 
     if (_player->IsNonMeleeSpellCasted(false))

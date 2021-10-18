@@ -29,7 +29,11 @@ extern void AddSC_spell_scripts();
 extern void AddSC_world_map_scripts();
 extern void AddSC_boss_highlord_kruul();
 extern void AddSC_war_effort();
+extern void AddSC_suns_reach_reclamation();
 extern void AddSC_shade_of_the_horseman();
+extern void AddSC_childrens_week_tbc();
+extern void AddSC_midsummer_festival();
+extern void AddSC_brewfest();
 
 // eastern kingdoms
 extern void AddSC_blackrock_depths();                       // blackrock_depths
@@ -133,6 +137,7 @@ extern void AddSC_boss_kalecgos();
 extern void AddSC_boss_kiljaeden();
 extern void AddSC_boss_muru();
 extern void AddSC_instance_sunwell_plateau();
+extern void AddSC_sunwell_plateau();
 extern void AddSC_boss_archaedas();                         // uldaman
 extern void AddSC_instance_uldaman();
 extern void AddSC_uldaman();
@@ -345,6 +350,8 @@ extern void AddSC_boss_pathaleon_the_calculator();
 extern void AddSC_instance_mechanar();
 
 extern void AddSC_blades_edge_mountains();
+extern void AddSC_bashir_landing();
+extern void AddSC_shartuul_transporter();
 extern void AddSC_boss_doomlordkazzak();
 extern void AddSC_boss_doomwalker();
 extern void AddSC_hellfire_peninsula();
@@ -384,7 +391,11 @@ void AddScripts()
     AddSC_world_map_scripts();
     AddSC_boss_highlord_kruul();
     AddSC_war_effort();
+    AddSC_suns_reach_reclamation();
     AddSC_shade_of_the_horseman();
+    AddSC_childrens_week_tbc();
+    AddSC_midsummer_festival();
+    AddSC_brewfest();
 
     // eastern kingdoms
     AddSC_blackrock_depths();                               // blackrock_depths
@@ -488,6 +499,7 @@ void AddScripts()
     AddSC_boss_kiljaeden();
     AddSC_boss_muru();
     AddSC_instance_sunwell_plateau();
+    AddSC_sunwell_plateau();
     AddSC_boss_archaedas();                                 // uldaman
     AddSC_instance_uldaman();
     AddSC_uldaman();
@@ -700,6 +712,8 @@ void AddScripts()
     AddSC_instance_mechanar();
 
     AddSC_blades_edge_mountains();
+    AddSC_bashir_landing();
+    AddSC_shartuul_transporter();
     AddSC_boss_doomlordkazzak();
     AddSC_boss_doomwalker();
     AddSC_hellfire_peninsula();

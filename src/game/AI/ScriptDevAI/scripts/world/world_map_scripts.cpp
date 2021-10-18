@@ -30,6 +30,7 @@ EndScriptData */
 #include <array>
 #include <ctime>
 #include <cstring>
+#include "brewfest.h"
 
 enum
 {
@@ -71,7 +72,7 @@ bool ProcessEventTransports(uint32 uiEventId, Object* pSource, Object* /*pTarget
             break;
     }
     if (entry)
-        if (Creature* zeppelinMaster = ((ScriptedInstance*)transport->GetMap()->GetInstanceData())->GetSingleCreatureFromStorage(entry))
+        if (Creature* zeppelinMaster = static_cast<ScriptedInstance*>(transport->GetMap()->GetInstanceData())->GetSingleCreatureFromStorage(entry, true))
             zeppelinMaster->PlayDistanceSound(SOUND_ZEPPELIN_HORN);
 
     return true;

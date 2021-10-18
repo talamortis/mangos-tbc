@@ -105,7 +105,7 @@ struct mob_mature_netherwing_drakeAI : public ScriptedAI
             m_uiCreditTimer = 7000;
             m_creature->SetLevitate(false);
             m_creature->HandleEmote(EMOTE_ONESHOT_ATTACKUNARMED);
-            m_creature->RemoveByteFlag(UNIT_FIELD_BYTES_1, 3, UNIT_BYTE1_FLAG_FLY_ANIM);
+            m_creature->RemoveByteFlag(UNIT_FIELD_BYTES_1, UNIT_BYTES_1_OFFSET_MISC_FLAGS, UNIT_BYTE1_FLAG_FLY_ANIM);
         }
     }
 
@@ -146,7 +146,7 @@ struct mob_mature_netherwing_drakeAI : public ScriptedAI
 
                 Reset();
                 m_creature->SetLevitate(true);
-                m_creature->SetByteFlag(UNIT_FIELD_BYTES_1, 3, UNIT_BYTE1_FLAG_FLY_ANIM);
+                m_creature->SetByteFlag(UNIT_FIELD_BYTES_1, UNIT_BYTES_1_OFFSET_MISC_FLAGS, UNIT_BYTE1_FLAG_FLY_ANIM);
                 m_creature->GetMotionMaster()->Clear();
                 m_uiCreditTimer = 0;
             }
@@ -432,14 +432,12 @@ struct npc_dragonmaw_peonAI : public ScriptedAI
                 m_uiPoisonTimer -= uiDiff;
         }
 
+        if (!m_creature->SelectHostileTarget())
+            return;
+
         DoMeleeAttackIfReady();
     }
 };
-
-UnitAI* GetAI_npc_dragonmaw_peon(Creature* pCreature)
-{
-    return new npc_dragonmaw_peonAI(pCreature);
-}
 
 bool EffectDummyCreature_npc_dragonmaw_peon(Unit* pCaster, uint32 uiSpellId, SpellEffectIndex uiEffIndex, Creature* pCreatureTarget, ObjectGuid /*originalCasterGuid*/)
 {
@@ -1454,8 +1452,9 @@ struct npc_shadowlord_deathwailAI : public ScriptedAI
         m_bDeathwailGrounded = false;
         m_bEventInProgress = false;
         SetReactState(REACT_PASSIVE);
-        m_creature->SetByteFlag(UNIT_FIELD_BYTES_1, 3, UNIT_BYTE1_FLAG_FLY_ANIM);
+        m_creature->SetByteFlag(UNIT_FIELD_BYTES_1, UNIT_BYTES_1_OFFSET_MISC_FLAGS, UNIT_BYTE1_FLAG_FLY_ANIM);
         m_creature->SetLevitate(true);
+        SetDeathPrevention(true);
         Reset();
     }
 
@@ -1501,6 +1500,7 @@ struct npc_shadowlord_deathwailAI : public ScriptedAI
         m_bDeathwailGrounded = true;
         m_creature->GetMotionMaster()->MovePoint(0, DeathwailDescentCoords[0].xCoord, DeathwailDescentCoords[0].yCoord, DeathwailDescentCoords[0].zCoord);
         DoScriptText(SAY_BEGIN_DESCENT, m_creature);
+        SetDeathPrevention(false);
     }
 
     void MovementInform(uint32 motionType, uint32 pointId) override
@@ -1524,7 +1524,7 @@ struct npc_shadowlord_deathwailAI : public ScriptedAI
             case 9:
                 DoScriptText(SAY_HEART_RETRIEVED, m_creature);
                 SetReactState(REACT_AGGRESSIVE);
-                m_creature->RemoveByteFlag(UNIT_FIELD_BYTES_1, 3, UNIT_BYTE1_FLAG_FLY_ANIM);
+                m_creature->RemoveByteFlag(UNIT_FIELD_BYTES_1, UNIT_BYTES_1_OFFSET_MISC_FLAGS, UNIT_BYTE1_FLAG_FLY_ANIM);
                 m_creature->SetLevitate(false);
 
                 if (GameObject* goHoF = GetClosestGameObjectWithEntry(m_creature, GOBJECT_HEART_OF_FURY, 30.0f))
@@ -1771,6 +1771,8 @@ struct mob_shadowmoon_soulstealerAI : public ScriptedAI
 
     void Reset() override
     {
+        SetCombatMovement(false);
+        SetMeleeEnabled(false);
         m_cDeathwail = nullptr;
         m_bSixtyTriggered = false;
         m_bTwentyTriggered = false;
@@ -1835,6 +1837,9 @@ struct mob_shadowmoon_soulstealerAI : public ScriptedAI
 
     void UpdateAI(const uint32 /*uiDiff*/) override
     {
+        if (!m_creature->SelectHostileTarget())
+            return;
+
         if (!m_cDeathwail)
             return;
 
@@ -1862,11 +1867,6 @@ struct mob_shadowmoon_soulstealerAI : public ScriptedAI
         }
     }
 };
-
-UnitAI* GetAI_mob_shadowmoon_soulstealer(Creature* pCreature)
-{
-    return new mob_shadowmoon_soulstealerAI(pCreature);
-}
 
 /*#####
 #npc_spawned_oronok_tornheart
@@ -2786,6 +2786,7 @@ enum CommanderActions : uint32
     COMMANDER_ACTION_POST_MOVEMENT_FACE_DIRECTION, // Only for aldor
     COMMANDER_ACTION_POST_MOVEMENT_START_EVENT,
     COMMANDER_ACTION_WIN_RETURN,
+    COMMANDER_ACTION_FAIL_EVENT,
 };
 
 struct SpawnData
@@ -2866,9 +2867,9 @@ static DeadliestScriptInfo deadliestScriptInfo[COMMANDER_COUNT] =
     { NPC_ALDOR_DRAGONMAW_SKYBREAKER,   NPC_ALTAR_DEFENDER,   LAST_POINT_ARCUS, SAY_EVENT_ACCEPT_ARCUS, SAY_EVENT_START_ARCUS, SAY_EVENT_END_ARCUS, SAY_EVENT_ACCEPT_ARCUS, QUEST_DEADLIEST_TRAP_ALDOR }
 };
 
-struct npc_commanderAI : public ScriptedAI, public CombatActions
+struct npc_commanderAI : public CombatAI
 {
-    npc_commanderAI(Creature* creature, uint8 commanderId) : ScriptedAI(creature), CombatActions(COMMANDER_COMBAT_ACTION_MAX),
+    npc_commanderAI(Creature* creature, uint8 commanderId) : CombatAI(creature, COMMANDER_COMBAT_ACTION_MAX),
         m_defenderSpawns(DEFENDER_SPAWN_COUNT),
         m_dragonmawSpawns(DRAGONMAW_SPAWN_COUNT),
         m_killCounter(0),
@@ -2876,9 +2877,9 @@ struct npc_commanderAI : public ScriptedAI, public CombatActions
     {
         m_attackDistance = 30.f;
         m_meleeEnabled = false;
-        AddCombatAction(COMMANDER_COMBAT_ACTION_AIMED_SHOT, 0u);
-        AddCombatAction(COMMANDER_COMBAT_ACTION_MULTI_SHOT, 0u);
-        AddCombatAction(COMMANDER_COMBAT_ACTION_SHOOT, 0u);
+        AddCombatAction(COMMANDER_COMBAT_ACTION_AIMED_SHOT, GetInitialCombatActionTimer(COMMANDER_COMBAT_ACTION_AIMED_SHOT));
+        AddCombatAction(COMMANDER_COMBAT_ACTION_MULTI_SHOT, GetInitialCombatActionTimer(COMMANDER_COMBAT_ACTION_MULTI_SHOT));
+        AddCombatAction(COMMANDER_COMBAT_ACTION_SHOOT, GetInitialCombatActionTimer(COMMANDER_COMBAT_ACTION_SHOOT));
 
         AddCustomAction(COMMANDER_ACTION_START_QUEST_FLAGS, true, [&]() { m_creature->RemoveFlag(UNIT_NPC_FLAGS, UNIT_NPC_FLAG_QUESTGIVER); });
         AddCustomAction(COMMANDER_ACTION_START_QUEST_TEXT, true, [&]()
@@ -2893,6 +2894,11 @@ struct npc_commanderAI : public ScriptedAI, public CombatActions
             m_creature->GetRespawnCoord(x, y, z, &ori);
             m_creature->GetMotionMaster()->MovePoint(POINT_HOME, x, y, z);
         });
+        AddCustomAction(COMMANDER_ACTION_FAIL_EVENT, true, [&]()
+        {
+            m_creature->ForcedDespawn();
+            FailEvent();
+        });
     }
 
     GuidVector m_defenderSpawns;
@@ -2901,13 +2907,6 @@ struct npc_commanderAI : public ScriptedAI, public CombatActions
 
     uint8 m_killCounter;
     uint8 m_commanderId;
-
-    void Reset() override
-    {
-        ResetTimer(COMMANDER_COMBAT_ACTION_AIMED_SHOT, GetRepeatingCombatActionTimer(COMMANDER_COMBAT_ACTION_AIMED_SHOT));
-        ResetTimer(COMMANDER_COMBAT_ACTION_MULTI_SHOT, GetRepeatingCombatActionTimer(COMMANDER_COMBAT_ACTION_MULTI_SHOT));
-        ResetTimer(COMMANDER_COMBAT_ACTION_SHOOT,      GetRepeatingCombatActionTimer(COMMANDER_COMBAT_ACTION_SHOOT));
-    }
 
     void GetAIInformation(ChatHandler& reader) override
     {
@@ -2941,43 +2940,22 @@ struct npc_commanderAI : public ScriptedAI, public CombatActions
         return 0;
     }
 
-    void ExecuteActions() override
+    void ExecuteAction(uint32 action) override
     {
-        if (!CanExecuteCombatAction())
-            return;
-
-        for (uint32 i = 0; i < COMMANDER_COMBAT_ACTION_MAX; ++i)
+        switch (action)
         {
-            if (!GetActionReadyStatus(i))
-                continue;
-
-            switch (i)
-            {
-                case COMMANDER_COMBAT_ACTION_AIMED_SHOT:
-                    if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_AIMED_SHOT) == CAST_OK)
-                    {
-                        SetActionReadyStatus(i, false);
-                        ResetTimer(i, GetRepeatingCombatActionTimer(i));
-                        return;
-                    }
-                    continue;
-                case COMMANDER_COMBAT_ACTION_MULTI_SHOT:
-                    if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_MULTI_SHOT) == CAST_OK)
-                    {
-                        SetActionReadyStatus(i, false);
-                        ResetTimer(i, GetRepeatingCombatActionTimer(i));
-                        return;
-                    }
-                    continue;
-                case COMMANDER_COMBAT_ACTION_SHOOT:
-                    if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_SHOOT) == CAST_OK)
-                    {
-                        SetActionReadyStatus(i, false);
-                        ResetTimer(i, GetRepeatingCombatActionTimer(i));
-                        return;
-                    }
-                    continue;
-            }
+            case COMMANDER_COMBAT_ACTION_AIMED_SHOT:
+                if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_AIMED_SHOT) == CAST_OK)
+                    ResetCombatAction(action, GetRepeatingCombatActionTimer(action));
+                return;
+            case COMMANDER_COMBAT_ACTION_MULTI_SHOT:
+                if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_MULTI_SHOT) == CAST_OK)
+                    ResetCombatAction(action, GetRepeatingCombatActionTimer(action));
+                return;
+            case COMMANDER_COMBAT_ACTION_SHOOT:
+                if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_SHOOT) == CAST_OK)
+                    ResetCombatAction(action, GetRepeatingCombatActionTimer(action));
+                return;
         }
     }
 
@@ -3028,6 +3006,7 @@ struct npc_commanderAI : public ScriptedAI, public CombatActions
         ResetTimer(COMMANDER_ACTION_START_QUEST_FLAGS, 1000);
         ResetTimer(COMMANDER_ACTION_START_QUEST_TEXT, 2000);
         ResetTimer(COMMANDER_ACTION_START_QUEST_MOVEMENT, 4500);
+        m_creature->SetActiveObjectState(true);
     }
 
     virtual void FinishedWaypointMovement()
@@ -3035,6 +3014,7 @@ struct npc_commanderAI : public ScriptedAI, public CombatActions
         m_creature->GetMotionMaster()->Clear(false, true);
         m_creature->GetMotionMaster()->MoveIdle();
         m_creature->SetSheath(SHEATH_STATE_RANGED);
+        ResetTimer(COMMANDER_ACTION_FAIL_EVENT, 900000);
     }
 
     virtual void StartAttackingEvent()
@@ -3049,6 +3029,8 @@ struct npc_commanderAI : public ScriptedAI, public CombatActions
 
         DoScriptText(deadliestScriptInfo[m_commanderId].winText, m_creature, m_creature->GetMap()->GetPlayer(m_startingPlayer));
 
+        if (m_creature->IsInCombat())
+            EnterEvadeMode();
         ResetTimer(COMMANDER_ACTION_WIN_RETURN, 3000);
         ResetEvent();
     }
@@ -3065,6 +3047,14 @@ struct npc_commanderAI : public ScriptedAI, public CombatActions
         DespawnDragonmaw();
         m_startingPlayer = ObjectGuid();
         m_creature->SetSheath(SHEATH_STATE_MELEE);
+        DisableTimer(COMMANDER_ACTION_FAIL_EVENT);
+        m_creature->HandleEmote(0);
+        m_creature->SetActiveObjectState(false);
+    }
+
+    void JustDied(Unit* killer) override
+    {
+        FailEvent();
     }
 
     void MovementInform(uint32 movementType, uint32 data) override
@@ -3160,16 +3150,6 @@ struct npc_commander_arcusAI : public npc_commanderAI
         npc_commanderAI::StartAttackingEvent();
     }
 };
-
-UnitAI* GetAI_npc_commander_hobb(Creature* pCreature)
-{
-    return new npc_commander_hobbAI(pCreature);
-}
-
-UnitAI* GetAI_npc_commander_arcus(Creature* pCreature)
-{
-    return new npc_commander_arcusAI(pCreature);
-}
 
 bool QuestAccept_npc_commander(Player* player, Creature* questgiver, Quest const* quest)
 {
@@ -3272,31 +3252,35 @@ static DragonmawRacerScriptInfo dragonmawRacesScriptInfo[RACER_COUNT] =
     { QUEST_SKYSHATTER, SAY_START_SKYSHATTER, SPELL_ATTACK_SKYSHATTER, NPC_TARGET_SKYSHATTER, SPELL_AGGRO_CHECK_SKYSHATTER, SPELL_AGGRO_BURST_SKYSHATTER, SAY_END_SKYSHATTER }
 };
 
-struct npc_dragonmaw_racerAI : public npc_escortAI
+struct npc_dragonmaw_racerAI : public ScriptedAI
 {
-    npc_dragonmaw_racerAI(Creature* creature, uint8 racerId) : npc_escortAI(creature), m_racerId(racerId) { Reset(); }
+    npc_dragonmaw_racerAI(Creature* creature, uint8 racerId) : ScriptedAI(creature), m_racerId(racerId) { Reset(); }
 
     uint8 m_racerId;
     uint32 m_uiAttackTimer;
+    uint32 m_questId;
+    ObjectGuid m_playerRacerGuid;
 
     void Reset() override
     {
-        m_creature->SetCanFly(false);
+        m_creature->SetHover(false);
+        m_creature->SetLevitate(false);
         m_creature->SetWalk(true);
+        m_creature->GetMotionMaster()->MoveIdle();
         m_creature->SetFlag(UNIT_NPC_FLAGS, UNIT_NPC_FLAG_QUESTGIVER);
         m_uiAttackTimer = 0;
     }
 
-    void UpdateEscortAI(const uint32 uiDiff) override
+    void UpdateAI(const uint32 diff) override
     {
         if (m_uiAttackTimer)
         {
-            if (m_uiAttackTimer < uiDiff)
+            if (m_uiAttackTimer <= diff)
             {
                 AttackPlayer();
             }
             else
-                m_uiAttackTimer -= uiDiff;
+                m_uiAttackTimer -= diff;
         }
     }
 
@@ -3305,12 +3289,26 @@ struct npc_dragonmaw_racerAI : public npc_escortAI
         DoCastSpellIfCan(pSummoned, dragonmawRacesScriptInfo[m_racerId].attackSpellId);
     }
 
+    void Takeoff()
+    {
+        m_creature->SetHover(true);
+        m_creature->SetLevitate(true);
+    }
+
     void StartRace()
     {
         m_creature->SetWalk(false);
 
         if (dragonmawRacesScriptInfo[m_racerId].checkSpellId)
-            DoCastSpellIfCan(m_creature, dragonmawRacesScriptInfo[m_racerId].checkSpellId);
+            DoCastSpellIfCan(m_creature, dragonmawRacesScriptInfo[m_racerId].checkSpellId); // begins failure checking
+    }
+
+    void FailRace()
+    {
+        m_creature->RemoveAurasDueToSpell(dragonmawRacesScriptInfo[m_racerId].burstSpellId);
+        if (Player* player = m_creature->GetMap()->GetPlayer(m_playerRacerGuid))
+            player->FailQuest(m_questId);
+        m_creature->ForcedDespawn();
     }
 
     void StartAttack()
@@ -3324,7 +3322,7 @@ struct npc_dragonmaw_racerAI : public npc_escortAI
 
     virtual void AttackPlayer()
     {
-        if (Player* pPlayer = GetPlayerForEscort())
+        if (Player* pPlayer = m_creature->GetMap()->GetPlayer(m_playerRacerGuid))
         {
             float fX, fY, fZ;
             m_creature->GetRandomPoint(m_creature->GetPositionX(), m_creature->GetPositionY(), m_creature->GetPositionZ(), 15.0f, fX, fY, fZ);
@@ -3337,11 +3335,14 @@ struct npc_dragonmaw_racerAI : public npc_escortAI
 
     void FinishRace()
     {
+        m_creature->SetHover(false);
+        m_creature->SetLevitate(false);
+        m_creature->SetWalk(true);
         m_uiAttackTimer = 0;
-        if (Player* pPlayer = GetPlayerForEscort())
+        m_creature->RemoveAurasDueToSpell(dragonmawRacesScriptInfo[m_racerId].burstSpellId);
+        if (Player* pPlayer = m_creature->GetMap()->GetPlayer(m_playerRacerGuid))
         {
             DoScriptText(dragonmawRacesScriptInfo[m_racerId].winText, m_creature, pPlayer);
-            m_creature->SetCanFly(false);
             pPlayer->RewardPlayerAndGroupAtEventExplored(dragonmawRacesScriptInfo[m_racerId].questId, m_creature);
         }
     }
@@ -3351,22 +3352,27 @@ struct npc_dragonmaw_racer_muckjawAI : public npc_dragonmaw_racerAI
 {
     npc_dragonmaw_racer_muckjawAI(Creature* creature) : npc_dragonmaw_racerAI(creature, RACER_MUCKJAW) {}
 
-    void WaypointReached(uint32 uiPointId) override
+    void MovementInform(uint32 moveType, uint32 pointId) override
     {
-        switch (uiPointId)
+        if (moveType != PATH_MOTION_TYPE)
+            return;
+        switch (pointId)
         {
-        case 4:
-            m_creature->SetCanFly(true);
-            break;
-        case 7:
-            npc_dragonmaw_racerAI::StartRace();
-            break;
-        case 9:
-            npc_dragonmaw_racerAI::StartAttack();
-            break;
-        case 35:
-            npc_dragonmaw_racerAI::FinishRace();
-            break;
+            case 4:
+                npc_dragonmaw_racerAI::Takeoff();
+                break;
+            case 7:
+                npc_dragonmaw_racerAI::StartRace();
+                break;
+            case 9:
+                npc_dragonmaw_racerAI::StartAttack();
+                break;
+            case 35:
+                npc_dragonmaw_racerAI::FinishRace();
+                break;
+            case 37:
+                npc_dragonmaw_racerAI::Reset();
+                break;
         }
     }
 };
@@ -3375,22 +3381,27 @@ struct npc_dragonmaw_racer_tropeAI : public npc_dragonmaw_racerAI
 {
     npc_dragonmaw_racer_tropeAI(Creature* creature) : npc_dragonmaw_racerAI(creature, RACER_TROPE) {}
 
-    void WaypointReached(uint32 uiPointId) override
+    void MovementInform(uint32 moveType, uint32 pointId) override
     {
-        switch (uiPointId)
+        if (moveType != PATH_MOTION_TYPE)
+            return;
+        switch (pointId)
         {
-        case 5:
-            m_creature->SetCanFly(true);
-            break;
-        case 7:
-            npc_dragonmaw_racerAI::StartRace();
-            break;
-        case 10:
-            npc_dragonmaw_racerAI::StartAttack();
-            break;
-        case 53:
-            npc_dragonmaw_racerAI::FinishRace();
-            break;
+            case 5:
+                npc_dragonmaw_racerAI::Takeoff();
+                break;
+            case 7:
+                npc_dragonmaw_racerAI::StartRace();
+                break;
+            case 10:
+                npc_dragonmaw_racerAI::StartAttack();
+                break;
+            case 53:
+                npc_dragonmaw_racerAI::FinishRace();
+                break;
+            case 60:
+                npc_dragonmaw_racerAI::Reset();
+                break;
         }
     }
 };
@@ -3399,22 +3410,27 @@ struct npc_dragonmaw_racer_corlokAI : public npc_dragonmaw_racerAI
 {
     npc_dragonmaw_racer_corlokAI(Creature* creature) : npc_dragonmaw_racerAI(creature, RACER_CORLOK) {}
 
-    void WaypointReached(uint32 uiPointId) override
+    void MovementInform(uint32 moveType, uint32 pointId) override
     {
-        switch (uiPointId)
+        if (moveType != PATH_MOTION_TYPE)
+            return;
+        switch (pointId)
         {
-        case 6:
-            m_creature->SetCanFly(true);
-            break;
-        case 9:
-            npc_dragonmaw_racerAI::StartRace();
-            break;
-        case 12:
-            npc_dragonmaw_racerAI::StartAttack();
-            break;
-        case 79:
-            npc_dragonmaw_racerAI::FinishRace();
-            break;
+            case 6:
+                npc_dragonmaw_racerAI::Takeoff();
+                break;
+            case 9:
+                npc_dragonmaw_racerAI::StartRace();
+                break;
+            case 12:
+                npc_dragonmaw_racerAI::StartAttack();
+                break;
+            case 79:
+                npc_dragonmaw_racerAI::FinishRace();
+                break;
+            case 89:
+                npc_dragonmaw_racerAI::Reset();
+                break;
         }
     }
 };
@@ -3423,20 +3439,23 @@ struct npc_dragonmaw_racer_ichmanAI : public npc_dragonmaw_racerAI
 {
     npc_dragonmaw_racer_ichmanAI(Creature* creature) : npc_dragonmaw_racerAI(creature, RACER_ICHMAN) {}
 
-    void WaypointReached(uint32 uiPointId) override
+    void MovementInform(uint32 moveType, uint32 pointId) override
     {
-        switch (uiPointId)
+        switch (pointId)
         {
-        case 4:
-            m_creature->SetCanFly(true);
-            npc_dragonmaw_racerAI::StartRace();
-            break;
-        case 12:
-            npc_dragonmaw_racerAI::StartAttack();
-            break;
-        case 107:
-            npc_dragonmaw_racerAI::FinishRace();
-            break;
+            case 4:
+                npc_dragonmaw_racerAI::Takeoff();
+                npc_dragonmaw_racerAI::StartRace();
+                break;
+            case 12:
+                npc_dragonmaw_racerAI::StartAttack();
+                break;
+            case 107:
+                npc_dragonmaw_racerAI::FinishRace();
+                break;
+            case 111:
+                npc_dragonmaw_racerAI::Reset();
+                break;
         }
     }
 };
@@ -3445,28 +3464,31 @@ struct npc_dragonmaw_racer_mulverickAI : public npc_dragonmaw_racerAI
 {
     npc_dragonmaw_racer_mulverickAI(Creature* creature) : npc_dragonmaw_racerAI(creature, RACER_MULVERICK) {}
 
-    void WaypointReached(uint32 uiPointId) override
+    void MovementInform(uint32 moveType, uint32 pointId) override
     {
-        switch (uiPointId)
+        switch (pointId)
         {
-        case 5:
-            m_creature->SetCanFly(true);
-            break;
-        case 9:
-            npc_dragonmaw_racerAI::StartRace();
-            break;
-        case 12:
-            npc_dragonmaw_racerAI::StartAttack();
-            break;
-        case 166:
-            npc_dragonmaw_racerAI::FinishRace();
-            break;
+            case 5:
+                npc_dragonmaw_racerAI::Takeoff();
+                break;
+            case 9:
+                npc_dragonmaw_racerAI::StartRace();
+                break;
+            case 12:
+                npc_dragonmaw_racerAI::StartAttack();
+                break;
+            case 166:
+                npc_dragonmaw_racerAI::FinishRace();
+                break;
+            case 172:
+                npc_dragonmaw_racerAI::Reset();
+                break;
         }
     }
 
     void AttackPlayer() override
     {
-        if (Player* pPlayer = GetPlayerForEscort())
+        if (Player* pPlayer = m_creature->GetMap()->GetPlayer(m_playerRacerGuid))
         {
             float fX, fY, fZ;
             m_creature->GetRandomPoint(pPlayer->GetPositionX(), pPlayer->GetPositionY(), pPlayer->GetPositionZ(), 10.0f, fX, fY, fZ);
@@ -3480,31 +3502,33 @@ struct npc_dragonmaw_racer_skyshatterAI : public npc_dragonmaw_racerAI
 {
     npc_dragonmaw_racer_skyshatterAI(Creature* creature) : npc_dragonmaw_racerAI(creature, RACER_SKYSHATTER) {}
 
-    void WaypointReached(uint32 uiPointId) override
+    void MovementInform(uint32 moveType, uint32 pointId) override
     {
-        switch (uiPointId)
+        switch (pointId)
         {
-        case 3:
-            m_creature->SetCanFly(true);
-            break;
-        case 7:
-            if (Player* pPlayer = GetPlayerForEscort())
-                DoScriptText(SAY_MID_SKYSHATTER, m_creature, pPlayer);
-
-            npc_dragonmaw_racerAI::StartRace();
-            break;
-        case 10:
-            npc_dragonmaw_racerAI::StartAttack();
-            break;
-        case 140:
-            npc_dragonmaw_racerAI::FinishRace();
-            break;
+            case 3:
+                npc_dragonmaw_racerAI::Takeoff();
+                break;
+            case 7:
+                if (Player* pPlayer = m_creature->GetMap()->GetPlayer(m_playerRacerGuid))
+                    DoScriptText(SAY_MID_SKYSHATTER, m_creature, pPlayer);
+                npc_dragonmaw_racerAI::StartRace();
+                break;
+            case 10:
+                npc_dragonmaw_racerAI::StartAttack();
+                break;
+            case 140:
+                npc_dragonmaw_racerAI::FinishRace();
+                break;
+            case 145:
+                npc_dragonmaw_racerAI::Reset();
+                break;
         }
     }
 
     void AttackPlayer() override
     {
-        if (Player* pPlayer = GetPlayerForEscort())
+        if (Player* pPlayer = m_creature->GetMap()->GetPlayer(m_playerRacerGuid))
         {
             float fX, fY, fZ;
             m_creature->GetRandomPoint(pPlayer->GetPositionX(), pPlayer->GetPositionY(), pPlayer->GetPositionZ(), 5.0f, fX, fY, fZ);
@@ -3514,56 +3538,52 @@ struct npc_dragonmaw_racer_skyshatterAI : public npc_dragonmaw_racerAI
     }
 };
 
-UnitAI* GetAI_npc_dragonmaw_racer_muckjaw(Creature* pCreature)
-{
-    return new npc_dragonmaw_racer_muckjawAI(pCreature);
-}
-
-UnitAI* GetAI_npc_dragonmaw_racer_trope(Creature* pCreature)
-{
-    return new npc_dragonmaw_racer_tropeAI(pCreature);
-}
-
-UnitAI* GetAI_npc_dragonmaw_racer_corlok(Creature* pCreature)
-{
-    return new npc_dragonmaw_racer_corlokAI(pCreature);
-}
-
-UnitAI* GetAI_npc_dragonmaw_racer_ichman(Creature* pCreature)
-{
-    return new npc_dragonmaw_racer_ichmanAI(pCreature);
-}
-
-UnitAI* GetAI_npc_dragonmaw_racer_mulverick(Creature* pCreature)
-{
-    return new npc_dragonmaw_racer_mulverickAI(pCreature);
-}
-
-UnitAI* GetAI_npc_dragonmaw_racer_skyshatter(Creature* pCreature)
-{
-    return new npc_dragonmaw_racer_skyshatterAI(pCreature);
-}
-
 bool QuestAccept_npc_dragonmaw_racer(Player* player, Creature* questgiver, Quest const* quest)
 {
     switch (quest->GetQuestId())
     {
-    case QUEST_MUCKJAW:
-    case QUEST_TROPE:
-    case QUEST_CORLOK:
-    case QUEST_ICHMAN:
-    case QUEST_MULVERICK:
-    case QUEST_SKYSHATTER:
-        if (npc_dragonmaw_racerAI* ai = static_cast<npc_dragonmaw_racerAI*>(questgiver->AI()))
-        {
-            DoScriptText(dragonmawRacesScriptInfo[ai->m_racerId].startText, questgiver, player);
-            ai->Start(false, player, quest, true);
-        }
-        return true;
+        case QUEST_MUCKJAW:
+        case QUEST_TROPE:
+        case QUEST_CORLOK:
+        case QUEST_ICHMAN:
+        case QUEST_MULVERICK:
+        case QUEST_SKYSHATTER:
+            if (npc_dragonmaw_racerAI* ai = static_cast<npc_dragonmaw_racerAI*>(questgiver->AI()))
+            {
+                DoScriptText(dragonmawRacesScriptInfo[ai->m_racerId].startText, questgiver, player);
+                ai->m_playerRacerGuid = player->GetObjectGuid();
+                ai->m_questId = quest->GetQuestId();
+                questgiver->SetUInt32Value(UNIT_NPC_FLAGS, UNIT_NPC_FLAG_NONE);
+                questgiver->GetMotionMaster()->MovePath(0, PATH_FROM_EXTERNAL);
+            }
+            return true;
     }
 
     return false;
 }
+
+struct DragonmawKnockdownTheAggroCheck : public SpellScript
+{
+    void OnEffectExecute(Spell* spell, SpellEffectIndex /*effIdx*/) const override
+    {
+        if (!spell->GetUnitTarget()->IsPlayer() || spell->GetCaster()->IsPlayer())
+            return;
+
+        if (npc_dragonmaw_racerAI* ai = static_cast<npc_dragonmaw_racerAI*>(spell->GetCaster()->AI()))
+            if (((Player*)spell->GetUnitTarget())->GetObjectGuid() == ai->m_playerRacerGuid)
+                spell->SetScriptValue(1); // found player within 100 yds still - race may continue
+    }
+
+    void OnSuccessfulFinish(Spell* spell) const override
+    {
+        if (spell->GetCaster()->IsPlayer())
+            return;
+
+        if (!spell->GetScriptValue()) // lost race - player got too far away
+            if (npc_dragonmaw_racerAI* ai = static_cast<npc_dragonmaw_racerAI*>(spell->GetCaster()->AI()))
+                ai->FailRace();
+    }
+};
 
 /*######
 ## mob_bt_battle_fighter
@@ -4623,6 +4643,7 @@ struct npc_bt_battle_sensor : public ScriptedAI
                             senderAI->m_bIsWaypointing = false;
                         break;
                     }
+                    default: break;
                 }
 
                 break;
@@ -4708,6 +4729,7 @@ struct npc_bt_battle_sensor : public ScriptedAI
                             senderAI->m_bIsWaypointing = false;
                         break;
                     }
+                    default: break;
                 }
 
                 break;
@@ -4775,6 +4797,7 @@ struct npc_bt_battle_sensor : public ScriptedAI
                         }
                         break;
                     }
+                    default: break;
                 }
 
                 break;
@@ -4836,6 +4859,7 @@ struct npc_bt_battle_sensor : public ScriptedAI
                         }
                         break;
                     }
+                    default: break;
                 }
 
                 break;
@@ -4862,6 +4886,7 @@ struct npc_bt_battle_sensor : public ScriptedAI
                         m_caalenGuid = senderGuid;
                         break;
                     }
+                    default: break;
                 }
 
                 break;
@@ -4896,6 +4921,7 @@ struct npc_bt_battle_sensor : public ScriptedAI
                         if (Creature* senderAI = dynamic_cast<Creature*>(sender))
                             senderAI->ForcedDespawn(90000);
                         break;
+                    default: break;
                 }
 
                 break;
@@ -5292,6 +5318,34 @@ struct TagGreaterFelfireDiemetradon : public SpellScript, public AuraScript
     }
 };
 
+struct DragonmawIllusionBase : public AuraScript
+{
+    void OnApply(Aura* aura, bool apply) const override
+    {
+        if (apply)
+        {
+            aura->GetTarget()->CastSpell(nullptr, 40216, TRIGGERED_OLD_TRIGGERED);
+            aura->GetTarget()->CastSpell(nullptr, 42016, TRIGGERED_OLD_TRIGGERED);
+        }
+        else
+        {
+            aura->GetTarget()->RemoveAurasDueToSpell(40216);
+            aura->GetTarget()->RemoveAurasDueToSpell(42016);
+        }
+    }
+};
+
+struct DragonmawIllusionTransform : public AuraScript
+{
+    void OnApply(Aura* aura, bool apply) const override
+    {
+        if (apply)
+            aura->GetTarget()->OverrideMountDisplayId(16314);
+        else
+            aura->GetTarget()->OverrideMountDisplayId(0);
+    }
+};
+
 void AddSC_shadowmoon_valley()
 {
     Script* pNewScript = new Script;
@@ -5306,7 +5360,7 @@ void AddSC_shadowmoon_valley()
 
     pNewScript = new Script;
     pNewScript->Name = "npc_dragonmaw_peon";
-    pNewScript->GetAI = &GetAI_npc_dragonmaw_peon;
+    pNewScript->GetAI = &GetNewAIInstance<npc_dragonmaw_peonAI>;
     pNewScript->pEffectDummyNPC = &EffectDummyCreature_npc_dragonmaw_peon;
     pNewScript->RegisterSelf();
 
@@ -5339,7 +5393,7 @@ void AddSC_shadowmoon_valley()
 
     pNewScript = new Script;
     pNewScript->Name = "mob_shadowmoon_soulstealer";
-    pNewScript->GetAI = &GetAI_mob_shadowmoon_soulstealer;
+    pNewScript->GetAI = &GetNewAIInstance<mob_shadowmoon_soulstealerAI>;
     pNewScript->RegisterSelf();
 
     pNewScript = new Script;
@@ -5381,49 +5435,49 @@ void AddSC_shadowmoon_valley()
 
     pNewScript = new Script;
     pNewScript->Name = "npc_commander_hobb";
-    pNewScript->GetAI = &GetAI_npc_commander_hobb;
+    pNewScript->GetAI = &GetNewAIInstance<npc_commander_hobbAI>;
     pNewScript->pQuestAcceptNPC = &QuestAccept_npc_commander;
     pNewScript->RegisterSelf();
 
     pNewScript = new Script;
     pNewScript->Name = "npc_commander_arcus";
-    pNewScript->GetAI = &GetAI_npc_commander_arcus;
+    pNewScript->GetAI = &GetNewAIInstance<npc_commander_arcusAI>;
     pNewScript->pQuestAcceptNPC = &QuestAccept_npc_commander;
     pNewScript->RegisterSelf();
 
     pNewScript = new Script;
     pNewScript->Name = "npc_dragonmaw_racer_muckjaw";
-    pNewScript->GetAI = &GetAI_npc_dragonmaw_racer_muckjaw;
+    pNewScript->GetAI = &GetNewAIInstance<npc_dragonmaw_racer_muckjawAI>;
     pNewScript->pQuestAcceptNPC = &QuestAccept_npc_dragonmaw_racer;
     pNewScript->RegisterSelf();
 
     pNewScript = new Script;
     pNewScript->Name = "npc_dragonmaw_racer_trope";
-    pNewScript->GetAI = &GetAI_npc_dragonmaw_racer_trope;
+    pNewScript->GetAI = &GetNewAIInstance<npc_dragonmaw_racer_tropeAI>;
     pNewScript->pQuestAcceptNPC = &QuestAccept_npc_dragonmaw_racer;
     pNewScript->RegisterSelf();
 
     pNewScript = new Script;
     pNewScript->Name = "npc_dragonmaw_racer_corlok";
-    pNewScript->GetAI = &GetAI_npc_dragonmaw_racer_corlok;
+    pNewScript->GetAI = &GetNewAIInstance<npc_dragonmaw_racer_corlokAI>;
     pNewScript->pQuestAcceptNPC = &QuestAccept_npc_dragonmaw_racer;
     pNewScript->RegisterSelf();
 
     pNewScript = new Script;
     pNewScript->Name = "npc_dragonmaw_racer_ichman";
-    pNewScript->GetAI = &GetAI_npc_dragonmaw_racer_ichman;
+    pNewScript->GetAI = &GetNewAIInstance<npc_dragonmaw_racer_ichmanAI>;
     pNewScript->pQuestAcceptNPC = &QuestAccept_npc_dragonmaw_racer;
     pNewScript->RegisterSelf();
 
     pNewScript = new Script;
     pNewScript->Name = "npc_dragonmaw_racer_mulverick";
-    pNewScript->GetAI = &GetAI_npc_dragonmaw_racer_mulverick;
+    pNewScript->GetAI = &GetNewAIInstance<npc_dragonmaw_racer_mulverickAI>;
     pNewScript->pQuestAcceptNPC = &QuestAccept_npc_dragonmaw_racer;
     pNewScript->RegisterSelf();
 
     pNewScript = new Script;
     pNewScript->Name = "npc_dragonmaw_racer_skyshatter";
-    pNewScript->GetAI = &GetAI_npc_dragonmaw_racer_skyshatter;
+    pNewScript->GetAI = &GetNewAIInstance<npc_dragonmaw_racer_skyshatterAI>;
     pNewScript->pQuestAcceptNPC = &QuestAccept_npc_dragonmaw_racer;
     pNewScript->RegisterSelf();
 
@@ -5437,5 +5491,8 @@ void AddSC_shadowmoon_valley()
     pNewScript->GetAI = &GetAI_npc_bt_battle_sensor;
     pNewScript->RegisterSelf();
 
+    RegisterSpellScript<DragonmawKnockdownTheAggroCheck>("spell_dragonmaw_knockdown_the_aggro_check");
     RegisterScript<TagGreaterFelfireDiemetradon>("spell_tag_for_single_use");
+    RegisterAuraScript<DragonmawIllusionBase>("spell_dragonmaw_illusion_base");
+    RegisterAuraScript<DragonmawIllusionTransform>("spell_dragonmaw_illusion_transform");
 }

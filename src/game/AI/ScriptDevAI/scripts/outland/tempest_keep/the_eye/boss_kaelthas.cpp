@@ -25,9 +25,9 @@ EndScriptData */
 #include "the_eye.h"
 #include "AI/ScriptDevAI/base/CombatAI.h"
 
-// #define FAST_TIMERS
-// #define FAST_TRANSITION_TIMERS
-// #define NO_PHOENIX
+//#define FAST_TIMERS
+//#define FAST_TRANSITION_TIMERS
+//#define NO_PHOENIX
 
 enum
 {
@@ -196,11 +196,6 @@ enum
     MAX_MIND_CONTROL                    = 3,
 };
 
-enum Timers
-{
-    TIMER_PHASE_2_WEAPONS_DURATION = 90000, // very early pre 2.1 - 90s (90000), later 120s (120000)
-};
-
 static const uint32 m_auiSpellSummonWeapon[MAX_WEAPONS] =
 {
     SPELL_SUMMON_WEAPONA, SPELL_SUMMON_WEAPONB, SPELL_SUMMON_WEAPONC, SPELL_SUMMON_WEAPOND,
@@ -212,12 +207,6 @@ static const uint32 m_auiSpellGravityLapseTeleport[] =
 {
     35966, 35967, 35968, 35969, 35970, 35971, 35972, 35973, 35974, 35975, 35976, 35977, 35978, 35979, 35980,
     35981, 35982, 35983, 35984, 35985, 35986, 35987, 35988, 35989, 35990
-};
-
-// item removal spells
-static const uint32 m_auiSpellRemoveItems[] =
-{
-    39498, 39499, 39500, 39501, 39502, 39503, 39504
 };
 
 static const float aCenterPos[3] = { 796.641f, -0.588817f, 48.72847f};
@@ -268,13 +257,12 @@ enum KaelThasActions
 
 struct boss_kaelthasAI : public ScriptedAI
 {
-    boss_kaelthasAI(Creature* pCreature) : ScriptedAI(pCreature)
+    boss_kaelthasAI(Creature* creature) : ScriptedAI(creature), m_instance(static_cast<ScriptedInstance*>(creature->GetInstanceData()))
     {
-        m_pInstance = (ScriptedInstance*)pCreature->GetInstanceData();
         Reset();
     }
 
-    ScriptedInstance* m_pInstance;
+    ScriptedInstance* m_instance;
 
     uint32 m_uiFireballTimer;
     uint32 m_uiArcaneDisruptionTimer;
@@ -291,7 +279,6 @@ struct boss_kaelthasAI : public ScriptedAI
     uint32 m_uiNetherBeamTimer;
     uint32 m_uiNetherVaporTimer;
     uint8 m_uiGravityIndex;
-    uint8 m_uiItemIndex;
 
     uint32 m_uiPhaseTimer;
     uint8 m_uiPhase;
@@ -347,7 +334,6 @@ struct boss_kaelthasAI : public ScriptedAI
         m_uiNetherBeamTimer         = 8000;
         m_uiNetherVaporTimer        = 10000;
         m_uiGravityIndex            = 0;
-        m_uiItemIndex               = 0;
 
         m_phaseTransitionGrowthTimer = 0;
         m_phaseTransitionGrowthStage = 0;
@@ -389,6 +375,15 @@ struct boss_kaelthasAI : public ScriptedAI
         m_creature->UpdateSpeed(MOVE_RUN, true);
     }
 
+    void JustRespawned()
+    {
+        ScriptedAI::JustRespawned();
+        if (m_instance)
+            for (unsigned int aAdvisor : aAdvisors)
+                if (Creature* add = m_instance->GetSingleCreatureFromStorage(aAdvisor))
+                    add->Respawn();
+    }
+
     void GetAIInformation(ChatHandler& reader) override
     {
         reader.PSendSysMessage("Kael'thas is currently in phase %u", uint32(m_uiPhase));
@@ -396,26 +391,10 @@ struct boss_kaelthasAI : public ScriptedAI
 
     void ReceiveAIEvent(AIEventType eventType, Unit* /*sender*/, Unit* /*invoker*/, uint32 /*miscValue*/) override
     {
-        if (eventType == AI_EVENT_CUSTOM_A)
+        if (eventType == AI_EVENT_CUSTOM_B)
         {
-
+            DoDespawnSummons();
         }
-    }
-
-    void EnterEvadeMode() override
-    {
-        for (ObjectGuid guid : m_charmTargets) // TODO: Add despawn on evade
-        {
-            if (Player* player = m_creature->GetMap()->GetPlayer(guid))
-            {
-                if (player->HasAura(SPELL_MIND_CONTROL))
-                {
-                    player->RemoveAurasDueToSpell(SPELL_MIND_CONTROL);
-                    player->Suicide();
-                }
-            }
-        }
-        ScriptedAI::EnterEvadeMode();
     }
 
     void DoDespawnSummons()
@@ -435,13 +414,15 @@ struct boss_kaelthasAI : public ScriptedAI
     }
 
     // Custom Move in LoS function
-    void MoveInLineOfSight(Unit* pWho) override
+    void MoveInLineOfSight(Unit* who) override
     {
-        if (m_uiPhase == PHASE_0_NOT_BEGUN && pWho->GetTypeId() == TYPEID_PLAYER && !((Player*)pWho)->isGameMaster() &&
-                m_creature->IsWithinDistInMap(pWho, m_creature->GetAttackDistance(pWho)) && m_creature->IsWithinLOSInMap(pWho))
+        if (m_uiPhase == PHASE_0_NOT_BEGUN && who->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PLAYER_CONTROLLED) &&
+                m_creature->IsWithinDistInMap(who, m_creature->GetAttackDistance(who)) && m_creature->IsWithinLOSInMap(who) && m_creature->CanAttackOnSight(who))
         {
+            if (who->IsPlayer() && static_cast<Player*>(who)->IsGameMaster())
+                return;
             DoScriptText(SAY_INTRO, m_creature);
-            DoCastSpellIfCan(m_creature, SPELL_REMOVE_WEAPONS, CAST_TRIGGERED);
+            m_creature->CastSpell(nullptr, SPELL_REMOVE_WEAPONS, TRIGGERED_OLD_TRIGGERED);
             m_uiPhase = PHASE_1_ADVISOR;
 
             // Set the player in combat with the boss
@@ -451,12 +432,12 @@ struct boss_kaelthasAI : public ScriptedAI
 
             m_creature->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE);
 
-            if (m_pInstance)
-                m_pInstance->SetData(TYPE_KAELTHAS, IN_PROGRESS);
+            if (m_instance)
+                m_instance->SetData(TYPE_KAELTHAS, IN_PROGRESS);
         }
     }
 
-    void KilledUnit(Unit* /*pUnit*/) override
+    void KilledUnit(Unit* /*unit*/) override
     {
         switch (urand(0, 2))
         {
@@ -466,13 +447,13 @@ struct boss_kaelthasAI : public ScriptedAI
         }
     }
 
-    void JustDied(Unit* /*pKiller*/) override
+    void JustDied(Unit* /*killer*/) override
     {
         DoScriptText(SAY_DEATH, m_creature);
-        DoCastSpellIfCan(m_creature, SPELL_REMOVE_WEAPONS);
+        m_creature->CastSpell(nullptr, SPELL_REMOVE_WEAPONS, TRIGGERED_OLD_TRIGGERED);
 
-        if (m_pInstance)
-            m_pInstance->SetData(TYPE_KAELTHAS, DONE);
+        if (m_instance)
+            m_instance->SetData(TYPE_KAELTHAS, DONE);
 
         DoDespawnSummons();
         ResetSize();
@@ -480,47 +461,43 @@ struct boss_kaelthasAI : public ScriptedAI
 
     void JustReachedHome() override
     {
-        DoCastSpellIfCan(m_creature, SPELL_REMOVE_WEAPONS);
+        m_creature->CastSpell(nullptr, SPELL_REMOVE_WEAPONS, TRIGGERED_OLD_TRIGGERED);
 
-        if (m_pInstance)
-            m_pInstance->SetData(TYPE_KAELTHAS, FAIL);
+        if (m_instance)
+            m_instance->SetData(TYPE_KAELTHAS, FAIL);
     }
 
-    void JustSummoned(Creature* pSummoned) override
+    void JustSummoned(Creature* summoned) override
     {
-        switch (pSummoned->GetEntry())
+        switch (summoned->GetEntry())
         {
             case NPC_FLAME_STRIKE_TRIGGER:
             {
-                DoCastSpellIfCan(pSummoned, SPELL_FLAME_STRIKE_DUMMY, CAST_FORCE_TARGET_SELF | CAST_TRIGGERED | CAST_AURA_NOT_PRESENT);
+                DoCastSpellIfCan(summoned, SPELL_FLAME_STRIKE_DUMMY, CAST_FORCE_TARGET_SELF | CAST_TRIGGERED | CAST_AURA_NOT_PRESENT);
                 break;
             }
             case NPC_NETHER_VAPOR:
             {
-                m_netherVapor.push_back(pSummoned->GetObjectGuid());
+                m_netherVapor.push_back(summoned->GetObjectGuid());
                 break;
             }
-            case NPC_PHOENIX:
+            default: // Weapons
             {
-                pSummoned->SetInCombatWithZone();
-                break;
-            }
-            default:
-            {
-                m_weapons.push_back(pSummoned->GetObjectGuid());
+                m_weapons.push_back(summoned->GetObjectGuid());
                 m_weaponAttackTimer = 2000;
-                pSummoned->SetCorpseDelay(60);
+                summoned->AI()->SetReactState(REACT_PASSIVE);
+                summoned->SetCorpseDelay(60);
                 break;
             }
         }
             
-        m_lSummonedGuidList.push_back(pSummoned->GetObjectGuid());
+        m_lSummonedGuidList.push_back(summoned->GetObjectGuid());
     }
 
-    void SpellHit(Unit* /*pCaster*/, const SpellEntry* pSpell) override
+    void SpellHit(Unit* /*caster*/, const SpellEntry* spellInfo) override
     {
         // Handle summon weapons event
-        if (pSpell->Id == SPELL_SUMMON_WEAPONS)
+        if (spellInfo->Id == SPELL_SUMMON_WEAPONS)
         {
             for (unsigned int i : m_auiSpellSummonWeapon)
                 DoCastSpellIfCan(m_creature, i, CAST_TRIGGERED);
@@ -529,30 +506,27 @@ struct boss_kaelthasAI : public ScriptedAI
 #ifdef FAST_TIMERS
             m_uiPhaseTimer = 10000;
 #else
-            m_uiPhaseTimer = TIMER_PHASE_2_WEAPONS_DURATION;
+            m_uiPhaseTimer = 120000;
+#endif
+#ifdef PRENERF_2_0_3
+            m_uiPhaseTimer = 90000; // very early pre 2.1 - 90s (90000), later 120s (120000);
 #endif
         }
     }
 
-    void SpellHitTarget(Unit* pTarget, const SpellEntry* pSpell) override
+    void SpellHitTarget(Unit* target, const SpellEntry* spellInfo) override
     {
         // Handle gravity lapse teleport - each player hit has his own teleport spell
-        if (pSpell->Id == SPELL_GRAVITY_LAPSE && pTarget->GetTypeId() == TYPEID_PLAYER)
+        if (spellInfo->Id == SPELL_GRAVITY_LAPSE && target->GetTypeId() == TYPEID_PLAYER)
         {
-            DoCastSpellIfCan(pTarget, m_auiSpellGravityLapseTeleport[m_uiGravityIndex], CAST_TRIGGERED);
-            pTarget->CastSpell(pTarget, SPELL_GRAVITY_LAPSE_KNOCKBACK, TRIGGERED_OLD_TRIGGERED);
-            pTarget->CastSpell(pTarget, SPELL_GRAVITY_LAPSE_AURA, TRIGGERED_OLD_TRIGGERED);
+            DoCastSpellIfCan(target, m_auiSpellGravityLapseTeleport[m_uiGravityIndex], CAST_TRIGGERED);
+            target->CastSpell(target, SPELL_GRAVITY_LAPSE_KNOCKBACK, TRIGGERED_OLD_TRIGGERED);
+            target->CastSpell(target, SPELL_GRAVITY_LAPSE_AURA, TRIGGERED_OLD_TRIGGERED);
             ++m_uiGravityIndex;
         }
-        // Handle remove items - each item has its own removal spell
-        if (pSpell->Id == SPELL_REMOVE_WEAPONS && pTarget->GetTypeId() == TYPEID_PLAYER)
-        {
-            DoCastSpellIfCan(pTarget, m_auiSpellRemoveItems[m_uiItemIndex], CAST_TRIGGERED);
-            ++m_uiItemIndex;
-        }
 
-        if (pSpell->Id == SPELL_MIND_CONTROL)
-            m_charmTargets.insert(pTarget->GetObjectGuid());
+        if (spellInfo->Id == SPELL_MIND_CONTROL)
+            m_charmTargets.insert(target->GetObjectGuid());
     }
 
     void OnSpellInterrupt(SpellEntry const* spellInfo) override
@@ -561,12 +535,12 @@ struct boss_kaelthasAI : public ScriptedAI
             m_actionReadyStatus[KAEL_ACTION_PYROBLAST_SEQUENCE] = false;
     }
 
-    void MovementInform(uint32 uiMotionType, uint32 uiPointId) override
+    void MovementInform(uint32 motionType, uint32 pointId) override
     {
-        if (uiMotionType != POINT_MOTION_TYPE || !uiPointId)
+        if (motionType != POINT_MOTION_TYPE || !pointId)
             return;
 
-        switch (uiPointId)
+        switch (pointId)
         {
             case POINT_ID_CENTER:
             {
@@ -579,7 +553,7 @@ struct boss_kaelthasAI : public ScriptedAI
                 if (m_worldTriggersFirstStage.empty())
                 {
                     GuidVector triggers;
-                    m_pInstance->GetCreatureGuidVectorFromStorage(NPC_WORLD_TRIGGER_LARGE, triggers);
+                    m_instance->GetCreatureGuidVectorFromStorage(NPC_WORLD_TRIGGER_LARGE, triggers);
 
                     if (triggers.size() < TRIGGERS_TOTAL)
                         sLog.outErrorDb("Kaelthas Sunstrider script is missing World Trigger Large NPCs, current count %lu, expected count %u", triggers.size(), TRIGGERS_TOTAL);
@@ -667,7 +641,7 @@ struct boss_kaelthasAI : public ScriptedAI
                             SetCombatScriptStatus(true);
                             SetCombatMovement(false);
 
-                            m_creature->GetMotionMaster()->MovePoint(POINT_ID_CENTER, aCenterPos[0], aCenterPos[1], aCenterPos[2]);
+                            m_creature->GetMotionMaster()->MovePoint(POINT_ID_CENTER, aCenterPos[0], aCenterPos[1], aCenterPos[2], FORCED_MOVEMENT_RUN);
 
                             m_uiPhase = PHASE_TRANSITION;
                             m_actionReadyStatus[i] = false;
@@ -688,9 +662,9 @@ struct boss_kaelthasAI : public ScriptedAI
                     }
                     case KAEL_ACTION_FLAMESTRIKE:
                     {
-                        if (Unit* pTarget = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, nullptr, SELECT_FLAG_PLAYER))
+                        if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, nullptr, SELECT_FLAG_PLAYER))
                         {
-                            if (DoCastSpellIfCan(pTarget, SPELL_FLAME_STRIKE) == CAST_OK)
+                            if (DoCastSpellIfCan(target, SPELL_FLAME_STRIKE) == CAST_OK)
                             {
                                 m_uiFlameStrikeTimer = 30000;
                                 m_actionReadyStatus[i] = false;
@@ -788,7 +762,7 @@ struct boss_kaelthasAI : public ScriptedAI
                     }
                     case KAEL_ACTION_NETHER_BEAM:
                     {
-                        if (Unit* pTarget = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, nullptr, SELECT_FLAG_PLAYER))
+                        if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, nullptr, SELECT_FLAG_PLAYER))
                         {
                             if (DoCastSpellIfCan(m_creature, SPELL_NETHER_BEAM) == CAST_OK)
                             {
@@ -857,7 +831,7 @@ struct boss_kaelthasAI : public ScriptedAI
 
                 if (m_uiPhaseTimer <= uiDiff)
                 {
-                    if (!m_pInstance)
+                    if (!m_instance)
                         return;
 
                     switch (m_uiPhaseSubphase)
@@ -871,10 +845,11 @@ struct boss_kaelthasAI : public ScriptedAI
 #endif
                             break;
                         case 1:
-                            if (Creature* pAdvisor = m_pInstance->GetSingleCreatureFromStorage(NPC_THALADRED))
+                            if (Creature* advisor = m_instance->GetSingleCreatureFromStorage(NPC_THALADRED))
                             {
-                                pAdvisor->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_PLAYER);
-                                pAdvisor->SetInCombatWithZone();
+                                advisor->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_PLAYER);
+                                advisor->SetInCombatWithZone();
+                                advisor->AI()->AttackClosestEnemy();
                             }
                             m_uiPhaseTimer = 0;
                             break;
@@ -887,10 +862,11 @@ struct boss_kaelthasAI : public ScriptedAI
 #endif
                             break;
                         case 3:
-                            if (Creature* pAdvisor = m_pInstance->GetSingleCreatureFromStorage(NPC_SANGUINAR))
+                            if (Creature* advisor = m_instance->GetSingleCreatureFromStorage(NPC_SANGUINAR))
                             {
-                                pAdvisor->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_PLAYER);
-                                pAdvisor->SetInCombatWithZone();
+                                advisor->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_PLAYER);
+                                advisor->SetInCombatWithZone();
+                                advisor->AI()->AttackClosestEnemy();
                             }
                             m_uiPhaseTimer = 0;
                             break;
@@ -903,10 +879,11 @@ struct boss_kaelthasAI : public ScriptedAI
 #endif
                             break;
                         case 5:
-                            if (Creature* pAdvisor = m_pInstance->GetSingleCreatureFromStorage(NPC_CAPERNIAN))
+                            if (Creature* advisor = m_instance->GetSingleCreatureFromStorage(NPC_CAPERNIAN))
                             {
-                                pAdvisor->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_PLAYER);
-                                pAdvisor->SetInCombatWithZone();
+                                advisor->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_PLAYER);
+                                advisor->SetInCombatWithZone();
+                                advisor->AI()->AttackClosestEnemy();
                             }
                             m_uiPhaseTimer = 0;
                             break;
@@ -919,10 +896,11 @@ struct boss_kaelthasAI : public ScriptedAI
 #endif
                             break;
                         case 7:
-                            if (Creature* pAdvisor = m_pInstance->GetSingleCreatureFromStorage(NPC_TELONICUS))
+                            if (Creature* advisor = m_instance->GetSingleCreatureFromStorage(NPC_TELONICUS))
                             {
-                                pAdvisor->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_PLAYER);
-                                pAdvisor->SetInCombatWithZone();
+                                advisor->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_PLAYER);
+                                advisor->SetInCombatWithZone();
+                                advisor->AI()->AttackClosestEnemy();
                             }
                             m_uiPhaseTimer = 0;
                             break;
@@ -950,8 +928,14 @@ struct boss_kaelthasAI : public ScriptedAI
                     {
                         m_weaponAttackTimer = 0;
                         for (ObjectGuid& guid : m_weapons)
+                        {
                             if (Creature* weapon = m_creature->GetMap()->GetCreature(guid))
+                            {
+                                weapon->AI()->SetReactState(REACT_AGGRESSIVE);
                                 weapon->SetInCombatWithZone();
+                                weapon->AI()->AttackClosestEnemy();
+                            }
+                        }
                     }
                     else
                         m_weaponAttackTimer -= uiDiff;
@@ -991,6 +975,9 @@ struct boss_kaelthasAI : public ScriptedAI
                                 m_uiPhaseTimer = 10000;
 #else
                                 m_uiPhaseTimer = 180000;
+#endif
+#ifdef PRENERF_2_0_3
+                                m_uiPhaseTimer = 120000;
 #endif
                             }
                             break;
@@ -1211,9 +1198,9 @@ struct boss_kaelthasAI : public ScriptedAI
                                 m_creature->CastSpell(nullptr, SPELL_EXPLODE, TRIGGERED_NONE);
                                 m_creature->RemoveAurasDueToSpell(SPELL_NETHERBEAM_EXPLODE);
                                 m_creature->RemoveAurasDueToSpell(SPELL_NETHERBEAM);
-                                m_pInstance->DoUseDoorOrButton(GO_KAEL_STATUE_RIGHT);
-                                m_pInstance->DoUseDoorOrButton(GO_BRIDGE_WINDOW);
-                                m_pInstance->DoUseDoorOrButton(GO_KAEL_STATUE_LEFT);
+                                m_instance->DoUseDoorOrButton(GO_KAEL_STATUE_RIGHT);
+                                m_instance->DoUseDoorOrButton(GO_BRIDGE_WINDOW);
+                                m_instance->DoUseDoorOrButton(GO_KAEL_STATUE_LEFT);
 #ifdef FAST_TRANSITION_TIMERS
                                 m_phaseTransitionTimer = 500;
 #else
@@ -1354,13 +1341,13 @@ struct boss_kaelthasAI : public ScriptedAI
     }
 };
 
-bool EffectDummyCreature_kael_phase_2(Unit* pCaster, uint32 uiSpellId, SpellEffectIndex uiEffIndex, Creature* pCreatureTarget, ObjectGuid /*originalCasterGuid*/)
+bool EffectDummyCreature_kael_phase_2(Unit* caster, uint32 uiSpellId, SpellEffectIndex uiEffIndex, Creature* creatureTarget, ObjectGuid /*originalCasterGuid*/)
 {
     // always check spellid and effectindex
     if (uiSpellId == SPELL_KAEL_PHASE_2 && uiEffIndex == EFFECT_INDEX_0)
     {
-        if (boss_kaelthasAI* pKaelAI = dynamic_cast<boss_kaelthasAI*>(pCreatureTarget->AI()))
-            pKaelAI->AdvisorDefeated(pCaster->GetEntry());
+        if (boss_kaelthasAI* pKaelAI = dynamic_cast<boss_kaelthasAI*>(creatureTarget->AI()))
+            pKaelAI->AdvisorDefeated(caster->GetEntry());
 
         // always return true when we are handling this spell and effect
         return true;
@@ -1375,13 +1362,12 @@ bool EffectDummyCreature_kael_phase_2(Unit* pCaster, uint32 uiSpellId, SpellEffe
 
 struct advisor_base_ai : public ScriptedAI
 {
-    advisor_base_ai(Creature* pCreature) : ScriptedAI(pCreature)
+    advisor_base_ai(Creature* creature) : ScriptedAI(creature), m_instance(static_cast<ScriptedInstance*>(creature->GetInstanceData()))
     {
-        m_pInstance = (ScriptedInstance*)pCreature->GetInstanceData();
         Reset();
     }
 
-    ScriptedInstance* m_pInstance;
+    ScriptedInstance* m_instance;
 
     bool m_bFakeDeath;
     bool m_bCanFakeDeath;
@@ -1413,12 +1399,12 @@ struct advisor_base_ai : public ScriptedAI
     void JustReachedHome() override
     {
         // Reset Kael if needed
-        if (m_pInstance)
+        if (m_instance)
         {
-            if (Creature* pKael = m_pInstance->GetSingleCreatureFromStorage(NPC_KAELTHAS))
+            if (Creature* pKael = m_instance->GetSingleCreatureFromStorage(NPC_KAELTHAS))
                 pKael->AI()->EnterEvadeMode();
 
-            m_pInstance->SetData(TYPE_KAELTHAS, FAIL);
+            m_instance->SetData(TYPE_KAELTHAS, FAIL);
         }
     }
 
@@ -1455,18 +1441,18 @@ struct advisor_base_ai : public ScriptedAI
 
         DoCastSpellIfCan(m_creature, SPELL_PERMANENT_FEIGN_DEATH);
 
-        if (m_pInstance)
+        if (m_instance)
         {
-            if (Creature* kael = m_pInstance->GetSingleCreatureFromStorage(NPC_KAELTHAS))
+            if (Creature* kael = m_instance->GetSingleCreatureFromStorage(NPC_KAELTHAS))
                 if (boss_kaelthasAI* pKaelAI = dynamic_cast<boss_kaelthasAI*>(kael->AI()))
                     pKaelAI->AdvisorDefeated(m_creature->GetEntry());
         }
     }
 
-    void SpellHit(Unit* pCaster, const SpellEntry* pSpell) override
+    void SpellHit(Unit* caster, const SpellEntry* spellInfo) override
     {
         // Remove fake death
-        if (pSpell->Id == SPELL_RESURRECTION && pCaster->GetEntry() == NPC_KAELTHAS)
+        if (spellInfo->Id == SPELL_RESURRECTION && caster->GetEntry() == NPC_KAELTHAS)
         {
             m_creature->RemoveAurasDueToSpell(SPELL_PERMANENT_FEIGN_DEATH);
             m_creature->SetStandState(UNIT_STAND_STATE_STAND);
@@ -1507,7 +1493,7 @@ struct advisor_base_ai : public ScriptedAI
 
 struct boss_thaladred_the_darkenerAI : public advisor_base_ai
 {
-    boss_thaladred_the_darkenerAI(Creature* pCreature) : advisor_base_ai(pCreature) { Reset(); }
+    boss_thaladred_the_darkenerAI(Creature* creature) : advisor_base_ai(creature) { Reset(); }
 
     uint32 m_uiGazeTimer;
     uint32 m_uiRendTimer;
@@ -1524,7 +1510,7 @@ struct boss_thaladred_the_darkenerAI : public advisor_base_ai
         advisor_base_ai::Reset();
     }
 
-    void Aggro(Unit* /*pWho*/) override
+    void Aggro(Unit* /*who*/) override
     {
         DoScriptText(SAY_THALADRED_AGGRO, m_creature);
     }
@@ -1547,11 +1533,14 @@ struct boss_thaladred_the_darkenerAI : public advisor_base_ai
 
         if (m_uiGazeTimer <= uiDiff)
         {
-            if (Unit* pTarget = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, nullptr, SELECT_FLAG_PLAYER))
+            SelectAttackingTargetParams parameters;
+            parameters.range.minRange = 0.f;
+            parameters.range.maxRange = 200.f;
+            if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, nullptr, SELECT_FLAG_PLAYER | SELECT_FLAG_RANGE_RANGE, parameters))
             {
                 DoResetThreat();
-                m_creature->FixateTarget(pTarget);
-                DoScriptText(EMOTE_THALADRED_GAZE, m_creature, pTarget);
+                m_creature->AddThreat(target, 1000000.f);
+                DoScriptText(EMOTE_THALADRED_GAZE, m_creature, target);
             }
             m_uiGazeTimer = 10000;
         }
@@ -1595,7 +1584,7 @@ struct boss_thaladred_the_darkenerAI : public advisor_base_ai
 
 struct boss_lord_sanguinarAI : public advisor_base_ai
 {
-    boss_lord_sanguinarAI(Creature* pCreature) : advisor_base_ai(pCreature)
+    boss_lord_sanguinarAI(Creature* creature) : advisor_base_ai(creature)
     { 
         m_paramsBellowingRoar.range.minRange = 0;
         m_paramsBellowingRoar.range.maxRange = 35;
@@ -1616,7 +1605,7 @@ struct boss_lord_sanguinarAI : public advisor_base_ai
         advisor_base_ai::Reset();
     }
 
-    void Aggro(Unit* /*pWho*/) override
+    void Aggro(Unit* /*who*/) override
     {
         DoScriptText(SAY_SANGUINAR_AGGRO, m_creature);
     }
@@ -1673,7 +1662,7 @@ struct boss_lord_sanguinarAI : public advisor_base_ai
 
 struct boss_grand_astromancer_capernianAI : public advisor_base_ai
 {
-    boss_grand_astromancer_capernianAI(Creature* pCreature) : advisor_base_ai(pCreature) { Reset(); }
+    boss_grand_astromancer_capernianAI(Creature* creature) : advisor_base_ai(creature) { Reset(); }
 
     uint32 m_uiFireballTimer;
     uint32 m_uiConflagrationTimer;
@@ -1693,7 +1682,7 @@ struct boss_grand_astromancer_capernianAI : public advisor_base_ai
         m_uiArcaneExplosionTimer = 5000;
     }
 
-    void Aggro(Unit* /*pWho*/) override
+    void Aggro(Unit* /*who*/) override
     {
         DoScriptText(SAY_CAPERNIAN_AGGRO, m_creature);
     }
@@ -1717,9 +1706,9 @@ struct boss_grand_astromancer_capernianAI : public advisor_base_ai
         if (m_uiConflagrationTimer <= uiDiff)
         {
             m_uiConflagrationTimer = 0;
-            if (Unit* pTarget = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, SPELL_CONFLAGRATION, SELECT_FLAG_PLAYER))
+            if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, SPELL_CONFLAGRATION, SELECT_FLAG_PLAYER))
             {
-                if (DoCastSpellIfCan(pTarget, SPELL_CONFLAGRATION) == CAST_OK)
+                if (DoCastSpellIfCan(target, SPELL_CONFLAGRATION) == CAST_OK)
                 {
                     m_uiConflagrationTimer = urand(16000, 18000);
                     return;
@@ -1782,7 +1771,7 @@ when ranged, either uses shoot ability when out of range of bomb, or bomb exclus
 
 struct boss_master_engineer_telonicusAI : public advisor_base_ai
 {
-    boss_master_engineer_telonicusAI(Creature* pCreature) : advisor_base_ai(pCreature)
+    boss_master_engineer_telonicusAI(Creature* creature) : advisor_base_ai(creature)
     {
         m_creature->SetModifierValue(UNIT_MOD_DAMAGE_OFFHAND, TOTAL_PCT, 1.f); // sniff evidence seems to point out that telonicus isnt subject to 50% offhand dmg modifier
         // TODO: Maybe true for all mobs?
@@ -1800,7 +1789,7 @@ struct boss_master_engineer_telonicusAI : public advisor_base_ai
         advisor_base_ai::Reset();
     }
 
-    void Aggro(Unit* /*pWho*/) override
+    void Aggro(Unit* /*who*/) override
     {
         DoScriptText(SAY_TELONICUS_AGGRO, m_creature);
     }
@@ -1833,9 +1822,9 @@ struct boss_master_engineer_telonicusAI : public advisor_base_ai
         if (m_uiRemoteToyTimer <= uiDiff)
         {
             m_uiRemoteToyTimer = 0;
-            if (Unit* pTarget = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, SPELL_REMOTE_TOY, SELECT_FLAG_PLAYER | SELECT_FLAG_NOT_AURA))
+            if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, SPELL_REMOTE_TOY, SELECT_FLAG_PLAYER | SELECT_FLAG_NOT_AURA))
             {
-                if (DoCastSpellIfCan(pTarget, SPELL_REMOTE_TOY) == CAST_OK)
+                if (DoCastSpellIfCan(target, SPELL_REMOTE_TOY) == CAST_OK)
                     m_uiRemoteToyTimer = urand(10000, 15000);
             }
         }
@@ -1915,6 +1904,37 @@ struct NetherVaporSummonParent : public SpellScript
     }
 };
 
+struct RemoveWeapons : public SpellScript
+{
+    void OnEffectExecute(Spell* spell, SpellEffectIndex /*effIdx*/) const override
+    {
+        Unit* target = spell->GetUnitTarget();
+        if (!target || !target->IsPlayer())
+            return;
+
+        target->CastSpell(nullptr, 39498, TRIGGERED_IGNORE_CURRENT_CASTED_SPELL);
+        target->CastSpell(nullptr, 39499, TRIGGERED_IGNORE_CURRENT_CASTED_SPELL);
+        target->CastSpell(nullptr, 39500, TRIGGERED_IGNORE_CURRENT_CASTED_SPELL);
+        target->CastSpell(nullptr, 39501, TRIGGERED_IGNORE_CURRENT_CASTED_SPELL);
+        target->CastSpell(nullptr, 39502, TRIGGERED_IGNORE_CURRENT_CASTED_SPELL);
+        target->CastSpell(nullptr, 39503, TRIGGERED_IGNORE_CURRENT_CASTED_SPELL);
+        target->CastSpell(nullptr, 39504, TRIGGERED_IGNORE_CURRENT_CASTED_SPELL);
+    }
+};
+
+struct spell_gravity_lapse_knockup : public AuraScript
+{
+    void OnPeriodicTickEnd(Aura* aura) const override
+    {
+        Unit* target = aura->GetTarget();
+        float x, y, z;
+        target->GetPosition(x, y, z);
+        float floorZ = target->GetMap()->GetHeight(x, y, z);
+        if (std::abs(z - floorZ) < 4.f) // knock up player if he is too close to the ground
+            target->CastSpell(nullptr, 35938, TRIGGERED_OLD_TRIGGERED);
+    }
+};
+
 void AddSC_boss_kaelthas()
 {
     Script* pNewScript = new Script;
@@ -1951,4 +1971,6 @@ void AddSC_boss_kaelthas()
     RegisterAuraScript<NetherVaporLightning>("spell_nether_vapor_lightning");
     RegisterSpellScript<NetherVaporSummon>("spell_nether_vapor_summon");
     RegisterSpellScript<NetherVaporSummonParent>("spell_nether_vapor_summon_parent");
+    RegisterSpellScript<RemoveWeapons>("spell_remove_weapons");
+    RegisterAuraScript<spell_gravity_lapse_knockup>("spell_gravity_lapse_knockup");
 }

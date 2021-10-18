@@ -24,10 +24,13 @@ EndScriptData */
 /* ContentData
 npc_00x09hl
 npc_rinji
+spell_gammerita_turtle_camera - s.11610
 EndContentData */
 
 #include "AI/ScriptDevAI/include/sc_common.h"
 #include "AI/ScriptDevAI/base/escort_ai.h"
+#include "world_eastern_kingdoms.h"
+#include "Spells/Scripts/SpellScript.h"
 
 /*######
 ## npc_00x09hl
@@ -355,6 +358,41 @@ UnitAI* GetAI_npc_rinji(Creature* pCreature)
     return new npc_rinjiAI(pCreature);
 }
 
+enum
+{
+    YELL_FALSTAD_INVADERS = -27,
+};
+
+bool ProcessEventId_WildhammerMessage(uint32 /*eventId*/, Object* source, Object* /*target*/, bool /*isStart*/)
+{
+    if (!source->IsPlayer())
+        return true;
+
+    Player* player = static_cast<Player*>(source);
+    player->UpdatePvP(true);
+    player->RemoveAurasWithInterruptFlags(AURA_INTERRUPT_FLAG_ENTER_PVP_COMBAT);
+    if (Creature* falstad = static_cast<ScriptedInstance*>(player->GetInstanceData())->GetSingleCreatureFromStorage(NPC_FALSTAD_WILDHAMMER))
+        DoScriptText(YELL_FALSTAD_INVADERS, falstad, player);
+    return true;
+}
+
+/*######
+## spell_gammerita_turtle_camera
+######*/
+
+struct spell_gammerita_turtle_camera : public SpellScript
+{
+    SpellCastResult OnCheckCast(Spell* spell, bool /*strict*/) const override
+    {
+        Unit* target = spell->m_targets.getUnitTarget();
+        // Gammerita Turtle Camera can be cast only on this target
+        if (!target || target->GetEntry() != 7977)
+            return SPELL_FAILED_BAD_TARGETS;
+
+        return SPELL_CAST_OK;
+    }
+};
+
 void AddSC_hinterlands()
 {
     Script* pNewScript = new Script;
@@ -368,4 +406,11 @@ void AddSC_hinterlands()
     pNewScript->GetAI = &GetAI_npc_rinji;
     pNewScript->pQuestAcceptNPC = &QuestAccept_npc_rinji;
     pNewScript->RegisterSelf();
+
+    pNewScript = new Script;
+    pNewScript->Name = "event_wildhammer_message";
+    pNewScript->pProcessEventId = &ProcessEventId_WildhammerMessage;
+    pNewScript->RegisterSelf();
+
+    RegisterSpellScript<spell_gammerita_turtle_camera>("spell_gammerita_turtle_camera");
 }

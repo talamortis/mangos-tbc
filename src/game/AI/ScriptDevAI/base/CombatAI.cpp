@@ -18,6 +18,27 @@
 #include "AI/ScriptDevAI/base/CombatAI.h"
 #include "Spells/Spell.h"
 #include "Spells/SpellMgr.h"
+#include "AI/ScriptDevAI/ScriptDevAIMgr.h"
+#include "MotionGenerators/MovementGenerator.h"
+
+enum
+{
+    ACTION_CASTING_RESTORE = 1000,
+    ACTION_ON_KILL_COOLDOWN = 1001,
+};
+
+CombatAI::CombatAI(Creature* creature, uint32 combatActions) : ScriptedAI(creature), CombatActions(combatActions), m_onKillCooldown(false), m_stopTargeting(false), m_teleportUnreachable(false)
+{
+    AddCustomAction(ACTION_CASTING_RESTORE, true, [&]() { HandleTargetRestoration(); });
+    AddCustomAction(ACTION_ON_KILL_COOLDOWN, true, [&]() { m_onKillCooldown = false; });
+}
+
+void CombatAI::Reset()
+{
+    ResetAllTimers();
+    m_onKillCooldown = false;
+    m_storedTarget = ObjectGuid();
+}
 
 void CombatAI::ExecuteActions()
 {
@@ -33,6 +54,62 @@ void CombatAI::ExecuteActions()
         if (GetActionReadyStatus(i))
             ExecuteAction(i);
     }
+
+    if (m_teleportUnreachable)
+        if (m_creature->GetVictim() && IsCombatMovement() && !m_creature->GetMotionMaster()->GetCurrent()->IsReachable())
+            m_creature->CastSpell(m_creature->GetVictim(), 21727, TRIGGERED_OLD_TRIGGERED);
+}
+
+void CombatAI::HandleDelayedInstantAnimation(SpellEntry const* spellInfo)
+{
+    m_storedTarget = m_creature->GetTarget() ? m_creature->GetTarget()->GetObjectGuid() : ObjectGuid();
+    if (m_storedTarget)
+        ResetTimer(ACTION_CASTING_RESTORE, 2000);
+}
+
+void CombatAI::HandleTargetRestoration()
+{
+    ObjectGuid guid = m_unit->GetTarget() ? m_unit->GetTarget()->GetObjectGuid() : ObjectGuid();
+    if (guid != m_storedTarget || m_unit->IsNonMeleeSpellCasted(false))
+    {
+        m_storedTarget = ObjectGuid();
+        return;
+    }
+
+    if (m_unit->GetVictim() && !GetCombatScriptStatus())
+        m_unit->SetTarget(m_unit->GetVictim());
+    else
+        m_unit->SetTarget(nullptr);
+
+    m_storedTarget = ObjectGuid();
+}
+
+bool CombatAI::IsTargetingRestricted()
+{
+    return m_stopTargeting || m_storedTarget || ScriptedAI::IsTargetingRestricted();
+}
+
+void CombatAI::AddOnKillText(int32 text)
+{
+    m_onDeathTexts.push_back(text);
+}
+
+void CombatAI::KilledUnit(Unit* victim)
+{
+    if (!m_creature->IsAlive() || !victim->IsPlayer())
+        return;
+
+    if (!m_onKillCooldown && m_onDeathTexts.size() > 0)
+    {
+        m_onKillCooldown = true;
+        DoScriptText(m_onDeathTexts[urand(0, m_onDeathTexts.size() - 1)], m_creature, victim);
+        ResetTimer(ACTION_ON_KILL_COOLDOWN, 10000);
+    }
+}
+
+void CombatAI::AddUnreachabilityCheck()
+{
+    m_teleportUnreachable = true;
 }
 
 void CombatAI::UpdateAI(const uint32 diff)
@@ -45,6 +122,14 @@ void CombatAI::UpdateAI(const uint32 diff)
     ExecuteActions();
 
     DoMeleeAttackIfReady();
+}
+
+RangedCombatAI::RangedCombatAI(Creature* creature, uint32 combatActions) : CombatAI(creature, combatActions),
+    m_rangedMode(false), m_rangedModeSetting(TYPE_NONE), m_chaseDistance(0.f), m_currentRangedMode(false),
+    m_mainSpellId(0), m_mainSpellCost(0), m_mainSpellInfo(nullptr), m_mainSpellMinRange(0.f),
+    m_mainAttackMask(SPELL_SCHOOL_MASK_NONE), m_distancingCooldown(false)
+{
+    AddCustomAction(GENERIC_ACTION_DISTANCE, true, [&]() { m_distancingCooldown = false; });
 }
 
 void RangedCombatAI::OnSpellCooldownAdded(SpellEntry const* spellInfo)
@@ -102,6 +187,8 @@ void RangedCombatAI::SetCurrentRangedMode(bool state)
         m_currentRangedMode = false;
         m_attackDistance = 0.f;
         DoStartMovement(m_creature->GetVictim());
+        if (m_meleeEnabled && !m_unit->hasUnitState(UNIT_STAT_MELEE_ATTACKING))
+            m_unit->MeleeAttackStart(m_unit->GetVictim());
     }
 }
 
@@ -148,7 +235,7 @@ void RangedCombatAI::OnSpellInterrupt(SpellEntry const* spellInfo)
 {
     if (m_mainSpells.find(spellInfo->Id) != m_mainSpells.end())
     {
-        if (m_rangedMode && m_rangedModeSetting != TYPE_NO_MELEE_MODE && !m_creature->IsSpellReady(*spellInfo))
+        if (m_rangedMode && m_rangedModeSetting != TYPE_NO_MELEE_MODE && IsMainSpellPrevented(spellInfo))
         {
             // infrequently mobs have multiple main spells and only go into melee on interrupt when all are on cooldown
             if (m_mainSpells.size() > 1)
@@ -158,7 +245,8 @@ void RangedCombatAI::OnSpellInterrupt(SpellEntry const* spellInfo)
                 {
                     if (spellId != spellInfo->Id)
                     {
-                        if (m_creature->IsSpellReady(spellId))
+                        SpellEntry const* otherSpellInfo = sSpellTemplate.LookupEntry<SpellEntry>(spellId);
+                        if (!IsMainSpellPrevented(otherSpellInfo))
                         {
                             success = true;
                             break;
@@ -186,6 +274,7 @@ CanCastResult RangedCombatAI::DoCastSpellIfCan(Unit* target, uint32 spellId, uin
                 {
                     case CAST_FAIL_POWER:
                     case CAST_FAIL_TOO_CLOSE:
+                    case CAST_FAIL_CAST_PREVENTED:
                         SetCurrentRangedMode(false);
                         break;
                     case CAST_OK:
@@ -207,16 +296,45 @@ void RangedCombatAI::UpdateAI(const uint32 diff)
 
     ExecuteActions();
 
-    if (m_rangedMode && m_creature->GetVictim() && CanExecuteCombatAction())
+    Unit* victim = m_creature->GetVictim();
+    if (m_rangedMode && victim && CanExecuteCombatAction())
     {
-        if (m_rangedModeSetting == TYPE_PROXIMITY)
+        if (m_rangedModeSetting == TYPE_PROXIMITY || m_rangedModeSetting == TYPE_DISTANCER)
         {
-            if (m_currentRangedMode && m_creature->CanReachWithMeleeAttack(m_creature->GetVictim()))
+            if (!m_currentRangedMode && victim->IsImmobilizedState() && IsCombatMovement() && m_mainSpellInfo && m_mainSpellCost * 2 < m_creature->GetPower(POWER_MANA) && !IsMainSpellPrevented(m_mainSpellInfo))
+                DistanceYourself();
+            else if (m_currentRangedMode && m_creature->CanReachWithMeleeAttack(victim))
                 SetCurrentRangedMode(false);
-            else if (!m_currentRangedMode && !m_creature->CanReachWithMeleeAttack(m_creature->GetVictim(), 2.f) && m_mainSpellInfo && m_mainSpellCost * 2 < m_creature->GetPower(POWER_MANA) && m_creature->IsSpellReady(*m_mainSpellInfo))
+            else if (!m_currentRangedMode && !m_creature->CanReachWithMeleeAttack(victim, 2.f) && m_mainSpellInfo && m_mainSpellCost * 2 < m_creature->GetPower(POWER_MANA) && !IsMainSpellPrevented(m_mainSpellInfo))
                 SetCurrentRangedMode(true);
+            else if (m_rangedModeSetting == TYPE_DISTANCER && !m_distancingCooldown)
+            {
+                m_distancingCooldown = true;
+                ResetTimer(GENERIC_ACTION_DISTANCE, 5000);
+            }
+        }
+        // casters only display melee animation when in ranged mode when someone is actually close enough
+        if (m_currentRangedMode && m_meleeEnabled)
+        {
+            if (m_unit->hasUnitState(UNIT_STAT_MELEE_ATTACKING) && !m_creature->CanReachWithMeleeAttack(victim))
+                m_unit->MeleeAttackStop(m_unit->GetVictim());
+            else if (!m_unit->hasUnitState(UNIT_STAT_MELEE_ATTACKING) && m_creature->CanReachWithMeleeAttack(victim))
+                m_unit->MeleeAttackStart(m_unit->GetVictim());
         }
     }
 
     DoMeleeAttackIfReady();
+}
+
+bool RangedCombatAI::IsMainSpellPrevented(SpellEntry const* spellInfo) const
+{
+    if (!m_creature->IsSpellReady(*spellInfo))
+        return true;
+
+    if (spellInfo->PreventionType == SPELL_PREVENTION_TYPE_SILENCE && m_creature->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_SILENCED))
+        return true;
+    if (spellInfo->PreventionType == SPELL_PREVENTION_TYPE_PACIFY && m_creature->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PACIFIED))
+        return true;
+
+    return false;
 }

@@ -184,11 +184,21 @@ enum SpellTargetFilter
 enum SpellTargetFilterScheme
 {
     SCHEME_RANDOM = 0,
+    SCHEME_RANDOM_CHAIN,
     SCHEME_CLOSEST,
     SCHEME_CLOSEST_CHAIN,
     SCHEME_FURTHEST,
     SCHEME_HIGHEST_HP,
     SCHEME_LOWEST_HP_CHAIN,
+    SCHEME_PRIORITIZE_HEALTH,
+    SCHEME_PRIORITIZE_MANA,
+};
+
+enum SpellTargetLOS
+{
+    TARGET_LOS_CASTER           = 0,
+    TARGET_LOS_SRC,
+    TARGET_LOS_DEST,
 };
 
 #endif

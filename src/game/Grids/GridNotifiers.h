@@ -40,7 +40,7 @@ namespace MaNGOS
         GuidSet i_clientGUIDs;
         WorldObjectSet i_visibleNow;
 
-        explicit VisibleNotifier(Camera& c) : i_camera(c), i_clientGUIDs(c.GetOwner()->m_clientGUIDs) {}
+        explicit VisibleNotifier(Camera& c) : i_camera(c), i_clientGUIDs(c.GetOwner()->GetClientGuids()) {}
         template<class T> void Visit(GridRefManager<T>& m);
         void Visit(CameraMapType& /*m*/) {}
         void Notify(void);
@@ -50,9 +50,13 @@ namespace MaNGOS
     {
         WorldObject& i_object;
 
-        explicit VisibleChangesNotifier(WorldObject& object) : i_object(object) {}
+        explicit VisibleChangesNotifier(WorldObject& object) : i_object(object), m_unvisitedGuids(i_object.GetClientGuidsIAmAt()) {}
         template<class T> void Visit(GridRefManager<T>&) {}
         void Visit(CameraMapType&);
+
+        GuidSet& GetUnvisitedGuids() { return m_unvisitedGuids; }
+
+        GuidSet m_unvisitedGuids;
     };
 
     struct MessageDeliverer
@@ -150,13 +154,8 @@ namespace MaNGOS
         DynamicObject& i_dynobject;
         Unit* i_check;
         bool i_positive;
-        DynamicObjectUpdater(DynamicObject& dynobject, Unit* caster, bool positive) : i_dynobject(dynobject), i_positive(positive)
-        {
-            i_check = caster;
-            Unit* owner = i_check->GetOwner();
-            if (owner)
-                i_check = owner;
-        }
+        bool i_script;
+        DynamicObjectUpdater(DynamicObject& dynobject, Unit* caster, bool positive);
 
         template<class T> inline void Visit(GridRefManager<T>&) {}
 #ifdef _MSC_VER
@@ -592,8 +591,8 @@ namespace MaNGOS
     class GameObjectFocusCheck
     {
         public:
-            GameObjectFocusCheck(Unit const* unit, uint32 focusId) : i_unit(unit), i_focusId(focusId) {}
-            WorldObject const& GetFocusObject() const { return *i_unit; }
+            GameObjectFocusCheck(WorldObject const* unit, uint32 focusId) : i_object(unit), i_focusId(focusId) {}
+            WorldObject const& GetFocusObject() const { return *i_object; }
             bool operator()(GameObject* go) const
             {
                 GameObjectInfo const* goInfo = go->GetGOInfo();
@@ -608,10 +607,10 @@ namespace MaNGOS
 
                 float dist = (float)goInfo->spellFocus.dist;
 
-                return go->IsWithinDistInMap(i_unit, dist);
+                return go->IsWithinDistInMap(i_object, dist);
             }
         private:
-            Unit const* i_unit;
+            WorldObject const* i_object;
             uint32 i_focusId;
     };
 
@@ -874,10 +873,10 @@ namespace MaNGOS
             float i_range;
     };
 
-    class FriendlyMissingBuffInRangeCheck
+    class FriendlyMissingBuffInRangeInCombatCheck
     {
         public:
-            FriendlyMissingBuffInRangeCheck(Unit const* obj, float range, uint32 spellid) : i_obj(obj), i_range(range), i_spell(spellid) {}
+            FriendlyMissingBuffInRangeInCombatCheck(Unit const* obj, float range, uint32 spellid) : i_obj(obj), i_range(range), i_spell(spellid) {}
             Unit const& GetFocusObject() const { return *i_obj; }
             bool operator()(Unit* u)
             {
@@ -887,6 +886,21 @@ namespace MaNGOS
             Unit const* i_obj;
             float i_range;
             uint32 i_spell;
+    };
+
+    class FriendlyMissingBuffInRangeNotInCombatCheck
+    {
+    public:
+        FriendlyMissingBuffInRangeNotInCombatCheck(Unit const* obj, float range, uint32 spellid) : i_obj(obj), i_range(range), i_spell(spellid) {}
+        Unit const& GetFocusObject() const { return *i_obj; }
+        bool operator()(Unit* u)
+        {
+            return u->IsAlive() && i_obj->CanAssist(u) && i_obj->IsWithinDistInMap(u, i_range) && !(u->HasAura(i_spell, EFFECT_INDEX_0) || u->HasAura(i_spell, EFFECT_INDEX_1) || u->HasAura(i_spell, EFFECT_INDEX_2));
+        }
+    private:
+        Unit const* i_obj;
+        float i_range;
+        uint32 i_spell;
     };
 
     class AnyUnfriendlyUnitInObjectRangeCheck
@@ -914,27 +928,29 @@ namespace MaNGOS
     class AnyFriendlyUnitInObjectRangeCheck
     {
         public:
-            AnyFriendlyUnitInObjectRangeCheck(WorldObject const* obj, SpellEntry const* spellInfo, float range) : i_obj(obj), i_spellInfo(spellInfo), i_range(range) {}
+            AnyFriendlyUnitInObjectRangeCheck(WorldObject const* obj, SpellEntry const* spellInfo, float range, bool ignorePhase = false)
+                : i_obj(obj), i_spellInfo(spellInfo), i_range(range), i_ignorePhase(ignorePhase) {}
             WorldObject const& GetFocusObject() const { return *i_obj; }
             bool operator()(Unit* u)
             {
-                return u->IsAlive() && i_obj->IsWithinDistInMap(u, i_range) && i_obj->CanAssistSpell(u, i_spellInfo);
+                return u->IsAlive() && i_obj->IsWithinDistInMap(u, i_range, true, i_ignorePhase) && i_obj->CanAssistSpell(u, i_spellInfo);
             }
         private:
             WorldObject const* i_obj;
             SpellEntry const* i_spellInfo;
             float i_range;
+            bool i_ignorePhase;
     };
 
     class AnyFriendlyOrGroupMemberUnitInUnitRangeCheck
     {
         public:
-            AnyFriendlyOrGroupMemberUnitInUnitRangeCheck(Unit const* obj, Group const* group, SpellEntry const* spellInfo, float range)
-                : i_group(group), i_obj(obj), i_spellInfo(spellInfo), i_range(range) {}
+            AnyFriendlyOrGroupMemberUnitInUnitRangeCheck(Unit const* obj, Unit const* target, Group const* group, SpellEntry const* spellInfo, float range)
+                : i_group(group), i_obj(obj), i_target(target), i_spellInfo(spellInfo), i_range(range) {}
             Unit const& GetFocusObject() const { return *i_obj; }
             bool operator()(Unit* u)
             {
-                if (!u->IsAlive() || !i_obj->IsWithinDistInMap(u, i_range) || !i_obj->CanAssistSpell(u, i_spellInfo))
+                if (!u->IsAlive() || !i_target->IsWithinDistInMap(u, i_range) || !i_obj->CanAssistSpell(u, i_spellInfo))
                     return false;
 
                 //if group is defined then we apply group members only filtering
@@ -975,12 +991,15 @@ namespace MaNGOS
                         default: return false;
                     }
                 }
+                else if (u->IsCreature() && !static_cast<Creature*>(u)->IsPet())
+                    return false;
 
                 return true;
             }
         private:
             Group const* i_group;
             Unit const* i_obj;
+            Unit const* i_target;
             SpellEntry const* i_spellInfo;
             float i_range;
     };
@@ -1027,7 +1046,7 @@ namespace MaNGOS
 
             bool operator()(Unit* currUnit)
             {
-                if (currUnit->IsAlive() && (m_source->IsAttackedBy(currUnit) || (m_owner && m_owner->IsAttackedBy(currUnit)) || m_source->IsEnemy(currUnit))
+                if (currUnit->IsAlive() && (m_source->IsAttackedBy(currUnit) || (m_owner && m_owner->IsAttackedBy(currUnit)) || m_source->IsEnemy(currUnit) || currUnit->IsEnemy(m_source))
                     && m_source->CanAttack(currUnit)
                     && currUnit->IsVisibleForOrDetect(m_source, m_source, false)
                     && m_source->IsWithinDistInMap(currUnit, m_range))
@@ -1048,8 +1067,8 @@ namespace MaNGOS
     class AnyAoETargetUnitInObjectRangeCheck
     {
         public:
-            AnyAoETargetUnitInObjectRangeCheck(WorldObject const* obj, SpellEntry const* spellInfo, float range)
-                : i_obj(obj), i_spellInfo(spellInfo), i_range(range)
+            AnyAoETargetUnitInObjectRangeCheck(WorldObject const* obj, SpellEntry const* spellInfo, float range, bool ignorePhase = false)
+                : i_obj(obj), i_spellInfo(spellInfo), i_range(range), i_ignorePhase(ignorePhase)
             {
                 i_targetForPlayer = i_obj->IsControlledByPlayer();
             }
@@ -1060,7 +1079,7 @@ namespace MaNGOS
                 if (u->GetTypeId() == TYPEID_UNIT && ((Creature*)u)->IsTotem())
                     return false;
 
-                return i_obj->CanAttackSpell(u, i_spellInfo) && i_obj->IsWithinDistInMap(u, i_range);
+                return i_obj->CanAttackSpell(u, i_spellInfo) && i_obj->IsWithinDistInMap(u, i_range, true, i_ignorePhase);
             }
 
         private:
@@ -1068,6 +1087,7 @@ namespace MaNGOS
             SpellEntry const* i_spellInfo;
             float i_range;
             bool i_targetForPlayer;
+            bool i_ignorePhase;
     };
 
     // do attack at call of help to friendly crearture
@@ -1202,7 +1222,7 @@ namespace MaNGOS
             WorldObject const& GetFocusObject() const { return i_obj; }
             bool operator()(Creature* u)
             {
-                if (i_entries.find(i_guids ? u->GetGUIDLow() : u->GetEntry()) != i_entries.end() && ((i_alive && u->IsAlive()) || (!i_alive && u->IsCorpse())) && (!i_excludeSelf || (&i_obj != u)))
+                if (i_entries.find(i_guids ? u->GetDbGuid() : u->GetEntry()) != i_entries.end() && ((i_alive && u->IsAlive()) || (!i_alive && u->IsCorpse())) && (!i_excludeSelf || (&i_obj != u)))
                 {
                     if (i_obj.IsWithinCombatDistInMap(u, i_range, i_is3D))
                         return true;

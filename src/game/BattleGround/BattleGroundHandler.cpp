@@ -418,10 +418,10 @@ void WorldSession::HandleBattlefieldPortOpcode(WorldPacket& recv_data)
             DEBUG_LOG("Battleground: player %s (%u) has a deserter debuff, do not port him to battleground!", _player->GetName(), _player->GetGUIDLow());
         }
         // if player don't match battleground max level, then do not allow him to enter! (this might happen when player leveled up during his waiting in queue
-        if (_player->getLevel() > bg->GetMaxLevel())
+        if (_player->GetLevel() > bg->GetMaxLevel())
         {
             sLog.outError("Battleground: Player %s (%u) has level (%u) higher than maxlevel (%u) of battleground (%u)! Do not port him to battleground!",
-                          _player->GetName(), _player->GetGUIDLow(), _player->getLevel(), bg->GetMaxLevel(), bg->GetTypeId());
+                          _player->GetName(), _player->GetGUIDLow(), _player->GetLevel(), bg->GetMaxLevel(), bg->GetTypeId());
             action = 0;
         }
     }
@@ -847,6 +847,9 @@ void WorldSession::SendBattleGroundOrArenaJoinError(uint8 err) const
             break;
         case BG_JOIN_ERR_ALL_QUEUES_USED:
             msg = LANG_BG_GROUP_MEMBER_NO_FREE_QUEUE_SLOTS;
+            break;
+        case BG_JOIN_ERR_GROUP_IN_ARENA:
+            msg = LANG_BG_GROUP_MEMBER_IN_ARENA;
             break;
         case BG_JOIN_ERR_GROUP_NOT_ENOUGH:
         case BG_JOIN_ERR_MIXED_ARENATEAM:

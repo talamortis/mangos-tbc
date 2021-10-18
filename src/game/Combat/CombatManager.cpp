@@ -20,6 +20,7 @@
 
 #include "Entities/Pet.h"
 #include "Maps/Map.h"
+#include "World/World.h"
 
 CombatManager::CombatManager(Unit* owner) : m_owner(owner), m_evadeTimer(0), m_evadeState(EVADE_NONE), m_combatTimer(0), m_leashingDisabled(false), m_leashingCheck(nullptr)
 {
@@ -56,49 +57,50 @@ void CombatManager::Update(const uint32 diff)
                 m_evadeTimer -= diff;
         }
 
-        if (m_leashingDisabled)
-            return;
-
-        // disabled in instances except for players in BGs
-        if (!m_owner->GetMap()->IsDungeon() || m_owner->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PLAYER_CONTROLLED))
+        if (!m_leashingDisabled)
         {
-            if (!m_owner->GetMap()->IsDungeon() && m_owner->IsImmobilizedState())
-                m_owner->getThreatManager().DeleteOutOfRangeReferences();
-            if (m_combatTimer)
+            // disabled in instances except for players in BGs
+            if (!m_owner->GetMap()->IsDungeon() || m_owner->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PLAYER_CONTROLLED))
             {
-                if (m_combatTimer <= diff)
-                    m_combatTimer = 0;
-                else
-                    m_combatTimer -= diff;
-            }
-            else
-            {
-                bool check = !m_owner->HasMaster();
-                if (!check)
+                if (!m_owner->GetMap()->IsDungeon() && m_owner->IsImmobilizedState())
+                    m_owner->getThreatManager().DeleteOutOfRangeReferences();
+                if (m_combatTimer)
                 {
-                    Unit* master = m_owner->GetMaster();
-                    if (!master || !master->IsAlive()) // if charmer alive, he will evade this charm
-                        check = true;
-                }
-                if (check)
-                {
-                    if (m_owner->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PLAYER_CONTROLLED))
+                    if (m_owner->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PLAYER_CONTROLLED) || !m_owner->IsCrowdControlled())
                     {
-                        if (m_owner->getHostileRefManager().getSize() == 0)
-                            m_owner->HandleExitCombat(m_owner->IsPlayer());
+                        if (m_combatTimer <= diff)
+                            m_combatTimer = 0;
+                        else
+                            m_combatTimer -= diff;
                     }
-                    else // if timer ran out and we are far away from homebox, evade
+                }
+                else
+                {
+                    bool check = !m_owner->HasMaster();
+                    if (!check)
                     {
-                        Creature* creatureOwner = static_cast<Creature*>(m_owner);
-                        Position pos;
-                        creatureOwner->GetCombatStartPosition(pos);
-                        // homebox not confirmed on classic
-                        if (creatureOwner->GetDistance2d(pos.GetPositionX(), pos.GetPositionY()) > 30.0f)
-                            creatureOwner->HandleExitCombat();
+                        Unit* master = m_owner->GetMaster();
+                        if (!master || !master->IsAlive()) // if charmer alive, he will evade this charm
+                            check = true;
+                    }
+                    if (check)
+                    {
+                        if (m_owner->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PLAYER_CONTROLLED))
+                        {
+                            if (m_owner->getHostileRefManager().getSize() == 0)
+                                m_owner->HandleExitCombat(false, m_owner->IsPlayer());
+                        }
+                        // if timer ran out and we are far away from last refresh pos, evade
+                        else if (m_owner->GetVictim() && m_owner->GetVictim()->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PLAYER_CONTROLLED))
+                        {
+                            if (m_owner->GetVictim()->GetDistance2d(m_lastRefreshPos.GetPositionX(), m_lastRefreshPos.GetPositionY()) > sWorld.getConfig(CONFIG_FLOAT_LEASH_RADIUS))
+                                m_owner->HandleExitCombat(false);
+                        }
                     }
                 }
             }
         }
+
         if (m_owner->IsCreature() && !m_owner->HasCharmer()) // charmer should have leashing check or leash set
         {
             Creature* creatureOwner = static_cast<Creature*>(m_owner);
@@ -110,14 +112,14 @@ void CombatManager::Update(const uint32 diff)
                     float x, y, z;
                     creatureOwner->GetPosition(x, y, z);
                     if (m_leashingCheck(creatureOwner, x, y, z))
-                        creatureOwner->HandleExitCombat();
+                        creatureOwner->HandleExitCombat(true);
                 }
                 else if (creatureOwner->GetCreatureInfo()->Leash) // If creature has set maximum leashing distance
                 {
                     Position pos;
                     creatureOwner->GetCombatStartPosition(pos);
                     if (creatureOwner->GetDistance2d(pos.GetPositionX(), pos.GetPositionY()) > creatureOwner->GetCreatureInfo()->Leash)
-                        creatureOwner->HandleExitCombat();
+                        creatureOwner->HandleExitCombat(true);
                 }
             }
         }
@@ -168,4 +170,11 @@ void CombatManager::TriggerCombatTimer(Unit* target)
 void CombatManager::TriggerCombatTimer(bool pvp)
 {
     m_combatTimer = pvp ? 5000 : 15000;
+    m_lastRefreshPos = m_owner->GetPosition();
+}
+
+void CombatManager::TriggerCombatTimer(uint32 timer)
+{
+    m_combatTimer = timer;
+    m_lastRefreshPos = m_owner->GetPosition();
 }

@@ -23,6 +23,7 @@
 #include "Entities/Creature.h"
 #include "AI/BaseAI/CreatureAI.h"
 #include "Entities/Unit.h"
+#include "AI/ScriptDevAI/base/TimerAI.h"
 #include <set>
 
 class Player;
@@ -54,7 +55,7 @@ enum EventAI_Type
     EVENT_T_TARGET_CASTING          = 13,                   // RepeatMin, RepeatMax
     EVENT_T_FRIENDLY_HP             = 14,                   // HPDeficit, Radius, RepeatMin, RepeatMax
     EVENT_T_FRIENDLY_IS_CC          = 15,                   // DispelType, Radius, RepeatMin, RepeatMax
-    EVENT_T_FRIENDLY_MISSING_BUFF   = 16,                   // SpellId, Radius, RepeatMin, RepeatMax
+    EVENT_T_FRIENDLY_MISSING_BUFF   = 16,                   // SpellId, Radius, RepeatMin, RepeatMax, InCombat
     EVENT_T_SUMMONED_UNIT           = 17,                   // CreatureId, RepeatMin, RepeatMax
     EVENT_T_TARGET_MANA             = 18,                   // ManaMax%, ManaMin%, RepeatMin, RepeatMax
     EVENT_T_QUEST_ACCEPT            = 19,                   // QuestID
@@ -74,6 +75,7 @@ enum EventAI_Type
     EVENT_T_FACING_TARGET           = 33,                   // Position, unused, RepeatMin, RepeatMax
     EVENT_T_SPELLHIT_TARGET         = 34,                   // SpellID, School, RepeatMin, RepeatMax
     EVENT_T_DEATH_PREVENTED         = 35,                   //
+    EVENT_T_TARGET_NOT_REACHABLE    = 36,                   //
 
     EVENT_T_END,
 };
@@ -81,7 +83,7 @@ enum EventAI_Type
 enum EventAI_ActionType
 {
     ACTION_T_NONE                       = 0,                // No action
-    ACTION_T_TEXT                       = 1,                // TextId1, optionally -TextId2, optionally -TextId3(if -TextId2 exist). If more than just -TextId1 is defined, randomize. Negative values.
+    ACTION_T_TEXT                       = 1,                // TextId1, optionally TextId2, optionally TextId3(if TextId2 exist). If more than just TextId1 is defined, randomize. Values are broadcast_text Ids.
     ACTION_T_SET_FACTION                = 2,                // FactionId (or 0 for default)
     ACTION_T_MORPH_TO_ENTRY_OR_MODEL    = 3,                // Creature_template entry(param1) OR ModelId (param2) (or 0 for both to demorph)
     ACTION_T_SOUND                      = 4,                // SoundId
@@ -104,7 +106,7 @@ enum EventAI_ActionType
     ACTION_T_COMBAT_MOVEMENT            = 21,               // AllowCombatMovement (0 = stop combat based movement, anything else continue attacking)
     ACTION_T_SET_PHASE                  = 22,               // Phase
     ACTION_T_INC_PHASE                  = 23,               // Value (may be negative to decrement phase, should not be 0)
-    ACTION_T_EVADE                      = 24,               // No Params
+    ACTION_T_EVADE                      = 24,               // CombatOnly
     ACTION_T_FLEE_FOR_ASSIST            = 25,               // No Params
     ACTION_T_QUEST_EVENT_ALL            = 26,               // QuestID, UseThreatList (1 = true, 0 = false)
     ACTION_T_CAST_EVENT_ALL             = 27,               // CreatureId, SpellId
@@ -124,7 +126,7 @@ enum EventAI_ActionType
     ACTION_T_FORCE_DESPAWN              = 41,               // Delay (0-instant despawn)
     ACTION_T_SET_DEATH_PREVENTION       = 42,               // 0-off/1-on
     ACTION_T_MOUNT_TO_ENTRY_OR_MODEL    = 43,               // Creature_template entry(param1) OR ModelId (param2) (or 0 for both to unmount)
-    ACTION_T_CHANCED_TEXT               = 44,               // Chance to display the text, TextId1, optionally TextId2. If more than just -TextId1 is defined, randomize. Negative values.
+    ACTION_T_CHANCED_TEXT               = 44,               // Chance to display the text, TextId1, optionally TextId2. If more than just TextId1 is defined, randomize. Values are broadcast_text Ids.
     ACTION_T_THROW_AI_EVENT             = 45,               // EventType, Radius, Target
     ACTION_T_SET_THROW_MASK             = 46,               // EventTypeMask, unused, unused
     ACTION_T_SET_STAND_STATE            = 47,               // StandState, unused, unused
@@ -143,6 +145,7 @@ enum EventAI_ActionType
     ACTION_T_SET_SPELL_SET              = 60,               // SetId
     ACTION_T_SET_IMMOBILIZED_STATE      = 61,               // state (true - rooted), combatonly (true - autoremoved on combat stop)
     ACTION_T_SET_DESPAWN_AGGREGATION    = 62,               // mask, entry, entry2
+    ACTION_T_SET_IMMUNITY_SET           = 63,               // SetId - creature_immunities
 
     ACTION_T_END,
 };
@@ -342,6 +345,11 @@ struct CreatureEventAI_Action
             uint32 phase;
         } set_phase;
         // ACTION_T_INC_PHASE                               = 23
+        struct
+        {
+            uint32 combatOnly;
+        } evade;
+        // ACTION_T_EVADE                                   = 24
         struct
         {
             int32 step;
@@ -564,6 +572,11 @@ struct CreatureEventAI_Action
             uint32 entry;
             uint32 entry2;
         } despawnAggregation;
+        // ACTION_T_SET_IMMUNITY_SET
+        struct
+        {
+            uint32 setId;
+        } immunitySet;
         // RAW
         struct
         {
@@ -684,6 +697,7 @@ struct CreatureEventAI_Event
             uint32 radius;
             uint32 repeatMin;
             uint32 repeatMax;
+            uint32 inCombat;
         } friendly_buff;
         // EVENT_T_SUMMONED_UNIT                            = 17
         // EVENT_T_SUMMONED_JUST_DIED                       = 25
@@ -754,6 +768,11 @@ struct CreatureEventAI_Event
         {
             uint32 unused;
         } deathPrevented;
+        // EVENT_T_TARGET_NOT_REACHABLE                     = 36
+        struct
+        {
+            uint32 unused;
+        } unreachable;
         // RAW
         struct
         {
@@ -812,7 +831,7 @@ struct CreatureEventAIHolder
     bool UpdateRepeatTimer(Creature* creature, uint32 repeatMin, uint32 repeatMax);
 };
 
-class CreatureEventAI : public CreatureAI
+class CreatureEventAI : public CreatureAI, public TimerManager
 {
     public:
         explicit CreatureEventAI(Creature* creature);
@@ -844,6 +863,7 @@ class CreatureEventAI : public CreatureAI
         void SummonedCreatureJustDied(Creature* summoned) override;
         void SummonedCreatureDespawn(Creature* summoned) override;
         void ReceiveAIEvent(AIEventType eventType, Unit* sender, Unit* invoker, uint32 miscValue) override;
+        void CorpseRemoved(uint32& respawnDelay) override;
         // bool IsControllable() const override { return true; }
 
         static int Permissible(const Creature* creature);
@@ -863,7 +883,7 @@ class CreatureEventAI : public CreatureAI
 
         bool SpawnedEventConditionsCheck(CreatureEventAI_Event const& event) const;
 
-        void DoFindFriendlyMissingBuff(CreatureList& list, float range, uint32 spellId) const;
+        void DoFindFriendlyMissingBuff(CreatureList& list, float range, uint32 spellId, bool inCombat) const;
         void DoFindFriendlyCC(CreatureList& list, float range) const;
 
         void SetRangedMode(bool state, float distance, RangeModeType type);
@@ -882,6 +902,8 @@ class CreatureEventAI : public CreatureAI
         SpellSchoolMask GetMainAttackSchoolMask() const override { return m_currentRangedMode ? m_mainAttackMask : CreatureAI::GetMainAttackSchoolMask(); }
 
         virtual CanCastResult DoCastSpellIfCan(Unit* target, uint32 spellId, uint32 castFlags = 0) override;
+
+        bool IsMainSpellPrevented(SpellEntry const* spellInfo) const;
     protected:
         std::string GetAIName() override { return "EventAI"; }
         // Event rules specifiers
@@ -928,6 +950,9 @@ class CreatureEventAI : public CreatureAI
         SpellSchoolMask m_mainAttackMask;
 
         MovementGeneratorType m_defaultMovement; // TODO: Extend to all of AI
+
+        // Distancer
+        bool m_distancingCooldown;
 };
 
 #endif

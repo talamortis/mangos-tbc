@@ -37,6 +37,7 @@
 #include "Mails/Mail.h"
 #include "Util.h"
 #include "AI/ScriptDevAI/ScriptDevAIMgr.h"
+#include "Anticheat/Anticheat.hpp"
 #include "Spells/SpellMgr.h"
 #include "Entities/Transports.h"
 #ifdef _DEBUG_VMAPS
@@ -157,7 +158,7 @@ bool ChatHandler::HandleGMCommand(char* args)
 {
     if (!*args)
     {
-        if (m_session->GetPlayer()->isGameMaster())
+        if (m_session->GetPlayer()->IsGameMaster())
             m_session->SendNotification(LANG_GM_ON);
         else
             m_session->SendNotification(LANG_GM_OFF);
@@ -346,9 +347,8 @@ bool ChatHandler::HandleGPSCommand(char* args)
 
     if (GenericTransport* transport = obj->GetTransport())
     {
-        Position pos;
-        obj->GetPosition(pos.x, pos.y, pos.z, transport);
-        PSendSysMessage("Transport coords: %f %f %f", pos.x, pos.y, pos.z);
+        Position pos = obj->GetPosition(transport);
+        PSendSysMessage("Transport coords: %f %f %f %f", pos.x, pos.y, pos.z, pos.o);
     }
 
     DEBUG_LOG("Player %s GPS call for %s '%s' (%s: %u):",
@@ -418,10 +418,13 @@ bool ChatHandler::HandleNamegoCommand(char* args)
 
         Map* pMap = player->GetMap();
 
+        if (!pMap)
+            return false;
+
         if (pMap->IsBattleGroundOrArena())
         {
             // only allow if gm mode is on
-            if (!player->isGameMaster())
+            if (!player->IsGameMaster())
             {
                 PSendSysMessage(LANG_CANNOT_GO_TO_BG_GM, nameLink.c_str());
                 SetSentErrorMessage(true);
@@ -528,7 +531,7 @@ bool ChatHandler::HandleGonameCommand(char* args)
         if (cMap->IsBattleGroundOrArena())
         {
             // only allow if gm mode is on
-            if (!_player->isGameMaster())
+            if (!_player->IsGameMaster())
             {
                 PSendSysMessage(LANG_CANNOT_GO_TO_BG_GM, chrNameLink.c_str());
                 SetSentErrorMessage(true);
@@ -566,7 +569,7 @@ bool ChatHandler::HandleGonameCommand(char* args)
             else
             {
                 // we are not in group, let's verify our GM mode
-                if (!_player->isGameMaster())
+                if (!_player->IsGameMaster())
                 {
                     PSendSysMessage(LANG_CANNOT_GO_TO_INST_GM, chrNameLink.c_str());
                     SetSentErrorMessage(true);
@@ -827,7 +830,7 @@ bool ChatHandler::HandleModifyFactionCommand(char* args)
     {
         if (chr)
         {
-            uint32 factionid = chr->getFaction();
+            uint32 factionid = chr->GetFaction();
             uint32 flag      = chr->GetUInt32Value(UNIT_FIELD_FLAGS);
             uint32 npcflag   = chr->GetUInt32Value(UNIT_NPC_FLAGS);
             uint32 dyflag    = chr->GetUInt32Value(UNIT_DYNAMIC_FLAGS);
@@ -1828,7 +1831,10 @@ bool ChatHandler::HandleGoXYZCommand(char* args)
 
     Player* _player = m_session->GetPlayer();
 
-    char* px = strtok((char*)args, " ");
+    std::string argsStr(args);
+    std::replace(argsStr.begin(), argsStr.end(), ',', ' ');
+
+    char* px = strtok((char*)argsStr.c_str(), " ");
     char* py = strtok(nullptr, " ");
     char* pz = strtok(nullptr, " ");
     char* pmapid = strtok(nullptr, " ");
@@ -2010,7 +2016,7 @@ bool ChatHandler::ModifyMountCommandHelper(Player* target, char* args)
         slow = true;
     else
     {
-        const uint32 level = target->getLevel();
+        const uint32 level = target->GetLevel();
         fast = (level >= 60);
         slow = (!fast && level >= 30);
     }
@@ -2280,5 +2286,12 @@ bool ChatHandler::HandleChannelStaticCommand(char* args)
         PSendSysMessage(LANG_COMMAND_CHANNEL_STATIC_SUCCESS, channel->GetName().c_str(), GetMangosString((state ? LANG_ON : LANG_OFF)));
     }
 
+    return true;
+}
+
+bool ChatHandler::HandleReloadAnticheatCommand(char*)
+{
+    sAnticheatLib->Reload();
+    SendSysMessage(">> Anticheat data reloaded");
     return true;
 }

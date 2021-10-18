@@ -487,7 +487,7 @@ UnitAI* GetAI_npc_twiggy_flathead(Creature* pCreature)
 
 bool AreaTrigger_at_twiggy_flathead(Player* pPlayer, AreaTriggerEntry const* /*pAt*/)
 {
-    if (pPlayer->IsAlive() && !pPlayer->isGameMaster() && pPlayer->GetQuestStatus(QUEST_AFFRAY) == QUEST_STATUS_INCOMPLETE)
+    if (pPlayer->IsAlive() && !pPlayer->IsGameMaster() && pPlayer->GetQuestStatus(QUEST_AFFRAY) == QUEST_STATUS_INCOMPLETE)
     {
         Creature* pCreature = GetClosestCreatureWithEntry(pPlayer, NPC_TWIGGY, 30.0f);
         if (!pCreature)
@@ -615,7 +615,8 @@ struct npc_wizzlecranks_shredderAI : public npc_escortAI
                             DoScriptText(SAY_PROGRESS_2, m_creature);
                             break;
                         case 1:
-                            DoScriptText(SAY_PROGRESS_3, m_creature);
+                            if (Player* pPlayer = GetPlayerForEscort())
+                                DoScriptText(SAY_PROGRESS_3, m_creature, pPlayer);
                             break;
                         case 2:
                             DoScriptText(SAY_END, m_creature);

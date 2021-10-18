@@ -24,7 +24,6 @@
 #include "Entities/Object.h"
 #include "Util.h"
 #include "AI/BaseAI/GameObjectAI.h"
-#include "Spells/SpellAuras.h"
 #include "Spells/SpellDefines.h"
 
 // GCC have alternative #pragma pack(N) syntax and old gcc version not support pack(push,N), also any gcc version not support it at some platform
@@ -650,6 +649,7 @@ enum CapturePointSliderValue
 enum GameobjectExtraFlags
 {
     GAMEOBJECT_EXTRA_FLAG_CUSTOM_ANIM_ON_USE = 0x00000001,    // GO that plays custom animation on usage
+    GAMEOBJECT_EXTRA_FLAG_DYNGUID            = 0x00000002,    // Temporary - Uses new dynguid system
     GAMEOBJECT_EXTRA_FLAG_ACTIVE             = 0x00001000,    // Always active
 };
 
@@ -690,6 +690,7 @@ class GameObject : public WorldObject
         virtual bool Create(uint32 guidlow, uint32 name_id, Map* map, float x, float y, float z, float ang,
                     float rotation0 = 0.0f, float rotation1 = 0.0f, float rotation2 = 0.0f, float rotation3 = 0.0f, uint32 animprogress = GO_ANIMPROGRESS_DEFAULT, GOState go_state = GO_STATE_READY);
         void Update(const uint32 diff) override;
+        void Heartbeat() override;
         GameObjectInfo const* GetGOInfo() const;
 
         bool IsTransport() const;
@@ -711,8 +712,11 @@ class GameObject : public WorldObject
 
         ObjectGuid const& GetOwnerGuid() const override { return GetGuidValue(OBJECT_FIELD_CREATED_BY); }
         void SetOwnerGuid(ObjectGuid guid) override;
+        ObjectGuid const GetSpawnerGuid() const { return m_spawnerGuid; }
+        void SetSpawnerGuid(ObjectGuid guid) { m_spawnerGuid = guid; }
 
         Unit* GetOwner() const;
+        WorldObject* GetSpawner() const;
 
         void SetSpellId(uint32 id)
         {
@@ -720,6 +724,8 @@ class GameObject : public WorldObject
             m_spellId = id;
         }
         uint32 GetSpellId() const { return m_spellId;}
+
+        void ForcedDespawn(uint32 timeMSToDespawn = 0);
 
         time_t GetRespawnTime() const { return m_respawnTime; }
         time_t GetRespawnTimeEx() const
@@ -763,6 +769,9 @@ class GameObject : public WorldObject
         void SetGoAnimProgress(uint32 animprogress) { SetUInt32Value(GAMEOBJECT_ANIMPROGRESS, animprogress); }
         uint32 GetDisplayId() const { return GetUInt32Value(GAMEOBJECT_DISPLAYID); }
         void SetDisplayId(uint32 modelId);
+        uint32 GetFaction() const override { return GetUInt32Value(GAMEOBJECT_FACTION); }
+        void SetFaction(uint32 faction) { SetUInt32Value(GAMEOBJECT_FACTION, faction); }
+        uint32 GetLevel() const override { return GetUInt32Value(GAMEOBJECT_LEVEL); }
 
         void Use(Unit* user, SpellEntry const* spellInfo = nullptr);
 
@@ -867,6 +876,13 @@ class GameObject : public WorldObject
 
         SpellCastResult CastSpell(Unit* temporaryCaster, Unit* Victim, SpellEntry const* spellInfo, uint32 triggeredFlags, Item* castItem = nullptr, Aura* triggeredByAura = nullptr, ObjectGuid originalCaster = ObjectGuid(), SpellEntry const* triggeredBy = nullptr);
 
+        void GenerateLootFor(Player* player); // used to tie chest loot to encounter at the moment of its end
+
+        uint32 GetDbGuid() const override { return m_dbGuid; }
+        HighGuid GetParentHigh() const override { return HIGHGUID_GAMEOBJECT; }
+
+        void SetCooldown(uint32 cooldown); // seconds
+
     protected:
         uint32      m_spellId;
         time_t      m_respawnTime;                          // (secs) time of next respawn (or despawn if GO have owner()),
@@ -921,6 +937,8 @@ class GameObject : public WorldObject
 
         uint32 m_dbGuid;
 
+        ObjectGuid m_spawnerGuid;
+
     private:
         void SwitchDoorOrButton(bool activate, bool alternative = false);
         void TickCapturePoint();
@@ -929,5 +947,17 @@ class GameObject : public WorldObject
 
         GridReference<GameObject> m_gridRef;
 };
+
+class ForcedDespawnDelayGameObjectEvent : public BasicEvent
+{
+    public:
+        ForcedDespawnDelayGameObjectEvent(GameObject& owner) : BasicEvent(), m_owner(owner) { }
+        bool Execute(uint64 e_time, uint32 p_time) override;
+
+    private:
+        GameObject& m_owner;
+        bool m_onlyAlive;
+};
+
 
 #endif

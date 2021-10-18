@@ -925,6 +925,55 @@ CreatureClassLvlStats const* ObjectMgr::GetCreatureClassLvlStats(uint32 level, u
     return nullptr;
 }
 
+CreatureImmunityVector const* ObjectMgr::GetCreatureImmunitySet(uint32 entry, uint32 setId) const
+{
+    auto itr = m_creatureImmunities.find(entry);
+    if (itr == m_creatureImmunities.end())
+        return nullptr;
+
+    auto& setIds = (*itr).second;
+    auto setItr = setIds.find(setId);
+    if (setItr == setIds.end())
+        return nullptr;
+
+    return &(*setItr).second;
+}
+
+void ObjectMgr::LoadCreatureImmunities()
+{
+    uint32 count = 0;
+    QueryResult* result = WorldDatabase.Query("SELECT Entry, SetId, Type, Value FROM creature_immunities");
+
+    if (result)
+    {
+        do
+        {
+            Field* fields = result->Fetch();
+
+            uint32 entry = fields[0].GetUInt32();
+            if (!sCreatureStorage.LookupEntry<CreatureInfo>(entry))
+            {
+                sLog.outErrorDb("LoadCreatureImmunities: Entry %u does not exist.", entry);
+                continue;
+            }
+            uint32 setId = fields[1].GetUInt32();
+            uint32 type = fields[2].GetUInt32();
+            if (type >= MAX_SPELL_IMMUNITY)
+            {
+                sLog.outErrorDb("LoadCreatureImmunities: Invalid type %u.", type);
+                continue;
+            }
+            uint32 value = fields[3].GetUInt32();
+            m_creatureImmunities[entry][setId].push_back({ type, value });
+            ++count;
+        } while (result->NextRow());
+    }
+    delete result;
+
+    sLog.outString(">> Loaded %u creature_immunities definitions", count);
+    sLog.outString();
+}
+
 void ObjectMgr::LoadEquipmentTemplates()
 {
     sEquipmentStorage.Load(true);
@@ -1010,7 +1059,7 @@ CreatureModelInfo const* ObjectMgr::GetCreatureModelRandomGender(uint32 display_
 
 uint32 ObjectMgr::GetModelForRace(uint32 sourceModelId, uint32 racemask)
 {
-    uint32 modelId = 0;
+    uint32 modelId = sourceModelId;
 
     CreatureModelRaceMapBounds bounds = m_mCreatureModelRaceMap.equal_range(sourceModelId);
 
@@ -1105,12 +1154,6 @@ void ObjectMgr::LoadCreatureModelInfo()
                 sLog.outErrorDb("Table `creature_model_info` have wrong bounding_radius %f for character race %u female model id %u, use %f instead", minfo->bounding_radius, race, raceEntry->model_f, DEFAULT_WORLD_OBJECT_SIZE);
                 const_cast<CreatureModelInfo*>(minfo)->bounding_radius = DEFAULT_WORLD_OBJECT_SIZE;
             }
-
-            if (minfo->combat_reach != 1.5f)
-            {
-                sLog.outErrorDb("Table `creature_model_info` have wrong combat_reach %f for character race %u female model id %u, expected always 1.5f", minfo->combat_reach, race, raceEntry->model_f);
-                const_cast<CreatureModelInfo*>(minfo)->combat_reach = 1.5f;
-            }
         }
         else
             sLog.outErrorDb("Table `creature_model_info` expect have data for character race %u female model id %u", race, raceEntry->model_f);
@@ -1127,12 +1170,6 @@ void ObjectMgr::LoadCreatureModelInfo()
             {
                 sLog.outErrorDb("Table `creature_model_info` have wrong bounding_radius %f for character race %u male model id %u, use %f instead", minfo->bounding_radius, race, raceEntry->model_f, DEFAULT_WORLD_OBJECT_SIZE);
                 const_cast<CreatureModelInfo*>(minfo)->bounding_radius = DEFAULT_WORLD_OBJECT_SIZE;
-            }
-
-            if (minfo->combat_reach != 1.5f)
-            {
-                sLog.outErrorDb("Table `creature_model_info` have wrong combat_reach %f for character race %u male model id %u, expected always 1.5f", minfo->combat_reach, race, raceEntry->model_m);
-                const_cast<CreatureModelInfo*>(minfo)->combat_reach = 1.5f;
             }
         }
         else
@@ -1313,7 +1350,7 @@ void ObjectMgr::LoadCreatureSpawnDataTemplates()
         int64 unitFlags =   int64(fields[1].GetUInt64());
         uint32 faction =    fields[2].GetUInt32();
         uint32 modelId =    fields[3].GetUInt32();
-        uint32 equipmentId = fields[4].GetUInt32();
+        int32 equipmentId = fields[4].GetInt32();
         uint32 curHealth =  fields[5].GetUInt32();
         uint32 curMana =    fields[6].GetUInt32();
         uint32 spawnFlags = fields[7].GetUInt32();
@@ -1338,7 +1375,7 @@ void ObjectMgr::LoadCreatureSpawnDataTemplates()
 
 void ObjectMgr::LoadCreatureSpawnEntry()
 {
-    mCreatureSpawnEntryMap.clear();
+    m_creatureSpawnEntryMap.clear();
 
     QueryResult* result = WorldDatabase.Query("SELECT guid, entry FROM creature_spawn_entry");
 
@@ -1371,7 +1408,7 @@ void ObjectMgr::LoadCreatureSpawnEntry()
             continue;
         }
 
-        auto& entries = mCreatureSpawnEntryMap[guid];
+        auto& entries = m_creatureSpawnEntryMap[guid];
         entries.push_back(entry);
 
         ++count;
@@ -1435,7 +1472,7 @@ void ObjectMgr::LoadCreatures()
             CreatureConditionalSpawn const* cSpawn = GetCreatureConditionalSpawn(guid);
             if (!cSpawn)
             {
-                if (uint32 randomEntry = sObjectMgr.GetRandomEntry(guid))
+                if (uint32 randomEntry = sObjectMgr.GetRandomCreatureEntry(guid))
                     entry = randomEntry;
                 else
                 {
@@ -1675,6 +1712,10 @@ void ObjectMgr::LoadGameObjects()
         uint32 guid         = fields[ 0].GetUInt32();
         uint32 entry        = fields[ 1].GetUInt32();
 
+        if (entry == 0)
+            if (uint32 randomEntry = sObjectMgr.GetRandomGameObjectEntry(guid))
+                entry = randomEntry;
+
         GameObjectInfo const* gInfo = GetGameObjectInfo(entry);
         if (!gInfo)
         {
@@ -1805,6 +1846,53 @@ void ObjectMgr::LoadGameObjects()
     delete result;
 
     sLog.outString(">> Loaded " SIZEFMTD " gameobjects", mGameObjectDataMap.size());
+    sLog.outString();
+}
+
+void ObjectMgr::LoadGameObjectSpawnEntry()
+{
+    m_gameobjectSpawnEntryMap.clear();
+
+    QueryResult* result = WorldDatabase.Query("SELECT guid, entry FROM gameobject_spawn_entry");
+
+    if (!result)
+    {
+        BarGoLink bar(1);
+        bar.step();
+        sLog.outErrorDb(">> Loaded gameobject_spawn_entry, table is empty!");
+        sLog.outString();
+        return;
+    }
+
+    BarGoLink bar(result->GetRowCount());
+
+    uint32 count = 0;
+
+    do
+    {
+        bar.step();
+
+        Field* fields = result->Fetch();
+
+        uint32 guid = fields[0].GetUInt32();
+        uint32 entry = fields[1].GetUInt32();
+
+        GameObjectInfo const* info = GetGameObjectInfo(entry);
+        if (!info)
+        {
+            sLog.outErrorDb("Table `gameobject_spawn_entry` has gameobject (GUID: %u) with non existing gameobject entry %u, skipped.", guid, entry);
+            continue;
+        }
+
+        auto& entries = m_gameobjectSpawnEntryMap[guid];
+        entries.push_back(entry);
+
+        ++count;
+    } while (result->NextRow());
+
+    delete result;
+
+    sLog.outString(">> Loaded %u gameobject_spawn_entry entries", count);
     sLog.outString();
 }
 
@@ -2326,6 +2414,9 @@ void ObjectMgr::LoadItemPrototypes()
                         sLog.outErrorDb("Item (Entry: %u) has broken spell in spellid_%d (%u)", i, j + 1, proto->Spells[j].SpellId);
                         const_cast<ItemPrototype*>(proto)->Spells[j].SpellId = 0;
                     }
+
+                    else if (spellInfo->speed > 0 && proto->Spells[j].SpellTrigger != ITEM_SPELLTRIGGER_ON_USE && proto->Spells[j].SpellTrigger != ITEM_SPELLTRIGGER_CHANCE_ON_HIT)
+                        sLog.outErrorDb("Item (Entry: %u) spell %u %s has travel speed.", i, spellInfo->Id, spellInfo->SpellName[0]);
                 }
             }
         }
@@ -4396,37 +4487,6 @@ void ObjectMgr::LoadQuests()
             qinfo->SetSpecialFlag(QUEST_SPECIAL_FLAG_TIMED);
     }
 
-    // check QUEST_SPECIAL_FLAG_EXPLORATION_OR_EVENT for spell with SPELL_EFFECT_QUEST_COMPLETE
-    for (uint32 i = 0; i < sSpellTemplate.GetMaxEntry(); ++i)
-    {
-        SpellEntry const* spellInfo = sSpellTemplate.LookupEntry<SpellEntry>(i);
-        if (!spellInfo)
-            continue;
-
-        for (int j = 0; j < MAX_EFFECT_INDEX; ++j)
-        {
-            if (spellInfo->Effect[j] != SPELL_EFFECT_QUEST_COMPLETE)
-                continue;
-
-            uint32 quest_id = spellInfo->EffectMiscValue[j];
-
-            Quest const* quest = GetQuestTemplate(quest_id);
-
-            // some quest referenced in spells not exist (outdated spells)
-            if (!quest)
-                continue;
-
-            // Exclude false positive of quest 10162
-            if (!quest->HasSpecialFlag(QUEST_SPECIAL_FLAG_EXPLORATION_OR_EVENT) && spellInfo->Id != 33824 && quest_id != 10162)
-            {
-                sLog.outErrorDb("Spell (id: %u) have SPELL_EFFECT_QUEST_COMPLETE for quest %u , but quest does not have SpecialFlags QUEST_SPECIAL_FLAG_EXPLORATION_OR_EVENT (2) set. Quest SpecialFlags should be corrected to enable this objective.", spellInfo->Id, quest_id);
-
-                // this will prevent quest completing without objective
-                const_cast<Quest*>(quest)->SetSpecialFlag(QUEST_SPECIAL_FLAG_EXPLORATION_OR_EVENT);
-            }
-        }
-    }
-
     sLog.outString(">> Loaded " SIZEFMTD " quests definitions", mQuestTemplates.size());
     sLog.outString();
 }
@@ -4898,6 +4958,8 @@ void ObjectMgr::LoadInstanceEncounters()
                 }
                 break;
             }
+            case ENCOUNTER_CREDIT_SCRIPT:
+                break;
             default:
                 sLog.outErrorDb("Table `instance_encounters` has an invalid credit type (%u) for encounter %u (%s), skipped!", creditType, entry, dungeonEncounter->encounterName[0]);
                 continue;
@@ -5962,7 +6024,7 @@ void ObjectMgr::GetTaxiPath(uint32 source, uint32 destination, uint32& path, uin
     path = dest_i->second.ID;
 }
 
-uint32 ObjectMgr::GetTaxiMountDisplayId(uint32 id, Team team, bool allowed_alt_team /* = false */) const
+uint32 ObjectMgr::GetTaxiMountDisplayId(uint32 id, Team team) const
 {
     uint16 mount_entry = 0;
 
@@ -5973,14 +6035,13 @@ uint32 ObjectMgr::GetTaxiMountDisplayId(uint32 id, Team team, bool allowed_alt_t
         if (team == ALLIANCE)
         {
             mount_entry = node->MountCreatureID[1];
-            if (!mount_entry && allowed_alt_team)
+            if (!mount_entry)
                 mount_entry = node->MountCreatureID[0];
         }
         else if (team == HORDE)
         {
             mount_entry = node->MountCreatureID[0];
-
-            if (!mount_entry && allowed_alt_team)
+            if (!mount_entry)
                 mount_entry = node->MountCreatureID[1];
         }
     }
@@ -5998,337 +6059,6 @@ uint32 ObjectMgr::GetTaxiMountDisplayId(uint32 id, Team team, bool allowed_alt_t
         mount_id = minfo->modelid;
 
     return mount_id;
-}
-
-// Load or reload the graveyard links from the data
-void ObjectMgr::LoadGraveyardZones()
-{
-    // Clear the map (in case we're reloading) and then add all the entries from
-    // the database.
-
-    // mGraveYardMap has records by both map id and area id. map ID records have their
-    // most significant bit set. If you want to query for a map id you must
-    // query map_id | (1 << 31) instead.
-    mGraveYardMap.clear();
-
-    QueryResult* result = WorldDatabase.Query("SELECT id,ghost_loc,link_kind,faction FROM game_graveyard_zone");
-
-    uint32 count = 0;
-
-    if (!result)
-    {
-        BarGoLink bar(1);
-        bar.step();
-        sLog.outString(">> Loaded %u graveyard-zone links", count);
-        sLog.outString();
-        return;
-    }
-
-    BarGoLink bar(result->GetRowCount());
-
-    do
-    {
-        ++count;
-        bar.step();
-
-        Field* fields = result->Fetch();
-
-        uint32 safeLocId = fields[0].GetUInt32();
-        uint32 locId = fields[1].GetUInt32();
-        uint32 linkKind = fields[2].GetUInt32();
-        uint32 team = fields[3].GetUInt32();
-
-        if (linkKind != 0 && linkKind != 1)
-        {
-            sLog.outErrorDb("Table `game_graveyard_zone` has record with invalid `link_kind`=%d state, skipped.", linkKind);
-            continue;
-        }
-
-        WorldSafeLocsEntry const* entry = sWorldSafeLocsStore.LookupEntry<WorldSafeLocsEntry>(safeLocId);
-        if (!entry)
-        {
-            sLog.outErrorDb("Table `game_graveyard_zone` has record for nonexistent graveyard (WorldSafeLocs.dbc id) %u, skipped.", safeLocId);
-            continue;
-        }
-
-        if (linkKind == GRAVEYARD_AREALINK && GetAreaEntryByAreaID(locId) == nullptr)
-        {
-            sLog.outErrorDb("Table `game_graveyard_zone` has record for nonexistent area id (%u), skipped.", locId);
-            continue;
-        }
-
-        if (linkKind == GRAVEYARD_MAPLINK && sMapStore.LookupEntry(locId) == nullptr)
-        {
-            sLog.outErrorDb("Table `game_graveyard_zone` has record for nonexistent map id (%u), skipped.", locId);
-            continue;
-        }
-
-        if (team != TEAM_BOTH_ALLOWED && team != HORDE && team != ALLIANCE)
-        {
-            sLog.outErrorDb("Table `game_graveyard_zone` has record for non player faction (%u), skipped.", team);
-            continue;
-        }
-
-        if (!AddGraveYardLink(safeLocId, locId, linkKind, Team(team), false))
-            sLog.outErrorDb("Table `game_graveyard_zone` has a duplicate record"
-                    " for Graveyard (ID: %u) and location (ID: %u, kind: %u), "
-                    "skipped.", safeLocId, locId, linkKind);
-    }
-    while (result->NextRow());
-
-    delete result;
-
-    sLog.outString(">> Loaded %u graveyard-zone links", count);
-    sLog.outString();
-}
-
-
-WorldSafeLocsEntry const* ObjectMgr::GetClosestGraveyardHelper(
-        GraveYardMapBounds bounds, float x, float y, float z, uint32 mapId,
-        Team team) const
-{
-    // Simulate std. algorithm:
-    //   found some graveyard associated to (ghost_zone,ghost_map)
-    //
-    //   if mapId == graveyard.mapId (ghost in plain zone or city or battleground) and search graveyard at same map
-    //     then check faction
-    //   if mapId != graveyard.mapId (ghost in instance) and search any graveyard associated
-    //     then check faction
-
-    // at corpse map
-    bool foundNear = false;
-    float distNear = std::numeric_limits<float>::max();
-    WorldSafeLocsEntry const* entryNear = nullptr;
-
-    // at entrance map for corpse map
-    bool foundEntr = false;
-    float distEntr = std::numeric_limits<float>::max();
-    WorldSafeLocsEntry const* entryEntr = nullptr;
-
-    // some where other
-    WorldSafeLocsEntry const* entryFar = nullptr;
-
-    MapEntry const* mapEntry = sMapStore.LookupEntry(mapId);
-
-    for (GraveYardMap::const_iterator itr = bounds.first; itr != bounds.second; ++itr)
-    {
-        GraveYardData const& data = itr->second;
-
-        // Checked on load
-        WorldSafeLocsEntry const* entry = sWorldSafeLocsStore.LookupEntry<WorldSafeLocsEntry>(data.safeLocId);
-
-        // skip enemy faction graveyard
-        // team == TEAM_BOTH_ALLOWED case can be at call from .neargrave
-        // TEAM_INVALID != team for all teams
-        if (data.team != TEAM_BOTH_ALLOWED && data.team != team && team != TEAM_BOTH_ALLOWED)
-            continue;
-
-        // find now nearest graveyard at other (continent) map
-        if (mapId != entry->map_id)
-        {
-            // if find graveyard at different map from where entrance placed (or no entrance data), use any first
-            if (!mapEntry ||
-                    mapEntry->ghost_entrance_map < 0 ||
-                    uint32(mapEntry->ghost_entrance_map) != entry->map_id ||
-                    (mapEntry->ghost_entrance_x == 0 && mapEntry->ghost_entrance_y == 0))
-            {
-                // not have any coordinates for check distance anyway
-                entryFar = entry;
-                continue;
-            }
-
-            // at entrance map calculate distance (2D);
-            float dist2 = (entry->x - mapEntry->ghost_entrance_x) * (entry->x - mapEntry->ghost_entrance_x)
-                          + (entry->y - mapEntry->ghost_entrance_y) * (entry->y - mapEntry->ghost_entrance_y);
-            if (foundEntr)
-            {
-                if (dist2 < distEntr)
-                {
-                    distEntr = dist2;
-                    entryEntr = entry;
-                }
-            }
-            else
-            {
-                foundEntr = true;
-                distEntr = dist2;
-                entryEntr = entry;
-            }
-        }
-        // find now nearest graveyard at same map
-        else
-        {
-            float dist2 = (entry->x - x) * (entry->x - x) + (entry->y - y) * (entry->y - y) + (entry->z - z) * (entry->z - z);
-            if (foundNear)
-            {
-                if (dist2 < distNear)
-                {
-                    distNear = dist2;
-                    entryNear = entry;
-                }
-            }
-            else
-            {
-                foundNear = true;
-                distNear = dist2;
-                entryNear = entry;
-            }
-        }
-    }
-
-    if (entryNear)
-        return entryNear;
-
-    if (entryEntr)
-        return entryEntr;
-
-    return entryFar;
-}
-
-WorldSafeLocsEntry const* ObjectMgr::GetClosestGraveYard(
-        float x, float y, float z, uint32 mapId, Team team) const
-{
-    // Search for the closest linked graveyard by decreasing priority:
-    //  - First try linked to the current area id (if we have one)
-    //  - Then try linked to the current zone id (if we have one)
-    //  - Then try linked to the current map id
-    const uint32 zoneId = sTerrainMgr.GetZoneId(mapId, x, y, z);
-    const uint32 areaId = sTerrainMgr.GetAreaId(mapId, x, y, z);
-
-    WorldSafeLocsEntry const* graveyard = nullptr;
-    if (zoneId != 0)
-    {
-        auto bounds = mGraveYardMap.equal_range(GraveyardLinkKey(areaId, GRAVEYARD_AREALINK));
-        graveyard = GetClosestGraveyardHelper(bounds, x, y, z, mapId, team);
-    }
-
-    if (zoneId != 0 && graveyard == nullptr)
-    {
-        auto bounds = mGraveYardMap.equal_range(GraveyardLinkKey(zoneId, GRAVEYARD_AREALINK));
-        graveyard = GetClosestGraveyardHelper(bounds, x, y, z, mapId, team);
-    }
-
-    if (graveyard == nullptr)
-    {
-        auto bounds = mGraveYardMap.equal_range(GraveyardLinkKey(mapId, GRAVEYARD_MAPLINK));
-        graveyard = GetClosestGraveyardHelper(bounds, x, y, z, mapId, team);
-    }
-
-    if (graveyard == nullptr)
-        sLog.outErrorDb("Table `game_graveyard_zone` incomplete: Map %u Zone "
-                        "%u Area %u Team %u does not have a linked graveyard.",
-                        mapId, zoneId, areaId, uint32(team));
-    return graveyard;
-}
-
-/*!
- * Return the Graveyard link data for a given graveyard and location
- * combination.
- *
- * \param id        The id of a graveyard. This is an index to the graveyard in
- *                  sWorldSafeLocsStore which holds data from WorldSafeLocs.dbc
- * \param locKey    A location key as returned by ObjectMgr::GraveyardLinkKey
- */
-GraveYardData const* ObjectMgr::FindGraveYardData(uint32 id, uint32 locKey) const
-{
-    GraveYardMapBounds bounds = mGraveYardMap.equal_range(locKey);
-
-    for (GraveYardMap::const_iterator itr = bounds.first; itr != bounds.second; ++itr)
-    {
-        if (itr->second.safeLocId == id)
-            return &itr->second;
-    }
-
-    return nullptr;
-}
-
-/*!
- * Turn a location id and a link kind into a location key that indexes the
- * graveyard link map.
- *
- * \param locationId    The id of an area or a map.
- * \param linkKind      The kind of id, either GRAVEYARD_MAPLINK or
- *                      GRAVEYARD_AREALINK
- * \return The location key composed of the given data.
- */
-uint32 ObjectMgr::GraveyardLinkKey(uint32 locationId, uint32 linkKind)
-{
-    return locationId | (linkKind << 31);
-}
-
-/*!
- * Adds a given graveyard link to the currently active graveyard links.
- * Optionally add it into the database too.
- *
- * \param id        The id of a graveyard. This is an index to the graveyard in
- *                  sWorldSafeLocsStore which holds data from WorldSafeLocs.dbc
- *
- * \param locId     The id of a location. This is either an area id or a map id
- *                  based on the value of linkKind
- *
- * \param linkKind  The kind of the graveyard link to be added. Kind is either
- *                  GRAVEYARD_MAPLINK or GRAVEYARD_AREALINK
- * 
- * \param team      The team that is allowed to use this graveyard link. Can be
- *                  TEAM_BOTH_ALLOWED, HORDE or ALLIANCE.
- *
- * \param inDB      True if the given graveyard link needs to be added to the
- *                  database. False otherwise.
- *
- * \return          Whether or not the link was added (False only if the link
- *                  was already added added).
- */
-bool ObjectMgr::AddGraveYardLink(uint32 id, uint32 locId, uint32 linkKind, Team team, bool inDB)
-{
-    uint32 locKey = GraveyardLinkKey(locId, linkKind);
-    if (FindGraveYardData(id, locKey))
-        return false;
-
-    GraveYardData data;
-    data.safeLocId = id;
-    data.team = team;
-    mGraveYardMap.insert(GraveYardMap::value_type(locKey, data));
-
-    if (inDB)
-        WorldDatabase.PExecuteLog("INSERT INTO game_graveyard_zone "
-            "(id, ghost_loc, link_kind, faction) VALUES "
-            "('%u', '%u','%u', '%u')", id, locId, linkKind, uint32(team));
-
-    return true;
-}
-
-void ObjectMgr::SetGraveYardLinkTeam(uint32 id, uint32 locKey, Team team)
-{
-    auto bounds = mGraveYardMap.equal_range(locKey);
-
-    for (GraveYardMap::iterator itr = bounds.first; itr != bounds.second; ++itr)
-    {
-        GraveYardData& data = itr->second;
-
-        // skip not matching safezone id
-        if (data.safeLocId != id)
-            continue;
-
-        data.team = team;                                   // Validate link
-        return;
-    }
-
-    if (team == TEAM_INVALID)
-        return;
-
-    // No graveyard link found but one was expected. Log it and add one to
-    // prevent further errors.
-    uint32 locId = locKey & 0x7FFFFFFF;
-    uint32 linkKind = locKey & 0x80000000;
-    sLog.outErrorDb("ObjectMgr::SetGraveYardLinkTeam called for safeLoc %u, "
-            "locKey %u, but no graveyard link for this found in database.", id, locKey);
-    AddGraveYardLink(id, locId, linkKind, team);
-}
-
-void ObjectMgr::LoadWorldSafeLocs() const
-{
-    sWorldSafeLocsStore.Load(true);
-    sLog.outString(">> Loaded %u world safe locs", sWorldSafeLocsStore.GetRecordCount());
 }
 
 void ObjectMgr::LoadAreaTriggerTeleports()
@@ -7005,7 +6735,8 @@ std::vector<uint32> ObjectMgr::LoadGameobjectInfo()
                         sLog.outErrorDb("Gameobject (Entry: %u GoType: %u) have data0=%u but TaxiPath (Id: %u) not exist.",
                                         goInfo->id, goInfo->type, goInfo->moTransport.taxiPathId, goInfo->moTransport.taxiPathId);
                 }
-                transportDisplayIds.push_back(goInfo->displayId);
+                if (goInfo->displayId != 462 && goInfo->displayId != 562)
+                    transportDisplayIds.push_back(goInfo->displayId);
                 break;
             }
             case GAMEOBJECT_TYPE_SUMMONING_RITUAL:          // 18
@@ -7591,8 +7322,20 @@ void ObjectMgr::LoadSpellTemplate()
     for (uint32 i = 1; i < sSpellTemplate.GetMaxEntry(); ++i)
     {
         SpellEntry const* spell = sSpellTemplate.LookupEntry<SpellEntry>(i);
-        if (spell && spell->Category)
-            sSpellCategoryStore[spell->Category].insert(i);
+        if (spell)
+        {
+            if (spell->Category)
+                sSpellCategoryStore[spell->Category].insert(i);
+
+            if (spell->SpellFamilyName == SPELLFAMILY_ROGUE)
+            {
+                for (uint8 i = 0; i < MAX_EFFECT_INDEX; ++i)
+                {
+                    if (spell->Effect[i] == SPELL_EFFECT_ENCHANT_ITEM_TEMPORARY)
+                        m_roguePoisonEnchantIds[spell->EffectMiscValue[i]] = true;
+                }
+            }
+        }
 
         // DBC not support uint64 fields but SpellEntry have SpellFamilyFlags mapped at 2 uint32 fields
         // uint32 field already converted to bigendian if need, but must be swapped for correct uint64 bigendian view
@@ -7657,7 +7400,7 @@ void ObjectMgr::LoadBroadcastText()
 {
     uint32 count = 0;
 
-    std::unique_ptr<QueryResult> result(WorldDatabase.Query("SELECT Id, Text, Text1, LanguageID, EmoteID1, EmoteID2, EmoteID3, EmoteDelay1, EmoteDelay2, EmoteDelay3 FROM broadcast_text"));
+    std::unique_ptr<QueryResult> result(WorldDatabase.Query("SELECT Id, Text, Text1, ChatTypeID, LanguageID, SoundEntriesID1, EmoteID1, EmoteID2, EmoteID3, EmoteDelay1, EmoteDelay2, EmoteDelay3 FROM broadcast_text"));
 
     if (!result)
     {
@@ -7684,13 +7427,15 @@ void ObjectMgr::LoadBroadcastText()
 
         bct.maleText[DEFAULT_LOCALE] = fields[1].GetCppString();
         bct.femaleText[DEFAULT_LOCALE] = fields[2].GetCppString();
-        bct.languageId = Language(fields[3].GetUInt32());
-        bct.emoteIds[0] = fields[4].GetUInt32();
-        bct.emoteIds[1] = fields[5].GetUInt32();
-        bct.emoteIds[2] = fields[6].GetUInt32();
-        bct.emoteDelays[0] = fields[7].GetUInt32();
-        bct.emoteDelays[1] = fields[8].GetUInt32();
-        bct.emoteDelays[2] = fields[9].GetUInt32();
+        bct.chatTypeId = ChatType(fields[3].GetUInt32());
+        bct.languageId = Language(fields[4].GetUInt32());
+        bct.soundId1 = fields[5].GetUInt32();
+        bct.emoteIds[0] = fields[6].GetUInt32();
+        bct.emoteIds[1] = fields[7].GetUInt32();
+        bct.emoteIds[2] = fields[8].GetUInt32();
+        bct.emoteDelays[0] = fields[9].GetUInt32();
+        bct.emoteDelays[1] = fields[10].GetUInt32();
+        bct.emoteDelays[2] = fields[11].GetUInt32();
 
         ++count;
     } while (result->NextRow());
@@ -8243,14 +7988,7 @@ inline void _DoStringError(int32 entry, char const* text, ...)
     vsnprintf(buf, 256, text, ap);
     va_end(ap);
 
-    if (entry <= MAX_CREATURE_AI_TEXT_STRING_ID)            // script library error
-        sLog.outErrorScriptLib("%s", buf);
-    else if (entry <= MIN_CREATURE_AI_TEXT_STRING_ID)       // eventAI error
-        sLog.outErrorEventAI("%s", buf);
-    else if (entry < MIN_DB_SCRIPT_STRING_ID)               // mangos string error
-        sLog.outError("%s", buf);
-    else // if (entry > MIN_DB_SCRIPT_STRING_ID)            // DB script text error
-        sLog.outErrorDb("DB-SCRIPTS: %s", buf);
+    sLog.outError("%s", buf);
 }
 
 bool ObjectMgr::LoadMangosStrings(DatabaseType& db, char const* table, int32 min_value, int32 max_value, bool extra_content)
@@ -9681,14 +9419,6 @@ void ObjectMgr::GetAreaTriggerLocales(uint32 entry, int32 loc_idx, std::string* 
 // Functions for scripting access
 bool LoadMangosStrings(DatabaseType& db, char const* table, int32 start_value, int32 end_value, bool extra_content)
 {
-    // MAX_DB_SCRIPT_STRING_ID is max allowed negative value for scripts (scrpts can use only more deep negative values
-    // start/end reversed for negative values
-    if (start_value > MAX_DB_SCRIPT_STRING_ID || end_value >= start_value)
-    {
-        sLog.outErrorDb("Table '%s' attempt loaded with reserved by mangos range (%d - %d), strings not loaded.", table, start_value, end_value + 1);
-        return false;
-    }
-
     return sObjectMgr.LoadMangosStrings(db, table, start_value, end_value, extra_content);
 }
 
@@ -9734,6 +9464,7 @@ void ObjectMgr::LoadCreatureTemplateSpells()
 
 void ObjectMgr::LoadCreatureCooldowns()
 {
+    // not deleting on reload because some cooldowns are SD2 based - instead we overwrite only
     uint32 count = 0;
     QueryResult* result = WorldDatabase.Query("SELECT Entry, SpellId, CooldownMin, CooldownMax FROM creature_cooldowns");
 
@@ -9762,7 +9493,7 @@ void ObjectMgr::LoadCreatureCooldowns()
                 sLog.outErrorDb("LoadCreatureCooldowns: Cooldowns are both 0 for entry %u spellId %u - redundant entry.", entry, spellId);
                 continue;
             }
-            m_creatureCooldownMap[entry].emplace(spellId, std::make_pair(cooldownMin, cooldownMax));
+            m_creatureCooldownMap[entry][spellId] = std::make_pair(cooldownMin, cooldownMax);
         } while (result->NextRow());
     }
     delete result;
@@ -9899,41 +9630,79 @@ GameObjectDataPair const* FindGOData::GetResult() const
     return i_anyData;
 }
 
-bool DoDisplayText(WorldObject* source, int32 entry, Unit const* target /*=nullptr*/)
+bool DoDisplayText(WorldObject* source, int32 entry, Unit const* target, uint32 chatTypeOverride)
 {
-    MangosStringLocale const* data = sObjectMgr.GetMangosStringLocale(entry);
+    uint32 sound, emote, type = 0;
+    Language lang = LANG_UNIVERSAL;
+    std::vector<std::string> content;
+    Gender sourceGender = source->IsUnit() ? (Gender)((Unit*)source)->getGender() : GENDER_NONE;
 
-    if (!data)
+    if (BroadcastText const* bct = sObjectMgr.GetBroadcastText(entry))
+    {
+        lang = bct->languageId;
+        type = bct->chatTypeId;
+        sound = bct->soundId1;
+        emote = bct->emoteIds[0];
+        content = bct->maleText;
+
+        if ((sourceGender == GENDER_FEMALE || sourceGender == GENDER_NONE) && !bct->femaleText[DEFAULT_LOCALE].empty() && bct->femaleText.size() > 0)
+            content = bct->femaleText;
+
+        if (bct->maleText.size() > 0 && !bct->maleText[DEFAULT_LOCALE].empty())
+            content = bct->maleText;
+    }
+    else if (MangosStringLocale const* data = sObjectMgr.GetMangosStringLocale(entry))
+    {
+        lang = data->LanguageId;
+        type = data->Type;
+        sound = data->SoundId;
+        emote = data->Emote;
+        if (BroadcastText const* bct = data->broadcastText)
+        {
+            if ((sourceGender == GENDER_FEMALE || sourceGender == GENDER_NONE) && !bct->femaleText[DEFAULT_LOCALE].empty() && bct->femaleText.size() > 0)
+                content = bct->femaleText;
+
+            if (bct->maleText.size() > 0 && !bct->maleText[DEFAULT_LOCALE].empty())
+                content = bct->maleText;
+        }
+        else
+            content = data->Content;
+    }
+
+    if (chatTypeOverride > 0)
+        type = chatTypeOverride;
+
+    if (content.empty())
     {
         _DoStringError(entry, "DoScriptText with source %s could not find text entry %i.", source->GetGuidStr().c_str(), entry);
         return false;
     }
 
-    if (data->SoundId)
+    if (sound)
     {
-        switch (data->Type)
+        switch (type)
         {
             case CHAT_TYPE_ZONE_YELL:
             case CHAT_TYPE_ZONE_EMOTE:
-                source->PlayDirectSound(data->SoundId, PlayPacketParameters(PLAY_ZONE, source->GetZoneId()));
+                source->PlayDirectSound(sound, PlayPacketParameters(PLAY_ZONE, source->GetZoneId()));
                 break;
             case CHAT_TYPE_WHISPER:
             case CHAT_TYPE_BOSS_WHISPER:
                 // An error will be displayed for the text
                 if (target && target->GetTypeId() == TYPEID_PLAYER)
-                    source->PlayDirectSound(data->SoundId, PlayPacketParameters(PLAY_TARGET, (Player const*)target));
+                    source->PlayDirectSound(sound, PlayPacketParameters(PLAY_TARGET, (Player const*)target));
                 break;
             default:
-                source->PlayDirectSound(data->SoundId);
+                source->PlayDirectSound(sound);
                 break;
         }
     }
 
-    if (data->Emote)
+    if (emote)
     {
         if (source->GetTypeId() == TYPEID_UNIT || source->GetTypeId() == TYPEID_PLAYER)
         {
-            ((Unit*)source)->HandleEmote(data->Emote);
+            ((Unit*)source)->HandleEmote(emote);
         }
         else
         {
@@ -9942,12 +9711,12 @@ bool DoDisplayText(WorldObject* source, int32 entry, Unit const* target /*=nullp
         }
     }
 
-    if ((data->Type == CHAT_TYPE_WHISPER || data->Type == CHAT_TYPE_BOSS_WHISPER) && (!target || target->GetTypeId() != TYPEID_PLAYER))
+    if ((type == CHAT_TYPE_WHISPER || type == CHAT_TYPE_BOSS_WHISPER || type == CHAT_TYPE_PARTY) && (!target || target->GetTypeId() != TYPEID_PLAYER))
     {
-        _DoStringError(entry, "DoDisplayText entry %i cannot whisper without target unit (TYPEID_PLAYER).", entry);
+        _DoStringError(entry, "DoDisplayText entry %i cannot whisper/party chat without target unit (TYPEID_PLAYER).", entry);
         return false;
     }
 
-    source->MonsterText(data, target);
+    source->MonsterText(content, type, lang, target);
     return true;
 }

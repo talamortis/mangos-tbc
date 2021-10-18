@@ -181,7 +181,9 @@ struct npc_manaforge_spawnAI : public ScriptedAI
         Creature *manaforge;
 
         if (m_manaforgeGuid)
-            if (manaforge = m_creature->GetMap()->GetCreature(m_manaforgeGuid))
+        {
+            manaforge = m_creature->GetMap()->GetCreature(m_manaforgeGuid);
+            if (manaforge)
             {
                 uint32 uiManaforgeEntry = manaforge->GetEntry();
 
@@ -230,6 +232,7 @@ struct npc_manaforge_spawnAI : public ScriptedAI
                     m_creature->GetMotionMaster()->MovePoint(uiMPID, fX, fY, m_creature->GetPositionZ());
                 }
             }
+        }
     }
 
     void UpdateAI(const uint32 /*uiDiff*/) override
@@ -476,7 +479,7 @@ struct npc_manaforge_control_consoleAI : public ScriptedAI
                             pAdd->GetMotionMaster()->MovePoint(0, m_afAraTechCoords[i + 3][0], m_afAraTechCoords[i + 3][1], m_afAraTechCoords[i + 3][2]);
                         }
                     if (!urand(0, 2)) // 1 in 3 chance to spawn a engineer
-                        if (pAdd = m_creature->SummonCreature(NPC_ARA_ENGI, m_afAraTechCoords[0][0], m_afAraTechCoords[0][1], m_afAraTechCoords[0][2], 0.0f, TEMPSPAWN_TIMED_OOC_OR_DEAD_DESPAWN, 120000))
+                        if ((pAdd = m_creature->SummonCreature(NPC_ARA_ENGI, m_afAraTechCoords[0][0], m_afAraTechCoords[0][1], m_afAraTechCoords[0][2], 0.0f, TEMPSPAWN_TIMED_OOC_OR_DEAD_DESPAWN, 120000)))
                             pAdd->GetMotionMaster()->MovePoint(0, m_afAraTechCoords[3][0], m_afAraTechCoords[3][1], m_afAraTechCoords[3][2]);
                 }
                 else if (route == 1)
@@ -488,7 +491,7 @@ struct npc_manaforge_control_consoleAI : public ScriptedAI
                             pAdd->GetMotionMaster()->MovePoint(0, m_afAraTechCoords[i + 3][0], m_afAraTechCoords[i + 3][1], m_afAraTechCoords[i + 3][2]);
                         }
                     if (!urand(0, 2)) // 1 in 3 chance to spawn a engineer
-                        if (pAdd = m_creature->SummonCreature(NPC_ARA_ENGI, m_afAraTechCoords[6][0], m_afAraTechCoords[6][1], m_afAraTechCoords[6][2], 0.0f, TEMPSPAWN_TIMED_OOC_OR_DEAD_DESPAWN, 120000))
+                        if ((pAdd = m_creature->SummonCreature(NPC_ARA_ENGI, m_afAraTechCoords[6][0], m_afAraTechCoords[6][1], m_afAraTechCoords[6][2], 0.0f, TEMPSPAWN_TIMED_OOC_OR_DEAD_DESPAWN, 120000)))
                             pAdd->GetMotionMaster()->MovePoint(0, m_afAraTechCoords[9][0], m_afAraTechCoords[9][1], m_afAraTechCoords[9][2]);
                 }
                 else
@@ -500,7 +503,7 @@ struct npc_manaforge_control_consoleAI : public ScriptedAI
                             pAdd->GetMotionMaster()->MovePoint(0, m_afAraTechCoords[i + 3][0], m_afAraTechCoords[i + 3][1], m_afAraTechCoords[i + 3][2]);
                         }
                     if (!urand(0, 2)) // 1 in 3 chance to spawn a engineer
-                        if (pAdd = m_creature->SummonCreature(NPC_ARA_ENGI, m_afAraTechCoords[12][0], m_afAraTechCoords[12][1], m_afAraTechCoords[12][2], 0.0f, TEMPSPAWN_TIMED_OOC_OR_DEAD_DESPAWN, 120000))
+                        if ((pAdd = m_creature->SummonCreature(NPC_ARA_ENGI, m_afAraTechCoords[12][0], m_afAraTechCoords[12][1], m_afAraTechCoords[12][2], 0.0f, TEMPSPAWN_TIMED_OOC_OR_DEAD_DESPAWN, 120000)))
                             pAdd->GetMotionMaster()->MovePoint(0, m_afAraTechCoords[15][0], m_afAraTechCoords[15][1], m_afAraTechCoords[15][2]);
                 }
                 m_uiWaveTimer = 15000;
@@ -549,7 +552,7 @@ struct npc_manaforge_control_consoleAI : public ScriptedAI
                 if ((pAdd = m_creature->SummonCreature(NPC_ARA_GORKLONN, m_afAraTechCoords[12][0], m_afAraTechCoords[12][1], m_afAraTechCoords[12][2], 4.44f, TEMPSPAWN_TIMED_OOC_OR_DEAD_DESPAWN, 120000)))
                 {
                     Player* pPlayer;
-                    if (pPlayer = m_creature->GetMap()->GetPlayer(m_playerGuid))
+                    if ((pPlayer = m_creature->GetMap()->GetPlayer(m_playerGuid)))
                         pAdd->AI()->AttackStart(pPlayer);
                     else
                         pAdd->GetMotionMaster()->MovePoint(0, m_afAraTechCoords[15][0], m_afAraTechCoords[15][1], m_afAraTechCoords[15][2]);
@@ -1473,7 +1476,7 @@ struct npc_zeppitAI : public ScriptedPetAI
             if (m_creature->IsWithinDistInMap(pVictim, 10.0f))
             {
                 DoScriptText(EMOTE_GATHER_BLOOD, m_creature);
-                m_creature->CastSpell(m_creature, SPELL_GATHER_WARP_BLOOD, TRIGGERED_NONE);
+                m_creature->CastSpell(nullptr, SPELL_GATHER_WARP_BLOOD, TRIGGERED_NONE);
             }
         }
     }
@@ -3953,7 +3956,7 @@ bool GossipHello_npc_adyen_the_lightwarden(Player* player, Creature* creature)
     uint32 gossipId = GOSSIP_NETHERSTORM;
 
     // custom code required because it utilizes two entries
-    if (creature->getFaction() == FACTION_SHATTRATH)
+    if (creature->GetFaction() == FACTION_SHATTRATH)
         gossipId = GOSSIP_SHATTRATH;
     else
     {
@@ -4024,6 +4027,16 @@ struct ThrowBoomsDoom : public SpellScript
         if (target->GetEntry() != NPC_BOOM && target->GetEntry() != NPC_BOOM_BOT)
             return false;
         return true;
+    }
+};
+
+struct RingOfFlame : public AuraScript
+{
+    void OnApply(Aura* aura, bool apply) const override
+    {
+        if (!apply && aura->GetRemoveMode() != AURA_REMOVE_BY_EXPIRE)
+
+            aura->GetTarget()->CastSpell(nullptr, 35995, TRIGGERED_OLD_TRIGGERED); // Immolation
     }
 };
 
@@ -4148,6 +4161,7 @@ void AddSC_netherstorm()
     pNewScript->RegisterSelf();
 
     RegisterSpellScript<Soulbind>("spell_soulbind");
+    RegisterAuraScript<RingOfFlame>("spell_ring_of_flame");
     RegisterSpellScript<UltraDeconsolodationZapper>("spell_ultra_deconsolodation_zapper");
     RegisterSpellScript<ThrowBoomsDoom>("spell_throw_booms_doom");
     RegisterScript<ScrapReaverSpell>("spell_scrap_reaver_spell");

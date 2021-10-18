@@ -88,6 +88,7 @@ void MapManager::LoadTransports()
             continue;
 
         transportTemplate->pathTime = period;
+        transportTemplate->keyFrames.back().DepartureTime = period;
 
         m_transportsByMap[pMapInfo->MapID].push_back(transportTemplate);
 
@@ -255,28 +256,25 @@ void Transport::TeleportTransport(uint32 newMapid, float x, float y, float z, fl
     // correct me if I'm wrong O.o
     if (mapChange)
     {
-        oldMap->GetMessager().AddMessage([transport = this, newMapid](Map* map)
-        {
-            transport->RemoveModelFromMap();
-            map->RemoveTransport(transport);
-            transport->UpdateForMap(map, false);
-            transport->ResetMap();
+        RemoveModelFromMap();
+        oldMap->RemoveTransport(this);
+        UpdateForMap(oldMap, false);
+        ResetMap();
 
-            Map* newMap = sMapMgr.CreateMap(newMapid, transport);
-            newMap->GetMessager().AddMessage([transport = transport](Map* map)
-            {
-                transport->SetMap(map);
-                map->AddTransport(transport);
-                transport->AddModelToMap();
-                transport->UpdateForMap(map, true);
-            });
+        Map* newMap = sMapMgr.CreateMap(newMapid, this);
+        newMap->GetMessager().AddMessage([transport = this](Map* map)
+        {
+            transport->SetMap(map);
+            map->AddTransport(transport);
+            transport->AddModelToMap();
+            transport->UpdateForMap(map, true);
         });
     }
     else
         UpdateModelPosition();
 }
 
-bool GenericTransport::AddPassenger(Unit* passenger)
+bool GenericTransport::AddPassenger(Unit* passenger, bool adjustCoords)
 {
     if (m_passengers.find(passenger) == m_passengers.end())
     {
@@ -284,9 +282,10 @@ bool GenericTransport::AddPassenger(Unit* passenger)
         m_passengers.insert(passenger);
         passenger->SetTransport(this);
         passenger->m_movementInfo.AddMovementFlag(MOVEFLAG_ONTRANSPORT);
+        bool changedTransports = passenger->m_movementInfo.t_guid != GetObjectGuid();
         passenger->m_movementInfo.t_guid = GetObjectGuid();
         passenger->m_movementInfo.t_time = GetPathProgress();
-        if (!passenger->m_movementInfo.t_pos.x)
+        if (changedTransports && adjustCoords)
         {
             passenger->m_movementInfo.t_pos.x = passenger->GetPositionX();
             passenger->m_movementInfo.t_pos.y = passenger->GetPositionY();
@@ -497,7 +496,6 @@ void ElevatorTransport::Update(const uint32 /*diff*/)
 
         GetMap()->GameObjectRelocation(this, currentPos.x, currentPos.y, currentPos.z, GetOrientation());
         // SummonCreature(1, currentPos.x, currentPos.y, currentPos.z, GetOrientation(), TEMPSPAWN_TIMED_DESPAWN, 5000);
-        UpdateModelPosition();
 
         UpdatePassengerPositions(GetPassengers());
     }

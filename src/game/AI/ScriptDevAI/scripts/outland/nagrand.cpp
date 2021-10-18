@@ -31,6 +31,7 @@ EndContentData */
 #include "AI/ScriptDevAI/include/sc_common.h"
 #include "AI/ScriptDevAI/base/escort_ai.h"
 #include "AI/ScriptDevAI/scripts/outland/world_outland.h"
+#include "Spells/Scripts/SpellScript.h"
 
 /*######
 ## mob_lump
@@ -403,12 +404,18 @@ UnitAI* GetAI_npc_nagrand_captive(Creature* pCreature)
 }
 
 /*######
-## npc_creditmarker_visist_with_ancestors (Quest 10085)
+## npc_creditmarker_visit_with_ancestors (Quest 10085)
 ######*/
 
 enum
 {
-    QUEST_VISIT_WITH_ANCESTORS  = 10085
+    QUEST_VISIT_WITH_ANCESTORS      = 10085,
+    WHISPER_VISIT_WITH_ANCESTORS_1  = -1001319,
+    WHISPER_VISIT_WITH_ANCESTORS_2  = -1001320,
+    WHISPER_VISIT_WITH_ANCESTORS_3  = -1001321,
+    WHISPER_VISIT_WITH_ANCESTORS_4  = -1001322,
+    WHISPER_VISIT_WITH_ANCESTORS_5  = -1001323,
+    NPC_VISION_OF_THE_FORGOTTEN     = 18904
 };
 
 struct npc_creditmarker_visit_with_ancestorsAI : public ScriptedAI
@@ -428,7 +435,18 @@ struct npc_creditmarker_visit_with_ancestorsAI : public ScriptedAI
                 {
                     // 18840: Sunspring, 18841: Laughing, 18842: Garadar, 18843: Bleeding
                     if (!((Player*)pWho)->GetReqKillOrCastCurrentCount(QUEST_VISIT_WITH_ANCESTORS, creditMarkerId))
+                    {
                         ((Player*)pWho)->KilledMonsterCredit(creditMarkerId, m_creature->GetObjectGuid());
+                        Creature * votfTarget = m_creature->SummonCreature(NPC_VISION_OF_THE_FORGOTTEN, m_creature->GetPositionX(), m_creature->GetPositionY(), m_creature->GetPositionZ(), 0, TEMPSPAWN_TIMED_OR_CORPSE_DESPAWN, 30000);
+                        switch (urand(0, 4))
+                        {
+                            case 0: DoScriptText(WHISPER_VISIT_WITH_ANCESTORS_1, votfTarget, pWho); break;
+                            case 1: DoScriptText(WHISPER_VISIT_WITH_ANCESTORS_2, votfTarget, pWho); break;
+                            case 2: DoScriptText(WHISPER_VISIT_WITH_ANCESTORS_3, votfTarget, pWho); break;
+                            case 3: DoScriptText(WHISPER_VISIT_WITH_ANCESTORS_4, votfTarget, pWho); break;
+                            case 4: DoScriptText(WHISPER_VISIT_WITH_ANCESTORS_5, votfTarget, pWho); break;
+                        }
+                    }
                 }
             }
         }
@@ -474,7 +492,11 @@ enum
 
 struct npc_rethhedronAI : public ScriptedAI
 {
-    npc_rethhedronAI(Creature* pCreature) : ScriptedAI(pCreature) { JustRespawned(); Reset(); }
+    npc_rethhedronAI(Creature* pCreature) : ScriptedAI(pCreature)
+    {
+        m_creature->GetCombatManager().SetLeashingDisable(true);
+        Reset();
+    }
 
     uint32 m_uiCrippleTimer;
     uint32 m_uiShadowBoltTimer;
@@ -494,7 +516,7 @@ struct npc_rethhedronAI : public ScriptedAI
 
         m_bLowHpYell        = false;
 
-        m_attackDistance = 30.0f;
+        m_attackDistance = 60.0f;
     }
 
     void JustRespawned() override
@@ -597,11 +619,6 @@ struct npc_rethhedronAI : public ScriptedAI
     }
 };
 
-UnitAI* GetAI_npc_rethhedron(Creature* pCreature)
-{
-    return new npc_rethhedronAI(pCreature);
-}
-
 enum
 {
     GOSSIP_IN_BATTLE = 7700,
@@ -630,6 +647,31 @@ bool GossipHello_npc_gurthock(Player* player, Creature* creature)
     return true;
 }
 
+enum
+{
+    NPC_WILD_SPARROWHAWK = 22979,
+
+    SPELL_CAPTURED_SPARROWHAWK = 39812,
+};
+
+struct SparrowhawkNet : public SpellScript
+{
+    SpellCastResult OnCheckCast(Spell* spell, bool /*strict*/) const override
+    {
+        if (spell->m_targets.getUnitTargetGuid().GetEntry() != NPC_WILD_SPARROWHAWK)
+            return SPELL_FAILED_BAD_TARGETS;
+        return SPELL_CAST_OK;
+    }
+
+    void OnEffectExecute(Spell* spell, SpellEffectIndex effIdx) const override
+    {
+        if (effIdx != EFFECT_INDEX_1 || !spell->GetUnitTarget())
+            return;
+
+        spell->GetUnitTarget()->CastSpell(spell->GetCaster(), SPELL_CAPTURED_SPARROWHAWK, TRIGGERED_OLD_TRIGGERED);
+    }
+};
+
 void AddSC_nagrand()
 {
     Script* pNewScript = new Script;
@@ -650,7 +692,7 @@ void AddSC_nagrand()
 
     pNewScript = new Script;
     pNewScript->Name = "npc_rethhedron";
-    pNewScript->GetAI = &GetAI_npc_rethhedron;
+    pNewScript->GetAI = &GetNewAIInstance<npc_rethhedronAI>;
     pNewScript->RegisterSelf();
 
     pNewScript = new Script;
@@ -658,4 +700,6 @@ void AddSC_nagrand()
     pNewScript->pQuestAcceptNPC = &QuestAccept_npc_gurthock;
     pNewScript->pGossipHello = &GossipHello_npc_gurthock;
     pNewScript->RegisterSelf();
+
+    RegisterSpellScript<SparrowhawkNet>("spell_sparrowhawk_net");
 }

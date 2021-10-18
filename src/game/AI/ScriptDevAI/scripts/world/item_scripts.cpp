@@ -177,8 +177,8 @@ struct PowerCircleAura : public AuraScript
     void OnApply(Aura* aura, bool apply) const
     {
         Unit* target = aura->GetTarget();
-        if (apply)
-            target->CastSpell(target, SPELL_LIMITLESS_POWER, TRIGGERED_OLD_TRIGGERED);
+        if (apply && target->GetObjectGuid() == aura->GetCasterGuid())
+            target->CastSpell(nullptr, SPELL_LIMITLESS_POWER, TRIGGERED_OLD_TRIGGERED);
         else
             target->RemoveAurasDueToSpell(SPELL_LIMITLESS_POWER);
     }
@@ -201,7 +201,7 @@ struct GDRChannel : public SpellScript
 
 struct GDRPeriodicDamage : public AuraScript
 {
-    int32 OnAuraValueCalculate(Aura* /*aura*/, Unit* /*caster*/, int32 /*value*/) const override
+    int32 OnAuraValueCalculate(AuraCalcData& /*data*/, int32 /*value*/) const override
     {
         return urand(100, 500);
     }
@@ -213,6 +213,28 @@ struct GDRPeriodicDamage : public AuraScript
             int32 dmg = (int32)aura->GetScriptValue();
             aura->GetTarget()->CastCustomSpell(aura->GetTarget()->GetTarget(), SPELL_GDR_DAMAGE_HIT, &dmg, nullptr, nullptr, TRIGGERED_OLD_TRIGGERED);
         }
+    }
+};
+
+struct OgrilaFlasks : public AuraScript
+{
+    void OnApply(Aura* aura, bool apply) const override
+    {
+        if (aura->GetEffIndex() != EFFECT_INDEX_0 || apply)
+            return;
+
+        SpellEntry const* spellInfo = aura->GetSpellProto();
+        for (uint32 i = EFFECT_INDEX_1; i < MAX_EFFECT_INDEX; ++i)
+            if (uint32 triggerSpell = spellInfo->EffectTriggerSpell[i])
+                aura->GetTarget()->RemoveAurasDueToSpell(triggerSpell);
+    }
+};
+
+struct ReducedProcChancePast60 : public AuraScript
+{
+    void OnHolderInit(SpellAuraHolder* holder, WorldObject* /*caster*/) const override
+    {
+        holder->SetReducedProcChancePast60();
     }
 };
 
@@ -244,4 +266,6 @@ void AddSC_item_scripts()
 
     RegisterSpellScript<GDRChannel>("spell_gdr_channel");
     RegisterAuraScript<GDRPeriodicDamage>("spell_gdr_periodic");
+    RegisterAuraScript<OgrilaFlasks>("spell_ogrila_flasks");
+    RegisterAuraScript<ReducedProcChancePast60>("spell_reduced_proc_chance_past60");
 }

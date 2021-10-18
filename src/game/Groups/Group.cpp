@@ -23,6 +23,8 @@
 #include "Entities/Player.h"
 #include "Globals/ObjectMgr.h"
 #include "Entities/ObjectGuid.h"
+#include "Entities/UpdateData.h"
+#include "Entities/UpdateMask.h"
 #include "Groups/Group.h"
 #include "Tools/Formulas.h"
 #include "Globals/ObjectAccessor.h"
@@ -36,24 +38,25 @@
 
 GroupMemberStatus GetGroupMemberStatus(const Player* member = nullptr)
 {
-    if (!member || (!member->IsInWorld() && !member->IsBeingTeleportedFar()))
-        return MEMBER_STATUS_OFFLINE;
-
-    uint8 flags = MEMBER_STATUS_ONLINE;
-    if (member->IsPvP())
-        flags |= MEMBER_STATUS_PVP;
-    if (member->IsDead())
-        flags |= MEMBER_STATUS_DEAD;
-    if (member->HasFlag(PLAYER_FLAGS, PLAYER_FLAGS_GHOST))
-        flags |= MEMBER_STATUS_GHOST;
-    if (member->IsPvPFreeForAll())
-        flags |= MEMBER_STATUS_PVP_FFA;
-    if (!member->IsInWorld())
-        flags |= MEMBER_STATUS_ZONE_OUT;
-    if (member->isAFK())
-        flags |= MEMBER_STATUS_AFK;
-    if (member->isDND())
-        flags |= MEMBER_STATUS_DND;
+    uint8 flags = MEMBER_STATUS_OFFLINE;
+    if (member && member->GetSession() && !member->GetSession()->PlayerLogout())
+    {
+        flags |= MEMBER_STATUS_ONLINE;
+        if (member->IsPvP())
+            flags |= MEMBER_STATUS_PVP;
+        if (member->IsDead())
+            flags |= MEMBER_STATUS_DEAD;
+        if (member->HasFlag(PLAYER_FLAGS, PLAYER_FLAGS_GHOST))
+            flags |= MEMBER_STATUS_GHOST;
+        if (member->IsPvPFreeForAll())
+            flags |= MEMBER_STATUS_PVP_FFA;
+        if (!member->IsInWorld())
+            flags |= MEMBER_STATUS_ZONE_OUT;
+        if (member->isAFK())
+            flags |= MEMBER_STATUS_AFK;
+        if (member->isDND())
+            flags |= MEMBER_STATUS_DND;
+    }
     return GroupMemberStatus(flags);
 }
 
@@ -310,7 +313,7 @@ bool Group::AddMember(ObjectGuid guid, const char* name)
             // including raid/heroic instances that they are not permanently bound to!
             player->ResetInstances(INSTANCE_RESET_GROUP_JOIN);
 
-            if (player->getLevel() >= LEVELREQUIREMENT_HEROIC && player->GetDifficulty() != GetDifficulty())
+            if (player->GetLevel() >= LEVELREQUIREMENT_HEROIC && player->GetDifficulty() != GetDifficulty())
             {
                 player->SetDifficulty(GetDifficulty());
                 player->SendDungeonDifficulty(true);
@@ -322,6 +325,52 @@ bool Group::AddMember(ObjectGuid guid, const char* name)
         // quest related GO state dependent from raid membership
         if (isRaidGroup())
             player->UpdateForQuestWorldObjects();
+
+        // Broadcast new player group member fields to rest of the group
+        UpdateData groupData;
+
+        // Broadcast group members' fields to player
+        for (GroupReference* itr = GetFirstMember(); itr != nullptr; itr = itr->next())
+        {
+            if (itr->getSource() == player)
+                continue;
+
+            if (Player* member = itr->getSource())
+            {
+                if (player->HasAtClient(member))
+                {
+                    UpdateMask updateMask;
+                    updateMask.SetCount(member->GetValuesCount());
+                    member->MarkUpdateFieldsWithFlagForUpdate(updateMask, UF_FLAG_GROUP_ONLY);
+                    if (updateMask.HasData())
+                        member->BuildValuesUpdateBlockForPlayer(groupData, updateMask, player);
+                }
+
+                if (member->HasAtClient(player))
+                {
+                    UpdateMask updateMask;
+                    updateMask.SetCount(member->GetValuesCount());
+                    member->MarkUpdateFieldsWithFlagForUpdate(updateMask, UF_FLAG_GROUP_ONLY);
+                    if (updateMask.HasData())
+                    {
+                        UpdateData newData;
+                        player->BuildValuesUpdateBlockForPlayer(newData, updateMask, member);
+
+                        if (newData.HasData())
+                        {
+                            WorldPacket newDataPacket = newData.BuildPacket(0, false);
+                            member->SendDirectMessage(newDataPacket);
+                        }
+                    }
+                }
+            }
+        }
+
+        if (groupData.HasData())
+        {
+            WorldPacket groupDataPacket = groupData.BuildPacket(0, false);
+            player->SendDirectMessage(groupDataPacket);
+        }
     }
 
     return true;
@@ -504,17 +553,17 @@ void Group::SetTargetIcon(uint8 id, ObjectGuid targetGuid)
 
 static void GetDataForXPAtKill_helper(Player* player, Unit const* victim, uint32& sum_level, Player*& member_with_max_level, Player*& not_gray_member_with_max_level)
 {
-    const uint32 level = player->getLevel();
+    const uint32 level = player->GetLevel();
 
     sum_level += level;
 
-    if (!member_with_max_level || member_with_max_level->getLevel() < level)
+    if (!member_with_max_level || member_with_max_level->GetLevel() < level)
         member_with_max_level = player;
 
     if (MaNGOS::XP::IsTrivialLevelDifference(level, victim->GetLevelForTarget(player)))
         return;
 
-    if (!not_gray_member_with_max_level || not_gray_member_with_max_level->getLevel() < level)
+    if (!not_gray_member_with_max_level || not_gray_member_with_max_level->GetLevel() < level)
         not_gray_member_with_max_level = player;
 }
 
@@ -633,7 +682,7 @@ void Group::UpdatePlayerOutOfRange(Player* pPlayer)
 
     for (GroupReference* itr = GetFirstMember(); itr != nullptr; itr = itr->next())
         if (Player* player = itr->getSource())
-            if (player != pPlayer && !player->HaveAtClient(pPlayer))
+            if (player != pPlayer && !player->HasAtClient(pPlayer))
                 player->GetSession()->SendPacket(data);
 }
 
@@ -645,6 +694,7 @@ void Group::UpdatePlayerOnlineStatus(Player* player, bool online /*= true*/)
     if (!IsMember(guid))
         return;
 
+    SendUpdate();
     if (online)
     {
         player->SetGroupUpdateFlag(GROUP_UPDATE_FULL);
@@ -1000,10 +1050,10 @@ void Group::_updateMembersOnRosterChanged(Player* changed)
         {
             if (member != changed && member->IsInWorld())
             {
-                if (member->HaveAtClient(changed))
+                if (member->HasAtClient(changed))
                     update(member, changed);
 
-                if (changed->HaveAtClient(member))
+                if (changed->HasAtClient(member))
                     update(changed, member);
             }
         }
@@ -1189,6 +1239,8 @@ uint32 Group::CanJoinBattleGroundQueue(BattleGroundTypeId bgTypeId, BattleGround
         // check if member can join any more battleground queues
         if (!member->HasFreeBattleGroundQueueId())
             return BG_JOIN_ERR_ALL_QUEUES_USED;
+        if (member->InArena())
+            return BG_JOIN_ERR_GROUP_IN_ARENA;
     }
     return BG_JOIN_ERR_OK;
 }
@@ -1202,7 +1254,7 @@ void Group::SetDifficulty(Difficulty difficulty)
     for (GroupReference* itr = GetFirstMember(); itr != nullptr; itr = itr->next())
     {
         Player* player = itr->getSource();
-        if (!player->GetSession() || player->getLevel() < LEVELREQUIREMENT_HEROIC)
+        if (!player->GetSession() || player->GetLevel() < LEVELREQUIREMENT_HEROIC)
             continue;
         player->SetDifficulty(difficulty);
         player->SendDungeonDifficulty(true);
@@ -1400,7 +1452,7 @@ void Group::UnbindInstance(uint32 mapid, uint8 difficulty, bool unload)
 
 void Group::_homebindIfInstance(Player* player) const
 {
-    if (player && !player->isGameMaster())
+    if (player && !player->IsGameMaster())
     {
         Map* map = player->GetMap();
         if (map->IsDungeon())
@@ -1426,7 +1478,7 @@ static void RewardGroupAtKill_helper(Player* pGroupGuy, Unit* pVictim, uint32 co
         if (pVictim->GetTypeId() == TYPEID_UNIT)
         {
             Creature* creatureVictim = static_cast<Creature*>(pVictim);
-            float rate = group_rate * float(pGroupGuy->getLevel()) / sum_level;
+            float rate = group_rate * float(pGroupGuy->GetLevel()) / sum_level;
 
             // if is in dungeon then all receive full reputation at kill
             // rewarded any alive/dead/near_corpse group member
@@ -1434,7 +1486,7 @@ static void RewardGroupAtKill_helper(Player* pGroupGuy, Unit* pVictim, uint32 co
 
             // XP updated only for alive group member
             if (pGroupGuy->IsAlive() && not_gray_member_with_max_level &&
-                pGroupGuy->getLevel() <= not_gray_member_with_max_level->getLevel())
+                pGroupGuy->GetLevel() <= not_gray_member_with_max_level->GetLevel())
             {
                 float itr_xp = (member_with_max_level == not_gray_member_with_max_level) ? xp * rate : (xp * rate * 0.5f) + 1.0f;
 
@@ -1453,7 +1505,7 @@ static void RewardGroupAtKill_helper(Player* pGroupGuy, Unit* pVictim, uint32 co
                 // normal creature (not pet/etc) can be only in !PvP case
                 if (creatureVictim->GetTypeId() == TYPEID_UNIT)
                     if (CreatureInfo const* normalInfo = creatureVictim->GetCreatureInfo())
-                        pGroupGuy->KilledMonster(normalInfo, creatureVictim->GetObjectGuid());
+                        pGroupGuy->KilledMonster(normalInfo, creatureVictim);
             }
         }
     }

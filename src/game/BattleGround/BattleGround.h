@@ -242,7 +242,8 @@ enum BattleGroundJoinError
     BG_JOIN_ERR_GROUP_MEMBER_ALREADY_IN_QUEUE = 6,
     BG_JOIN_ERR_GROUP_DESERTER = 7,
     BG_JOIN_ERR_ALL_QUEUES_USED = 8,
-    BG_JOIN_ERR_GROUP_NOT_ENOUGH = 9
+    BG_JOIN_ERR_GROUP_NOT_ENOUGH = 9,
+    BG_JOIN_ERR_GROUP_IN_ARENA = 10,
 };
 
 /*
@@ -618,7 +619,7 @@ class BattleGround
         /* Scorekeeping */
         BattleGroundScoreMap m_playerScores;                // Player scores
 
-        // must be implemented in BG subclass
+        // must be implemented in BG subclass - player can be nullptr
         virtual void RemovePlayer(Player* /*player*/, ObjectGuid /*guid*/) {}
 
         /* Player lists, those need to be accessible by inherited classes */

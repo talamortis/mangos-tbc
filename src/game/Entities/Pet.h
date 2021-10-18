@@ -161,11 +161,13 @@ class Pet : public Creature
         void setPetType(PetType type) { m_petType = type; }
         bool isControlled() const { return getPetType() == SUMMON_PET || getPetType() == HUNTER_PET; }
         bool isTemporarySummoned() const { return m_duration > 0; }
+        bool IsGuardian() const { return getPetType() == GUARDIAN_PET; }
 
         bool Create(uint32 guidlow, CreatureCreatePos& cPos, CreatureInfo const* cinfo, uint32 pet_number);
         bool CreateBaseAtCreature(Creature* creature);
-        bool LoadPetFromDB(Player* owner, uint32 petentry = 0, uint32 petnumber = 0, bool current = false, uint32 healthPercentage = 0, bool permanentOnly = false, bool forced = false);
+        bool LoadPetFromDB(Player* owner, Position const& spawnPos, uint32 petentry = 0, uint32 petnumber = 0, bool current = false, uint32 healthPercentage = 0, bool permanentOnly = false, bool forced = false);
         void SavePetToDB(PetSaveMode mode, Player* owner);
+        Position GetPetSpawnPosition(Player* owner);
         bool isLoading() const { return m_loading; }
         void SetLoading(bool state) { m_loading = state; }
         void Unsummon(PetSaveMode mode, Unit* owner = nullptr);
@@ -208,7 +210,7 @@ class Pet : public Creature
         uint32 GetMaxLoyaltyPoints(uint32 level) const;
         uint32 GetStartLoyaltyPoints(uint32 level) const;
         void KillLoyaltyBonus(uint32 level);
-        uint32 GetLoyaltyLevel() { return GetByteValue(UNIT_FIELD_BYTES_1, 1); }
+        uint32 GetLoyaltyLevel() { return GetByteValue(UNIT_FIELD_BYTES_1, UNIT_BYTES_1_OFFSET_PET_LOYALTY); }
         void SetLoyaltyLevel(LoyaltyLevel level);
         void GivePetXP(uint32 xp);
         void GivePetLevel(uint32 level);
@@ -298,6 +300,8 @@ class Pet : public Creature
         virtual void RegenerateHealth() override;
 
         void ResetCorpseRespawn();
+
+        void ForcedDespawn(uint32 timeMSToDespawn = 0, bool onlyAlive = false) override;
     protected:
         uint32  m_happinessTimer;
         uint32  m_loyaltyTimer;

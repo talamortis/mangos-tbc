@@ -59,8 +59,8 @@ enum
     POINT_ID_AIR                = 1,
     POINT_ID_GROUND             = 2,
 
-    POINT_INTRO_END             = 10,
-    POINT_LANDING_END           = 5,
+    POINT_INTRO_END             = 11,
+    POINT_LANDING_END           = 6,
 };
 
 enum NightbaneActions
@@ -117,8 +117,8 @@ struct boss_nightbaneAI : public CombatAI
         SetCombatMovement(true);
         m_creature->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE);
         m_creature->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_PLAYER);
-        m_creature->RemoveByteFlag(UNIT_FIELD_BYTES_1, 3, UNIT_BYTE1_FLAG_FLY_ANIM);
-        m_creature->SetByteFlag(UNIT_FIELD_BYTES_1, 3, UNIT_BYTE1_FLAG_ALWAYS_STAND);
+        m_creature->RemoveByteFlag(UNIT_FIELD_BYTES_1, UNIT_BYTES_1_OFFSET_MISC_FLAGS, UNIT_BYTE1_FLAG_FLY_ANIM);
+        m_creature->SetByteFlag(UNIT_FIELD_BYTES_1, UNIT_BYTES_1_OFFSET_MISC_FLAGS, UNIT_BYTE1_FLAG_ALWAYS_STAND);
         m_creature->SetCanFly(false);
         m_creature->SetHover(false);
         m_creature->SetLevitate(true);
@@ -132,7 +132,7 @@ struct boss_nightbaneAI : public CombatAI
 
     void StartIntro()
     {
-        m_creature->GetMotionMaster()->MovePath(0, PATH_FROM_EXTERNAL);
+        m_creature->GetMotionMaster()->MovePath(0, PATH_FROM_EXTERNAL, FORCED_MOVEMENT_RUN);
     }
 
     void Aggro(Unit* /*who*/) override
@@ -179,6 +179,8 @@ struct boss_nightbaneAI : public CombatAI
     void SummonedCreatureJustDied(Creature* summoned) override
     {
         m_skeletons.erase(std::remove(m_skeletons.begin(), m_skeletons.end(), summoned->GetObjectGuid()), m_skeletons.end());
+        if (m_skeletons.empty() && m_phase == PHASE_AIR && !m_creature->HasAura(SPELL_RAIN_OF_BONES))
+            ResetCombatAction(NIGHTBANE_PHASE_RESET, 1000);
     }
 
     void MovementInform(uint32 motionType, uint32 pointId) override
@@ -190,8 +192,8 @@ struct boss_nightbaneAI : public CombatAI
                 if (pointId == POINT_LANDING_END)
                 {
                     m_creature->SetIgnoreMMAP(false);
-                    m_creature->RemoveByteFlag(UNIT_FIELD_BYTES_1, 3, UNIT_BYTE1_FLAG_FLY_ANIM);
-                    m_creature->SetByteFlag(UNIT_FIELD_BYTES_1, 3, UNIT_BYTE1_FLAG_ALWAYS_STAND);
+                    m_creature->RemoveByteFlag(UNIT_FIELD_BYTES_1, UNIT_BYTES_1_OFFSET_MISC_FLAGS, UNIT_BYTE1_FLAG_FLY_ANIM);
+                    m_creature->SetByteFlag(UNIT_FIELD_BYTES_1, UNIT_BYTES_1_OFFSET_MISC_FLAGS, UNIT_BYTE1_FLAG_ALWAYS_STAND);
                     m_creature->SetCanFly(false);
                     m_creature->SetHover(false);
                     m_creature->GetMotionMaster()->MovePoint(POINT_ID_GROUND, -11162.23f, -1900.329f, 91.47265f); // noted as falling in sniff
@@ -206,10 +208,10 @@ struct boss_nightbaneAI : public CombatAI
                     m_creature->GetMotionMaster()->MoveIdle();
                     m_creature->HandleEmote(EMOTE_ONESHOT_LAND);
                     m_creature->SetCanFly(false);
-                    m_creature->RemoveByteFlag(UNIT_FIELD_BYTES_1, 3, UNIT_BYTE1_FLAG_FLY_ANIM);
+                    m_creature->RemoveByteFlag(UNIT_FIELD_BYTES_1, UNIT_BYTES_1_OFFSET_MISC_FLAGS, UNIT_BYTE1_FLAG_FLY_ANIM);
                     m_creature->SetLevitate(false);
                     m_creature->SetHover(false);
-                    m_creature->SetByteFlag(UNIT_FIELD_BYTES_1, 3, UNIT_BYTE1_FLAG_ALWAYS_STAND);
+                    m_creature->SetByteFlag(UNIT_FIELD_BYTES_1, UNIT_BYTES_1_OFFSET_MISC_FLAGS, UNIT_BYTE1_FLAG_ALWAYS_STAND);
 
                     m_bCombatStarted = true;
                     ResetTimer(NIGHTBANE_ATTACK_DELAY, 2000);
@@ -245,8 +247,8 @@ struct boss_nightbaneAI : public CombatAI
     {
         m_creature->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_PLAYER);
         m_creature->SetInCombatWithZone();
-        AttackClosestEnemy();
         SetCombatScriptStatus(false);
+        AttackClosestEnemy();
         HandlePhaseTransition();
     }
 
@@ -322,7 +324,7 @@ struct boss_nightbaneAI : public CombatAI
             case NIGHTBANE_PHASE_RESET:
             {
                 DoScriptText(urand(0, 1) ? SAY_LAND_PHASE_1 : SAY_LAND_PHASE_2, m_creature);
-                m_creature->GetMotionMaster()->MovePath(1, PATH_FROM_ENTRY);
+                m_creature->GetMotionMaster()->MovePath(1, PATH_FROM_ENTRY, FORCED_MOVEMENT_WALK);
                 m_phase = PHASE_TRANSITION;
                 SetCombatScriptStatus(true);
                 DisableCombatAction(action);
@@ -335,8 +337,8 @@ struct boss_nightbaneAI : public CombatAI
                     // Start air phase movement (handled by creature_movement_template)
                     SetCombatMovement(false);
                     m_creature->HandleEmote(EMOTE_ONESHOT_LIFTOFF);
-                    m_creature->SetByteValue(UNIT_FIELD_BYTES_1, 3, UNIT_BYTE1_FLAG_FLY_ANIM);
-                    m_creature->RemoveByteFlag(UNIT_FIELD_BYTES_1, 3, UNIT_BYTE1_FLAG_ALWAYS_STAND);
+                    m_creature->SetByteValue(UNIT_FIELD_BYTES_1, UNIT_BYTES_1_OFFSET_MISC_FLAGS, UNIT_BYTE1_FLAG_FLY_ANIM);
+                    m_creature->RemoveByteFlag(UNIT_FIELD_BYTES_1, UNIT_BYTES_1_OFFSET_MISC_FLAGS, UNIT_BYTE1_FLAG_ALWAYS_STAND);
                     m_creature->SetCanFly(true);
                     m_creature->SetHover(true);
                     DoMoveToClosestTrigger(false);
@@ -356,7 +358,11 @@ struct boss_nightbaneAI : public CombatAI
             case NIGHTBANE_BELLOWING_ROAR:
             {
                 if (DoCastSpellIfCan(nullptr, SPELL_BELLOWING_ROAR) == CAST_OK)
+#ifdef PRENERF_2_0_3
+                    ResetCombatAction(action, urand(30000, 45000));
+#else
                     ResetCombatAction(action, urand(38000, 48000));
+#endif
                 break;
             }
             case NIGHTBANE_CHARRED_EARTH:
@@ -439,8 +445,8 @@ bool ProcessEventId_event_spell_summon_nightbane(uint32 /*eventId*/, Object* sou
                 // Sort of a hack, it is unclear how this really work but the values appear to be valid (see Onyxia, too)
                 nightbane->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE);
                 nightbane->SetStandState(UNIT_STAND_STATE_STAND);
-                nightbane->SetByteValue(UNIT_FIELD_BYTES_1, 3, UNIT_BYTE1_FLAG_FLY_ANIM);
-                nightbane->RemoveByteFlag(UNIT_FIELD_BYTES_1, 3, UNIT_BYTE1_FLAG_ALWAYS_STAND);
+                nightbane->SetByteValue(UNIT_FIELD_BYTES_1, UNIT_BYTES_1_OFFSET_MISC_FLAGS, UNIT_BYTE1_FLAG_FLY_ANIM);
+                nightbane->RemoveByteFlag(UNIT_FIELD_BYTES_1, UNIT_BYTES_1_OFFSET_MISC_FLAGS, UNIT_BYTE1_FLAG_ALWAYS_STAND);
                 nightbane->SetLevitate(true);
                 nightbane->SetHover(true);
 

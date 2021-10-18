@@ -34,6 +34,7 @@ at_huldar_miran                 171
 at_area_52                      4422, 4466, 4471, 4472
 at_twilight_grove               4017
 at_hive_tower                   3146
+at_wondervolt                   4030,4032,4026,4029,4027,4028,4031
 EndContentData */
 
 #include "AI/ScriptDevAI/include/sc_common.h"
@@ -146,7 +147,7 @@ enum
 
 bool AreaTrigger_at_scent_larkorwi(Player* pPlayer, AreaTriggerEntry const* pAt)
 {
-    if (pPlayer->IsAlive() && !pPlayer->isGameMaster() && pPlayer->GetQuestStatus(QUEST_SCENT_OF_LARKORWI) == QUEST_STATUS_INCOMPLETE)
+    if (pPlayer->IsAlive() && !pPlayer->IsGameMaster() && pPlayer->GetQuestStatus(QUEST_SCENT_OF_LARKORWI) == QUEST_STATUS_INCOMPLETE)
     {
         if (!GetClosestCreatureWithEntry(pPlayer, NPC_LARKORWI_MATE, 25.0f, false, false))
             pPlayer->SummonCreature(NPC_LARKORWI_MATE, pAt->x, pAt->y, pAt->z, 3.3f, TEMPSPAWN_TIMED_OOC_DESPAWN, 2 * MINUTE * IN_MILLISECONDS);
@@ -163,7 +164,7 @@ bool AreaTrigger_at_murkdeep(Player* pPlayer, AreaTriggerEntry const* /*pAt*/)
 {
     // Handle Murkdeep event start
     // The area trigger summons 3 Greymist Coastrunners; The rest of the event is handled by world map scripts
-    if (pPlayer->IsAlive() && !pPlayer->isGameMaster() && pPlayer->GetQuestStatus(QUEST_WANTED_MURKDEEP) == QUEST_STATUS_INCOMPLETE)
+    if (pPlayer->IsAlive() && !pPlayer->IsGameMaster() && pPlayer->GetQuestStatus(QUEST_WANTED_MURKDEEP) == QUEST_STATUS_INCOMPLETE)
     {
         ScriptedMap* pScriptedMap = (ScriptedMap*)pPlayer->GetInstanceData();
         if (!pScriptedMap)
@@ -226,7 +227,7 @@ static const AncientSpawn afSpawnLocations[MAX_ANCIENTS] =
 
 bool AreaTrigger_at_ancient_leaf(Player* pPlayer, AreaTriggerEntry const* /*pAt*/)
 {
-    if (pPlayer->isGameMaster() || !pPlayer->IsAlive())
+    if (pPlayer->IsGameMaster() || !pPlayer->IsAlive())
         return false;
 
     // Handle Call Ancients event start - The area trigger summons 3 ancients
@@ -294,7 +295,7 @@ static const Location m_miranAmbushSpawns[] =
 bool AreaTrigger_at_huldar_miran(Player* pPlayer, AreaTriggerEntry const* /*pAt*/)
 {
     // Player is deaed, a GM, quest complete or no quest, do nothing
-    if (!pPlayer->IsAlive() || pPlayer->isGameMaster() ||
+    if (!pPlayer->IsAlive() || pPlayer->IsGameMaster() ||
             pPlayer->GetQuestStatus(QUEST_RESUPPLYING_THE_EXCAVATION) == QUEST_STATUS_COMPLETE ||
             pPlayer->GetQuestStatus(QUEST_RESUPPLYING_THE_EXCAVATION) == QUEST_STATUS_NONE)
         return false;
@@ -350,11 +351,16 @@ enum
     SPELL_A52_NEURALYZER = 34400
 };
 
-bool AreaTrigger_at_area_52(Player* pPlayer, AreaTriggerEntry const* /*pAt*/)
+bool AreaTrigger_at_area_52(Player* player, AreaTriggerEntry const* at)
 {
     // ToDo: research if there should be other actions happening here
-    if (!pPlayer->HasAura(SPELL_A52_NEURALYZER))
-        pPlayer->CastSpell(pPlayer, SPELL_A52_NEURALYZER, TRIGGERED_NONE);
+    if (!player->HasAura(SPELL_A52_NEURALYZER))
+    {
+        SpellCastTargets targets;
+        targets.setUnitTarget(player);
+        targets.setDestination(at->x, at->y, at->z);
+        player->CastSpell(targets, sSpellTemplate.LookupEntry<SpellEntry>(SPELL_A52_NEURALYZER), TRIGGERED_OLD_TRIGGERED); // mounted needs triggered
+    }
 
     return false;
 }
@@ -376,7 +382,7 @@ static const Location m_twilightCorrupterSpawn = { -10326.3f, -487.423f, 50.1127
 bool AreaTrigger_at_twilight_grove(Player* player, AreaTriggerEntry const* /*pAt*/)
 {
     // Player is deaed, a GM, quest complete, no quest or already got item: do nothing
-    if (!player->IsAlive() || player->isGameMaster() ||
+    if (!player->IsAlive() || player->IsGameMaster() ||
             player->GetQuestStatus(QUEST_NIGHTMARE_CORRUPTION) == QUEST_STATUS_COMPLETE ||
             player->GetQuestStatus(QUEST_NIGHTMARE_CORRUPTION) == QUEST_STATUS_NONE ||
         player->HasItemCount(ITEM_FRAGMENT_NIGHTMARE, 1))
@@ -413,12 +419,45 @@ bool AreaTrigger_at_hive_tower(Player* player, AreaTriggerEntry const* /*pAt*/)
     if (scriptedMap->GetData(TYPE_HIVE) != NOT_STARTED) // Only summon more Hive'Ashi Drones if the 5 minutes timer is elapsed
         return false;
 
-    if (player->IsAlive() && !player->isGameMaster())
+    if (player->IsAlive() && !player->IsGameMaster())
     {
         // spawn three Hive'Ashi Drones for 5 minutes (timer is guesswork)
         for (uint8 i = POS_IDX_HIVE_DRONES_START; i <= POS_IDX_HIVE_DRONES_STOP; ++i)
             player->SummonCreature(NPC_HIVE_ASHI_DRONES, aSpawnLocations[i][0], aSpawnLocations[i][1], aSpawnLocations[i][2], aSpawnLocations[i][3], TEMPSPAWN_TIMED_OR_DEAD_DESPAWN, 5 * MINUTE * IN_MILLISECONDS);
         scriptedMap->SetData(TYPE_HIVE, IN_PROGRESS);   // Notify the map script to start the timer
+        return true;
+    }
+
+    return false;
+}
+
+/*######
+## at_wondervolt
+######*/
+
+enum
+{
+    GO_WONDERVOLT_TRAP = 180797
+};
+
+bool AreaTrigger_at_wondervolt(Player* player, AreaTriggerEntry const* /*at*/)
+{
+    if (player->IsGameMaster())
+        return false;
+
+    uint32 transformSpells[4] = {26272, 26157, 26273, 26274};
+
+    // Check if player is already transformed
+    for (auto transformSpell : transformSpells)
+    {
+        if (player->HasAura(transformSpell, EFFECT_INDEX_0))
+            return false;
+    }
+
+    // Trigger the PX-238 Winter Wondervolt trap for player
+    if (GameObject* wondervolt = GetClosestGameObjectWithEntry(player, GO_WONDERVOLT_TRAP, 20.0f))
+    {
+        wondervolt->Use(player);
         return true;
     }
 
@@ -485,5 +524,10 @@ void AddSC_areatrigger_scripts()
     pNewScript = new Script;
     pNewScript->Name = "at_hive_tower";
     pNewScript->pAreaTrigger = &AreaTrigger_at_hive_tower;
+    pNewScript->RegisterSelf();
+
+    pNewScript = new Script;
+    pNewScript->Name = "at_wondervolt";
+    pNewScript->pAreaTrigger = &AreaTrigger_at_wondervolt;
     pNewScript->RegisterSelf();
 }

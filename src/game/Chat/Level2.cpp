@@ -52,6 +52,7 @@
 #include "MotionGenerators/MoveMap.h"                       // for mmap manager
 #include "MotionGenerators/PathFinder.h"                    // for mmap commands
 #include "Movement/MoveSplineInit.h"
+#include "Anticheat/Anticheat.hpp"
 #include "Entities/Transports.h"
 
 #include <fstream>
@@ -553,6 +554,7 @@ bool ChatHandler::HandleGoCreatureCommand(char* args)
             if (!dataPair)
                 break;
 
+            dbGuid = dataPair->first;
             data = &dataPair->second;
             break;
         }
@@ -832,7 +834,7 @@ bool ChatHandler::HandleGameObjectTargetCommand(char* args)
         uint32 id;
         if (ExtractUInt32(&cId, id))
         {
-            result = WorldDatabase.PQuery("SELECT guid, id, position_x, position_y, position_z, orientation, map, (POW(position_x - '%f', 2) + POW(position_y - '%f', 2) + POW(position_z - '%f', 2)) AS order_ FROM gameobject WHERE map = '%i' AND id = '%u' ORDER BY order_ ASC LIMIT 1",
+            result = WorldDatabase.PQuery("SELECT guid, id, position_x, position_y, position_z, orientation, map, (POW(position_x - '%f', 2) + POW(position_y - '%f', 2) + POW(position_z - '%f', 2)) AS order_ FROM gameobject WHERE map = '%i' AND guid = '%u' ORDER BY order_ ASC LIMIT 1",
                                           pl->GetPositionX(), pl->GetPositionY(), pl->GetPositionZ(), pl->GetMapId(), id);
         }
         else
@@ -908,20 +910,26 @@ bool ChatHandler::HandleGameObjectTargetCommand(char* args)
         return false;
     }
 
+    
+    const char* name = "";
     GameObjectInfo const* goI = ObjectMgr::GetGameObjectInfo(id);
+    if (goI)
+        name = goI->name;
 
-    if (!goI)
-    {
-        PSendSysMessage(LANG_GAMEOBJECT_NOT_EXIST, id);
-        return false;
-    }
+    GameObject* target = m_session->GetPlayer()->GetMap()->GetGameObject(lowguid);
 
-    GameObject* target = m_session->GetPlayer()->GetMap()->GetGameObject(ObjectGuid(HIGHGUID_GAMEOBJECT, id, lowguid));
-
-    PSendSysMessage(LANG_GAMEOBJECT_DETAIL, lowguid, goI->name, lowguid, id, x, y, z, uint32(mapid), o);
+    PSendSysMessage(LANG_GAMEOBJECT_DETAIL, lowguid, name, lowguid, id, x, y, z, uint32(mapid), o);
 
     if (target)
     {
+        if (auto vector = sObjectMgr.GetAllRandomGameObjectEntries(target->GetDbGuid()))
+        {
+            std::string output;
+            for (uint32 entry : *vector)
+                output += std::to_string(entry) + ",";
+            PSendSysMessage("GO is part of gameobject_spawn_entry: %s", output.data());
+        }
+
         time_t curRespawnDelay = target->GetRespawnTimeEx() - time(nullptr);
         if (curRespawnDelay < 0)
             curRespawnDelay = 0;
@@ -934,7 +942,7 @@ bool ChatHandler::HandleGameObjectTargetCommand(char* args)
         ShowNpcOrGoSpawnInformation<GameObject>(target->GetGUIDLow());
 
         if (target->GetGoType() == GAMEOBJECT_TYPE_DOOR)
-            PSendSysMessage(LANG_COMMAND_GO_STATUS_DOOR, uint32(target->GetGoState()), uint32(target->GetLootState()), GetOnOffStr(target->IsCollisionEnabled()), goI->door.startOpen ? "open" : "closed");
+            PSendSysMessage(LANG_COMMAND_GO_STATUS_DOOR, uint32(target->GetGoState()), uint32(target->GetLootState()), GetOnOffStr(target->IsCollisionEnabled()), goI && goI->door.startOpen ? "open" : "closed");
         else
             PSendSysMessage(LANG_COMMAND_GO_STATUS, uint32(target->GetGoState()), uint32(target->GetLootState()), GetOnOffStr(target->IsCollisionEnabled()));
     }
@@ -1179,8 +1187,6 @@ bool ChatHandler::HandleGameObjectAddCommand(char* args)
 
     DEBUG_LOG(GetMangosString(LANG_GAMEOBJECT_CURRENT), gInfo->name, db_lowGUID, x, y, z, o);
 
-    map->Add(pGameObj);
-
     sObjectMgr.AddGameobjectToGrid(db_lowGUID, sObjectMgr.GetGOData(db_lowGUID));
 
     PSendSysMessage(LANG_GAMEOBJECT_ADD, id, gInfo->name, db_lowGUID, x, y, z);
@@ -1216,10 +1222,11 @@ bool ChatHandler::HandleGameObjectNearCommand(char* args)
 
             GameObjectInfo const* gInfo = ObjectMgr::GetGameObjectInfo(entry);
 
-            if (!gInfo)
-                continue;
+            const char* name = "Random (gameobject_spawn_entry)";
+            if (gInfo)
+                name = gInfo->name;
 
-            PSendSysMessage(LANG_GO_MIXED_LIST_CHAT, guid, PrepareStringNpcOrGoSpawnInformation<GameObject>(guid).c_str(), entry, guid, gInfo->name, x, y, z, mapid);
+            PSendSysMessage(LANG_GO_MIXED_LIST_CHAT, guid, PrepareStringNpcOrGoSpawnInformation<GameObject>(guid).c_str(), entry, guid, name, x, y, z, mapid);
 
             ++count;
         }
@@ -1333,11 +1340,8 @@ bool ChatHandler::HandleGameObjectRespawnCommand(char* args)
     if (!lowguid)
         return false;
 
-    GameObject* obj = nullptr;
-
     // by DB guid
-    if (GameObjectData const* go_data = sObjectMgr.GetGOData(lowguid))
-        obj = GetGameObjectWithGuid(lowguid, go_data->id);
+    GameObject* obj = m_session->GetPlayer()->GetMap()->GetGameObject(lowguid);
 
     if (!obj)
     {
@@ -1370,16 +1374,16 @@ bool ChatHandler::HandleGameObjectRespawnCommand(char* args)
 
 bool ChatHandler::HandleGUIDCommand(char* /*args*/)
 {
-    ObjectGuid guid = m_session->GetPlayer()->GetSelectionGuid();
+    Creature* creature = getSelectedCreature();
 
-    if (!guid)
+    if (!creature)
     {
         SendSysMessage(LANG_NO_SELECTION);
         SetSentErrorMessage(true);
         return false;
     }
 
-    PSendSysMessage(LANG_OBJECT_GUID, guid.GetString().c_str());
+    PSendSysMessage(LANG_OBJECT_GUID, (creature->GetObjectGuid().GetString() + " DBGuid: " + std::to_string(creature->GetDbGuid())).c_str());
     return true;
 }
 
@@ -1647,6 +1651,22 @@ bool ChatHandler::HandleNpcTempSpawn(char* args)
     }
 
     player->SummonCreature(entry, player->GetPositionX(), player->GetPositionY(), player->GetPositionZ(), player->GetOrientation(), TEMPSPAWN_TIMED_OOC_DESPAWN, timer);
+    return true;
+}
+
+bool ChatHandler::HandleNpcEvade(char* args)
+{
+    Creature* target = getSelectedCreature();
+
+    if (!target)
+    {
+        SendSysMessage(LANG_SELECT_CREATURE);
+        SetSentErrorMessage(true);
+        return false;
+    }
+
+    if (target->AI())
+        target->AI()->EnterEvadeMode();
     return true;
 }
 
@@ -2521,7 +2541,7 @@ bool ChatHandler::HandlePInfoCommand(char* args)
         accId = target->GetSession()->GetAccountId();
         money = target->GetMoney();
         total_player_time = target->GetTotalPlayedTime();
-        level = target->getLevel();
+        level = target->GetLevel();
         latency = target->GetSession()->GetLatency();
     }
     // get additional information from DB
@@ -2580,6 +2600,9 @@ bool ChatHandler::HandlePInfoCommand(char* args)
     uint32 copp = (money % GOLD) % SILVER;
     PSendSysMessage(LANG_PINFO_LEVEL,  timeStr.c_str(), level, gold, silv, copp);
 
+    if (target)
+        target->GetSession()->GetAnticheat()->SendPlayerInfo(this);
+
     return true;
 }
 
@@ -2591,7 +2614,10 @@ inline Creature* Helper_CreateWaypointFor(Creature* wpOwner, WaypointPathOrigin 
     settings.entry = VISUAL_WAYPOINT;
     settings.x = wpNode->x; settings.y = wpNode->y; settings.z = wpNode->z; settings.ori = wpNode->orientation;
     settings.activeObject = true;
+    settings.spawnDataEntry = 2;
+    settings.spawnType = TEMPSPAWN_TIMED_DESPAWN;
     settings.despawnTime = 5 * MINUTE * IN_MILLISECONDS;
+    settings.spawnType = TEMPSPAWN_TIMED_DESPAWN;
 
     settings.tempSpawnMovegen = true;
     settings.waypointId = wpId;
@@ -2599,6 +2625,9 @@ inline Creature* Helper_CreateWaypointFor(Creature* wpOwner, WaypointPathOrigin 
     settings.pathOrigin = uint32(wpOrigin);
 
     Creature* wpCreature = WorldObject::SummonCreature(settings, wpOwner->GetMap());
+
+    if (wpCreature)
+        wpCreature->SetLevel(wpId);
 
     return wpCreature;
 }
@@ -3205,7 +3234,7 @@ bool ChatHandler::HandleWpShowCommand(char* args)
             return false;
         }
 
-        // player->PlayerTalkClass->SendPointOfInterest(x, y, 6, 6, 0, "First Waypoint");
+        // player->GetPlayerMenu()->SendPointOfInterest(x, y, 6, 6, 0, "First Waypoint");
         return true;
     }
 
@@ -3218,7 +3247,7 @@ bool ChatHandler::HandleWpShowCommand(char* args)
             return false;
         }
 
-        // player->PlayerTalkClass->SendPointOfInterest(x, y, 6, 6, 0, "Last Waypoint");
+        // player->GetPlayerMenu()->SendPointOfInterest(x, y, 6, 6, 0, "Last Waypoint");
         return true;
     }
 
@@ -3734,18 +3763,23 @@ bool ChatHandler::HandleCombatStopCommand(char* args)
     if (HasLowerSecurity(target))
         return false;
 
-    target->CombatStop();
+    target->CombatStopWithPets();
     return true;
 }
 
 bool ChatHandler::HandleCombatListCommand(char* /*args*/)
 {
-    Player* player = GetSession()->GetPlayer();
-    if (!player)
-        return false;
+    Unit* target = getSelectedUnit();
+    if (!target)
+    {
+        target = GetSession()->GetPlayer();
+        if (!target)
+            return false;
+    }
 
+    PSendSysMessage("Combat timer: %u", target->GetCombatManager().GetCombatTimer());
     SendSysMessage("In Combat With:");
-    for (auto& ref : player->getHostileRefManager())
+    for (auto& ref : target->getHostileRefManager())
     {
         Unit* refOwner = ref.getSource()->getOwner();
         PSendSysMessage("%s Entry: %u Counter: %u", refOwner->GetName(), refOwner->GetEntry(), refOwner->GetGUIDLow());
@@ -3894,7 +3928,7 @@ bool ChatHandler::HandleLookupAccountEmailCommand(char* args)
     std::string email = emailStr;
     LoginDatabase.escape_string(email);
     //                                                 0   1         2        3        4
-    QueryResult* result = LoginDatabase.PQuery("SELECT id, username, ip, gmlevel, expansion FROM account a join account_logons b on (a.id=b.accountId) WHERE email " _LIKE_ " " _CONCAT3_("'%%'", "'%s'", "'%%'  ORDER BY loginTime DESC LIMIT 1"), email.c_str());
+    QueryResult* result = LoginDatabase.PQuery("SELECT a.id, username, ip, gmlevel, expansion FROM account a join account_logons b on (a.id=b.accountId) WHERE email " _LIKE_ " " _CONCAT3_("'%%'", "'%s'", "'%%'  ORDER BY loginTime DESC LIMIT 1"), email.c_str());
 
     return ShowAccountListHelper(result, &limit);
 }
@@ -3934,7 +3968,7 @@ bool ChatHandler::HandleLookupAccountNameCommand(char* args)
 
     LoginDatabase.escape_string(account);
     //                                                 0   1         2        3        4
-    QueryResult* result = LoginDatabase.PQuery("SELECT id, username, ip, gmlevel, expansion FROM account a join account_logons b on (a.id=b.accountId) WHERE username " _LIKE_ " " _CONCAT3_("'%%'", "'%s'", "'%%' ORDER BY loginTime DESC LIMIT 1"), account.c_str());
+    QueryResult* result = LoginDatabase.PQuery("SELECT a.id, username, ip, gmlevel, expansion FROM account a join account_logons b on (a.id=b.accountId) WHERE username " _LIKE_ " " _CONCAT3_("'%%'", "'%s'", "'%%' ORDER BY loginTime DESC LIMIT 1"), account.c_str());
 
     return ShowAccountListHelper(result, &limit);
 }
@@ -4004,7 +4038,7 @@ bool ChatHandler::HandleLookupPlayerIpCommand(char* args)
     std::string ip = ipStr;
     LoginDatabase.escape_string(ip);
 
-    QueryResult* result = LoginDatabase.PQuery("SELECT id,username, distinct ip FROM account a join account_logons b on (a.id=b.accountId) WHERE b.ip " _LIKE_ " " _CONCAT3_("'%%'", "'%s'", "'%%'  ORDER BY loginTime DESC LIMIT 1"), ip.c_str());
+    QueryResult* result = LoginDatabase.PQuery("SELECT a.id, username, distinct ip FROM account a join account_logons b on (a.id=b.accountId) WHERE b.ip " _LIKE_ " " _CONCAT3_("'%%'", "'%s'", "'%%'  ORDER BY loginTime DESC LIMIT 1"), ip.c_str());
 
     return LookupPlayerSearchCommand(result, &limit);
 }
@@ -4867,7 +4901,7 @@ bool ChatHandler::HandleMmapPathCommand(char* args)
     PSendSysMessage("end        (%.3f, %.3f, %.3f)", end.x, end.y, end.z);
     PSendSysMessage("actual end (%.3f, %.3f, %.3f)", actualEnd.x, actualEnd.y, actualEnd.z);
 
-    if (!player->isGameMaster())
+    if (!player->IsGameMaster())
         PSendSysMessage("Enable GM mode to see the path points.");
 
     for (auto& i : pointPath)

@@ -519,7 +519,7 @@ AuctionHouseEntry const* AuctionHouseMgr::GetAuctionHouseEntry(Unit* unit)
             // FIXME: found way for proper auctionhouse selection by another way
             // AuctionHouse.dbc have faction field with _player_ factions associated with auction house races.
             // but no easy way convert creature faction to player race faction for specific city
-            uint32 factionTemplateId = unit->getFaction();
+            uint32 factionTemplateId = unit->GetFaction();
             switch (factionTemplateId)
             {
                 case   12: houseid = 1; break;              // human
@@ -821,7 +821,15 @@ void WorldSession::BuildListAuctionItems(std::vector<AuctionEntry*> const& aucti
                 continue;
 
             if (inventoryType != 0xffffffff && proto->InventoryType != inventoryType)
-                continue;
+            {
+                if (inventoryType != INVTYPE_CHEST || proto->InventoryType != INVTYPE_ROBE)
+                {
+                    // if inventory type is chest, we want to return robes too
+                    // i.e. cloth chests are in most cases robes by definition
+
+                    continue;
+                }
+            }
 
             if (quality != 0xffffffff && proto->Quality < quality)
                 continue;

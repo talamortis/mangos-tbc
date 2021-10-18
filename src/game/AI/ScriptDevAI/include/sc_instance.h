@@ -42,6 +42,7 @@ class ScriptedInstance : public InstanceData
         // Change active state of doors or buttons
         void DoUseDoorOrButton(ObjectGuid guid, uint32 withRestoreTime = 0, bool useAlternativeState = false);
         void DoUseDoorOrButton(uint32 entry, uint32 withRestoreTime = 0, bool useAlternativeState = false);
+        void DoUseOpenableObject(uint32 entry, bool open, uint32 withRestoreTime = 0, bool useAlternativeState = false);
 
         // Respawns a GO having negative spawntimesecs in gameobject-table
         void DoRespawnGameObject(ObjectGuid guid, uint32 timeToDespawn = MINUTE);
@@ -64,8 +65,11 @@ class ScriptedInstance : public InstanceData
             DoOrSimulateScriptTextForMap(textEntry, creatureEntry, instance, GetSingleCreatureFromStorage(creatureEntry, true));
         }
 
+        void BanPlayersIfNoGm(const std::string& reason);
+
     protected:
         void DespawnGuids(GuidVector& spawns); // despawns all creature guids and clears contents
+        void RespawnDbGuids(std::vector<uint32>& spawns, uint32 respawnDelay); // respawns all dbguid creatures
 
         // Storage for GO-Guids and NPC-Guids
         EntryGuidMap m_goEntryGuidStore;                   // Store unique GO-Guids by entry
@@ -117,6 +121,9 @@ class DialogueHelper
         void StartNextDialogueText(int32 textEntry);
 
         void DialogueUpdate(uint32 diff);
+
+        // for use on death or respawn applicably
+        void DisableDialogue() { m_timer = 0; }
 
     protected:
         /// Will be called when a dialogue step was done

@@ -49,7 +49,7 @@ enum CreatureExtraFlags
     CREATURE_EXTRA_FLAG_NO_CRUSH               = 0x00000020,       // 32 creature can't do crush attacks
     CREATURE_EXTRA_FLAG_NO_XP_AT_KILL          = 0x00000040,       // 64 creature kill not provide XP
     CREATURE_EXTRA_FLAG_INVISIBLE              = 0x00000080,       // 128 creature is always invisible for player (mostly trigger creatures)
-    CREATURE_EXTRA_FLAG_NOT_TAUNTABLE          = 0x00000100,       // 256 creature is immune to taunt auras and effect attack me
+    // CREATURE_EXTRA_FLAG_REUSE               = 0x00000100,       // 256
     CREATURE_EXTRA_FLAG_AGGRO_ZONE             = 0x00000200,       // 512 creature sets itself in combat with zone on aggro
     CREATURE_EXTRA_FLAG_GUARD                  = 0x00000400,       // 1024 creature is a guard
     CREATURE_EXTRA_FLAG_NO_CALL_ASSIST         = 0x00000800,       // 2048 creature shouldn't call for assistance on aggro
@@ -60,11 +60,11 @@ enum CreatureExtraFlags
     CREATURE_EXTRA_FLAG_CIVILIAN               = 0x00010000,       // 65536 CreatureInfo->civilian substitute (for new expansions)
     CREATURE_EXTRA_FLAG_NO_MELEE               = 0x00020000,       // 131072 creature can't melee
     CREATURE_EXTRA_FLAG_FORCE_ATTACKING_CAPABILITY = 0x00080000,   // 524288 SetForceAttackingCapability(true); for nonattackable, nontargetable creatures that should be able to attack nontheless
-    // CREATURE_EXTRA_FLAG_REUSE               = 0x00100000,       // 1048576 - reuse
+    CREATURE_EXTRA_FLAG_DYNGUID                = 0x00100000,       // 1048576 Temporary transition flag - spawns of this entry use dynguid system
     CREATURE_EXTRA_FLAG_COUNT_SPAWNS           = 0x00200000,       // 2097152 count creature spawns in Map*
-    CREATURE_EXTRA_FLAG_HASTE_SPELL_IMMUNITY   = 0x00400000,       // 4194304 immunity to COT or Mind Numbing Poison - very common in instances
+    CREATURE_EXTRA_FLAG_IGNORE_FEIGN_DEATH     = 0x00400000,       // 4194304 Ignores Feign Death
     CREATURE_EXTRA_FLAG_DUAL_WIELD_FORCED      = 0x00800000,       // 8388606 creature is alwyas dual wielding (even if unarmed)
-    CREATURE_EXTRA_FLAG_POISON_IMMUNITY        = 0x01000000,       // 16777216 creature is immune to poisons
+    // CREATURE_EXTRA_FLAG_REUSE               = 0x01000000,       // 16777216
 };
 
 // GCC have alternative #pragma pack(N) syntax and old gcc version not support pack(push,N), also any gcc version not support it at some platform
@@ -157,6 +157,7 @@ struct CreatureInfo
     uint32  EquipmentTemplateId;
     uint32  GossipMenuId;
     VisibilityDistanceType visibilityDistanceType;
+    uint32  CorpseDelay;
     char const* AIName;
     uint32  ScriptID;
 
@@ -226,7 +227,7 @@ struct CreatureSpawnTemplate
     int64 unitFlags;
     uint32 faction;
     uint32 modelId;
-    uint32 equipmentId;
+    int32 equipmentId;
     uint32 curHealth;
     uint32 curMana;
     uint32 spawnFlags;
@@ -375,38 +376,8 @@ enum ChatType
     CHAT_TYPE_BOSS_WHISPER      = 5,
     CHAT_TYPE_ZONE_YELL         = 6,
     CHAT_TYPE_ZONE_EMOTE        = 7,
+    CHAT_TYPE_PARTY             = 8,
     CHAT_TYPE_MAX
-};
-
-// Selection method used by SelectAttackingTarget
-enum AttackingTarget
-{
-    ATTACKING_TARGET_RANDOM = 0,                            // Just selects a random target
-    ATTACKING_TARGET_TOPAGGRO,                              // Selects targes from top aggro to bottom
-    ATTACKING_TARGET_BOTTOMAGGRO,                           // Selects targets from bottom aggro to top
-    ATTACKING_TARGET_NEAREST_BY,                            // Selects the nearest by target
-    ATTACKING_TARGET_FARTHEST_AWAY,                         // Selects the farthest away target
-    ATTACKING_TARGET_ALL_SUITABLE,
-};
-
-enum SelectFlags
-{
-    SELECT_FLAG_IN_LOS              = 0x0001,               // Default Selection Requirement for Spell-targets
-    SELECT_FLAG_PLAYER              = 0x0002,
-    SELECT_FLAG_POWER_MANA          = 0x0004,               // For mana based spells, like manaburn
-    SELECT_FLAG_POWER_RAGE          = 0x0008,
-    SELECT_FLAG_POWER_ENERGY        = 0x0010,
-    SELECT_FLAG_IN_MELEE_RANGE      = 0x0040,
-    SELECT_FLAG_NOT_IN_MELEE_RANGE  = 0x0080,
-    SELECT_FLAG_HAS_AURA            = 0x0100,
-    SELECT_FLAG_NOT_AURA            = 0x0200,
-    SELECT_FLAG_RANGE_RANGE         = 0x0400,               // For direct targeted abilities like charge or frostbolt
-    SELECT_FLAG_RANGE_AOE_RANGE     = 0x0800,               // For AOE targeted abilities like frost nova
-    SELECT_FLAG_POWER_NOT_MANA      = 0x1000,               // Used in some dungeon encounters
-    SELECT_FLAG_USE_EFFECT_RADIUS   = 0x2000,               // For AOE targeted abilities which have correct data in effect index 0
-    SELECT_FLAG_SKIP_TANK           = 0x4000,               // Not GetVictim - tank is not always top threat
-    SELECT_FLAG_PLAYER_CASTING      = 0x8000,               // For Interupts on casting targets
-    SELECT_FLAG_SKIP_CUSTOM         = 0x10000,              // skips custom target
 };
 
 enum RegenStatsFlags
@@ -541,7 +512,7 @@ struct CreatureCreatePos
               m_closeObject(closeObject), m_angle(angle), m_dist(dist) { m_pos.o = ori; }
     public:
         Map* GetMap() const { return m_map; }
-        void SelectFinalPoint(Creature* cr);
+        void SelectFinalPoint(Creature* cr, bool staticSpawn);
         bool Relocate(Creature* cr) const;
 
         // read only after SelectFinalPoint
@@ -567,32 +538,12 @@ enum TemporaryFactionFlags                                  // Used at real fact
     TEMPFACTION_RESTORE_RESPAWN         = 0x01,             // Default faction will be restored at respawn
     TEMPFACTION_RESTORE_COMBAT_STOP     = 0x02,             // ... at CombatStop() (happens at creature death, at evade or custom scripte among others)
     TEMPFACTION_RESTORE_REACH_HOME      = 0x04,             // ... at reaching home in home movement (evade), if not already done at CombatStop()
-    TEMPFACTION_TOGGLE_NON_ATTACKABLE   = 0x08,             // Remove UNIT_FLAG_NON_ATTACKABLE(0x02) when faction is changed (reapply when temp-faction is removed)
+    TEMPFACTION_TOGGLE_NON_ATTACKABLE   = 0x08,             // Remove UNIT_FLAG_SPAWNING(0x02) when faction is changed (reapply when temp-faction is removed)
     TEMPFACTION_TOGGLE_IMMUNE_TO_PLAYER = 0x10,             // Remove UNIT_FLAG_IMMUNE_TO_PLAYER(0x100) when faction is changed (reapply when temp-faction is removed)
     TEMPFACTION_TOGGLE_IMMUNE_TO_NPC    = 0x20,             // Remove UNIT_FLAG_IMMUNE_TO_NPC(0x200) when faction is changed (reapply when temp-faction is removed)
     TEMPFACTION_TOGGLE_PACIFIED         = 0x40,             // Remove UNIT_FLAG_PACIFIED(0x20000) when faction is changed (reapply when temp-faction is removed)
     TEMPFACTION_TOGGLE_NOT_SELECTABLE   = 0x80,             // Remove UNIT_FLAG_NOT_SELECTABLE(0x2000000) when faction is changed (reapply when temp-faction is removed)
     TEMPFACTION_ALL,
-};
-
-struct SelectAttackingTargetParams
-{
-    union
-    {
-        struct
-        {
-            uint32 minRange;
-            uint32 maxRange;
-        } range;
-        struct
-        {
-            uint64 guid;
-        } skip;
-        struct
-        {
-            uint32 params[2];
-        } raw;
-    };
 };
 
 class Creature : public Unit
@@ -694,19 +645,14 @@ class Creature : public Unit
         }
 
         void SetWalk(bool enable, bool asDefault = true);
-        void SetLevitate(bool enable) override;
-        void SetSwim(bool enable) override;
-        void SetCanFly(bool enable) override;
-        void SetFeatherFall(bool enable) override;
-        void SetHover(bool enable) override;
-        void SetWaterWalk(bool enable) override;
 
         // TODO: Research mob shield block values
-        uint32 GetShieldBlockValue() const override { return (getLevel() / 2 + uint32(GetStat(STAT_STRENGTH) / 20)); }
+        uint32 GetShieldBlockValue() const override { return (GetLevel() / 2 + uint32(GetStat(STAT_STRENGTH) / 20)); }
 
         bool HasSpell(uint32 spellID) const override;
         void UpdateSpell(int32 index, int32 newSpellId) { m_spells[index] = newSpellId; }
         void UpdateSpellSet(uint32 spellSet);
+        void UpdateImmunitiesSet(uint32 immunitySet);
 
         bool UpdateEntry(uint32 Entry, const CreatureData* data = nullptr, GameEventCreatureData const* eventData = nullptr, bool preserveHPAndPower = true);
         void ResetEntry(bool respawn = false);
@@ -764,6 +710,7 @@ class Creature : public Unit
         uint32 GetLootGroupRecipientId() const { return m_lootGroupRecipientId; }
         Player* GetLootRecipient() const;                   // use group cases as prefered
         Group* GetGroupLootRecipient() const;
+        void SetCorpseAccelerationDelay(uint32 delay) { m_corpseAccelerationDecayDelay = delay; } // in miliseconds
 
         bool HasLootRecipient() const { return m_lootGroupRecipientId || m_lootRecipientGuid; }
         bool IsGroupLootRecipient() const { return m_lootGroupRecipientId != 0; }
@@ -781,6 +728,8 @@ class Creature : public Unit
         void SetNoCallAssistance(bool val) { m_AlreadyCallAssistance = val; }
         bool CanAssistTo(const Unit* u, const Unit* enemy, bool checkfaction = true) const;
         bool CanInitiateAttack() const;
+        bool CanCallForAssistance() const override { return m_canCallForAssistance; }
+        void SetCanCallForAssistance(bool state) { m_canCallForAssistance = state; }
         bool IsInGroup(Unit const* other, bool party/* = false*/, bool ignoreCharms/* = false*/) const override;
 
         MovementGeneratorType GetDefaultMovementType() const { return m_defaultMovementType; }
@@ -791,7 +740,7 @@ class Creature : public Unit
         void RemoveCorpse(bool inPlace = false);
         bool IsDeadByDefault() const { return m_isDeadByDefault; };
 
-        void ForcedDespawn(uint32 timeMSToDespawn = 0, bool onlyAlive = false);
+        virtual void ForcedDespawn(uint32 timeMSToDespawn = 0, bool onlyAlive = false);
 
         time_t const& GetRespawnTime() const { return m_respawnTime; }
         time_t GetRespawnTimeEx() const;
@@ -811,12 +760,7 @@ class Creature : public Unit
 
         void SendZoneUnderAttackMessage(Player* attacker) const;
 
-        void SetInCombatWithZone(bool checkAttackability = false);
-
-        Unit* SelectAttackingTarget(AttackingTarget target, uint32 position, uint32 spellId, uint32 selectFlags = 0, SelectAttackingTargetParams params = SelectAttackingTargetParams()) const;
-        Unit* SelectAttackingTarget(AttackingTarget target, uint32 position, SpellEntry const* spellInfo = nullptr, uint32 selectFlags = 0, SelectAttackingTargetParams params = SelectAttackingTargetParams()) const;
-        void SelectAttackingTargets(std::vector<Unit*>& selectedTargets, AttackingTarget target, uint32 position, uint32 spellId, uint32 selectFlags = 0, SelectAttackingTargetParams params = SelectAttackingTargetParams()) const;
-        void SelectAttackingTargets(std::vector<Unit*>& selectedTargets, AttackingTarget target, uint32 position, SpellEntry const* spellInfo = nullptr, uint32 selectFlags = 0, SelectAttackingTargetParams params = SelectAttackingTargetParams()) const;
+        void SetInCombatWithZone(bool checkAttackability = true);
 
         bool HasQuest(uint32 quest_id) const override;
         bool HasInvolvedQuest(uint32 quest_id)  const override;
@@ -870,15 +814,19 @@ class Creature : public Unit
 
         void SetSpawnCounting(bool state) { m_countSpawns = state; }
 
-        uint32 GetDetectionRange() const override { return m_creatureInfo->Detection; }
+        uint32 GetDetectionRange() const override { return m_detectionRange; }
+        void SetDetectionRange(uint32 range) { m_detectionRange = range; }
 
         void SetBaseWalkSpeed(float speed) override;
-        void SetBaseRunSpeed(float speed) override;
+        void SetBaseRunSpeed(float speed, bool force = true) override;
 
         void LockOutSpells(SpellSchoolMask schoolMask, uint32 duration) override;
 
         bool CanAggro() const { return m_canAggro; }
         void SetCanAggro(bool canAggro) { m_canAggro = canAggro; }
+
+        bool CanCheckForHelp() const override { return m_checkForHelp; }
+        void SetCanCheckForHelp(bool state) { m_checkForHelp = state; }
 
         void SetNoRewards() { m_noXP = true; m_noLoot = true; m_noReputation = true; }
         bool IsNoXp() { return m_noXP; }
@@ -887,6 +835,8 @@ class Creature : public Unit
         void SetNoLoot(bool state) { m_noLoot = state; }
         bool IsNoReputation() { return m_noReputation; }
         void SetNoReputation(bool state) { m_noReputation = state; }
+        bool IsIgnoringFeignDeath() const { return m_ignoringFeignDeath; }
+        void SetIgnoreFeignDeath(bool state) { m_ignoringFeignDeath = state; }
 
         virtual void AddCooldown(SpellEntry const& spellEntry, ItemPrototype const* itemProto = nullptr, bool permanent = false, uint32 forcedDuration = 0) override;
 
@@ -896,9 +846,10 @@ class Creature : public Unit
         void UnregisterHitBySpell(uint32 spellId);
         void ResetSpellHitCounter();
 
-    protected:
-        bool MeetsSelectAttackingRequirement(Unit* pTarget, SpellEntry const* pSpellInfo, uint32 selectFlags, SelectAttackingTargetParams params) const;
+        uint32 GetDbGuid() const override { return m_dbGuid; }
+        HighGuid GetParentHigh() const override { return HIGHGUID_UNIT; }
 
+    protected:
         bool CreateFromProto(uint32 guidlow, CreatureInfo const* cinfo, const CreatureData* data = nullptr, GameEventCreatureData const* eventData = nullptr);
         bool InitEntry(uint32 Entry, const CreatureData* data = nullptr, GameEventCreatureData const* eventData = nullptr);
 
@@ -915,6 +866,7 @@ class Creature : public Unit
         ObjectGuid m_lootRecipientGuid;                     // player who will have rights for looting if m_lootGroupRecipient==0 or group disbanded
         uint32 m_lootGroupRecipientId;                      // group who will have rights for looting if set and exist
         CreatureLootStatus m_lootStatus;                    // loot status (used to know when we could loot, pickpocket or skin)
+        uint32 m_corpseAccelerationDecayDelay;              // time for ReduceCorpseDecayTimer
 
         /// Timers
         TimePoint m_corpseExpirationTime;                   // (msecs) time point of corpse decay
@@ -925,6 +877,7 @@ class Creature : public Unit
         uint32 m_corpseDelay;                               // (secs) delay between death and corpse disappearance
         TimePoint m_pickpocketRestockTime;                  // (msecs) time point of pickpocket restock
         bool m_canAggro;                                    // controls response of creature to attacks
+        bool m_checkForHelp;                                // controls checkforhelp in ai
         float m_respawnradius;
 
         CreatureSubtype m_subtype;                          // set in Creatures subclasses for fast it detect without dynamic_cast use
@@ -932,9 +885,11 @@ class Creature : public Unit
         virtual void RegenerateHealth();
         MovementGeneratorType m_defaultMovementType;
         uint32 m_equipmentId;
+        uint32 m_detectionRange;
 
         // below fields has potential for optimization
         bool m_AlreadyCallAssistance;
+        bool m_canCallForAssistance;
         bool m_isDeadByDefault;
         uint32 m_temporaryFactionFlags;                     // used for real faction changes (not auras etc)
 
@@ -946,6 +901,8 @@ class Creature : public Unit
 
         uint32 m_gameEventVendorId;                         // game event creature data vendor id override
 
+        uint32 m_immunitySet;
+
         std::unique_ptr<UnitAI> m_ai;
         bool m_isInvisible;
         bool m_ignoreMMAP;
@@ -953,6 +910,7 @@ class Creature : public Unit
         bool m_noXP;
         bool m_noLoot;
         bool m_noReputation;
+        bool m_ignoringFeignDeath;
 
         // Script logic
         bool m_countSpawns;

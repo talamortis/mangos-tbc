@@ -1,9 +1,11 @@
 name: Windows release build
 
-on:
-  schedule:
+on: [push]
+
+# on:
+#   schedule:
     # every day at 6am
-    - cron:  '0 6 * * *'
+#     - cron:  '0 6 * * *'
 
 env:
   # Customize the CMake build type here (Release, Debug, RelWithDebInfo, etc.)

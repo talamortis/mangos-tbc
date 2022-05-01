@@ -19,10 +19,12 @@
 #ifndef MANGOSSERVER_MOVESPLINEINIT_H
 #define MANGOSSERVER_MOVESPLINEINIT_H
 
+#include "Entities/Object.h"
 #include "Movement/MoveSplineInitArgs.h"
 #include "MotionGenerators/PathFinder.h"
 
 class Unit;
+class WorldObject;
 
 namespace Movement
 {
@@ -48,7 +50,7 @@ namespace Movement
              */
             void SetFacing(float angle);
             void SetFacing(Vector3 const& spot);
-            void SetFacing(const Unit* target);
+            void SetFacing(const WorldObject* target);
 
             /* Initializes movement by path
              * @param path - array of points, shouldn't be empty

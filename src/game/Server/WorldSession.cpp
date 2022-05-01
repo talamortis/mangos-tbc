@@ -573,7 +573,7 @@ void WorldSession::UpdateMap(uint32 diff)
         std::swap(recvQueueMapCopy, m_recvQueueMap);
     }
 
-    for (size_t i = 0; m_Socket && !m_Socket->IsClosed() && i < recvQueueMapCopy.size(); ++i)
+    while (m_Socket && !m_Socket->IsClosed() && recvQueueMapCopy.size())
     {
         auto const packet = std::move(recvQueueMapCopy.front());
         recvQueueMapCopy.pop_front();
@@ -711,7 +711,7 @@ void WorldSession::LogoutPlayer()
 
         // remove player from the group if he is:
         // a) in group; b) not in raid group; c) logging out normally (not being kicked or disconnected)
-        if (_player->GetGroup() && !_player->GetGroup()->isRaidGroup() && m_Socket && !m_Socket->IsClosed())
+        if (_player->GetGroup() && !_player->GetGroup()->IsRaidGroup() && m_Socket && !m_Socket->IsClosed())
             _player->RemoveFromGroup();
 
         ///- Send update to group
@@ -776,7 +776,7 @@ void WorldSession::LogoutPlayer()
 
     SetInCharSelection();
 
-    LogoutRequest(0);
+    _logoutTime = 0;
 
     if (m_kickSession)
     {

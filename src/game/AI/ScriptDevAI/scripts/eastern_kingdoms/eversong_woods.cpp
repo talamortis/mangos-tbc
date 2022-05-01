@@ -140,7 +140,7 @@ struct npc_kelerun_bloodmournAI : public ScriptedAI
                                       TEMPSPAWN_TIMED_OOC_OR_DEAD_DESPAWN, 600000))
             {
                 m_aChallengerGuids[i] = pCreature->GetObjectGuid();
-                pCreature->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NON_ATTACKABLE);
+                pCreature->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_SPAWNING);
             }
         }
     }
@@ -206,7 +206,7 @@ struct npc_kelerun_bloodmournAI : public ScriptedAI
                     if (Creature* pCreature = m_creature->GetMap()->GetCreature(m_aChallengerGuids[m_uiChallengerCount]))
                     {
                         DoScriptText(uiSayId[m_uiChallengerCount], m_creature, pPlayer);
-                        pCreature->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NON_ATTACKABLE);
+                        pCreature->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_SPAWNING);
                         pCreature->AI()->AttackStart(pPlayer);
                     }
 
@@ -255,8 +255,8 @@ bool GOUse_go_harbinger_second_trial(Player* /*pPlayer*/, GameObject* pGO)
 ######*/
 enum
 {
-    SAY_ANVIL1            = -1000209,
-    SAY_ANVIL2            = -1000210,
+    SAY_ANVIL1            = 11734,
+    SAY_ANVIL2            = 11735,
 
     GOSSIP_ITEM_MOMENT    = -3000108,
     GOSSIP_ITEM_SHOW      = -3000110,
@@ -264,7 +264,7 @@ enum
     GOSSIP_TEXT_ID_MOMENT = 8239,
     GOSSIP_TEXT_ID_SHOW   = 8240,
 
-    FACTION_HOSTILE       = 24,
+    FACTION_HOSTILE       = 14,
 
     QUEST_THE_DWARVEN_SPY = 8483
 };
@@ -286,14 +286,11 @@ struct npc_prospector_anvilwardAI : public npc_escortAI
 
         switch (uiPointId)
         {
-            case 1:
-                DoScriptText(SAY_ANVIL1, m_creature, pPlayer);
-                break;
-            case 7:
-                DoScriptText(SAY_ANVIL2, m_creature, pPlayer);
+            case 11:
+                DoBroadcastText(SAY_ANVIL2, m_creature, pPlayer);
                 m_creature->GetMotionMaster()->Clear(false, true);
                 m_creature->GetMotionMaster()->MoveIdle();
-                m_creature->SetFactionTemporary(FACTION_HOSTILE, TEMPFACTION_RESTORE_REACH_HOME | TEMPFACTION_RESTORE_RESPAWN);
+                m_creature->SetFactionTemporary(FACTION_HOSTILE, TEMPFACTION_RESTORE_RESPAWN);
                 m_creature->AI()->SetReactState(REACT_DEFENSIVE);
                 m_creature->ForcedDespawn(60000);
                 break;
@@ -327,7 +324,10 @@ bool GossipSelect_npc_prospector_anvilward(Player* pPlayer, Creature* pCreature,
             pPlayer->CLOSE_GOSSIP_MENU();
 
             if (npc_prospector_anvilwardAI* pEscortAI = dynamic_cast<npc_prospector_anvilwardAI*>(pCreature->AI()))
+            {
+                DoBroadcastText(SAY_ANVIL1, pCreature, pPlayer);
                 pEscortAI->Start(false, pPlayer);
+            }
 
             break;
     }
@@ -425,6 +425,7 @@ struct npc_apprentice_mirvedaAI : public ScriptedAI
 
     void StartEvent(Player* pPlayer)
     {
+        Reset();
         m_creature->SetFactionTemporary(FACTION_ESCORT_H_NEUTRAL_ACTIVE, TEMPFACTION_TOGGLE_IMMUNE_TO_NPC);
         m_creature->RemoveFlag(UNIT_NPC_FLAGS, UNIT_NPC_FLAG_QUESTGIVER);
         m_playerGuid = pPlayer->GetObjectGuid();

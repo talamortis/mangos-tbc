@@ -35,7 +35,7 @@ OutdoorPvPNA::OutdoorPvPNA() : OutdoorPvP(),
     m_isUnderSiege(false)
 {
     // initially set graveyard owner to neither faction
-    SetGraveYardLinkTeam(GRAVEYARD_ID_HALAA, GRAVEYARD_ZONE_ID_HALAA, TEAM_INVALID, { 530 });
+    SetGraveYardLinkTeam(GRAVEYARD_ID_HALAA, GRAVEYARD_ZONE_ID_HALAA, TEAM_INVALID, 530);
 }
 
 void OutdoorPvPNA::FillInitialWorldStates(WorldPacket& data, uint32& count)
@@ -98,17 +98,8 @@ void OutdoorPvPNA::HandleObjectiveComplete(uint32 eventId, const std::list<Playe
 // Cast player spell on opponent kill
 void OutdoorPvPNA::HandlePlayerKillInsideArea(Player* player)
 {
-    if (GameObject* capturePoint = player->GetMap()->GetGameObject(m_capturePoint))
-    {
-        // check capture point range
-        GameObjectInfo const* info = capturePoint->GetGOInfo();
-        if (info && player->IsWithinDistInMap(capturePoint, info->capturePoint.radius))
-        {
-            // check capture point team
-            if (player->GetTeam() == m_zoneOwner)
-                player->CastSpell(player, player->GetTeam() == ALLIANCE ? SPELL_NAGRAND_TOKEN_ALLIANCE : SPELL_NAGRAND_TOKEN_HORDE, TRIGGERED_OLD_TRIGGERED);
-        }
-    }
+    if (player->GetAreaId() == ZONE_HALAA)
+        player->CastSpell(nullptr, player->GetTeam() == ALLIANCE ? SPELL_NAGRAND_TOKEN_ALLIANCE : SPELL_NAGRAND_TOKEN_HORDE, TRIGGERED_OLD_TRIGGERED);
 }
 
 void OutdoorPvPNA::HandleCreatureCreate(Creature* creature)
@@ -339,7 +330,7 @@ void OutdoorPvPNA::ProcessCaptureEvent(GameObject* go, Team team)
 
     UpdateWorldState(WORLD_STATE_REMOVE);
     DespawnVendors(go);
-    SetGraveYardLinkTeam(GRAVEYARD_ID_HALAA, GRAVEYARD_ZONE_ID_HALAA, m_zoneOwner, { 530 });
+    SetGraveYardLinkTeam(GRAVEYARD_ID_HALAA, GRAVEYARD_ZONE_ID_HALAA, m_zoneOwner, 530);
 
     if (m_zoneOwner == ALLIANCE)
     {

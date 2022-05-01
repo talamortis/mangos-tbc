@@ -178,7 +178,7 @@ struct boss_kelthuzadAI : public ScriptedAI
 
         m_phase                = PHASE_NORMAL;
 
-        m_creature->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NON_ATTACKABLE);
+        m_creature->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_SPAWNING);
         m_creature->SetImmuneToPlayer(true);
         SetMeleeEnabled(false);
     }
@@ -405,7 +405,7 @@ struct boss_kelthuzadAI : public ScriptedAI
 
         // Make attackable and engage a target
         m_creature->SetImmuneToPlayer(false);
-        m_creature->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NON_ATTACKABLE);
+        m_creature->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_SPAWNING);
         SetMeleeEnabled(true);
         SetReactState(REACT_AGGRESSIVE);
         m_creature->SetInCombatWithZone();
@@ -727,6 +727,6 @@ void AddSC_boss_kelthuzad()
 
     RegisterSpellScript<TriggerKTAdd>("spell_trigger_KT_add");
     RegisterSpellScript<ChainsKelThuzad>("spell_chains_kel_thuzad");
-    RegisterAuraScript<FrostBlast>("spell_kel_thuzad_frost_blast");
-    RegisterAuraScript<GuardianPeriodic>("spell_icecrown_guardian_periodic");
+    RegisterSpellScript<FrostBlast>("spell_kel_thuzad_frost_blast");
+    RegisterSpellScript<GuardianPeriodic>("spell_icecrown_guardian_periodic");
 }

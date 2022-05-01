@@ -194,9 +194,9 @@ struct mob_blood_elf_council_voice_triggerAI : public ScriptedAI
 ## mob_illidari_council
 ######*/
 
-struct mob_illidari_councilAI : public ScriptedAI, public TimerManager
+struct mob_illidari_councilAI : public ScriptedAI
 {
-    mob_illidari_councilAI(Creature* creature) : ScriptedAI(creature), m_instance(static_cast<ScriptedInstance*>(creature->GetInstanceData()))
+    mob_illidari_councilAI(Creature* creature) : ScriptedAI(creature, 0), m_instance(static_cast<ScriptedInstance*>(creature->GetInstanceData()))
     {
         AddCustomAction(GENERIC_ACTION_BALANCE, 0u, [&]()
         {
@@ -279,20 +279,15 @@ struct mob_illidari_councilAI : public ScriptedAI, public TimerManager
         if (Creature* voiceTrigger = m_instance->GetSingleCreatureFromStorage(NPC_COUNCIL_VOICE))
             voiceTrigger->AI()->SendAIEvent(AI_EVENT_CUSTOM_A, m_creature, voiceTrigger);
     }
-
-    void UpdateAI(const uint32 diff) override
-    {
-        UpdateTimers(diff);
-    }
 };
 
 /*######
 ## boss_illidari_council
 ######*/
 
-struct boss_illidari_councilAI : public RangedCombatAI
+struct boss_illidari_councilAI : public CombatAI
 {
-    boss_illidari_councilAI(Creature* creature, uint32 combatActions) : RangedCombatAI(creature, combatActions),
+    boss_illidari_councilAI(Creature* creature, uint32 combatActions) : CombatAI(creature, combatActions),
             m_instance(static_cast<ScriptedInstance*>(creature->GetInstanceData()))
     {
         m_creature->GetCombatManager().SetLeashingCheck([&](Unit*, float x, float y, float z)
@@ -305,7 +300,7 @@ struct boss_illidari_councilAI : public RangedCombatAI
 
     void Reset() override
     {
-        RangedCombatAI::Reset();
+        CombatAI::Reset();
         DoCastSpellIfCan(nullptr, SPELL_BALANCE_OF_POWER, CAST_TRIGGERED | CAST_AURA_NOT_PRESENT);
     }
 
@@ -378,7 +373,7 @@ struct boss_gathios_the_shattererAI : public boss_illidari_councilAI
     {
         AddCombatAction(GATHIOS_ACTION_JUDGEMENT, true);
         AddCombatAction(GATHIOS_ACTION_SEAL, 0u);
-        AddCombatAction(GATHIOS_ACTION_AURA, 90000, 90000);
+        AddCombatAction(GATHIOS_ACTION_AURA, 5000, 6000);
         AddCombatAction(GATHIOS_ACTION_BLESSING, 19000, 26000);
         AddCombatAction(GATHIOS_ACTION_CONSECRATION, 10000u);
         AddCombatAction(GATHIOS_ACTION_HAMMER_OF_JUSTICE, 10000, 10000);
@@ -445,7 +440,7 @@ struct boss_gathios_the_shattererAI : public boss_illidari_councilAI
             case GATHIOS_ACTION_AURA:
             {
                 if (DoCastSpellIfCan(nullptr, urand(0, 1) ? SPELL_DEVOTION_AURA : SPELL_CHROMATIC_AURA) == CAST_OK)
-                    ResetCombatAction(action, 90000);
+                    ResetCombatAction(action, 60000);
                 return;
             }
             case GATHIOS_ACTION_BLESSING:
@@ -518,14 +513,14 @@ struct boss_high_nethermancer_zerevorAI : public boss_illidari_councilAI
             {
                 if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, nullptr, SELECT_FLAG_PLAYER))
                     if (DoCastSpellIfCan(target, SPELL_BLIZZARD) == CAST_OK)
-                        ResetCombatAction(action, urand(5000, 15000));
+                        ResetCombatAction(action, urand(12000, 24000));
                 return;
             }
             case ZEREVOR_ACTION_FLAMESTRIKE:
             {
                 if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, nullptr, SELECT_FLAG_PLAYER))
                     if (DoCastSpellIfCan(target, SPELL_FLAMESTRIKE) == CAST_OK)
-                        ResetCombatAction(action, urand(5000, 15000));
+                        ResetCombatAction(action, urand(14000, 34000));
                 return;
             }
             case ZEREVOR_ACTION_ARCANE_BOLT:
@@ -568,12 +563,13 @@ struct boss_lady_malandeAI : public boss_illidari_councilAI
 {
     boss_lady_malandeAI(Creature* creature) : boss_illidari_councilAI(creature, MALANDE_ACTION_MAX)
     {
-        m_attackDistance = 20.0f;
         AddCombatAction(MALANDE_ACTION_EMPOWERED_SMITE, 0u);
         AddCombatAction(MALANDE_ACTION_CIRCLE_OF_HEALING, 20000u);
-        AddCombatAction(MALANDE_ACTION_DIVINE_WRATH, 10000u);
+        AddCombatAction(MALANDE_ACTION_DIVINE_WRATH, 10000, 18000);
         AddCombatAction(MALANDE_ACTION_REFLECTIVE_SHIELD, 26000, 32000);
         AddOnKillText(SAY_MALA_SLAY);
+        SetRangedMode(true, 20.0f, TYPE_PROXIMITY);
+        AddMainSpell(SPELL_EMPOWERED_SMITE);
     }
 
     void JustDied(Unit* killer) override
@@ -609,7 +605,7 @@ struct boss_lady_malandeAI : public boss_illidari_councilAI
             {
                 if (Unit* pTarget = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, nullptr, SELECT_FLAG_PLAYER))
                     if (DoCastSpellIfCan(pTarget, SPELL_DIVINE_WRATH) == CAST_OK)
-                        ResetCombatAction(action, urand(5000, 10000));
+                        ResetCombatAction(action, urand(16000, 36000));
                 return;
             }
             case MALANDE_ACTION_REFLECTIVE_SHIELD:
@@ -621,7 +617,7 @@ struct boss_lady_malandeAI : public boss_illidari_councilAI
             case MALANDE_ACTION_EMPOWERED_SMITE:
             {
                 if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_EMPOWERED_SMITE) == CAST_OK)
-                    ResetCombatAction(action, urand(2000, 3000));
+                    ResetCombatAction(action, GetCurrentRangedMode() ? urand(2000, 3000) : urand(2000, 12000)); // ranged action with chance in spell list
                 return;
             }
         }
@@ -671,8 +667,6 @@ struct boss_veras_darkshadowAI : public boss_illidari_councilAI
                 m_creature->CastSpell(nullptr, SPELL_DEADLY_STRIKE, TRIGGERED_NONE);
                 DoScriptText(SAY_VERA_VANISH, m_creature);
                 ResetCombatAction(action, 55000);
-                if (Unit* victim = m_creature->SelectAttackingTarget(ATTACKING_TARGET_TOPAGGRO, 0))
-                    m_creature->getThreatManager().SetTargetSuppressed(victim);
             }
         }
     }
@@ -681,6 +675,7 @@ struct boss_veras_darkshadowAI : public boss_illidari_councilAI
     {
         summoned->CastSpell(nullptr, SPELL_INSTANT_SPAWN, TRIGGERED_NONE);
         m_envenomAnimTarget = summoned->GetObjectGuid();
+        ResetTimer(VERAS_ENVENOM_ANIMATION, 1000);
         summoned->ForcedDespawn(4500);
     }
 };
@@ -690,7 +685,33 @@ struct VerasVanish : public AuraScript
     void OnApply(Aura* aura, bool apply) const override
     {
         if (!apply)
-            aura->GetTarget()->CastSpell(nullptr, 41479, TRIGGERED_NONE);
+            aura->GetTarget()->CastSpell(nullptr, SPELL_VANISH_TELEPORT, TRIGGERED_NONE);
+    }
+};
+
+struct VerasDeadlyPoison : public AuraScript
+{
+    void OnPeriodicTrigger(Aura* aura, PeriodicTriggerData& data) const override
+    {
+        data.target = aura->GetTarget()->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, SPELL_DEADLY_POISON, SELECT_FLAG_PLAYER);
+    }
+};
+
+struct VerasDeadlyPoisonTick : public AuraScript
+{
+    void OnApply(Aura* aura, bool apply) const override
+    {
+        if (!apply)
+        {
+            Unit* target = aura->GetTarget();
+            if (Unit* caster = aura->GetCaster())
+            {
+                caster->CastSpell(target, SPELL_ENVENOM, TRIGGERED_OLD_TRIGGERED);
+                if (caster->AI())
+                    caster->AI()->DoResetThreat();
+            }
+            target->CastSpell(nullptr, SPELL_ENVENOM_DUMMY_1, TRIGGERED_OLD_TRIGGERED);
+        }
     }
 };
 
@@ -726,5 +747,7 @@ void AddSC_boss_illidari_council()
     pNewScript->GetAI = &GetNewAIInstance<boss_high_nethermancer_zerevorAI>;
     pNewScript->RegisterSelf();
 
-    RegisterAuraScript<VerasVanish>("spell_veras_vanish");
+    RegisterSpellScript<VerasVanish>("spell_veras_vanish");
+    RegisterSpellScript<VerasDeadlyPoison>("spell_veras_deadly_poison");
+    RegisterSpellScript<VerasDeadlyPoisonTick>("spell_veras_deadly_poison_tick");
 }

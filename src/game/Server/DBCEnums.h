@@ -101,8 +101,19 @@ enum SpawnMask
 
 enum FactionTemplateFlags
 {
-    FACTION_TEMPLATE_FLAG_PVP               = 0x00000800,   // flagged for PvP
-    FACTION_TEMPLATE_FLAG_CONTESTED_GUARD   = 0x00001000,   // faction will attack players that were involved in PvP combats
+    FACTION_TEMPLATE_RESPOND_TO_CALL_FOR_HELP       = 0x00000001,
+    FACTION_TEMPLATE_BROADCAST_TO_ENEMIES_LOW_PRIO  = 0x00000002,
+    FACTION_TEMPLATE_BROADCAST_TO_ENEMIES_MED_PRIO  = 0x00000004,
+    FACTION_TEMPLATE_BROADCAST_TO_ENEMIES_HIG_PRIO  = 0x00000008,
+    FACTION_TEMPLATE_SEARCH_FOR_ENEMIES_LOW_PRIO    = 0x00000010,
+    FACTION_TEMPLATE_SEARCH_FOR_ENEMIES_MED_PRIO    = 0x00000020,
+    FACTION_TEMPLATE_SEARCH_FOR_ENEMIES_HIG_PRIO    = 0x00000040,
+    FACTION_TEMPLATE_SEARCH_FOR_FRIENDS_LOW_PRIO    = 0x00000080,
+    FACTION_TEMPLATE_SEARCH_FOR_FRIENDS_MED_PRIO    = 0x00000100,
+    FACTION_TEMPLATE_SEARCH_FOR_FRIENDS_HIG_PRIO    = 0x00000200,
+    FACTION_TEMPLATE_FLEE_FROM_CALL_FOR_HELP        = 0x00000400,
+    FACTION_TEMPLATE_FLAG_ASSIST_PLAYERS            = 0x00000800,   // flagged for PvP
+    FACTION_TEMPLATE_FLAG_ATTACK_PVP_ACTIVE_PLAYERS = 0x00001000,   // faction will attack players that were involved in PvP combats
 };
 
 enum FactionGroupMask
@@ -203,21 +214,10 @@ enum UnitNameSummonTitle
 // SummonProperties.dbc, col 5          == Flags            (m_flags)
 enum SummonPropFlags
 {
-    SUMMON_PROP_FLAG_NONE               = 0x0000,           // 1342 spells in 3.0.3
-    SUMMON_PROP_FLAG_UNK1               = 0x0001,           // 75 spells in 3.0.3, something unfriendly
-    SUMMON_PROP_FLAG_UNK2               = 0x0002,           // 616 spells in 3.0.3, something friendly
-    SUMMON_PROP_FLAG_UNK3               = 0x0004,           // 22 spells in 3.0.3, no idea...
-    SUMMON_PROP_FLAG_UNK4               = 0x0008,           // 49 spells in 3.0.3, some mounts
-    SUMMON_PROP_FLAG_UNK5               = 0x0010,           // 25 spells in 3.0.3, quest related?
-    SUMMON_PROP_FLAG_CANT_BE_DISMISSED  = 0x0020,           // 0 spells in 3.0.3, unused
-    SUMMON_PROP_FLAG_UNK7               = 0x0040,           // 12 spells in 3.0.3, no idea
-    SUMMON_PROP_FLAG_UNK8               = 0x0080,           // 4 spells in 3.0.3, no idea
-    SUMMON_PROP_FLAG_UNK9               = 0x0100,           // 51 spells in 3.0.3, no idea, many quest related
-    SUMMON_PROP_FLAG_INHERIT_FACTION    = 0x0200,           // 51 spells in 3.0.3, something defensive (Faction inheriting is much guesswork)
-    SUMMON_PROP_FLAG_UNK11              = 0x0400,           // 3 spells, requires something near?
-    SUMMON_PROP_FLAG_UNK12              = 0x0800,           // 30 spells in 3.0.3, no idea
-    SUMMON_PROP_FLAG_UNK13              = 0x1000,           // 8 spells in 3.0.3, siege vehicle
-    SUMMON_PROP_FLAG_UNK14              = 0x2000,           // 2 spells in 3.0.3, escort?
+    SUMMON_PROP_FLAG_NONE                           = 0x0000,
+    SUMMON_PROP_FLAG_ATTACK_SUMMONER                = 0x0001,
+    SUMMON_PROP_FLAG_HELP_WHEN_SUMMONED_IN_COMBAT   = 0x0002,
+    SUMMON_PROP_FLAG_USE_LEVEL_OFFSET               = 0x0004, // Implemented differently in tbc core
 };
 
 enum SpellEffectIndex

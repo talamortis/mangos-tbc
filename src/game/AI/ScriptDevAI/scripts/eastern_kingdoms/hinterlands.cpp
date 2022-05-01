@@ -183,21 +183,16 @@ enum
     GO_RINJI_CAGE           = 142036
 };
 
-struct Location
+Position m_afAmbushSpawn[] =
 {
-    float m_fX, m_fY, m_fZ;
+    {191.29620f, -2839.329346f, 107.388f, 0.f},
+    {70.972466f, -2848.674805f, 109.459f, 0.f}
 };
 
-Location m_afAmbushSpawn[] =
+Position m_afAmbushMoveTo[] =
 {
-    {191.29620f, -2839.329346f, 107.388f},
-    {70.972466f, -2848.674805f, 109.459f}
-};
-
-Location m_afAmbushMoveTo[] =
-{
-    {166.63038f, -2824.780273f, 108.153f},
-    {70.886589f, -2874.335449f, 116.675f}
+    {166.63038f, -2824.780273f, 108.153f, 0.f},
+    {70.886589f, -2874.335449f, 116.675f, 0.f}
 };
 
 struct npc_rinjiAI : public npc_escortAI
@@ -252,13 +247,13 @@ struct npc_rinjiAI : public npc_escortAI
             m_iSpawnId = 1;
 
         m_creature->SummonCreature(NPC_RANGER,
-                                   m_afAmbushSpawn[m_iSpawnId].m_fX, m_afAmbushSpawn[m_iSpawnId].m_fY, m_afAmbushSpawn[m_iSpawnId].m_fZ, 0.0f,
+                                   m_afAmbushSpawn[m_iSpawnId].x, m_afAmbushSpawn[m_iSpawnId].y, m_afAmbushSpawn[m_iSpawnId].z, 0.0f,
                                    TEMPSPAWN_TIMED_OOC_OR_CORPSE_DESPAWN, 60000);
 
         for (int i = 0; i < 2; ++i)
         {
             m_creature->SummonCreature(NPC_OUTRUNNER,
-                                       m_afAmbushSpawn[m_iSpawnId].m_fX, m_afAmbushSpawn[m_iSpawnId].m_fY, m_afAmbushSpawn[m_iSpawnId].m_fZ, 0.0f,
+                                       m_afAmbushSpawn[m_iSpawnId].x, m_afAmbushSpawn[m_iSpawnId].y, m_afAmbushSpawn[m_iSpawnId].z, 0.0f,
                                        TEMPSPAWN_TIMED_OOC_OR_CORPSE_DESPAWN, 60000);
         }
     }
@@ -266,7 +261,7 @@ struct npc_rinjiAI : public npc_escortAI
     void JustSummoned(Creature* pSummoned) override
     {
         m_creature->SetWalk(false);
-        pSummoned->GetMotionMaster()->MovePoint(0, m_afAmbushMoveTo[m_iSpawnId].m_fX, m_afAmbushMoveTo[m_iSpawnId].m_fY, m_afAmbushMoveTo[m_iSpawnId].m_fZ);
+        pSummoned->GetMotionMaster()->MovePoint(0, m_afAmbushMoveTo[m_iSpawnId].x, m_afAmbushMoveTo[m_iSpawnId].y, m_afAmbushMoveTo[m_iSpawnId].z);
     }
 
     void WaypointReached(uint32 uiPointId) override
@@ -370,7 +365,7 @@ bool ProcessEventId_WildhammerMessage(uint32 /*eventId*/, Object* source, Object
 
     Player* player = static_cast<Player*>(source);
     player->UpdatePvP(true);
-    player->RemoveAurasWithInterruptFlags(AURA_INTERRUPT_FLAG_ENTER_PVP_COMBAT);
+    player->RemoveAurasWithInterruptFlags(AURA_INTERRUPT_FLAG_PVP_ACTIVE_CANCELS);
     if (Creature* falstad = static_cast<ScriptedInstance*>(player->GetInstanceData())->GetSingleCreatureFromStorage(NPC_FALSTAD_WILDHAMMER))
         DoScriptText(YELL_FALSTAD_INVADERS, falstad, player);
     return true;
@@ -380,7 +375,7 @@ bool ProcessEventId_WildhammerMessage(uint32 /*eventId*/, Object* source, Object
 ## spell_gammerita_turtle_camera
 ######*/
 
-struct spell_gammerita_turtle_camera : public SpellScript
+struct GammeritaTurtleCamera : public SpellScript
 {
     SpellCastResult OnCheckCast(Spell* spell, bool /*strict*/) const override
     {
@@ -412,5 +407,5 @@ void AddSC_hinterlands()
     pNewScript->pProcessEventId = &ProcessEventId_WildhammerMessage;
     pNewScript->RegisterSelf();
 
-    RegisterSpellScript<spell_gammerita_turtle_camera>("spell_gammerita_turtle_camera");
+    RegisterSpellScript<GammeritaTurtleCamera>("spell_gammerita_turtle_camera");
 }

@@ -301,7 +301,7 @@ void WorldSession::HandleMessagechatOpcode(WorldPacket& recv_data)
             // battleground raid is always in Player->GetGroup(), never in GetOriginalGroup()
             Group* group = _player->GetGroup();
 
-            if (group && group->isBattleGroup())
+            if (group && group->IsBattleGroup())
                 group = _player->GetOriginalGroup();
 
             if (!group)
@@ -395,10 +395,10 @@ void WorldSession::HandleMessagechatOpcode(WorldPacket& recv_data)
             if (!group)
                 return;
 
-            if (group->isBattleGroup())
+            if (group->IsBattleGroup())
                 group = _player->GetOriginalGroup();
 
-            if (!group || !group->isRaidGroup())
+            if (!group || !group->IsRaidGroup())
                 return;
 
             sScriptDevMgr.OnPlayerChat(GetPlayer(), type, lang, msg, group);
@@ -428,10 +428,10 @@ void WorldSession::HandleMessagechatOpcode(WorldPacket& recv_data)
             if (!group)
                 return;
 
-            if (group->isBattleGroup())
+            if (group->IsBattleGroup())
                 group = _player->GetOriginalGroup();
 
-            if (!group || !group->isRaidGroup() || !group->IsLeader(_player->GetObjectGuid()))
+            if (!group || !group->IsRaidGroup() || !group->IsLeader(_player->GetObjectGuid()))
                 return;
 
             sScriptDevMgr.OnPlayerChat(GetPlayer(), type, lang, msg, group);
@@ -458,7 +458,7 @@ void WorldSession::HandleMessagechatOpcode(WorldPacket& recv_data)
 
             if (!group)
                 return;
-            else if (group->isRaidGroup())
+            else if (group->IsRaidGroup())
             {
                 if (!group->IsLeader(_player->GetObjectGuid()) && !group->IsAssistant(_player->GetObjectGuid()))
                     return;
@@ -492,7 +492,7 @@ void WorldSession::HandleMessagechatOpcode(WorldPacket& recv_data)
             // battleground raid is always in Player->GetGroup(), never in GetOriginalGroup()
             Group* group = _player->GetGroup();
 
-            if (!group || !group->isBattleGroup())
+            if (!group || !group->IsBattleGroup())
                 return;
 
             sScriptDevMgr.OnPlayerChat(GetPlayer(), type, lang, msg, group);
@@ -517,7 +517,7 @@ void WorldSession::HandleMessagechatOpcode(WorldPacket& recv_data)
             // battleground raid is always in Player->GetGroup(), never in GetOriginalGroup()
             Group* group = _player->GetGroup();
 
-            if (!group || !group->isBattleGroup() || !group->IsLeader(_player->GetObjectGuid()))
+            if (!group || !group->IsBattleGroup() || !group->IsLeader(_player->GetObjectGuid()))
                 return;
 
             sScriptDevMgr.OnPlayerChat(GetPlayer(), type, lang, msg, group);
@@ -614,18 +614,19 @@ void WorldSession::HandleMessagechatOpcode(WorldPacket& recv_data)
 
 void WorldSession::HandleEmoteOpcode(WorldPacket& recv_data)
 {
-    if (!GetPlayer()->IsAlive() || GetPlayer()->IsFeigningDeath())
-        return;
-
     uint32 emote;
     recv_data >> emote;
 
     sScriptDevMgr.OnPlayerEmote(GetPlayer(), emote);
 
+    if (!GetPlayer()->IsAlive() || GetPlayer()->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PREVENT_ANIM))
+        return;
+
     // restrict to the only emotes hardcoded in client
     if (emote != EMOTE_ONESHOT_NONE && emote != EMOTE_ONESHOT_WAVE)
         return;
 
+    GetPlayer()->InterruptSpellsAndAurasWithInterruptFlags(AURA_INTERRUPT_FLAG_ANIM_CANCELS);
     GetPlayer()->HandleEmoteCommand(emote);
 }
 
@@ -663,7 +664,14 @@ namespace MaNGOS
 
 void WorldSession::HandleTextEmoteOpcode(WorldPacket& recv_data)
 {
-    if (!GetPlayer()->IsAlive())
+    uint32 textEmote, emoteNum;
+    ObjectGuid guid;
+
+    recv_data >> textEmote;
+    recv_data >> emoteNum;
+    recv_data >> guid;
+
+    if (!GetPlayer()->IsAlive() || GetPlayer()->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PREVENT_ANIM))
         return;
 
     if (!GetPlayer()->CanSpeak())
@@ -682,13 +690,13 @@ void WorldSession::HandleTextEmoteOpcode(WorldPacket& recv_data)
 
     sScriptDevMgr.OnPlayerTextEmote(GetPlayer(), text_emote, emoteNum, guid);
 
-    EmotesTextEntry const* em = sEmotesTextStore.LookupEntry(text_emote);
+    EmotesTextEntry const* em = sEmotesTextStore.LookupEntry(textEmote);
     if (!em)
         return;
 
-    uint32 emote_id = em->textid;
+    uint32 emoteId = em->textid;
 
-    switch (emote_id)
+    switch (emoteId)
     {
         case EMOTE_STATE_SLEEP:
         case EMOTE_STATE_SIT:
@@ -697,25 +705,22 @@ void WorldSession::HandleTextEmoteOpcode(WorldPacket& recv_data)
             break;
         default:
         {
-            // in feign death state allowed only text emotes.
-            if (GetPlayer()->IsFeigningDeath())
-                break;
-
-            GetPlayer()->HandleEmoteCommand(emote_id);
+            GetPlayer()->InterruptSpellsAndAurasWithInterruptFlags(AURA_INTERRUPT_FLAG_ANIM_CANCELS);
+            GetPlayer()->HandleEmote(emoteId);
             break;
         }
     }
 
     Unit* unit = GetPlayer()->GetMap()->GetUnit(guid);
 
-    MaNGOS::EmoteChatBuilder emote_builder(*GetPlayer(), text_emote, emoteNum, unit);
+    MaNGOS::EmoteChatBuilder emote_builder(*GetPlayer(), textEmote, emoteNum, unit);
     MaNGOS::LocalizedPacketDo<MaNGOS::EmoteChatBuilder > emote_do(emote_builder);
     MaNGOS::CameraDistWorker<MaNGOS::LocalizedPacketDo<MaNGOS::EmoteChatBuilder > > emote_worker(GetPlayer(), sWorld.getConfig(CONFIG_FLOAT_LISTEN_RANGE_TEXTEMOTE), emote_do);
     Cell::VisitWorldObjects(GetPlayer(), emote_worker, sWorld.getConfig(CONFIG_FLOAT_LISTEN_RANGE_TEXTEMOTE));
 
     // Send scripted event call
     if (unit && unit->AI())
-        unit->AI()->ReceiveEmote(GetPlayer(), text_emote);
+        unit->AI()->ReceiveEmote(GetPlayer(), textEmote);
 }
 
 void WorldSession::HandleChatIgnoredOpcode(WorldPacket& recv_data)

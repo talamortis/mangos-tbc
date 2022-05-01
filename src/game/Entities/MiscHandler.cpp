@@ -421,6 +421,11 @@ void WorldSession::HandleStandStateChangeOpcode(WorldPacket& recv_data)
             return;
     }
 
+    if (_player->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PREVENT_ANIM))
+        return;
+
+    _player->InterruptSpellsAndAurasWithInterruptFlags(AURA_INTERRUPT_FLAG_ANIM_CANCELS);
+
     _player->SetStandState(uint8(animstate), true);
 }
 
@@ -719,6 +724,9 @@ void WorldSession::HandleAreaTriggerOpcode(WorldPacket& recv_data)
         DEBUG_LOG("Player '%s' (GUID: %u) too far, ignore Area Trigger ID: %u", player->GetName(), player->GetGUIDLow(), Trigger_ID);
         return;
     }
+
+    if (player->isDebuggingAreaTriggers())
+        ChatHandler(player->GetSession()).PSendSysMessage(LANG_DEBUG_AREATRIGGER_REACHED, Trigger_ID);
 
     if (sScriptDevAIMgr.OnAreaTrigger(player, atEntry))
         return;

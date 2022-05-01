@@ -399,9 +399,9 @@ enum SolarianPriestActions
     SOLARIAN_PRIEST_ACTION_MAX,
 };
 
-struct mob_solarium_priestAI : public RangedCombatAI
+struct mob_solarium_priestAI : public CombatAI
 {
-    mob_solarium_priestAI(Creature* creature) : RangedCombatAI(creature, SOLARIAN_PRIEST_ACTION_MAX)
+    mob_solarium_priestAI(Creature* creature) : CombatAI(creature, SOLARIAN_PRIEST_ACTION_MAX)
     {
         AddCombatAction(SOLARIAN_PRIEST_HEAL, 9000u);
         AddCombatAction(SOLARIAN_PRIEST_ARCANE_TORRENT, 15000u);
@@ -514,9 +514,9 @@ void AddSC_boss_high_astromancer_solarian()
     pNewScript->GetAI = &GetNewAIInstance<mob_solarium_priestAI>;
     pNewScript->RegisterSelf();
 
-    RegisterAuraScript<WrathOfTheAstromancer>("spell_wrath_of_the_astromancer");
+    RegisterSpellScript<WrathOfTheAstromancer>("spell_wrath_of_the_astromancer");
     RegisterSpellScript<WOTAOldMainCastAndJump>("spell_wota_main_cast_and_jump");
-    RegisterAuraScript<WOTAOldDOT>("spell_wota_dot");
+    RegisterSpellScript<WOTAOldDOT>("spell_wota_dot");
     RegisterSpellScript<WOTAOldSearch>("spell_wota_search");
     RegisterSpellScript<WOTAOldRemove>("spell_wota_remove");
 }

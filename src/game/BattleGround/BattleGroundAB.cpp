@@ -155,8 +155,12 @@ void BattleGroundAB::StartingEventOpenDoors()
     OpenDoorEvent(BG_EVENT_DOOR);
 
     // setup graveyards
+    // enable gy near base after bg start
     GetBgMap()->GetGraveyardManager().SetGraveYardLinkTeam(AB_GRAVEYARD_ALLIANCE, BG_AB_ZONE_MAIN, ALLIANCE);
     GetBgMap()->GetGraveyardManager().SetGraveYardLinkTeam(AB_GRAVEYARD_HORDE, BG_AB_ZONE_MAIN, HORDE);
+    // disable gy inside base after bg start
+    GetBgMap()->GetGraveyardManager().SetGraveYardLinkTeam(AB_GRAVEYARD_ALLIANCE_BASE, BG_AB_ZONE_MAIN, TEAM_INVALID);
+    GetBgMap()->GetGraveyardManager().SetGraveYardLinkTeam(AB_GRAVEYARD_HORDE_BASE, BG_AB_ZONE_MAIN, TEAM_INVALID);
 }
 
 void BattleGroundAB::AddPlayer(Player* player)
@@ -283,13 +287,13 @@ void BattleGroundAB::HandlePlayerClickedOnFlag(Player* player, GameObject* go)
     uint32 factionStrig = 0;
 
     // process battleground event
-    uint8 event = (sBattleGroundMgr.GetGameObjectEventIndex(go->GetGUIDLow())).event1;
+    uint8 event = (sBattleGroundMgr.GetGameObjectEventIndex(go->GetDbGuid())).event1;
     if (event >= BG_AB_MAX_NODES)                           // not a node
         return;
 
     ABNodes node = ABNodes(event);
 
-    player->RemoveAurasWithInterruptFlags(AURA_INTERRUPT_FLAG_ENTER_PVP_COMBAT);
+    player->RemoveAurasWithInterruptFlags(AURA_INTERRUPT_FLAG_PVP_ACTIVE_CANCELS);
 
     // Node is NEUTRAL -> change to CONTESTED
     if (m_nodeStatus[node] == ABNodeStatus(BG_AB_NODE_TYPE_NEUTRAL))

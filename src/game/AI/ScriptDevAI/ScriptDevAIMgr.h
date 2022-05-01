@@ -132,11 +132,12 @@ struct Script
 class ScriptDevAIMgr
 {
     public:
-        ScriptDevAIMgr() : num_sc_scripts(0) {}
+        ScriptDevAIMgr() : m_scriptCount(0) {}
         ~ScriptDevAIMgr();
 
         void Initialize();
         void LoadScriptNames();
+        void CheckScriptNames();
         void LoadAreaTriggerScripts();
         void LoadEventIdScripts();
 
@@ -182,7 +183,7 @@ class ScriptDevAIMgr
         typedef std::unordered_map<uint32, uint32> AreaTriggerScriptMap;
         typedef std::unordered_map<uint32, uint32> EventIdScriptMap;
 
-        int num_sc_scripts;
+        int m_scriptCount;
         SDScriptVec m_scripts;
 
         AreaTriggerScriptMap    m_AreaTriggerScripts;
@@ -195,7 +196,8 @@ class ScriptDevAIMgr
 // ************* Some functions used globally **************
 
 // Generic scripting text function
-void DoScriptText(int32 iTextEntry, WorldObject* pSource, Unit* pTarget = nullptr);
+void DoScriptText(int32 iTextEntry, WorldObject* pSource, Unit* pTarget = nullptr, uint32 chatTypeOverride = 0);
+void DoBroadcastText(int32 iTextEntry, WorldObject* pSource, Unit* pTarget = nullptr, uint32 chatTypeOverride = 0);
 void DoOrSimulateScriptTextForMap(int32 iTextEntry, uint32 uiCreatureEntry, Map* pMap, Creature* pCreatureSource = nullptr, Unit* pTarget = nullptr);
 
 #define sScriptDevAIMgr MaNGOS::Singleton<ScriptDevAIMgr>::Instance()

@@ -384,8 +384,9 @@ void Player::CalculateMinMaxDamage(WeaponAttackType attType, bool normalized, fl
         total_value += GetEnchantmentModifier(attType);
         if (attType == RANGED_ATTACK)                      // add ammo DPS to ranged damage
         {
-            weapon_mindamage += GetAmmoDPS() * att_speed;
-            weapon_maxdamage += GetAmmoDPS() * att_speed;
+            auto ammoDps = GetAmmoDPS();
+            weapon_mindamage += ammoDps.first * att_speed;
+            weapon_maxdamage += ammoDps.second * att_speed;
         }
 
         if (index != 0)
@@ -628,7 +629,7 @@ void Player::UpdateManaRegen()
 {
     // need to award mana based on previous rate - Patch 2.2
     if (GetHealth() > 0) // on death we must never do this
-        RegenerateAll();
+        RegenerateAll(std::min(uint32(REGEN_TIME_FULL), m_regenTimer));
 
     float Intellect = GetStat(STAT_INTELLECT);
     // Mana regen from spirit and intellect
@@ -666,7 +667,7 @@ void Player::UpdateEnergyRegen()
 {
     // need to award mana based on previous rate - Patch 2.2
     if (GetHealth() > 0) // on death we must never do this
-        RegenerateAll();
+        RegenerateAll(std::min(uint32(REGEN_TIME_FULL), m_regenTimer));
 
     m_energyRegenRate = GetTotalAuraMultiplierByMiscValue(SPELL_AURA_MOD_POWER_REGEN_PERCENT, POWER_ENERGY);
 }

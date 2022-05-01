@@ -375,7 +375,7 @@ bool Unit::CanAttack(const Unit* unit) const
     }
 
     // We can't attack unit when at least one of these flags is present on it:
-    const uint32 mask = (UNIT_FLAG_NON_ATTACKABLE | UNIT_FLAG_NOT_ATTACKABLE_1 | UNIT_FLAG_NON_ATTACKABLE_2 | UNIT_FLAG_TAXI_FLIGHT | UNIT_FLAG_NOT_SELECTABLE);
+    const uint32 mask = (UNIT_FLAG_SPAWNING | UNIT_FLAG_NOT_ATTACKABLE_1 | UNIT_FLAG_NON_ATTACKABLE_2 | UNIT_FLAG_TAXI_FLIGHT | UNIT_FLAG_NOT_SELECTABLE);
     if (unit->HasFlag(UNIT_FIELD_FLAGS, mask))
         return false;
 
@@ -1391,12 +1391,12 @@ bool Unit::CanAssistInCombatAgainst(Unit const* who, Unit const* enemy) const
     MANGOS_ASSERT(enemy)
 
     if (GetMap()->Instanceable()) // in dungeons nothing else needs to be evaluated
-        return true;
+        return CanJoinInAttacking(enemy);
 
     if (IsInCombat()) // if fighting something else, do not assist
         return false;
 
-    if (CanAssist(who) && CanAttackOnSight(enemy))
+    if (CanAssist(who, IsContestedGuard()) && CanJoinInAttacking(enemy))
         return true;
 
     return false;
@@ -1414,6 +1414,9 @@ bool Unit::CanAssistInCombatAgainst(Unit const* who, Unit const* enemy) const
 bool Unit::CanJoinInAttacking(Unit const* enemy) const
 {
     if (!CanEnterCombat())
+        return false;
+
+    if (!CanInitiateAttack())
         return false;
 
     if (IsFeigningDeathSuccessfully())

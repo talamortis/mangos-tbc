@@ -188,7 +188,11 @@ enum MangosStrings
 
     LANG_COMMAND_CHANNELS_NO_CHANNELS   = 181,              // "There are no matching custom channels at the moment"
     LANG_COMMAND_CHANNELS_LIST_HEADER   = 182,              // "Listing up to %u custom channels matching criterea:"
-    // Room for more level 1              183-199 not used
+
+    LANG_DEBUG_AREATRIGGER_ON           = 183,
+    LANG_DEBUG_AREATRIGGER_OFF          = 184,
+    LANG_DEBUG_AREATRIGGER_REACHED      = 185,
+    // Room for more level 1              186-199 not used
 
     // level 2 chat
     LANG_NO_SELECTION                   = 200,
@@ -583,7 +587,8 @@ enum MangosStrings
     LANG_YOURS_EXPLORE_SET_ALL          = 553,
     LANG_YOURS_EXPLORE_SET_NOTHING      = 554,
 
-    //                                    555,              // not used
+    //                                    555,              // used in wotlk
+
     //                                    556,              // not used
     LANG_YOURS_LEVEL_UP                 = 557,
     LANG_YOURS_LEVEL_DOWN               = 558,
@@ -602,7 +607,8 @@ enum MangosStrings
     LANG_GET_UINT_FIELD                 = 570,
     LANG_GET_FLOAT                      = 571,              // log
     LANG_GET_FLOAT_FIELD                = 572,
-    //                                    573,              // not used
+
+    LANG_AREATRIGGER_LIST               = 573,
     //                                    574,              // not used
     LANG_CHANGE_INT32                   = 575,              // log
     LANG_CHANGE_INT32_FIELD             = 576,
@@ -720,7 +726,7 @@ enum MangosStrings
     LANG_YOUR_ARENA_LEVEL_REQ_ERROR     = 713,
 //                                      = 714, not used
     LANG_YOUR_BG_LEVEL_REQ_ERROR        = 715,
-//                                      = 716, not used
+    LANG_ARENA_STARTED_ANNOUNCE_WORLD   = 716,
     LANG_BG_STARTED_ANNOUNCE_WORLD      = 717,
     LANG_ARENA_QUEUE_ANNOUNCE_WORLD_JOIN = 718,
     LANG_ARENA_QUEUE_ANNOUNCE_WORLD_EXIT = 719,
@@ -1093,7 +1099,5 @@ enum MangosStrings
     // Use for custom patches             11000-11999
 
     // NOT RESERVED IDS                   12000-1999999999
-    // `dbscript_string` table index     2000000000-2000999999 (MIN_DB_SCRIPT_STRING_ID-MAX_DB_SCRIPT_STRING_ID)
-    // For other tables maybe             2001000000-2147483647 (max index)
 };
 #endif

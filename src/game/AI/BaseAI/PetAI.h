@@ -40,11 +40,16 @@ class PetAI : public CreatureAI
         void UpdateAI(const uint32 diff) override;
         static int Permissible(const Creature* creature);
 
+        void OnUnsummon() override;
+        void JustDied(Unit* killer) override;
+
     protected:
         std::string GetAIName() override { return "PetAI"; }
 
     private:
         void UpdateAllies();
+
+        void RelinquishFollowData();
 
         bool inCombat;
 

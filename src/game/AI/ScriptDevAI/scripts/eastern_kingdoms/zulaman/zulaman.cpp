@@ -39,6 +39,9 @@ void instance_zulaman::Initialize()
 {
     memset(&m_auiEncounter, 0, sizeof(m_auiEncounter));
     memset(&m_auiRandVendor, 0, sizeof(m_auiRandVendor));
+    instance->GetVariableManager().SetVariableData(WORLD_STATE_ZUL_AMAN_EVENT_RUN_IS_ACTIVE, true, 0, 0);
+    instance->GetVariableManager().SetVariableData(WORLD_STATE_ZUL_AMAN_TIME_COUNTER, true, 0, 0);
+    instance->GetVariableManager().SetVariable(WORLD_STATE_CUSTOM_SPAWN_MALACRASS, 0);
 }
 
 bool instance_zulaman::IsEncounterInProgress() const
@@ -138,9 +141,6 @@ void instance_zulaman::OnCreatureCreate(Creature* creature)
                 sHutTriggerGuidSet.insert(creature->GetObjectGuid());
             else
                 sDrumTriggerGuidSet.insert(creature->GetObjectGuid());
-            break;
-        case NPC_REINFORCEMENT:
-            creature->SetInCombatWithZone();
             break;
         case NPC_DRAGONHAWK_EGG:
             creature->SetCorpseDelay(5);
@@ -253,6 +253,9 @@ void instance_zulaman::OnCreatureRespawn(Creature* creature)
             creature->AI()->SetReactState(REACT_PASSIVE);
             creature->AI()->SetCombatMovement(false);
             break;
+        case NPC_REINFORCEMENT:
+            creature->SetInCombatWithZone();
+            break;
 	}
 }
 
@@ -333,12 +336,6 @@ void instance_zulaman::OnObjectCreate(GameObject* pGo)
     m_goEntryGuidStore[pGo->GetEntry()] = pGo->GetObjectGuid();
 }
 
-void instance_zulaman::FillInitialWorldStates(ByteBuffer& data, uint32& count, uint32 /*zoneId*/, uint32 /*areaId*/)
-{
-    FillInitialWorldStateData(data, count, WORLD_STATE_ZUL_AMAN_EVENT_RUN_IS_ACTIVE, GetData(TYPE_EVENT_RUN) == IN_PROGRESS);
-    FillInitialWorldStateData(data, count, WORLD_STATE_ZUL_AMAN_TIME_COUNTER, GetData(TYPE_RUN_EVENT_TIME));
-}
-
 void instance_zulaman::SetData(uint32 type, uint32 data)
 {
     debug_log("SD2: Instance Zulaman: SetData received for type %u with data %u", type, data);
@@ -363,12 +360,12 @@ void instance_zulaman::SetData(uint32 type, uint32 data)
                     SetData(TYPE_RUN_EVENT_TIME, m_auiEncounter[TYPE_RUN_EVENT_TIME]);
                 else
                     SetData(TYPE_RUN_EVENT_TIME, 20);   // 20 Minutes as default time
-                DoUpdateWorldState(WORLD_STATE_ZUL_AMAN_EVENT_RUN_IS_ACTIVE, 1);
+
+                static_cast<DungeonMap*>(instance)->PermBindAllPlayers();
             }
             if (data == FAIL)
             {
                 DoTimeRunSay(RUN_FAIL);
-                DoUpdateWorldState(WORLD_STATE_ZUL_AMAN_EVENT_RUN_IS_ACTIVE, 0);
                 // Kill remaining Event NPCs
                 for (auto& i : m_aEventNpcInfo)
                 {
@@ -381,11 +378,10 @@ void instance_zulaman::SetData(uint32 type, uint32 data)
                 }
             }
             if (data == DONE)
-            {
                 DoTimeRunSay(RUN_DONE);
-                DoUpdateWorldState(WORLD_STATE_ZUL_AMAN_EVENT_RUN_IS_ACTIVE, 0);
-            }
             m_auiEncounter[type] = data;
+            instance->GetVariableManager().SetVariable(WORLD_STATE_ZUL_AMAN_EVENT_RUN_IS_ACTIVE, data == IN_PROGRESS);
+            instance->GetVariableManager().BroadcastVariable(WORLD_STATE_ZUL_AMAN_EVENT_RUN_IS_ACTIVE);
             break;
         case TYPE_AKILZON:
             if (data != IN_PROGRESS) // start is done with delay in boss script
@@ -487,7 +483,8 @@ void instance_zulaman::SetData(uint32 type, uint32 data)
             break;
         case TYPE_RUN_EVENT_TIME:
             m_auiEncounter[type] = data;
-            DoUpdateWorldState(WORLD_STATE_ZUL_AMAN_TIME_COUNTER, m_auiEncounter[type]);
+            instance->GetVariableManager().SetVariable(WORLD_STATE_ZUL_AMAN_TIME_COUNTER, data);
+            instance->GetVariableManager().BroadcastVariable(WORLD_STATE_ZUL_AMAN_TIME_COUNTER);
             break;
         case TYPE_AKILZON_GAUNTLET:
             m_auiEncounter[type] = data;
@@ -736,17 +733,9 @@ void instance_zulaman::DoChestEvent(BossToChestIndex uiIndex)
     // related Chest:   m_aEventNpcInfo[uiIndex]        // Not yet stored, because likely unneeded
 }
 
-static const float aMalacrassSpawnLoc[4] = { 117.3631f, 923.5686f, 33.97257f, 1.58825f };
-
 void instance_zulaman::SpawnMalacrass()
 {
-    // Don't spawn him twice
-    if (GetSingleCreatureFromStorage(NPC_MALACRASS, true))
-        return;
-
-    // Summon Malacrass
-    if (Player* pPlayer = GetPlayerInMap())
-        pPlayer->SummonCreature(NPC_MALACRASS, aMalacrassSpawnLoc[0], aMalacrassSpawnLoc[1], aMalacrassSpawnLoc[2], aMalacrassSpawnLoc[3], TEMPSPAWN_MANUAL_DESPAWN, 0);
+    instance->GetVariableManager().SetVariable(WORLD_STATE_CUSTOM_SPAWN_MALACRASS, 1);
 }
 
 void instance_zulaman::StartSpiritTimer()

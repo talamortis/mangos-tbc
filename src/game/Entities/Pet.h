@@ -210,7 +210,7 @@ class Pet : public Creature
         uint32 GetMaxLoyaltyPoints(uint32 level) const;
         uint32 GetStartLoyaltyPoints(uint32 level) const;
         void KillLoyaltyBonus(uint32 level);
-        uint32 GetLoyaltyLevel() { return GetByteValue(UNIT_FIELD_BYTES_1, 1); }
+        uint32 GetLoyaltyLevel() { return GetByteValue(UNIT_FIELD_BYTES_1, UNIT_BYTES_1_OFFSET_PET_LOYALTY); }
         void SetLoyaltyLevel(LoyaltyLevel level);
         void GivePetXP(uint32 xp);
         void GivePetLevel(uint32 level);
@@ -302,6 +302,8 @@ class Pet : public Creature
         void ResetCorpseRespawn();
 
         void ForcedDespawn(uint32 timeMSToDespawn = 0, bool onlyAlive = false) override;
+
+        void StartCooldown(Unit* owner);
     protected:
         uint32  m_happinessTimer;
         uint32  m_loyaltyTimer;
@@ -316,6 +318,8 @@ class Pet : public Creature
         PetModeFlags m_petModeFlags;
         CharmInfo*   m_originalCharminfo;
         bool m_inStatsUpdate;
+
+        bool m_imposedCooldown;
 
         void SaveToDB(uint32, uint8) override               // overwrited of Creature::SaveToDB     - don't must be called
         {

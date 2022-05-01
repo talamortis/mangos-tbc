@@ -106,7 +106,7 @@ SpellTargetInfo SpellTargetInfoTable[MAX_SPELL_TARGETS] =
     /*[73]*/    { "TARGET_LOCATION_CASTER_RANDOM_CIRCUMFERENCE",          TARGET_TYPE_LOCATION_DEST                                                 },
     /*[74]*/    { "TARGET_LOCATION_UNIT_RANDOM_SIDE",                     TARGET_TYPE_LOCATION_DEST                                                 },
     /*[75]*/    { "TARGET_LOCATION_UNIT_RANDOM_CIRCUMFERENCE",            TARGET_TYPE_LOCATION_DEST                                                 },
-    /*[76]*/    { "TARGET_LOCATION_DYNOBJ_POSITION",                      TARGET_TYPE_LOCATION_DEST                                                 },
+    /*[76]*/    { "TARGET_LOCATION_CHANNEL_TARGET_DEST",                  TARGET_TYPE_LOCATION_DEST                                                 },
     /*[77]*/    { "TARGET_UNIT_CHANNEL_TARGET",                           TARGET_TYPE_UNIT,             TARGET_HARMFUL,    TARGET_ENUMERATOR_SINGLE },
     /*[78]*/    { "TARGET_LOCATION_NORTH",                                TARGET_TYPE_LOCATION_DEST                                                 },
     /*[79]*/    { "TARGET_LOCATION_SOUTH",                                TARGET_TYPE_LOCATION_DEST                                                 },
@@ -146,7 +146,7 @@ SpellEffectInfo SpellEffectInfoTable[MAX_SPELL_EFFECTS] =
     /*[15]*/     { "SPELL_EFFECT_RITUAL_ACTIVATE_PORTAL",       TARGET_TYPE_UNKNOWN,        TARGET_NONE },
     /*[16]*/     { "SPELL_EFFECT_QUEST_COMPLETE",               TARGET_TYPE_UNIT,           TARGET_NONE }, // player target only
     /*[17]*/     { "SPELL_EFFECT_WEAPON_DAMAGE_NOSCHOOL",       TARGET_TYPE_UNIT,           TARGET_NONE },
-    /*[18]*/     { "SPELL_EFFECT_RESURRECT",                    TARGET_TYPE_UNIT,           TARGET_UNIT }, // player target only
+    /*[18]*/     { "SPELL_EFFECT_RESURRECT",                    TARGET_TYPE_CORPSE,         TARGET_UNIT }, // player target only
     /*[19]*/     { "SPELL_EFFECT_ADD_EXTRA_ATTACKS",            TARGET_TYPE_UNIT,           TARGET_NONE },
     /*[20]*/     { "SPELL_EFFECT_DODGE",                        TARGET_TYPE_NONE,           TARGET_NONE }, // confirmed none
     /*[21]*/     { "SPELL_EFFECT_EVADE",                        TARGET_TYPE_NONE,           TARGET_NONE },

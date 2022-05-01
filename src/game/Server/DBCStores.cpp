@@ -88,6 +88,7 @@ DBCStorage <EmotesTextEntry> sEmotesTextStore(EmotesTextEntryfmt);
 //DBCStorage <FactionEntry> sFactionStore(FactionEntryfmt);
 DBCStorage <FactionTemplateEntry> sFactionTemplateStore(FactionTemplateEntryfmt);
 
+DBCStorage <GameObjectArtKitEntry> sGameObjectArtKitStore(GameObjectArtKitfmt);
 DBCStorage <GameObjectDisplayInfoEntry> sGameObjectDisplayInfoStore(GameObjectDisplayInfofmt);
 DBCStorage <GemPropertiesEntry> sGemPropertiesStore(GemPropertiesEntryfmt);
 
@@ -245,6 +246,13 @@ void LoadDBCStores(const std::string& dataPath)
 {
     std::string dbcPath = dataPath + "dbc/";
 
+    if (!MaNGOS::Filesystem::exists(dbcPath))
+    {
+        sLog.outError("DBC directory does not exist: %s", dataPath.c_str());
+        Log::WaitBeforeContinueIfNeed();
+        exit(1);
+    }
+
     const uint32 DBCFilesCount = 68;
 
     BarGoLink bar(DBCFilesCount);
@@ -307,6 +315,7 @@ void LoadDBCStores(const std::string& dataPath)
     // LoadDBC(availableDbcLocales, bar, bad_dbc_files, sFactionStore,             dbcPath, "Faction.dbc");
 
     LoadDBC(availableDbcLocales, bar, bad_dbc_files, sFactionTemplateStore,     dbcPath, "FactionTemplate.dbc");
+    LoadDBC(availableDbcLocales, bar, bad_dbc_files, sGameObjectArtKitStore,    dbcPath, "GameObjectArtKit.dbc");
     LoadDBC(availableDbcLocales, bar, bad_dbc_files, sGameObjectDisplayInfoStore, dbcPath, "GameObjectDisplayInfo.dbc");
     LoadDBC(availableDbcLocales, bar, bad_dbc_files, sGemPropertiesStore,       dbcPath, "GemProperties.dbc");
 

@@ -254,7 +254,7 @@ BattleGround::~BattleGround()
     // skip template bgs as they were never added to visible bg list
     BattleGroundBracketId bracketId = GetBracketId();
     if (bracketId != BG_BRACKET_ID_TEMPLATE)
-        sBattleGroundMgr.DeleteClientVisibleInstanceId(GetTypeId(), bracketId, GetClientInstanceID());
+        sBattleGroundMgr.DeleteClientVisibleInstanceId(GetTypeId(), bracketId, GetClientInstanceId());
 
     // unload map
     // map can be null at bg destruction
@@ -402,6 +402,18 @@ void BattleGround::Update(uint32 diff)
             // first start warning - 2 or 1 minute, only if defined
             if (m_startMessageIds[BG_STARTING_EVENT_FIRST])
                 SendMessageToAll(m_startMessageIds[BG_STARTING_EVENT_FIRST], CHAT_MSG_BG_SYSTEM_NEUTRAL);
+
+            // Announce BG Started
+            if (sWorld.getConfig(CONFIG_BOOL_BATTLEGROUND_QUEUE_ANNOUNCER_START))
+            {
+                BattleGroundBracketId bracketId = GetBracketId();
+                BattleGroundTypeId BgTypeId = GetTypeId();
+
+                if (!IsArena())
+                    sWorld.SendWorldText(LANG_BG_STARTED_ANNOUNCE_WORLD, GetName(), Player::GetMinLevelForBattleGroundBracketId(bracketId, BgTypeId), Player::GetMaxLevelForBattleGroundBracketId(bracketId, BgTypeId));
+                else
+                    sWorld.SendWorldText(LANG_ARENA_STARTED_ANNOUNCE_WORLD, GetName(), GetArenaType(), GetArenaType());
+            }
         }
         // After 1 minute or 30 seconds, warning is signalled
         else if (GetStartDelayTime() <= m_startDelayTimes[BG_STARTING_EVENT_SECOND] && !(m_events & BG_STARTING_EVENT_2))
@@ -446,11 +458,6 @@ void BattleGround::Update(uint32 diff)
                 for (BattleGroundPlayerMap::const_iterator itr = m_players.begin(); itr != m_players.end(); ++itr)
                     if (Player* plr = sObjectMgr.GetPlayer(itr->first))
                         plr->RemoveAurasDueToSpell(SPELL_PREPARATION);
-                // Announce BG starting
-                if (sWorld.getConfig(CONFIG_BOOL_BATTLEGROUND_QUEUE_ANNOUNCER_START))
-                {
-                    sWorld.SendWorldText(LANG_BG_STARTED_ANNOUNCE_WORLD, GetName(), GetMinLevel(), GetMaxLevel());
-                }
             }
         }
     }
@@ -751,7 +758,7 @@ void BattleGround::EndBattleGround(Team winner)
     if (winner == ALLIANCE)
     {
         winmsg_id = IsBattleGround() ? LANG_BG_A_WINS : LANG_ARENA_GOLD_WINS;
-        PlaySoundToAll(SOUND_ALLIANCE_WINS);
+        PlaySoundToTeam(SOUND_ALLIANCE_WINS, winner);
 
         SetWinner(WINNER_ALLIANCE);
 
@@ -761,7 +768,7 @@ void BattleGround::EndBattleGround(Team winner)
     else if (winner == HORDE)
     {
         winmsg_id = IsBattleGround() ? LANG_BG_H_WINS : LANG_ARENA_GREEN_WINS;
-        PlaySoundToAll(SOUND_HORDE_WINS);
+        PlaySoundToTeam(SOUND_HORDE_WINS, winner);
 
         SetWinner(WINNER_HORDE);
 
@@ -1160,11 +1167,15 @@ void BattleGround::RemovePlayerAtLeave(ObjectGuid playerGuid, bool isOnTransport
         participant = true;
     }
 
-    BattleGroundScoreMap::iterator itr2 = m_playerScores.find(playerGuid);
-    if (itr2 != m_playerScores.end())
+    // Arena scoreboard retains all players.
+    if (IsBattleGround() && GetStatus() != STATUS_WAIT_LEAVE)
     {
-        delete itr2->second;                                // delete player's score
-        m_playerScores.erase(itr2);
+        BattleGroundScoreMap::iterator itr2 = m_playerScores.find(playerGuid);
+        if (itr2 != m_playerScores.end())
+        {
+            delete itr2->second;                                // delete player's score
+            m_playerScores.erase(itr2);
+        }
     }
 
     Player* player = sObjectMgr.GetPlayer(playerGuid);
@@ -1586,9 +1597,9 @@ void BattleGround::UpdatePlayerScore(Player* player, uint32 type, uint32 value)
 
   @param    gameobject guid
 */
-void BattleGround::DoorClose(ObjectGuid guid)
+void BattleGround::DoorClose(uint32 dbGuid)
 {
-    GameObject* obj = GetBgMap()->GetGameObject(guid);
+    GameObject* obj = GetBgMap()->GetGameObject(dbGuid);
     if (obj)
     {
         // if doors are open, close it
@@ -1600,7 +1611,7 @@ void BattleGround::DoorClose(ObjectGuid guid)
         }
     }
     else
-        sLog.outError("BattleGround: Door %s not found (cannot close doors)", guid.GetString().c_str());
+        sLog.outError("BattleGround: Door %u not found (cannot close doors)", dbGuid);
 }
 
 /**
@@ -1608,9 +1619,9 @@ void BattleGround::DoorClose(ObjectGuid guid)
 
   @param    gameobject guid
 */
-void BattleGround::DoorOpen(ObjectGuid guid)
+void BattleGround::DoorOpen(uint32 dbGuid)
 {
-    GameObject* obj = GetBgMap()->GetGameObject(guid);
+    GameObject* obj = GetBgMap()->GetGameObject(dbGuid);
     if (obj)
     {
         // change state to be sure they will be opened
@@ -1618,7 +1629,7 @@ void BattleGround::DoorOpen(ObjectGuid guid)
         obj->UseDoorOrButton(RESPAWN_ONE_DAY);
     }
     else
-        sLog.outError("BattleGround: Door %s not found! - doors will be closed.", guid.GetString().c_str());
+        sLog.outError("BattleGround: Door %u not found! - doors will be closed.", dbGuid);
 }
 
 /**
@@ -1645,13 +1656,13 @@ Team BattleGround::GetPrematureWinner()
 */
 void BattleGround::OnObjectDBLoad(Creature* creature)
 {
-    const BattleGroundEventIdx eventId = sBattleGroundMgr.GetCreatureEventIndex(creature->GetGUIDLow());
+    const BattleGroundEventIdx eventId = sBattleGroundMgr.GetCreatureEventIndex(creature->GetDbGuid());
     if (eventId.event1 == BG_EVENT_NONE)
         return;
 
-    m_eventObjects[MAKE_PAIR32(eventId.event1, eventId.event2)].creatures.push_back(creature->GetObjectGuid());
+    m_eventObjects[MAKE_PAIR32(eventId.event1, eventId.event2)].creatures.push_back(creature->GetDbGuid());
     if (!IsActiveEvent(eventId.event1, eventId.event2))
-        ChangeBgCreatureSpawnState(creature->GetObjectGuid(), RESPAWN_ONE_DAY);
+        ChangeBgCreatureSpawnState(creature->GetDbGuid(), RESPAWN_ONE_DAY);
 }
 
 /**
@@ -1660,9 +1671,9 @@ void BattleGround::OnObjectDBLoad(Creature* creature)
   @param    event1
   @param    event2
 */
-ObjectGuid BattleGround::GetSingleCreatureGuid(uint8 event1, uint8 event2)
+uint32 BattleGround::GetSingleCreatureGuid(uint8 event1, uint8 event2)
 {
-    GuidVector::const_iterator itr = m_eventObjects[MAKE_PAIR32(event1, event2)].creatures.begin();
+    auto itr = m_eventObjects[MAKE_PAIR32(event1, event2)].creatures.begin();
     if (itr != m_eventObjects[MAKE_PAIR32(event1, event2)].creatures.end())
         return *itr;
 
@@ -1676,13 +1687,13 @@ ObjectGuid BattleGround::GetSingleCreatureGuid(uint8 event1, uint8 event2)
 */
 void BattleGround::OnObjectDBLoad(GameObject* obj)
 {
-    const BattleGroundEventIdx eventId = sBattleGroundMgr.GetGameObjectEventIndex(obj->GetGUIDLow());
+    const BattleGroundEventIdx eventId = sBattleGroundMgr.GetGameObjectEventIndex(obj->GetDbGuid());
     if (eventId.event1 == BG_EVENT_NONE)
         return;
 
-    m_eventObjects[MAKE_PAIR32(eventId.event1, eventId.event2)].gameobjects.push_back(obj->GetObjectGuid());
+    m_eventObjects[MAKE_PAIR32(eventId.event1, eventId.event2)].gameobjects.push_back(obj->GetDbGuid());
     if (!IsActiveEvent(eventId.event1, eventId.event2))
-        ChangeBgObjectSpawnState(obj->GetObjectGuid(), RESPAWN_ONE_DAY);
+        ChangeBgObjectSpawnState(obj->GetDbGuid(), RESPAWN_ONE_DAY);
     else
     {
         // it's possible, that doors aren't spawned anymore (wsg)
@@ -1730,7 +1741,7 @@ void BattleGround::OpenDoorEvent(uint8 event1, uint8 event2 /*=0*/)
         return;
     }
 
-    GuidVector::const_iterator itr = m_eventObjects[MAKE_PAIR32(event1, event2)].gameobjects.begin();
+    auto itr = m_eventObjects[MAKE_PAIR32(event1, event2)].gameobjects.begin();
     for (; itr != m_eventObjects[MAKE_PAIR32(event1, event2)].gameobjects.end(); ++itr)
         DoorOpen(*itr);
 }
@@ -1759,11 +1770,11 @@ void BattleGround::SpawnEvent(uint8 event1, uint8 event2, bool spawn)
     else
         m_activeEvents[event1] = BG_EVENT_NONE;             // no event active if event2 gets despawned
 
-    GuidVector::const_iterator itr = m_eventObjects[MAKE_PAIR32(event1, event2)].creatures.begin();
+    auto itr = m_eventObjects[MAKE_PAIR32(event1, event2)].creatures.begin();
     for (; itr != m_eventObjects[MAKE_PAIR32(event1, event2)].creatures.end(); ++itr)
         ChangeBgCreatureSpawnState(*itr, (spawn) ? RESPAWN_IMMEDIATELY : RESPAWN_ONE_DAY);
 
-    GuidVector::const_iterator itr2 = m_eventObjects[MAKE_PAIR32(event1, event2)].gameobjects.begin();
+    auto itr2 = m_eventObjects[MAKE_PAIR32(event1, event2)].gameobjects.begin();
     for (; itr2 != m_eventObjects[MAKE_PAIR32(event1, event2)].gameobjects.end(); ++itr2)
         ChangeBgObjectSpawnState(*itr2, (spawn) ? RESPAWN_IMMEDIATELY : RESPAWN_ONE_DAY);
 }
@@ -1774,13 +1785,16 @@ void BattleGround::SpawnEvent(uint8 event1, uint8 event2, bool spawn)
   @param    gameobject guid
   @param    respawn time (can be 0 or 1 day)
 */
-void BattleGround::ChangeBgObjectSpawnState(ObjectGuid guid, uint32 respawntime)
+void BattleGround::ChangeBgObjectSpawnState(uint32 dbGuid, uint32 respawntime)
 {
     Map* map = GetBgMap();
 
-    GameObject* obj = map->GetGameObject(guid);
+    GameObject* obj = map->GetGameObject(dbGuid);
     if (!obj)
+    {
+        map->GetSpawnManager().RespawnGameObject(dbGuid, respawntime);
         return;
+    }
 
     if (respawntime == 0)
     {
@@ -1810,13 +1824,16 @@ void BattleGround::ChangeBgObjectSpawnState(ObjectGuid guid, uint32 respawntime)
   @param    gameobject guid
   @param    respawn time (can be 0 or 1 day)
 */
-void BattleGround::ChangeBgCreatureSpawnState(ObjectGuid guid, uint32 respawntime)
+void BattleGround::ChangeBgCreatureSpawnState(uint32 dbGuid, uint32 respawntime)
 {
     Map* map = GetBgMap();
 
-    Creature* obj = map->GetCreature(guid);
+    Creature* obj = map->GetCreature(dbGuid);
     if (!obj)
+    {
+        map->GetSpawnManager().RespawnCreature(dbGuid, respawntime);
         return;
+    }
 
     if (respawntime == 0)
     {
@@ -1827,8 +1844,7 @@ void BattleGround::ChangeBgCreatureSpawnState(ObjectGuid guid, uint32 respawntim
     {
         map->Add(obj);
         obj->SetRespawnDelay(respawntime);
-        obj->SetDeathState(JUST_DIED);
-        obj->RemoveCorpse();
+        obj->ForcedDespawn();
     }
 }
 

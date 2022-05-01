@@ -208,6 +208,8 @@ struct boss_zuljinAI : public CombatAI
 
     void EnterEvadeMode() override
     {
+        m_creature->SetStunned(false);
+
         if (m_instance)
             m_instance->SetData(TYPE_ZULJIN, FAIL);
 
@@ -495,23 +497,13 @@ struct boss_zuljinAI : public CombatAI
                 return;
         }
     }
-
-    void UpdateAI(const uint32 diff) override
-    {
-        CombatAI::UpdateAI(diff);
-        if (m_creature->IsStunned() && m_creature->getThreatManager().isThreatListEmpty())
-        {
-            m_creature->SetStunned(false);
-            EnterEvadeMode();
-        }
-    }
 };
 
 /*######
 ## npc_feather_vortex
 ######*/
 
-struct npc_feather_vortexAI : public ScriptedAI, public TimerManager
+struct npc_feather_vortexAI : public ScriptedAI
 {
     npc_feather_vortexAI(Creature* creature) : ScriptedAI(creature), m_instance(static_cast<ScriptedInstance*>(creature->GetInstanceData()))
     {
@@ -567,12 +559,6 @@ struct npc_feather_vortexAI : public ScriptedAI, public TimerManager
     {
         if (spellEntry->Id == SPELL_CYCLONE && target == m_creature->GetVictim())
             PickNewTarget();
-    }
-
-    void UpdateAI(const uint32 diff) override
-    {
-        UpdateTimers(diff);
-        ScriptedAI::UpdateAI(diff);
     }
 };
 

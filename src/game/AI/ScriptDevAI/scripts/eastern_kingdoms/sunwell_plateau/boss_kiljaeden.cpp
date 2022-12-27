@@ -111,6 +111,7 @@ enum
     SPELL_SINISTER_REFL_CLONE   = 45785,        // clone the player
     SPELL_VENGEANCE_BLUE_FLIGHT = 45839,        // possess the dragon
     SPELL_POSSESS_DRAKE_IMMUNE  = 45838,        // immunity while the player possesses the dragon
+    SPELL_SHIELD_OF_THE_BLUE_2  = 47314,
 
     // Npcs
     NPC_SHIELD_ORB              = 25502,
@@ -529,9 +530,9 @@ enum KiljaedenActions
     KILJAEDEN_KALEC_YELL_DELAY,
 };
 
-struct boss_kiljaedenAI : public RangedCombatAI, private DialogueHelper
+struct boss_kiljaedenAI : public CombatAI, private DialogueHelper
 {
-    boss_kiljaedenAI(Creature* creature) : RangedCombatAI(creature, KILJAEDEN_ACTION_MAX),
+    boss_kiljaedenAI(Creature* creature) : CombatAI(creature, KILJAEDEN_ACTION_MAX),
         DialogueHelper(aPhaseDialogue), m_instance(static_cast<instance_sunwell_plateau*>(creature->GetInstanceData())), m_uiMaxShieldOrbs(3), m_freeShieldOrbs(5)
     {
         InitializeDialogueHelper(m_instance);
@@ -1031,9 +1032,7 @@ struct npc_sinister_reflectionAI : public CombatAI
     npc_sinister_reflectionAI(Creature* creature) : CombatAI(creature, SINISTER_ACTION_MAX)
     {
         AddCustomAction(SINISTER_ATTACK_DELAY, 7000u, [&]() { HandleAttackDelay(); });
-        SetReactState(REACT_PASSIVE);
-        SetCombatMovement(false);
-        SetMeleeEnabled(false);
+        SetReactState(REACT_DEFENSIVE);
     }
 
     uint8 m_class;
@@ -1086,8 +1085,6 @@ struct npc_sinister_reflectionAI : public CombatAI
     void HandleAttackDelay()
     {
         SetReactState(REACT_AGGRESSIVE);
-        SetCombatMovement(true);
-        SetMeleeEnabled(true);
         m_creature->SetInCombatWithZone();
         AttackStart(m_creature->GetSpawner());
     }
@@ -1358,8 +1355,13 @@ struct BreathHaste : public SpellScript
     }
 };
 
-struct ShieldOfTheBlue : public AuraScript
+struct ShieldOfTheBlue : public SpellScript, public AuraScript
 {
+    void OnCast(Spell* spell) const override
+    {
+        spell->GetCaster()->CastSpell(nullptr, SPELL_SHIELD_OF_THE_BLUE_2, TRIGGERED_OLD_TRIGGERED);
+    }
+
     void OnApply(Aura* aura, bool apply) const override
     {
         if (apply)
@@ -1422,18 +1424,18 @@ void AddSC_boss_kiljaeden()
     pNewScript->GetAI = &GetNewAIInstance<npc_core_of_entropiusAI>;
     pNewScript->RegisterSelf();
 
-    RegisterAuraScript<DarknessOfSouls>("spell_darkness_of_souls");
+    RegisterSpellScript<DarknessOfSouls>("spell_darkness_of_souls");
     RegisterSpellScript<SinisterReflection>("spell_sinister_reflection");
-    RegisterScript<SinisterReflectionClone>("spell_sinister_reflection_clone");
+    RegisterSpellScript<SinisterReflectionClone>("spell_sinister_reflection_clone");
     RegisterSpellScript<CopyOffhandWeapon>("spell_copy_off_hand_weapon");
-    RegisterAuraScript<Armageddon>("spell_armageddon");
-    RegisterAuraScript<OpenPortalFromShattrath>("spell_open_portal_from_shattrath");
-    RegisterAuraScript<ShadowSpike>("spell_shadow_spike");
+    RegisterSpellScript<Armageddon>("spell_armageddon");
+    RegisterSpellScript<OpenPortalFromShattrath>("spell_open_portal_from_shattrath");
+    RegisterSpellScript<ShadowSpike>("spell_shadow_spike");
     RegisterSpellScript<ArmageddonAnimation>("spell_armageddon_animation");
     RegisterSpellScript<PowerOfTheBlueFlight>("spell_power_of_the_blue_flight");
-    RegisterAuraScript<VengeanceOfTheBlueFlight>("spell_vengeance_of_the_blue_flight");
+    RegisterSpellScript<VengeanceOfTheBlueFlight>("spell_vengeance_of_the_blue_flight");
     RegisterSpellScript<BreathHaste>("spell_breath_haste");
-    RegisterAuraScript<ShieldOfTheBlue>("spell_shield_of_the_blue");
+    RegisterSpellScript<ShieldOfTheBlue>("spell_shield_of_the_blue");
     RegisterSpellScript<FlameDart>("spell_flame_dart");
     RegisterSpellScript<FlameDartMain>("spell_flame_dart_main");
 }

@@ -86,7 +86,7 @@ struct spell_judgement : public SpellScript
 
             break;
         }
-        caster->CastSpell(unitTarget, spellId2, TRIGGERED_OLD_TRIGGERED);
+        caster->CastSpell(unitTarget, spellId2, TRIGGERED_IGNORE_GCD | TRIGGERED_IGNORE_CURRENT_CASTED_SPELL);
         if (caster->HasAura(37188)) // improved judgement
             caster->CastSpell(nullptr, 43838, TRIGGERED_OLD_TRIGGERED);
 
@@ -127,7 +127,7 @@ struct IncreasedHolyLightHealing : public AuraScript
         aura->GetTarget()->RegisterScriptedLocationAura(aura, SCRIPT_LOCATION_SPELL_HEALING_DONE, apply);
     }
 
-    void OnDamageCalculate(Aura* aura, int32& advertisedBenefit, float& /*totalMod*/) const override
+    void OnDamageCalculate(Aura* aura, Unit* /*victim*/, int32& advertisedBenefit, float& /*totalMod*/) const override
     {
         advertisedBenefit += aura->GetModifier()->m_amount;
     }
@@ -194,10 +194,10 @@ struct SealOfBloodSelfDamage : public SpellScript
 
 void LoadPaladinScripts()
 {
-    RegisterAuraScript<IncreasedHolyLightHealing>("spell_increased_holy_light_healing");
+    RegisterSpellScript<IncreasedHolyLightHealing>("spell_increased_holy_light_healing");
     RegisterSpellScript<spell_judgement>("spell_judgement");
     RegisterSpellScript<RighteousDefense>("spell_righteous_defense");
-    RegisterAuraScript<SealOfTheCrusader>("spell_seal_of_the_crusader");
+    RegisterSpellScript<SealOfTheCrusader>("spell_seal_of_the_crusader");
     RegisterSpellScript<SealOfBloodSelfDamage>("spell_seal_of_blood_self_damage");
-    RegisterAuraScript<spell_paladin_tier_6_trinket>("spell_paladin_tier_6_trinket");
+    RegisterSpellScript<spell_paladin_tier_6_trinket>("spell_paladin_tier_6_trinket");
 }

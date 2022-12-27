@@ -59,7 +59,7 @@ enum
 
 static const float aLiftOffPosition[3] = {3522.386f, -5236.784f, 137.709f};
 
-enum Phases
+enum SapphironPhases
 {
     PHASE_GROUND        = 1,
     PHASE_LIFT_OFF      = 2,
@@ -101,7 +101,7 @@ struct boss_sapphironAI : public CombatAI
     ScriptedInstance* m_instance;
 
     uint32 m_iceboltCount;
-    Phases m_phase;
+    SapphironPhases m_phase;
 
     void Reset() override
     {
@@ -380,9 +380,9 @@ void AddSC_boss_sapphiron()
     newScript->pGOUse = &GOUse_go_sapphiron_birth;
     newScript->RegisterSelf();
 
-    RegisterAuraScript<PeriodicIceBolt>("spell_sapphiron_icebolt_aura");
+    RegisterSpellScript<PeriodicIceBolt>("spell_sapphiron_icebolt_aura");
     RegisterSpellScript<IceBolt>("spell_sapphiron_icebolt");
     RegisterSpellScript<SummonBlizzard>("spell_sapphiron_blizzard");
     RegisterSpellScript<DespawnIceBlock>("spell_sapphiron_iceblock");
-    RegisterAuraScript<DespawnBuffet>("spell_sapphiron_despawn_buffet");
+    RegisterSpellScript<DespawnBuffet>("spell_sapphiron_despawn_buffet");
 }

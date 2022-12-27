@@ -16,7 +16,8 @@
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
 # Minimum required cmake version to run the build
-cmake_minimum_required(VERSION 3.1)
+cmake_minimum_required(VERSION 3.9)
+cmake_policy(SET CMP0069 NEW)
 
 # Will cache object files if ccache is available
 # Must be set at top of cmake outside of project header
@@ -27,8 +28,14 @@ endif()
 
 project(CMaNGOS_TBC)
 
+# Require C++ 17 support
+set(CMAKE_CXX_STANDARD 17)
+# some utils for cmake
+include(dep/drassil/cmake-utils/utils.cmake)
+
+include(cmake/ac_macros.cmake)
+
 # Require C++ 14 support
-set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
@@ -278,18 +285,12 @@ if(UNIX AND (BUILD_GAME_SERVER OR BUILD_LOGIN_SERVER OR BUILD_EXTRACTORS))
     if(OpenSSL_VERSION AND NOT OPENSSL_VERSION)
       set(OPENSSL_VERSION ${OpenSSL_VERSION})
     endif()
-    if(OPENSSL_VERSION VERSION_LESS 1.0.1)
-      message(WARNING "You are using an outdated version of OpenSSL library. It may be incompatible or vulnerable.")
+    if(OPENSSL_VERSION VERSION_LESS 1.1)
+      message(SEND_ERROR "OpenSSL: This project requires OpenSSL version 1.1.0 or higher")
     endif()
   endif()
 endif()
 
-find_package(ZLIB QUIET)
-if(NOT ZLIB_FOUND)
-  # use internal source code
-  set(ZLIB_LIBRARIES "zlib")
-  message(STATUS "Could not find ZLIB on your system. The provided sources will be used.")
-endif()
 if(BUILD_EXTRACTORS)
   find_package(BZip2 QUIET)
   if(NOT (BZip2_FOUND OR BZIP2_FOUND))
@@ -377,6 +378,35 @@ endif()
 
 add_subdirectory(dep)
 
+#
+# Loading dyn modules
+#
+
+# add modules and dependencies
+CU_SUBDIRLIST(sub_DIRS  "${CMAKE_SOURCE_DIR}/src/game/Modules" FALSE FALSE)
+FOREACH(subdir ${sub_DIRS})
+
+    get_filename_component(MODULENAME ${subdir} NAME)
+
+    if (";${DISABLED_AC_MODULES};" MATCHES ";${MODULENAME};")
+       continue()
+    endif()
+
+    STRING(REGEX REPLACE "^${CMAKE_SOURCE_DIR}/" "" subdir_rel ${subdir})
+    if(EXISTS "${subdir}/CMakeLists.txt")
+        message("Loading module: ${subdir_rel}")
+        add_subdirectory("${subdir_rel}")
+    endif()
+ENDFOREACH()
+CU_RUN_HOOK("AFTER_LOAD_CONF")
+
+CU_RUN_HOOK("AFTER_LOAD_CMAKE_MODULES")
+#
+# Loading application sources
+#
+
+CU_RUN_HOOK("BEFORE_SRC_LOAD")
+
 # Add definitions for all build types
 # Don't place this above 'dep' subdirectory! Because of defines build will crash.
 set(DEFINITIONS "")
@@ -404,6 +434,8 @@ endif()
 if(BUILD_GAME_SERVER OR BUILD_LOGIN_SERVER OR BUILD_EXTRACTORS)
   add_subdirectory(src)
 endif()
+
+CU_RUN_HOOK("AFTER_SRC_LOAD")
 
 if(BUILD_EXTRACTORS)
   if(CMAKE_SYSTEM_PROCESSOR MATCHES "^arm")

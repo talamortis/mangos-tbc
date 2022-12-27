@@ -531,6 +531,7 @@ enum DamageEffectType
     SELF_DAMAGE             = 6,
     INSTAKILL               = 7,                            //< used to instakill - no message
     SPELL_DAMAGE_SHIELD     = 8,                            // doesnt put in combat
+    SPLIT_DAMAGE            = 9,                            // puts in combat but doesnt do pushback
 };
 
 enum GameobjectTypes
@@ -2135,6 +2136,13 @@ enum MovementEvent
 {
     EVENT_CHARGE = 10000,
     EVENT_JUMP   = 10001, // TODO: Implement knockback using this
+};
+
+enum DungeonDifficulty
+{
+    DIFFICULTY_NORMAL = 0,
+    DIFFICULTY_HEROIC = 1,
+    TOTAL_DIFFICULTIES
 };
 
 // #define PRENERF_2_0_3       // Pre 2.1

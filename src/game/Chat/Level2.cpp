@@ -575,7 +575,11 @@ bool ChatHandler::HandleGoCreatureCommand(char* args)
             {
                 std::string name = pParam1;
                 WorldDatabase.escape_string(name);
-                QueryResult* result = WorldDatabase.PQuery("SELECT guid FROM creature, creature_template WHERE creature.id = creature_template.entry AND creature_template.name " _LIKE_ " " _CONCAT3_("'%%'", "'%s'", "'%%'"), name.c_str());
+                QueryResult* result = WorldDatabase.PQuery("SELECT creature.guid, creature_spawn_entry.guid "
+                  "FROM creature, creature_template, creature_spawn_entry "
+                  "WHERE (creature.id = creature_template.entry "
+                    "OR (creature_spawn_entry.entry = creature_template.entry AND creature.guid = creature_spawn_entry.guid)) "
+                  "AND creature_template.name LIKE '%%%s%%' LIMIT 1;", name.c_str());
                 if (!result)
                 {
                     SendSysMessage(LANG_COMMAND_GOCREATNOTFOUND);
@@ -777,7 +781,11 @@ bool ChatHandler::HandleGoObjectCommand(char* args)
             {
                 std::string name = pParam1;
                 WorldDatabase.escape_string(name);
-                QueryResult* result = WorldDatabase.PQuery("SELECT guid FROM gameobject, gameobject_template WHERE gameobject.id = gameobject_template.entry AND gameobject_template.name " _LIKE_ " " _CONCAT3_("'%%'", "'%s'", "'%%'"), name.c_str());
+                QueryResult* result = WorldDatabase.PQuery("SELECT gameobject.guid, gameobject_spawn_entry.guid "
+                    "FROM gameobject, gameobject_template, gameobject_spawn_entry "
+                    "WHERE (gameobject.id = gameobject_template.entry "
+                    "OR (gameobject_spawn_entry.entry = gameobject_template.entry AND gameobject.guid = gameobject_spawn_entry.guid)) "
+                    "AND gameobject_template.name LIKE '%%%s%%' LIMIT 1;", name.c_str());
                 if (!result)
                 {
                     SendSysMessage(LANG_COMMAND_GOOBJNOTFOUND);
@@ -1179,7 +1187,7 @@ bool ChatHandler::HandleGameObjectAddCommand(char* args)
     pGameObj->SaveToDB(map->GetId(), (1 << map->GetSpawnMode()));
 
     // this will generate a new guid if the object is in an instance
-    if (!pGameObj->LoadFromDB(db_lowGUID, map, db_lowGUID))
+    if (!pGameObj->LoadFromDB(db_lowGUID, map, db_lowGUID, 0))
     {
         delete pGameObj;
         return false;
@@ -1198,6 +1206,8 @@ bool ChatHandler::HandleGameObjectNearCommand(char* args)
     float distance;
     if (!ExtractOptFloat(&args, distance, 10.0f))
         return false;
+
+    SendSysMessage("Database spawns around:");
 
     uint32 count = 0;
 
@@ -1626,7 +1636,7 @@ bool ChatHandler::HandleNpcAddCommand(char* args)
     uint32 db_guid = pCreature->GetGUIDLow();
 
     // To call _LoadGoods(); _LoadQuests(); CreateTrainerSpells();
-    pCreature->LoadFromDB(db_guid, map, db_guid);
+    pCreature->LoadFromDB(db_guid, map, db_guid, 0);
     return true;
 }
 
@@ -2023,6 +2033,8 @@ bool ChatHandler::HandleNpcSetMoveTypeCommand(char* args)
         move_type = RANDOM_MOTION_TYPE;
     else if (strncmp(type_str, "way", strlen(type_str)) == 0)
         move_type = WAYPOINT_MOTION_TYPE;
+    else if (strncmp(type_str, "lin", strlen(type_str)) == 0)
+        move_type = LINEAR_WP_MOTION_TYPE;
     else
         return false;
 
@@ -2314,6 +2326,165 @@ bool ChatHandler::HandleNpcShowLootCommand(char* /*args*/)
     }
 
     creature->m_loot->PrintLootList(*this, m_session);
+    return true;
+}
+
+// show detailed information of creature formation if exist
+bool ChatHandler::HandleNpcGroupInfoCommand(char* /*args*/)
+{
+    Creature* creature = getSelectedCreature();
+
+    if (!creature)
+    {
+        SendSysMessage(LANG_SELECT_CREATURE);
+        SetSentErrorMessage(true);
+        return false;
+    }
+
+    auto gData = creature->GetCreatureGroup();
+    if (!gData)
+    {
+        SendSysMessage("Creature is not in group");
+        return true;
+    }
+
+    PSendSysMessage("Group id[%u]", gData->GetGroupId());
+    PSendSysMessage("Group name: %s", gData->GetGroupEntry().Name.c_str());
+
+    Unit* master = nullptr;
+    if (gData->GetFormationData())
+        master = gData->GetFormationData()->GetMaster();
+
+    if (master)
+    {
+        if (master == creature)
+            SendSysMessage("Creature is formation leader");
+        else if (creature->GetFormationSlot())
+            SendSysMessage("Creature is in formation slot");
+        else
+            SendSysMessage("Error: unable to retrieve the slot of the creature.");
+    }
+
+    PSendSysMessage("%s", gData->to_string().c_str());
+    return true;
+}
+
+// show detailed information of group behavior
+// bool ChatHandler::HandleNpcGroupBehaviorShowCommand(char* /*args*/)
+// {
+//     Creature* creature = getSelectedCreature();
+// 
+//     if (!creature)
+//     {
+//         SendSysMessage(LANG_SELECT_CREATURE);
+//         SetSentErrorMessage(true);
+//         return false;
+//     }
+// 
+// 
+//     return true;
+// }
+
+// set behavior of targeted group
+// bool ChatHandler::HandleNpcGroupBehaviorSetCommand(char* args)
+// {
+//     Creature* creature = getSelectedCreature();
+// 
+//     if (!creature)
+//     {
+//         SendSysMessage(LANG_SELECT_CREATURE);
+//         SetSentErrorMessage(true);
+//         return false;
+//     }
+// 
+//     return true;
+// }
+
+// reset creature formation template
+bool ChatHandler::HandleNpcFormationInfoCommand(char* /*args*/)
+{
+    Creature* creature = getSelectedCreature();
+
+    if (!creature)
+    {
+        SendSysMessage(LANG_SELECT_CREATURE);
+        SetSentErrorMessage(true);
+        return false;
+    }
+
+    auto currSlot = creature->GetFormationSlot();
+    if (!currSlot)
+    {
+        SendSysMessage("Creature is not in formation");
+        return true;
+    }
+
+    PSendSysMessage("%s", currSlot->GetFormationData()->to_string().c_str());
+    return true;
+}
+
+// reset creature formation template
+bool ChatHandler::HandleNpcFormationResetCommand(char* /*args*/)
+{
+    Creature* creature = getSelectedCreature();
+
+    if (!creature)
+    {
+        SendSysMessage(LANG_SELECT_CREATURE);
+        SetSentErrorMessage(true);
+        return false;
+    }
+
+    auto currSlot = creature->GetFormationSlot();
+    if (!currSlot)
+    {
+        SendSysMessage("Creature is not in formation");
+        return true;
+    }
+
+    currSlot->GetFormationData()->Reset();
+
+    // need implementation
+    SendSysMessage("Formation is reset to default!");
+    return true;
+}
+
+// change creature formation template
+bool ChatHandler::HandleNpcFormationSwitchCommand(char* args)
+{
+    Creature* creature = getSelectedCreature();
+
+    if (!creature)
+    {
+        SendSysMessage(LANG_SELECT_CREATURE);
+        SetSentErrorMessage(true);
+        return false;
+    }
+
+    auto currSlot = creature->GetFormationSlot();
+    if (!currSlot)
+    {
+        SendSysMessage("Creature is not in formation");
+        return true;
+    }
+
+    uint32 formationId;
+    if (!ExtractUInt32(&args, formationId))
+    {
+        PSendSysMessage("Please provide a valid formation id!\n.npc formation switch #formationId");
+        return false;
+    }
+
+    if (formationId >= static_cast<uint32>(SpawnGroupFormationType::SPAWN_GROUP_FORMATION_TYPE_COUNT))
+    {
+        PSendSysMessage("Formation shape id should be in 0..%u range!", static_cast<uint32>(SpawnGroupFormationType::SPAWN_GROUP_FORMATION_TYPE_COUNT) - 1);
+        return true;
+    }
+
+    if (!currSlot->GetFormationData()->SwitchFormation(static_cast<SpawnGroupFormationType>(formationId)))
+        PSendSysMessage("Failed to switch formation template!");
+    else
+        SendSysMessage("Formation shape changed.");
     return true;
 }
 
@@ -3168,12 +3339,18 @@ bool ChatHandler::HandleWpShowCommand(char* args)
         wpPath = sWaypointMgr.GetPathFromOrigin(wpOwner->GetEntry(), wpOwner->GetGUIDLow(), wpPathId, wpOrigin);
     else
     {
-        if (wpOwner->GetMotionMaster()->GetCurrentMovementGeneratorType() == WAYPOINT_MOTION_TYPE)
+        auto mgenType = wpOwner->GetMotionMaster()->GetCurrentMovementGeneratorType();
+        if (mgenType == WAYPOINT_MOTION_TYPE || mgenType == LINEAR_WP_MOTION_TYPE)
+        {
+            uint32 pathEntry = wpOwner->GetEntry();
+            if (targetCreature->GetCreatureGroup() && targetCreature->GetCreatureGroup()->GetFormationEntry())
+                pathEntry = targetCreature->GetCreatureGroup()->GetFormationEntry()->MovementID;
             if (WaypointMovementGenerator<Creature> const* wpMMGen = dynamic_cast<WaypointMovementGenerator<Creature> const*>(wpOwner->GetMotionMaster()->GetCurrent()))
             {
                 wpMMGen->GetPathInformation(wpPathId, wpOrigin);
-                wpPath = sWaypointMgr.GetPathFromOrigin(wpOwner->GetEntry(), wpOwner->GetGUIDLow(), wpPathId, wpOrigin);
+                wpPath = sWaypointMgr.GetPathFromOrigin(pathEntry, wpOwner->GetGUIDLow(), wpPathId, wpOrigin);
             }
+        }
 
         if (wpOrigin == PATH_NO_PATH)
             wpPath = sWaypointMgr.GetDefaultPath(wpOwner->GetEntry(), wpOwner->GetGUIDLow(), &wpOrigin);
@@ -3381,18 +3558,18 @@ bool ChatHandler::HandleWpExportCommand(char* args)
     uint32 key;
     switch (wpOrigin)
     {
-        case PATH_FROM_ENTRY: key = wpOwner->GetEntry();    key_field = "entry";    table = "creature_movement_template"; break;
-        case PATH_FROM_GUID: key = wpOwner->GetGUIDLow();   key_field = "id";       table = "creature_movement"; break;
-        case PATH_FROM_EXTERNAL: key = wpOwner->GetEntry(); key_field = "entry";    table = sWaypointMgr.GetExternalWPTable(); break;
+        case PATH_FROM_ENTRY: key = wpOwner->GetEntry();    key_field = "Entry";    table = "creature_movement_template"; break;
+        case PATH_FROM_GUID: key = wpOwner->GetGUIDLow();   key_field = "Id";       table = "creature_movement"; break;
+        case PATH_FROM_EXTERNAL: key = wpOwner->GetEntry(); key_field = "Entry";    table = sWaypointMgr.GetExternalWPTable(); break;
         default:
             return false;
     }
 
     outfile << "DELETE FROM " << table << " WHERE " << key_field << "=" << key << ";\n";
     if (wpOrigin != PATH_FROM_EXTERNAL)
-        outfile << "INSERT INTO " << table << " (" << key_field << ", point, position_x, position_y, position_z, orientation, waittime, script_id) VALUES\n";
+        outfile << "INSERT INTO " << table << " (" << key_field << ", Point, PositionX, PositionY, PositionZ, Orientation, WaitTime, ScriptId) VALUES\n";
     else
-        outfile << "INSERT INTO " << table << " (" << key_field << ", point, position_x, position_y, position_z, orientation, waittime) VALUES\n";
+        outfile << "INSERT INTO " << table << " (" << key_field << ", Point, PositionX, PositionY, positionZ, Orientation, WaitTime) VALUES\n";
 
     WaypointPath::const_iterator itr = wpPath->begin();
     uint32 countDown = wpPath->size();

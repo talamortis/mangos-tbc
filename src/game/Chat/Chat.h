@@ -290,6 +290,8 @@ class ChatHandler
 
         bool HandleDebugPetDismissSound(char* args);
 
+        bool HandleDebugAreaTriggersCommand(char* args);
+
         bool HandleDebugSendBuyErrorCommand(char* args);
         bool HandleDebugSendChannelNotifyCommand(char* args);
         bool HandleDebugSendChatMsgCommand(char* args);
@@ -314,6 +316,7 @@ class ChatHandler
         bool HandleDebugRespawnDynguid(char* args);
 
         bool HandleDebugPacketLog(char* args);
+        bool HandleDebugDbscript(char* args);
 
         bool HandleSD2HelpCommand(char* args);
         bool HandleSD2ScriptCommand(char* args);
@@ -350,6 +353,7 @@ class ChatHandler
         bool HandleGoObjectCommand(char* args);
         bool HandleGoTaxinodeCommand(char* args);
         bool HandleGoTriggerCommand(char* args);
+        bool HandleGoWarpCommand(char* args);
         bool HandleGoXYCommand(char* args);
         bool HandleGoXYZCommand(char* args);
         bool HandleGoZoneXYCommand(char* args);
@@ -380,6 +384,7 @@ class ChatHandler
         bool HandleLearnAllMySpellsCommand(char* args);
         bool HandleLearnAllMyTalentsCommand(char* args);
 
+        bool HandleListAreaTriggerCommand(char* args);
         bool HandleListAurasCommand(char* args);
         bool HandleListCreatureCommand(char* args);
         bool HandleListItemCommand(char* args);
@@ -468,6 +473,7 @@ class ChatHandler
         bool HandleNpcMoveCommand(char* args);
         bool HandleNpcPlayEmoteCommand(char* args);
         bool HandleNpcSayCommand(char* args);
+        bool HandleNpcListSpells(char* args);
         bool HandleNpcSetDeathStateCommand(char* args);
         bool HandleNpcShowLootCommand(char* args);
         bool HandleNpcSetModelCommand(char* args);
@@ -481,6 +487,12 @@ class ChatHandler
         bool HandleNpcYellCommand(char* args);
         bool HandleNpcTempSpawn(char* args);
         bool HandleNpcEvade(char* args);
+        bool HandleNpcGroupInfoCommand(char* args);
+        //bool HandleNpcGroupBehaviorShowCommand(char* args);
+        //bool HandleNpcGroupBehaviorSetCommand(char* args);
+        bool HandleNpcFormationInfoCommand(char* args);
+        bool HandleNpcFormationResetCommand(char* args);
+        bool HandleNpcFormationSwitchCommand(char* args);
 
         // TODO: NpcCommands that needs to be fixed :
         bool HandleNpcAddWeaponCommand(char* args);
@@ -595,6 +607,8 @@ class ChatHandler
         bool HandleReloadSpellPetAurasCommand(char* args);
         bool HandleReloadExpectedSpamRecords(char* args);
         bool HandleReloadCreatureCooldownsCommand(char* args);
+        bool HandleReloadCreatureSpellLists(char* args);
+        bool HandleReloadSpawnGroupsCommand(char* args);
 
         bool HandleResetAllCommand(char* args);
         bool HandleResetHonorCommand(char* args);
@@ -765,9 +779,14 @@ class ChatHandler
         bool HandleLinkCheckCommand(char* args);
 
         // worldstate
+        bool HandleVariablePrint(char* args);
         bool HandleWarEffortCommand(char* args);
         bool HandleWarEffortPhaseCommand(char* args);
         bool HandleWarEffortCounterCommand(char* args);
+        bool HandleScourgeInvasionCommand(char* args);
+        bool HandleScourgeInvasionStateCommand(char* args);
+        bool HandleScourgeInvasionBattlesWonCommand(char* args);
+        bool HandleScourgeInvasionStartZone(char* args);
         bool HandleSunsReachReclamationPhaseCommand(char* args);
         bool HandleSunsReachReclamationSubPhaseCommand(char* args);
         bool HandleSunsReachReclamationCounterCommand(char* args);

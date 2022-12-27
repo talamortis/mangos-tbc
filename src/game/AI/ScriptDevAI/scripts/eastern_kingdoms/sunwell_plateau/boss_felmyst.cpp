@@ -508,7 +508,7 @@ struct boss_felmystAI : public CombatAI
                     ResetCombatAction(action, urand(15000, 29000));
                 break;
             case FELMYST_GAS_NOVA:
-                if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_GAS_NOVA) == CAST_OK)
+                if (DoCastSpellIfCan(nullptr, SPELL_GAS_NOVA) == CAST_OK)
                     ResetCombatAction(action, urand(22000, 27000));
                 break;
         }
@@ -668,7 +668,7 @@ void AddSC_boss_felmyst()
 
     RegisterSpellScript<SoulSever>("spell_soul_sever");
     RegisterSpellScript<FogOfCorruption>("spell_fog_of_corruption");
-    RegisterAuraScript<FogOfCorruptionCharm>("spell_fog_of_corruption_charm");
-    RegisterScript<TriggerStrafe>("spell_trigger_strafe");
-    RegisterAuraScript<Encapsulate>("spell_encapsulate");
+    RegisterSpellScript<FogOfCorruptionCharm>("spell_fog_of_corruption_charm");
+    RegisterSpellScript<TriggerStrafe>("spell_trigger_strafe");
+    RegisterSpellScript<Encapsulate>("spell_encapsulate");
 }

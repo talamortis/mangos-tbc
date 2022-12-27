@@ -3053,9 +3053,9 @@ enum FlayerActions
     FLAYER_ACTION_MAX,
 };
 
-struct npc_apexis_flayerAI : public ScriptedAI, public CombatActions
+struct npc_apexis_flayerAI : public ScriptedAI
 {
-    npc_apexis_flayerAI(Creature* creature) : ScriptedAI(creature), CombatActions(FLAYER_ACTION_MAX)
+    npc_apexis_flayerAI(Creature* creature) : ScriptedAI(creature, FLAYER_ACTION_MAX)
     {
         AddCombatAction(FLAYER_ACTION_REND, 0u);
         AddCombatAction(FLAYER_ACTION_SHRED_ARMOR, 0u);
@@ -3463,6 +3463,6 @@ void AddSC_blades_edge_mountains()
 
     RegisterSpellScript<ExorcismFeather>("spell_exorcism_feather");
     RegisterSpellScript<KoiKoiDeath>("spell_koi_koi_death");
-    RegisterAuraScript<Soaring>("spell_soaring");
-    RegisterAuraScript<CoaxMarmot>("spell_coax_marmot");
+    RegisterSpellScript<Soaring>("spell_soaring");
+    RegisterSpellScript<CoaxMarmot>("spell_coax_marmot");
 }

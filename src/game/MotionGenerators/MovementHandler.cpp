@@ -229,6 +229,8 @@ void WorldSession::HandleMoveWorldportAckOpcode()
         if (!map->IsMountAllowed())
             _player->RemoveSpellsCausingAura(SPELL_AURA_MOUNTED);
 
+        _player->RemoveAurasWithInterruptFlags(AURA_INTERRUPT_FLAG_ENTER_WORLD);
+
         // honorless target
         if (GetPlayer()->pvpInfo.inPvPEnforcedArea)
             GetPlayer()->CastSpell(GetPlayer(), 2479, TRIGGERED_OLD_TRIGGERED);
@@ -752,6 +754,13 @@ bool WorldSession::ProcessMovementInfo(MovementInfo& movementInfo, Unit* mover, 
 
     if (!m_anticheat->Movement(movementInfo, recv_data))
         return false;
+
+    if (movementInfo.GetMovementFlags() & MOVEFLAG_MASK_MOVING_OR_TURN)
+    {
+        if (mover->IsSitState())
+            mover->SetStandState(UNIT_STAND_STATE_STAND);
+        mover->HandleEmoteState(0);
+    }
 
     /* process position-change */
     HandleMoverRelocation(movementInfo);

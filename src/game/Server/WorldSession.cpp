@@ -38,6 +38,7 @@
 #include "GMTickets/GMTicketMgr.h"
 #include "Loot/LootMgr.h"
 #include "Anticheat/Anticheat.hpp"
+#include "AI/ScriptDevAI/ScriptDevMgr.h"
 
 #include <mutex>
 #include <deque>
@@ -572,7 +573,7 @@ void WorldSession::UpdateMap(uint32 diff)
         std::swap(recvQueueMapCopy, m_recvQueueMap);
     }
 
-    for (size_t i = 0; m_Socket && !m_Socket->IsClosed() && i < recvQueueMapCopy.size(); ++i)
+    while (m_Socket && !m_Socket->IsClosed() && recvQueueMapCopy.size())
     {
         auto const packet = std::move(recvQueueMapCopy.front());
         recvQueueMapCopy.pop_front();
@@ -613,6 +614,8 @@ void WorldSession::LogoutPlayer()
         if (_player->GetPlayerbotMgr())
             _player->GetPlayerbotMgr()->LogoutAllBots(true);
 #endif
+
+        sScriptDevMgr.OnPlayerLogout(_player);
 
         sLog.outChar("Account: %d (IP: %s) Logout Character:[%s] (guid: %u)", GetAccountId(), GetRemoteAddress().c_str(), _player->GetName(), _player->GetGUIDLow());
 
@@ -708,7 +711,7 @@ void WorldSession::LogoutPlayer()
 
         // remove player from the group if he is:
         // a) in group; b) not in raid group; c) logging out normally (not being kicked or disconnected)
-        if (_player->GetGroup() && !_player->GetGroup()->isRaidGroup() && m_Socket && !m_Socket->IsClosed())
+        if (_player->GetGroup() && !_player->GetGroup()->IsRaidGroup() && m_Socket && !m_Socket->IsClosed())
             _player->RemoveFromGroup();
 
         ///- Send update to group
@@ -773,7 +776,7 @@ void WorldSession::LogoutPlayer()
 
     SetInCharSelection();
 
-    LogoutRequest(0);
+    _logoutTime = 0;
 
     if (m_kickSession)
     {

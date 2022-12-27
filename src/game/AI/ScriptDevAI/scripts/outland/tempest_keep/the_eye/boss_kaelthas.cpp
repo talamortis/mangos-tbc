@@ -1835,7 +1835,7 @@ struct boss_master_engineer_telonicusAI : public advisor_base_ai
     }
 };
 
-struct npc_nether_vaporAI : public ScriptedAI, public TimerManager
+struct npc_nether_vaporAI : public ScriptedAI
 {
     npc_nether_vaporAI(Creature* creature) : ScriptedAI(creature)
     {
@@ -1864,11 +1864,6 @@ struct npc_nether_vaporAI : public ScriptedAI, public TimerManager
         DoCastSpellIfCan(nullptr, SPELL_NETHER_VAPOR_PERIODIC_DAMAGE, CAST_TRIGGERED | CAST_AURA_NOT_PRESENT);
         DoCastSpellIfCan(nullptr, SPELL_NETHER_VAPOR_PERIODIC_SCRIPT, CAST_TRIGGERED | CAST_AURA_NOT_PRESENT);
         DoCastSpellIfCan(nullptr, SPELL_NETHER_VAPOR_LIGHTNING, CAST_TRIGGERED | CAST_AURA_NOT_PRESENT);
-    }
-
-    void UpdateAI(const uint32 diff)
-    {
-        UpdateTimers(diff);
     }
 };
 
@@ -1927,10 +1922,7 @@ struct spell_gravity_lapse_knockup : public AuraScript
     void OnPeriodicTickEnd(Aura* aura) const override
     {
         Unit* target = aura->GetTarget();
-        float x, y, z;
-        target->GetPosition(x, y, z);
-        float floorZ = target->GetMap()->GetHeight(x, y, z);
-        if (std::abs(z - floorZ) < 4.f) // knock up player if he is too close to the ground
+        if (target->IsAboveGround(4.f)) // knock up player if he is too close to the ground
             target->CastSpell(nullptr, 35938, TRIGGERED_OLD_TRIGGERED);
     }
 };
@@ -1968,9 +1960,9 @@ void AddSC_boss_kaelthas()
     pNewScript->GetAI = &GetNewAIInstance<npc_nether_vaporAI>;
     pNewScript->RegisterSelf();
 
-    RegisterAuraScript<NetherVaporLightning>("spell_nether_vapor_lightning");
+    RegisterSpellScript<NetherVaporLightning>("spell_nether_vapor_lightning");
     RegisterSpellScript<NetherVaporSummon>("spell_nether_vapor_summon");
     RegisterSpellScript<NetherVaporSummonParent>("spell_nether_vapor_summon_parent");
     RegisterSpellScript<RemoveWeapons>("spell_remove_weapons");
-    RegisterAuraScript<spell_gravity_lapse_knockup>("spell_gravity_lapse_knockup");
+    RegisterSpellScript<spell_gravity_lapse_knockup>("spell_gravity_lapse_knockup");
 }

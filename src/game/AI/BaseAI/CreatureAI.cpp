@@ -23,8 +23,10 @@
 #include "World/World.h"
 #include "Entities/Creature.h"
 
-CreatureAI::CreatureAI(Creature* creature) :
-    UnitAI(creature),
+CreatureAI::CreatureAI(Creature* creature) : CreatureAI(creature, 0) { }
+
+CreatureAI::CreatureAI(Creature* creature, uint32 combatActions) :
+    UnitAI(creature, combatActions),
     m_creature(creature),
     m_deathPrevention(false), m_deathPrevented(false)
 {
@@ -37,8 +39,22 @@ CreatureAI::CreatureAI(Creature* creature) :
         m_visibilityDistance = sWorld.getConfig(CONFIG_FLOAT_SIGHT_GUARDER);
 }
 
+void CreatureAI::Reset()
+{
+    ResetAllTimers();
+    m_currentRangedMode = m_rangedMode;
+    m_attackDistance = m_chaseDistance;
+}
+
 void CreatureAI::EnterCombat(Unit* enemy)
 {
+    UnitAI::EnterCombat(enemy);
+    // TODO: Monitor this condition to see if it conflicts with any pets
+    if (m_creature->IsCritter() && !m_creature->IsPet() && !m_creature->IsInPanic() && enemy && enemy->IsPlayerControlled())
+    {
+        DoFlee(30000);
+        SetAIOrder(ORDER_CRITTER_FLEE); // mark as critter flee for custom handling
+    }
     if (enemy && (m_creature->IsGuard() || m_creature->IsCivilian()))
     {
         // Send Zone Under Attack message to the LocalDefense and WorldDefense Channels
@@ -52,6 +68,7 @@ void CreatureAI::AttackStart(Unit* who)
     if (!who || HasReactState(REACT_PASSIVE))
         return;
 
+    bool targetChange = m_unit->GetVictim() != nullptr && m_unit->GetVictim() != who;
     if (m_creature->Attack(who, m_meleeEnabled))
     {
         m_creature->EngageInCombatWith(who);
@@ -60,7 +77,7 @@ void CreatureAI::AttackStart(Unit* who)
         if (m_creature->IsCivilian())
             m_creature->CastSpell(m_creature, 43783, TRIGGERED_OLD_TRIGGERED);
 
-        HandleMovementOnAttackStart(who);
+        HandleMovementOnAttackStart(who, targetChange);
     }
 }
 
@@ -158,13 +175,54 @@ void CreatureAI::DoCallForHelp(float radius)
     m_creature->CallForHelp(radius);
 }
 
+void CreatureAI::OnCallForHelp(Unit* caller, Unit* enemy)
+{
+    if (FactionTemplateEntry const* factionTemplate = m_creature->GetFactionTemplateEntry())
+    {
+        if (factionTemplate->factionFlags & FACTION_TEMPLATE_FLEE_FROM_CALL_FOR_HELP)
+        {
+            if (m_creature->SetInPanic(10000))
+                SetAIOrder(ORDER_FLEE_FROM_CALL_FOR_HELP);
+            return;
+        }
+    }
+    AttackStart(enemy);
+}
+
 void CreatureAI::HandleAssistanceCall(Unit* sender, Unit* invoker)
 {
-    if (m_creature->IsInCombat() || !invoker)
+    if (!invoker)
         return;
-    if (m_creature->CanAssist(sender) && m_creature->CanAttackOnSight(invoker) && invoker->IsVisibleForOrDetect(m_creature, m_creature, false))
+    if (m_creature->CanAssistInCombatAgainst(sender, invoker) && m_creature->CanJoinInAttacking(invoker) && invoker->IsVisibleForOrDetect(m_creature, m_creature, false))
     {
         m_creature->SetNoCallAssistance(true);
         AttackStart(invoker);
     }
+}
+
+void CreatureAI::AddUnreachabilityCheck()
+{
+    m_teleportUnreachable = true;
+}
+
+CreatureSpellList const& CreatureAI::GetSpellList() const
+{
+    return m_creature->GetSpellList();
+}
+
+void CreatureAI::TimedFleeingEnded()
+{
+    UnitAI::TimedFleeingEnded();
+    if (GetAIOrder() == ORDER_FLEE_FROM_CALL_FOR_HELP && m_creature->IsAlive())
+    {
+        if (FactionTemplateEntry const* factionTemplate = m_creature->GetFactionTemplateEntry())
+            if (factionTemplate->factionFlags & FACTION_TEMPLATE_FLEE_FROM_CALL_FOR_HELP)
+                EnterEvadeMode();
+    }
+    if (GetAIOrder() == ORDER_CRITTER_FLEE && m_creature->IsAlive())
+    {
+        SetCombatScriptStatus(false);
+        EnterEvadeMode();
+    }
+    SetAIOrder(ORDER_NONE);
 }

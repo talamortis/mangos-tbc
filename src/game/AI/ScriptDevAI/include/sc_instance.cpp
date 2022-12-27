@@ -44,28 +44,7 @@ void ScriptedInstance::DoUseDoorOrButton(uint32 entry, uint32 withRestoreTime /*
 void ScriptedInstance::DoUseOpenableObject(uint32 entry, bool open, uint32 withRestoreTime, bool useAlternativeState)
 {
     if (GameObject* go = GetSingleGameObjectFromStorage(entry))
-    {
-        if (open)
-        {
-            if (go->GetGoState() == GO_STATE_READY)
-            {
-                if (go->GetLootState() == GO_READY)
-                    go->UseDoorOrButton(withRestoreTime, useAlternativeState);
-                else
-                    go->ResetDoorOrButton();
-            }
-        }
-        else
-        {
-            if (go->GetGoState() == GO_STATE_ACTIVE)
-            {
-                if (go->GetLootState() == GO_READY)
-                    go->UseDoorOrButton(withRestoreTime, useAlternativeState);
-                else
-                    go->ResetDoorOrButton();
-            }
-        }
-    }
+        go->UseOpenableObject(open, withRestoreTime, useAlternativeState);
 }
 
 /**
@@ -244,14 +223,15 @@ void ScriptedInstance::RespawnDbGuids(std::vector<uint32>& spawns, uint32 respaw
 }
 
 /// Returns a pointer to a loaded GameObject that was stored in m_goEntryGuidStore. Can return nullptr
-GameObject* ScriptedInstance::GetSingleGameObjectFromStorage(uint32 entry) const
+GameObject* ScriptedInstance::GetSingleGameObjectFromStorage(uint32 entry, bool skipDebugLog /*=false*/) const
 {
     auto iter = m_goEntryGuidStore.find(entry);
     if (iter != m_goEntryGuidStore.end())
         return instance->GetGameObject(iter->second);
 
     // Output log, possible reason is not added GO to map, or not yet loaded;
-    script_error_log("Script requested gameobject with entry %u, but no gameobject of this entry was created yet, or it was not stored by script for map %u.", entry, instance->GetId());
+    if (!skipDebugLog)
+        script_error_log("Script requested gameobject with entry %u, but no gameobject of this entry was created yet, or it was not stored by script for map %u.", entry, instance->GetId());
 
     return nullptr;
 }

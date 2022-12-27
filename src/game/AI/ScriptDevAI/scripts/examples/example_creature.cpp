@@ -22,6 +22,7 @@ SDCategory: Script Examples
 EndScriptData */
 
 #include "AI/ScriptDevAI/include/sc_common.h"
+#include "AI/ScriptDevAI/ScriptDevMgr.h"
 
 // **** This script is designed as an example for others to build on ****
 // **** Please modify whatever you'd like to as this script is only for developement ****
@@ -276,6 +277,27 @@ bool GossipSelect_example_creature(Player* pPlayer, Creature* pCreature, uint32 
     return true;
 }
 
+class DoubleXP : public PlayerScript
+{
+public:
+    DoubleXP() : PlayerScript("DoubleXP") {}
+
+    void OnGiveXP(Player* p, uint32& amount, Creature* victim) override
+    {
+        ChatHandler(p).PSendSysMessage("You have been awarded %u XP", amount);
+    }
+
+    void OnLogin(Player* player) override
+    {
+        ChatHandler(player).PSendSysMessage("Both Scripting Structures are working Side by Side!");
+    }
+
+    void OnLootItem(Player* player, Item* item, uint32 count, uint64 lootGUID)
+    {
+        ChatHandler(player).PSendSysMessage("Player has Just looted %u", item->GetEntry());
+    }
+};
+
 // This is the actual function called only once durring InitScripts()
 // It must define all handled functions that are to be run in this script
 void AddSC_example_creature()
@@ -286,4 +308,8 @@ void AddSC_example_creature()
     pNewScript->pGossipHello = &GossipHello_example_creature;
     pNewScript->pGossipSelect = &GossipSelect_example_creature;
     pNewScript->RegisterSelf(false);
+
+    new DoubleXP();
 }
+
+

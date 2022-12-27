@@ -34,6 +34,7 @@ INSERT INTO scripted_areatrigger VALUES
 (2046,'at_blackrock_spire'),
 (2066,'at_blackrock_spire'),
 (2067,'at_blackrock_spire'),
+(2746,'at_stormwind_recruiter'),
 (3066,'at_ravenholdt'),
 (3146,'at_hive_tower'),
 -- Darnassian bank
@@ -113,6 +114,16 @@ UPDATE gameobject_template SET ScriptName='go_unadorned_spike' WHERE entry IN(17
 UPDATE gameobject_template SET ScriptName='go_containment_coffer' WHERE entry=122088;
 UPDATE gameobject_template SET ScriptName='go_large_jack_o_lantern' WHERE entry=186887;
 UPDATE gameobject_template SET ScriptName='go_imp_in_a_ball' WHERE entry=185898;
+
+/* Outdoor PVP*/
+-- si
+UPDATE gameobject_template SET ScriptName='go_outdoor_pvp_notify' WHERE entry IN(181597,181598);
+-- ep
+UPDATE gameobject_template SET ScriptName='go_outdoor_pvp_notify' WHERE entry IN(181682,181955);
+-- halaa
+UPDATE gameobject_template SET ScriptName='go_outdoor_pvp_notify' WHERE entry IN(182297,182298,182299,182300,182266,182275,182276,182277);
+UPDATE gameobject_template SET ScriptName='go_outdoor_pvp_notify' WHERE entry IN(182301,182302,182303,182304,182267,182280,182281,182282);
+UPDATE gameobject_template SET ScriptName='go_outdoor_pvp_notify' WHERE entry IN(182222,182272,182273,182274,182305,182306,182307,182308);
 
 /* GUARD */
 UPDATE creature_template SET ScriptName='guard_azuremyst' WHERE entry=18038;
@@ -219,6 +230,7 @@ INSERT INTO scripted_event_id VALUES
 /* War Effort*/
 UPDATE creature_template SET ScriptName='npc_war_effort' WHERE
 entry IN(15383,15431,15432,15434,15437,15445,15446,15448,15450,15451,15452,15453,15455,15456,15457,15459,15460,15469,15477,15508,15512,15515,15522,15525,15528,15529,15532,15533,15534,15535);
+UPDATE gameobject_template SET ScriptName='go_scarab_gong' WHERE entry=180717; -- The Scarab Gong
 
 /*Midsummer*/
 UPDATE gameobject_template SET ScriptName='go_midsummer_bonfire' WHERE entry IN(187946,187945,187944,187943,187942,187941,187940,187939,187938,187937,187936,187935,187934,187933,187932,187931,187930,187929,187928,187927,187926,187925,187924,187923,187922,187921,187920,187919,187917,187916,187914,187564,187971,187973,187952,187963,187950,187961,187959,187957,187968,187948,187953,187970,187966,187975,187969,187951,187956,187954,187947,187972,187964,187559,187965,187949,187955,187967,187958,187974,187960,187962,181332,181333,181334,181335,181336,181337,188128,188129);
@@ -254,6 +266,23 @@ INSERT INTO scripted_areatrigger VALUES
 INSERT INTO scripted_areatrigger VALUES
 (4786,'at_brewfest_receive_keg'),
 (4787,'at_brewfest_send_keg');
+
+/* Scourge Invasion */
+UPDATE creature_template SET ScriptName='scourge_invasion_necrotic_shard' WHERE entry IN (16136,16172);
+UPDATE creature_template SET ScriptName='scourge_invasion_necropolis' WHERE entry=16401;
+UPDATE creature_template SET ScriptName='scourge_invasion_mouth' WHERE entry=16995;
+UPDATE creature_template SET ScriptName='scourge_invasion_necropolis_health' WHERE entry=16421;
+UPDATE creature_template SET ScriptName='scourge_invasion_necropolis_relay' WHERE entry=16386;
+UPDATE creature_template SET ScriptName='scourge_invasion_necropolis_proxy' WHERE entry=16398;
+UPDATE creature_template SET ScriptName='scourge_invasion_minion_spawner' WHERE entry IN (16306,16336,16338);
+UPDATE creature_template SET ScriptName='scourge_invasion_cultist_engineer' WHERE entry=16230;
+UPDATE creature_template SET ScriptName='scourge_invasion_minion' WHERE entry IN (16143,16383);
+UPDATE creature_template SET ScriptName='npc_pallid_horror' WHERE entry IN (16394,16382);
+UPDATE gameobject_template SET ScriptName='scourge_invasion_go_circle' WHERE entry=181136;
+UPDATE gameobject_template SET ScriptName='scourge_invasion_go_necropolis' WHERE entry IN (181154,181215,181223,181374,181373);
+
+/* Shaman */
+UPDATE creature_template SET ScriptName='npc_sentry_totem' WHERE entry=3968;
 
 /*  */
 /* ZONE */
@@ -307,6 +336,7 @@ UPDATE creature_template SET ScriptName='boss_grandmaster_vorpil' WHERE entry=18
 UPDATE creature_template SET ScriptName='boss_blackheart_the_inciter' WHERE entry=18667;
 UPDATE creature_template SET ScriptName='boss_ambassador_hellmaw' WHERE entry=18731;
 UPDATE creature_template SET ScriptName='npc_void_traveler' WHERE entry=19226;
+UPDATE creature_template SET ScriptName='dummy_blackheart_the_inciter' WHERE entry IN(19300,19301,19302,19303,19304);
 UPDATE gameobject_template SET ScriptName='go_screaming_hall_door' WHERE entry=183295;
 
 /* AZSHARA */
@@ -681,6 +711,7 @@ UPDATE creature_template SET ScriptName='boss_tethyr' WHERE entry=23899;
 UPDATE creature_template SET ScriptName='npc_major_mills' WHERE entry=23905;
 UPDATE creature_template SET ScriptName='mob_invis_firework_helper' WHERE entry=24025;
 UPDATE creature_template SET ScriptName='npc_smolderwing' WHERE entry=23789;
+UPDATE creature_template SET ScriptName='npc_theramore_spar_controller' WHERE entry=5090;
 
 INSERT INTO scripted_areatrigger VALUES
 (302,'at_sentry_point');
@@ -774,9 +805,7 @@ UPDATE instance_template SET ScriptName='instance_shattered_halls' WHERE map=540
 UPDATE instance_template SET ScriptName='instance_magtheridons_lair' WHERE map=544;
 UPDATE gameobject_template SET ScriptName='go_manticron_cube' WHERE entry=181713;
 UPDATE creature_template SET ScriptName='boss_magtheridon' WHERE entry=17257;
-UPDATE creature_template SET ScriptName='mob_abyssal' WHERE entry=17454;
 UPDATE creature_template SET ScriptName='mob_hellfire_channeler' WHERE entry=17256;
-UPDATE creature_template SET ScriptName='npc_target_trigger' WHERE entry=17474;
 
 /* HELLFIRE PENINSULA */
 UPDATE creature_template SET ScriptName='boss_doomlord_kazzak' WHERE entry=18728;
@@ -959,7 +988,6 @@ UPDATE creature_template SET ScriptName='npc_invible_man' WHERE entry=17286;
 UPDATE creature_template SET ScriptName='npc_icecrown_guardian' WHERE entry=16441;
 UPDATE creature_template SET ScriptName='npc_stoneskin_gargoyle' WHERE entry=16168;
 UPDATE creature_template SET ScriptName='npc_living_poison' WHERE entry=16027;
-UPDATE creature_template SET ScriptName='npc_archmage_tarsis' WHERE entry=16381;
 INSERT INTO scripted_event_id VALUES
 (10495,'event_naxxramas'),
 (10536,'event_naxxramas'),
@@ -997,7 +1025,8 @@ UPDATE instance_template SET ScriptName='instance_onyxias_lair' WHERE map=249;
 UPDATE creature_template SET ScriptName='boss_onyxia' WHERE entry=10184;
 
 /* ORGRIMMAR */
-UPDATE creature_template SET ScriptName='npc_shenthul' WHERE entry=3401;
+UPDATE creature_template SET ScriptName='npc_overlord_runthalak' WHERE entry=14392;
+UPDATE creature_template SET ScriptName='npc_high_overlord_saurfang' WHERE entry=14720;
 
 /* RAGEFIRE CHASM */
 
@@ -1123,6 +1152,8 @@ UPDATE creature_template SET ScriptName='npc_dashel_stonefist' WHERE entry=4961;
 UPDATE creature_template SET ScriptName='npc_lady_katrana_prestor' WHERE entry=1749;
 UPDATE creature_template SET ScriptName='npc_squire_rowe' WHERE entry=17804;
 UPDATE creature_template SET ScriptName='npc_reginald_windsor' WHERE entry =12580;
+UPDATE creature_template SET ScriptName='npc_major_mattingly' WHERE entry=14394;
+UPDATE creature_template SET ScriptName='npc_field_marshal_afrasiabi' WHERE entry=14721;
 
 /* STRANGLETHORN VALE */
 UPDATE creature_template SET ScriptName='mob_yenniku' WHERE entry=2530;
@@ -1340,6 +1371,7 @@ UPDATE creature_template SET ScriptName='npc_tirion_fordring' WHERE entry=12126;
 /* WESTFALL */
 UPDATE creature_template SET ScriptName='npc_daphne_stilwell' WHERE entry=6182;
 UPDATE creature_template SET ScriptName='npc_defias_traitor' WHERE entry=467;
+UPDATE creature_template SET ScriptName='npc_foreman_klaven_mortwake' WHERE entry=7053;
 
 /* WETLANDS */
 UPDATE creature_template SET ScriptName='npc_tapoke_slim_jahn' WHERE entry=4962;
@@ -1400,16 +1432,13 @@ UPDATE creature_template SET ScriptName='boss_venoxis' WHERE entry=14507;
 UPDATE creature_template SET ScriptName='boss_marli' WHERE entry=14510;
 UPDATE creature_template SET ScriptName='boss_mandokir' WHERE entry=11382;
 UPDATE creature_template SET ScriptName='mob_ohgan' WHERE entry=14988;
-UPDATE creature_template SET ScriptName='boss_jindo' WHERE entry=11380;
 UPDATE creature_template SET ScriptName='boss_hakkar' WHERE entry=14834;
 UPDATE creature_template SET ScriptName='boss_thekal' WHERE entry=14509;
 UPDATE creature_template SET ScriptName='boss_arlokk' WHERE entry=14515;
 UPDATE gameobject_template SET ScriptName='go_gong_of_bethekk' WHERE entry=180526;
-UPDATE creature_template SET ScriptName='boss_hazzarah' WHERE entry=15083;
 UPDATE creature_template SET ScriptName='boss_renataki' WHERE entry=15084;
 UPDATE creature_template SET ScriptName='mob_zealot_lorkhan' WHERE entry=11347;
 UPDATE creature_template SET ScriptName='mob_zealot_zath' WHERE entry=11348;
-UPDATE creature_template SET ScriptName='mob_healing_ward' WHERE entry=14987;
 UPDATE creature_template SET ScriptName='npc_gurubashi_bat_rider' WHERE entry=14750;
 UPDATE creature_template SET ScriptName='npc_zulian_prowler' WHERE entry=15101;
 UPDATE creature_template SET ScriptName='npc_soulflayer' WHERE entry=11359;
@@ -1592,9 +1621,6 @@ INSERT INTO script_texts (entry,content_default,sound,type,language,emote,broadc
 
 ('-1000207','Mmm. Me thirsty!','0','0','0','0','18172','bladespire ogre SAY_BREW_2'),
 ('-1000208','Ohh, look! Bloodmaul Brew! Mmmm...','0','0','0','0','18170','bladespire ogre SAY_BREW_3'),
-
-('-1000209','Very well.  Let''s see what you have to show me, $n','0','0','1','0','11734','anvilward SAY_ANVIL1'),
-('-1000210','What manner of trick is this, $r?  If you seek to ambush me, I warn you I will not go down quietly!  ','0','0','1','0','11735','anvilward SAY_ANVIL2'),
 
 ('-1000211','Warning!  %s emergency shutdown process initiated by $n.  Shutdown will complete in two minutes.','0','2','0','0','18155','manaforge_control EMOTE_START'),
 ('-1000212','Emergency shutdown will complete in one minute.','0','2','0','0','18156','manaforge_control EMOTE_60'),
@@ -2019,8 +2045,8 @@ INSERT INTO script_texts (entry,content_default,sound,type,language,emote,broadc
 
 ('-1000590','The feast of corruption is no more! Magtheridon has fallen to the battle prowess of $n and $g his:her; allies! Witness the might of the Alliance! A pit lord commander is destroyed!','0','6','0','15','20754','Yell Magtheridon Death1 A'),
 ('-1000591','Hear me brothers and sisters-in-arms! The time of our enemies is at an end! We must strike at the fel orcs that remain! Exterminate them like the vermin that they are! Carry with you the favor of the Sons of Lothar!','0','6','0','22','20755','Yell Magtheridon Death2 A'),
-('-1000592','For the first time - in as long as I can remember - there is silence.','0','6','0','15','0','Yell Magtheridon Death1 H'),
-('-1000593','This defeat is not only a blow to Illidan, $n. The Legion too reels... A pit lord commander has been defeated. The siege of Hellfire Citadel now holds no purpose for the Burning Legion. All of their efforts will undoubtedly be turned upon the Black Temple. Redemption comes for Illidan... and soon.','0','6','0','22','0','Yell Magtheridon Death2 H'),
+('-1000592','Hellfire Citadel is ours! The source of Illidan''s fel orc army is no more! Magtheridon has fallen to the might of $n and $g his:her; allies!','0','6','0','15','20765','Yell Magtheridon Death1 H'),
+('-1000593','The time for us to rise and strike at the fel orcs that remain is now! Do this for your Warchief! Do this for the Horde!','0','6','0','22','20766','Yell Magtheridon Death2 H'),
 
 ('-1000603','Do not test me, scurvy dog!  I''m trained in the way of the Blood Knights!','0','0','0','0','23810','silvermoon harry SAY_AGGRO'),
 ('-1000604','I''ll pay!  I''ll pay!  Eeeek!  Please don''t hurt me!','0','0','0','0','23812','silvermoon harry SAY_BEATEN'),
@@ -3265,8 +3291,6 @@ INSERT INTO script_texts (entry,content_default,sound,type,language,emote,broadc
 ('-1309012','Feast on $N, my pretties!','0','1','0','0','10472','arlokk SAY_FEAST_PANTHER'),
 ('-1309013','At last, I am free of the Soulflayer!','8412','1','0','0','10450','arlokk SAY_DEATH'),
 
-('-1309014','Welcome to the great show, friends.  Step right up to die!','8425','1','0','0','10449','jindo SAY_AGGRO'),
-
 ('-1309015','I''ll feed your souls to Hakkar himself!','8413','1','0','0','10446','mandokir SAY_AGGRO'),
 ('-1309016','DING!','0','1','0','0','10505','mandokir SAY_DING_KILL'),
 ('-1309017','Grats!','0','1','0','0','10601','mandokir SAY_GRATS_JINDO'),
@@ -3588,10 +3612,6 @@ INSERT INTO script_texts (entry,content_default,sound,type,language,emote,broadc
 ('-1532040','It will all be over soon!','9307','1','0','25','15332','crone SAY_CRONE_INTRO2'),
 ('-1532041','How could you? What a cruel, cruel world...','9178','1','0','0','15052','crone SAY_CRONE_DEATH'),
 ('-1532042','Fixed you, didn''t I?','9180','1','0','0','15051','crone SAY_CRONE_SLAY'),
-
-('-1532043','The better to own you with!','9276','1','0','0','14212','wolf SAY_WOLF_AGGRO'),
-('-1532044','Mmmm... delicious.','9277','1','0','0','15153','wolf SAY_WOLF_SLAY'),
-('-1532045','Run away little girl, run away!','9278','1','0','0','14213','wolf SAY_WOLF_HOOD'),
 
 ('-1532046','What devil art thou, that dost torment me thus?','9196','1','0','0','15070','julianne SAY_JULIANNE_AGGRO'),
 ('-1532047','Where is my lord? Where is my Romulo?','9199','1','0','0','0','julianne SAY_JULIANNE_ENTER'),
@@ -5381,7 +5401,7 @@ INSERT INTO gossip_texts (entry,content_default,comment) VALUES
 --
 
 TRUNCATE script_waypoint;
-INSERT INTO script_waypoint (entry, pathId, pointid, position_x, position_y, position_z, orientation, waittime, script_id, comment) VALUES
+INSERT INTO script_waypoint (Entry, PathId, Point, PositionX, PositionY, PositionZ, Orientation, WaitTime, ScriptId, Comment) VALUES
 (349,0,1,-8769.59,-2185.73,141.975,0,0,0,''),
 (349,0,2,-8776.54,-2193.78,140.96,0,0,0,''),
 (349,0,3,-8783.29,-2194.82,140.462,0,0,0,''),
@@ -7069,14 +7089,17 @@ INSERT INTO script_waypoint (entry, pathId, pointid, position_x, position_y, pos
 (12858,0,21,1776.9,-2024.56,109.83,0,0,0,'win'),
 (12858,0,22,1776.87,-2028.31,109.83,0,60000,0,'stay'),
 (12858,0,23,1776.9,-2028.3,109.83,0,0,0,''),
-(15420,0,1,9294.78,-6682.51,22.42,0,0,0,''),
-(15420,0,2,9298.27,-6667.99,22.42,0,0,0,''),
-(15420,0,3,9309.63,-6658.84,22.43,0,0,0,''),
-(15420,0,4,9304.43,-6649.31,26.46,0,0,0,''),
-(15420,0,5,9298.83,-6648,28.61,0,0,0,''),
-(15420,0,6,9291.06,-6653.46,31.83,0,2500,0,''),
-(15420,0,7,9289.08,-6660.17,31.85,0,5000,0,''),
-(15420,0,8,9291.06,-6653.46,31.83,0,0,0,''),
+(15420, 0, 1, 9296.278, -6676.996, 22.358725, 100, 0, 0, 'Prospector Anvilward'),
+(15420, 0, 2, 9299.323, -6668.9614, 22.41846, 100, 0, 0, 'Prospector Anvilward'),
+(15420, 0, 3, 9303.353, -6666.7637, 22.432236, 100, 0, 0, 'Prospector Anvilward'),
+(15420, 0, 4, 9307.93, -6660.8057, 22.43064, 100, 0, 0, 'Prospector Anvilward'),
+(15420, 0, 5, 9309.302, -6656.1987, 23.005793, 100, 0, 0, 'Prospector Anvilward'),
+(15420, 0, 6, 9307.386, -6651.9053, 24.834118, 100, 0, 0, 'Prospector Anvilward'),
+(15420, 0, 7, 9300.505, -6648.1587, 28.052294, 100, 0, 0, 'Prospector Anvilward'),
+(15420, 0, 8, 9293.393, -6650.7246, 30.57717, 100, 0, 0, 'Prospector Anvilward'),
+(15420, 0, 9, 9290.5205, -6654.362, 31.830189, 100, 0, 0, 'Prospector Anvilward'),
+(15420, 0, 10, 9289.944, -6657.774, 31.828085, 100, 0, 0, 'Prospector Anvilward'),
+(15420, 0, 11, 9290.866, -6658.0156, 31.823935, 0.104719758033752441, 60000, 0, 'Prospector Anvilward'),
 (16295,0,1,7545.07,-7359.87,162.354,0,4000,0,'SAY_START'),
 (16295,0,2,7550.05,-7362.24,162.236,0,0,0,''),
 (16295,0,3,7566.98,-7364.32,161.739,0,0,0,''),

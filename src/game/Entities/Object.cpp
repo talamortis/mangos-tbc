@@ -540,10 +540,6 @@ void Object::BuildValuesUpdate(uint8 updatetype, ByteBuffer* data, UpdateMask* u
                     {
                         // Gamemasters should be always able to select units - remove not selectable flag:
                         value &= ~UNIT_FLAG_NOT_SELECTABLE;
-
-                        // Gamemasters have power to cliffwalk in GM mode:
-                        if (target == this)
-                            value |= UNIT_FLAG_UNK_0;
                     }
 
                     // Client bug workaround: Fix for missing chat channels when resuming taxi flight on login
@@ -1686,6 +1682,7 @@ void WorldObject::MovePositionToFirstCollision(Position& pos, float dist, float 
             transport->CalculatePassengerOffset(src.x, src.y, src.z);
             transport->CalculatePassengerOffset(dest.x, dest.y, dest.z);
         }
+        UpdateAllowedPositionZ(dest.x, dest.y, dest.z);
         path.calculate(src, dest, false, true);
         if (path.getPathType())
         {
@@ -1773,10 +1770,10 @@ bool WorldObject::IsPositionValid() const
     return MaNGOS::IsValidMapCoord(m_position.x, m_position.y, m_position.z, m_position.o);
 }
 
-void WorldObject::MonsterSay(const char* text, uint32 /*language*/, Unit const* target) const
+void WorldObject::MonsterSay(char const* text, uint32 language, Unit const* target) const
 {
     WorldPacket data;
-    ChatHandler::BuildChatPacket(data, CHAT_MSG_MONSTER_SAY, text, LANG_UNIVERSAL, CHAT_TAG_NONE, GetObjectGuid(), GetName(),
+    ChatHandler::BuildChatPacket(data, CHAT_MSG_MONSTER_SAY, text, Language(language), CHAT_TAG_NONE, GetObjectGuid(), GetName(),
                                  target ? target->GetObjectGuid() : ObjectGuid(), target ? target->GetName() : "");
     SendMessageToSetInRange(data, sWorld.getConfig(CONFIG_FLOAT_LISTEN_RANGE_SAY), true);
 }
@@ -1944,6 +1941,14 @@ void WorldObject::SendMessageToSetExcept(WorldPacket const& data, Player const* 
     }
 }
 
+void WorldObject::SendMessageToAllWhoSeeMe(WorldPacket const& data, bool /*self*/) const
+{
+    if (IsInWorld())
+        for (ObjectGuid guid : m_clientGUIDsIAmAt)
+            if (Player* player = GetMap()->GetPlayer(guid))
+                player->GetSession()->SendPacket(data);
+}
+
 void WorldObject::SendObjectDeSpawnAnim(ObjectGuid guid) const
 {
     WorldPacket data(SMSG_GAMEOBJECT_DESPAWN_ANIM, 8);
@@ -2084,10 +2089,13 @@ Creature* WorldObject::SummonCreature(TempSpawnSettings settings, Map* map)
         }
     }
 
+    uint32 relayId = 0;
     if (settings.spawnDataEntry)
     {
         if (CreatureSpawnTemplate const* templateData = sObjectMgr.GetCreatureSpawnTemplate(settings.spawnDataEntry))
         {
+            if (templateData->npcFlags != -1)
+                creature->SetUInt32Value(UNIT_NPC_FLAGS, uint32(templateData->npcFlags));
             if (templateData->unitFlags != -1)
                 creature->SetUInt32Value(UNIT_FIELD_FLAGS, uint32(templateData->unitFlags));
             if (templateData->faction > 0)
@@ -2104,16 +2112,27 @@ Creature* WorldObject::SummonCreature(TempSpawnSettings settings, Map* map)
                 creature->SetWalk(false);
             if (templateData->IsHovering())
                 creature->SetHover(true);
+            relayId = templateData->relayId;
         }
     }
 
     if (settings.spellId)
         creature->SetUInt32Value(UNIT_CREATED_BY_SPELL, settings.spellId);
 
+    if (settings.level)
+        creature->SelectLevel(settings.level);
+
     if (settings.ownerGuid)
         creature->SetOwnerGuid(settings.ownerGuid);
 
+    // intended only for visual way point debug feature
+    if (settings.waypointId)
+        creature->SetLevel(settings.waypointId);
+
     creature->Summon(settings.spawnType, settings.despawnTime);                  // Also initializes the AI and MMGen
+
+    if (relayId)
+        map->ScriptsStart(sRelayScripts, relayId, creature, settings.dbscriptTarget);
 
     if (settings.corpseDespawnTime)
         creature->SetCorpseDelay(settings.corpseDespawnTime);
@@ -2136,7 +2155,7 @@ Creature* WorldObject::SummonCreature(uint32 id, float x, float y, float z, floa
     return WorldObject::SummonCreature(TempSpawnSettings(this, id, x, y, z, ang, spwtype, despwtime, asActiveObject, setRun, pathId, faction, modelId, spawnCounting, forcedOnTop), GetMap());
 }
 
-GameObject* WorldObject::SpawnGameObject(uint32 dbGuid, Map* map)
+GameObject* WorldObject::SpawnGameObject(uint32 dbGuid, Map* map, uint32 forcedEntry)
 {
     GameObjectData const* data = sObjectMgr.GetGOData(dbGuid);
     if (!data)
@@ -2145,8 +2164,8 @@ GameObject* WorldObject::SpawnGameObject(uint32 dbGuid, Map* map)
     if (data->spawnMask && !map->CanSpawn(TYPEID_GAMEOBJECT, dbGuid))
         return nullptr;
 
-    GameObject* gameobject = GameObject::CreateGameObject(data->id);
-    if (!gameobject->LoadFromDB(dbGuid, map, map->GenerateLocalLowGuid(HIGHGUID_GAMEOBJECT)))
+    GameObject* gameobject = GameObject::CreateGameObject(forcedEntry ? forcedEntry : data->id);
+    if (!gameobject->LoadFromDB(dbGuid, map, map->GenerateLocalLowGuid(HIGHGUID_GAMEOBJECT), forcedEntry))
     {
         delete gameobject;
         return nullptr;
@@ -2154,7 +2173,7 @@ GameObject* WorldObject::SpawnGameObject(uint32 dbGuid, Map* map)
     return gameobject;
 }
 
-Creature* WorldObject::SpawnCreature(uint32 dbGuid, Map* map)
+Creature* WorldObject::SpawnCreature(uint32 dbGuid, Map* map, uint32 forcedEntry)
 {
     CreatureData const* data = sObjectMgr.GetCreatureData(dbGuid);
     if (!data)
@@ -2163,10 +2182,12 @@ Creature* WorldObject::SpawnCreature(uint32 dbGuid, Map* map)
         return nullptr;
     }
 
-    CreatureInfo const* cinfo = ObjectMgr::GetCreatureTemplate(data->id);
+    uint32 entry = forcedEntry ? forcedEntry : data->id;
+
+    CreatureInfo const* cinfo = ObjectMgr::GetCreatureTemplate(entry);
     if (!cinfo)
     {
-        sLog.outErrorDb("Creature (Entry: %u) not found in table `creature_template`, can't load. ", data->id);
+        sLog.outErrorDb("Creature (Entry: %u) not found in table `creature_template`, can't load. ", entry);
         return nullptr;
     }
 
@@ -2175,7 +2196,7 @@ Creature* WorldObject::SpawnCreature(uint32 dbGuid, Map* map)
 
     Creature* creature = new Creature;
     // DEBUG_LOG("Spawning creature %u",*itr);
-    if (!creature->LoadFromDB(dbGuid, map, map->GenerateLocalLowGuid(cinfo->GetHighGuid())))
+    if (!creature->LoadFromDB(dbGuid, map, map->GenerateLocalLowGuid(cinfo->GetHighGuid()), forcedEntry))
     {
         delete creature;
         return nullptr;
@@ -2712,6 +2733,21 @@ bool WorldObject::IsSpellReady(uint32 spellId, ItemPrototype const* itemProto /*
         return false;
 
     return IsSpellReady(*spellEntry, itemProto);
+}
+
+bool WorldObject::IsSpellOnPermanentCooldown(SpellEntry const& spellEntry) const
+{
+    TimePoint now;
+    if (IsInWorld())
+        now = GetMap()->GetCurrentClockTime();
+    else
+        now = World::GetCurrentClockTime();
+
+    auto itr = m_cooldownMap.FindBySpellId(spellEntry.Id);
+    if (itr != m_cooldownMap.end() && !(*itr).second->IsSpellCDExpired(now))
+        return itr->second->IsPermanent();
+
+    return false;
 }
 
 bool WorldObject::HasGCDOrCooldownWithinMargin(SpellEntry const& spellEntry, ItemPrototype const* itemProto /*= nullptr*/)

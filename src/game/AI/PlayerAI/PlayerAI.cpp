@@ -33,21 +33,6 @@ PlayerAI::PlayerAI(Player* player) : UnitAI(player), m_player(player), m_spellsD
     AddCustomAction(GENERIC_THREAT_CHANGE, true, [&]() { m_executeTargetChange = true; });
 }
 
-uint32 PlayerAI::LookupHighestLearnedRank(uint32 spellId)
-{
-    uint32 ownedRank = 0;
-    uint32 higherRank = spellId;
-    do
-    {
-        if (m_player->HasSpell(higherRank))
-            ownedRank = higherRank;
-        else
-            break;
-    }
-    while ((higherRank = sSpellMgr.GetNextSpellInChain(ownedRank)));
-    return ownedRank;
-}
-
 void PlayerAI::AddPlayerSpellAction(uint32 spellId, std::function<Unit*()> selector)
 {
     if (!selector)
@@ -102,7 +87,12 @@ void PlayerAI::ExecuteSpells()
 
 void PlayerAI::JustGotCharmed(Unit* charmer)
 {
-    m_player->GetMotionMaster()->MoveFollow(charmer, PET_FOLLOW_DIST, PET_FOLLOW_ANGLE, true);
+    if (charmer->GetFormationSlot())
+    {
+        charmer->GetFormationSlot()->GetFormationData()->Add(m_player);
+    }
+    else
+        m_player->GetMotionMaster()->MoveFollow(charmer, PET_FOLLOW_DIST, PET_FOLLOW_ANGLE, true);
     AttackClosestEnemy();
 }
 
@@ -110,7 +100,14 @@ void PlayerAI::EnterEvadeMode()
 {
     m_player->CombatStopWithPets(true);
     if (Unit* charmer = m_player->GetCharmer())
-        m_player->GetMotionMaster()->MoveFollow(charmer, PET_FOLLOW_DIST, PET_FOLLOW_ANGLE, true);
+    {
+        if (charmer->GetFormationSlot())
+        {
+            charmer->GetFormationSlot()->GetFormationData()->Add(m_player);
+        }
+        else
+            m_player->GetMotionMaster()->MoveFollow(charmer, PET_FOLLOW_DIST, PET_FOLLOW_ANGLE, true);
+    }
 }
 
 void PlayerAI::AttackClosestEnemy()
@@ -125,17 +122,4 @@ void PlayerAI::AttackClosestEnemy()
             distance = curDistance;
         }
     });
-}
-
-void PlayerAI::UpdateAI(const uint32 diff)
-{
-    UpdateTimers(diff);
-
-    // Check if we have a current target
-    if (!m_player->SelectHostileTarget() || !m_player->GetVictim())
-        return;
-
-    ExecuteSpells();
-
-    DoMeleeAttackIfReady();
 }

@@ -202,7 +202,7 @@ void BattleGroundWS::ProcessPlayerFlagScoreEvent(Player* player)
 
     DEBUG_LOG("BattleGroundWS: Team %u has scored.", player->GetTeam());
 
-    player->RemoveAurasWithInterruptFlags(AURA_INTERRUPT_FLAG_ENTER_PVP_COMBAT);
+    player->RemoveAurasWithInterruptFlags(AURA_INTERRUPT_FLAG_PVP_ACTIVE_CANCELS);
 
     Team team = player->GetTeam();
     PvpTeamIndex teamIdx = GetTeamIndexByTeamId(team);
@@ -300,6 +300,13 @@ void BattleGroundWS::HandlePlayerDroppedFlag(Player* player)
     }
 }
 
+bool BattleGroundWS::IsFlagHeldFor45Seconds(Team flagHolderTeam)
+{
+    PvpTeamIndex teamIdx = GetTeamIndexByTeamId(flagHolderTeam);
+    PvpTeamIndex otherTeamIdx = GetOtherTeamIndex(teamIdx);
+    return m_flagPickupFromBaseTime[otherTeamIdx] + std::chrono::seconds(45) < GetBgMap()->GetCurrentClockTime();
+}
+
 // Function that handles the flag pick up from the base
 void BattleGroundWS::ProcessFlagPickUpFromBase(Player* player, Team attackerTeam)
 {
@@ -314,6 +321,7 @@ void BattleGroundWS::ProcessFlagPickUpFromBase(Player* player, Team attackerTeam
     SpawnEvent(otherTeamIdx, 0, false);
     SetFlagCarrier(otherTeamIdx, player->GetObjectGuid());
     m_flagState[otherTeamIdx] = BG_WS_FLAG_STATE_ON_PLAYER;
+    m_flagPickupFromBaseTime[otherTeamIdx] = GetBgMap()->GetCurrentClockTime();
 
     // update world state to show correct flag carrier
     UpdateFlagState(attackerTeam, BG_WS_FLAG_STATE_ON_PLAYER);
@@ -327,7 +335,7 @@ void BattleGroundWS::ProcessFlagPickUpFromBase(Player* player, Team attackerTeam
 
     PlaySoundToAll(wsgFlagData[otherTeamIdx][BG_WS_FLAG_ACTION_PICKEDUP].soundId);
     SendMessageToAll(wsgFlagData[otherTeamIdx][BG_WS_FLAG_ACTION_PICKEDUP].messageId, wsgFlagData[teamIdx][BG_WS_FLAG_ACTION_PICKEDUP].chatType, player);
-    player->RemoveAurasWithInterruptFlags(AURA_INTERRUPT_FLAG_ENTER_PVP_COMBAT);
+    player->RemoveAurasWithInterruptFlags(AURA_INTERRUPT_FLAG_PVP_ACTIVE_CANCELS);
 }
 
 // Function that handles the click action on the dropped flag
@@ -388,7 +396,7 @@ void BattleGroundWS::ProcessDroppedFlagActions(Player* player, GameObject* targe
     }
 
     if (actionId != BG_WS_FLAG_ACTION_NONE)
-        player->RemoveAurasWithInterruptFlags(AURA_INTERRUPT_FLAG_ENTER_PVP_COMBAT);
+        player->RemoveAurasWithInterruptFlags(AURA_INTERRUPT_FLAG_PVP_ACTIVE_CANCELS);
 }
 
 // Handle flag click event

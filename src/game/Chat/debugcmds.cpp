@@ -319,6 +319,22 @@ bool ChatHandler::HandleDebugPetDismissSound(char* args)
     return true;
 }
 
+bool ChatHandler::HandleDebugAreaTriggersCommand(char* /*args*/)
+{
+    Player* player = m_session->GetPlayer();
+    if (!player->isDebuggingAreaTriggers())
+    {
+        PSendSysMessage(LANG_DEBUG_AREATRIGGER_ON);
+        player->SetDebuggingAreaTriggers(true);
+    }
+    else
+    {
+        PSendSysMessage(LANG_DEBUG_AREATRIGGER_OFF);
+        player->SetDebuggingAreaTriggers(false);
+    }
+    return true;
+}
+
 // Send notification in channel
 bool ChatHandler::HandleDebugSendChannelNotifyCommand(char* args)
 {
@@ -1868,5 +1884,20 @@ bool ChatHandler::HandleDebugPacketLog(char* args)
         return false;
 
     GetSession()->SetPacketLogging(value == 1);
+    return true;
+}
+
+bool ChatHandler::HandleDebugDbscript(char* args)
+{
+    Unit* target = getSelectedUnit();
+    uint32 chosenId;
+    if (!ExtractUInt32(&args, chosenId))
+        return false;
+
+    Player* player = GetSession()->GetPlayer();
+    if (!player || !player->IsInWorld())
+        return false;
+
+    player->GetMap()->ScriptsStart(sRelayScripts, chosenId, player, target);
     return true;
 }

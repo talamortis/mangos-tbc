@@ -290,13 +290,13 @@ static const DialogueEntry aEventDialogue[] =
     {SAY_AKAMA_LEAVE,           NPC_AKAMA,              0},
     // Maiev cutscene
     {DUMMY_EMOTE_ID_4,          0,                      1500},
-    {SAY_ILLIDAN_SPEECH_6,      NPC_ILLIDAN_STORMRAGE,  7000},
+    {SAY_ILLIDAN_SPEECH_6,      NPC_ILLIDAN_STORMRAGE,  7500},
     {SPELL_SUMMMON_MAIEV,       0,                      1000},
-    {SAY_MAIEV_SPEECH_7,        NPC_MAIEV_SHADOWSONG,   2000},
+    {SAY_MAIEV_SPEECH_7,        NPC_MAIEV_SHADOWSONG,   2500},
     {EMOTE_ONESHOT_EXCLAMATION, 0,                      6000},
-    {SAY_ILLIDAN_SPEECH_8,      NPC_ILLIDAN_STORMRAGE,  4000},
+    {SAY_ILLIDAN_SPEECH_8,      NPC_ILLIDAN_STORMRAGE,  4500},
     {EMOTE_STATE_READY1H,       0,                      2000},
-    {SAY_MAIEV_SPEECH_9,        NPC_MAIEV_SHADOWSONG,   2000},
+    {SAY_MAIEV_SPEECH_9,        NPC_MAIEV_SHADOWSONG,   2500},
     {EMOTE_ONESHOT_YES,         0,                      2500},
     {EMOTE_ONESHOT_ROAR,        0,                      2500},
     {DUMMY_EMOTE_ID_5,          0,                      1000},
@@ -316,7 +316,7 @@ static const DialogueEntry aEpilogueDialogue[] =
 };
 
 /*** Phase Names ***/
-enum Phase
+enum IllidanPhase
 {
     PHASE_1_AKAMA,
     PHASE_2_FLIGHT,
@@ -404,9 +404,9 @@ enum IllidanActions
 ## boss_illidan_stormrage
 ######*/
 
-struct boss_illidan_stormrageAI : public RangedCombatAI, private DialogueHelper
+struct boss_illidan_stormrageAI : public CombatAI, private DialogueHelper
 {
-    boss_illidan_stormrageAI(Creature* creature) : RangedCombatAI(creature, ILLIDAN_ACTIONS_MAX),
+    boss_illidan_stormrageAI(Creature* creature) : CombatAI(creature, ILLIDAN_ACTIONS_MAX),
         DialogueHelper(aEventDialogue), m_instance(static_cast<instance_black_temple*>(creature->GetInstanceData()))
     {
         //TODO: Review timers
@@ -446,13 +446,13 @@ struct boss_illidan_stormrageAI : public RangedCombatAI, private DialogueHelper
 
     instance_black_temple* m_instance;
 
-    Phase m_phase;
+    IllidanPhase m_phase;
 
     float m_targetMoveX, m_targetMoveY, m_targetMoveZ;
 
     uint8 m_flameAzzinothKilled;
 
-    Phase m_prevPhase;                                    // store the previous phase in transition
+    IllidanPhase m_prevPhase;                             // store the previous phase in transition
     PhaseTransition m_currentTransition;                  // store the current transition between phases
     uint32 m_phaseTransitionStage;
     uint8 m_curEyeBlastLoc;
@@ -784,6 +784,7 @@ struct boss_illidan_stormrageAI : public RangedCombatAI, private DialogueHelper
                 break;
             case NPC_MAIEV_SHADOWSONG:
                 summoned->SetFacingToObject(m_creature);
+                m_creature->SetFacingToObject(summoned);
                 m_creature->SetTarget(summoned);
                 break;
             case NPC_CAGE_TRAP_TRIGGER_1:
@@ -2089,13 +2090,8 @@ struct npc_flame_of_azzinothAI : public CombatAI
             case FLAME_ACTION_CHARGE:
             {
                 if (Unit* target = DoPickChargeTarget())
-                {
                     if (DoCastSpellIfCan(target, SPELL_CHARGE) == CAST_OK)
-                    {
                         ResetCombatAction(action, 5000);
-                        Enrage();
-                    }
-                }
                 return;
             }
         }
@@ -2233,9 +2229,9 @@ struct npc_blade_of_azzinothAI : public ScriptedAI
     void UpdateAI(const uint32 /*diff*/) override { }
 };
 
-struct npc_parasitic_shadowfiendAI : public ScriptedAI, public TimerManager
+struct npc_parasitic_shadowfiendAI : public ScriptedAI
 {
-    npc_parasitic_shadowfiendAI(Creature* creature) : ScriptedAI(creature), m_instance(static_cast<ScriptedInstance*>(creature->GetInstanceData()))
+    npc_parasitic_shadowfiendAI(Creature* creature) : ScriptedAI(creature, 0), m_instance(static_cast<ScriptedInstance*>(creature->GetInstanceData()))
     {
         SetReactState(REACT_PASSIVE);
         AddCustomAction(1, 2000u, [&]()
@@ -2274,12 +2270,6 @@ struct npc_parasitic_shadowfiendAI : public ScriptedAI, public TimerManager
         DoCastSpellIfCan(nullptr, SPELL_SHADOWFORM_PARASITE, CAST_TRIGGERED | CAST_AURA_NOT_PRESENT);
         DoCastSpellIfCan(nullptr, SPELL_PARASITIC_SHADOWFIEND_P, CAST_TRIGGERED | CAST_AURA_NOT_PRESENT);
         m_creature->SetCorpseDelay(1);
-    }
-
-    void UpdateAI(const uint32 diff)
-    {
-        UpdateTimers(diff);
-        ScriptedAI::UpdateAI(diff);
     }
 };
 
@@ -2394,6 +2384,6 @@ void AddSC_boss_illidan()
     pNewScript->pGOUse = &GOUse_go_cage_trap;
     pNewScript->RegisterSelf();
 
-    RegisterScript<ParasiticShadowfiendAura>("spell_parasitic_shadowfiend");
+    RegisterSpellScript<ParasiticShadowfiendAura>("spell_parasitic_shadowfiend");
     RegisterSpellScript<ShadowPrison>("spell_shadow_prison");
 }

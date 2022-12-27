@@ -40,6 +40,7 @@
 #include <utility>
 #include <vector>
 #include <array>
+#include <unordered_map>
 
 class Object;
 class ObjectGuid;
@@ -187,6 +188,9 @@ enum eConfigUInt32Values
     CONFIG_UINT32_MIRRORTIMER_FATIGUE_MAX,
     CONFIG_UINT32_MIRRORTIMER_BREATH_MAX,
     CONFIG_UINT32_MIRRORTIMER_ENVIRONMENTAL_MAX,
+    CONFIG_UINT32_ENVIRONMENTAL_DAMAGE_MIN,
+    CONFIG_UINT32_ENVIRONMENTAL_DAMAGE_MAX,
+    CONFIG_UINT32_INTERACTION_PAUSE_TIMER,
     CONFIG_UINT32_MIN_LEVEL_STAT_SAVE,
     CONFIG_UINT32_CHARDELETE_KEEP_DAYS,
     CONFIG_UINT32_CHARDELETE_METHOD,
@@ -541,6 +545,13 @@ class World
         }
 
         void SetInitialWorldSettings();
+
+        /*Module Configs*/
+        void LoadModuleConfig();
+        bool GetModuleBoolConfig(std::string config, bool value);
+        std::string GetModuleStringConfig(std::string config, std::string value);
+        int32 GetModuleIntConfig(std::string conf, uint32 value);
+
         void LoadConfigSettings(bool reload = false);
         void LoadSpamRecords(bool reload = false);
 
@@ -552,6 +563,15 @@ class World
         void SendZoneUnderAttackMessage(uint32 zoneId, Team team);
         void SendDefenseMessage(uint32 zoneId, int32 textId);
         void SendDefenseMessageBroadcastText(uint32 zoneId, uint32 textId);
+
+        struct ModuleConfig
+        {
+            uint32 id;
+            std::string config;
+            std::string value;
+        };
+
+        std::unordered_map<std::string, ModuleConfig> _moduleConfig;
 
         /// Are we in the middle of a shutdown?
         bool IsShutdowning() const { return m_ShutdownTimer > 0; }

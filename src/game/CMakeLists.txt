@@ -16,7 +16,29 @@
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #
 
+
 set(LIBRARY_NAME game)
+
+
+set(scripts_STAT_SRCS
+  ${scripts_STAT_SRCS}
+  ${BUILDDIR}/GenLoader.cpp
+)
+
+CU_SET_PATH("AC_SCRIPTS_DIR" "${CMAKE_CURRENT_LIST_DIR}")
+
+CU_GET_GLOBAL("AC_ADD_SCRIPTS_LIST")
+CU_GET_GLOBAL("AC_ADD_SCRIPTS_INCLUDE")
+CU_GET_GLOBAL("AC_SCRIPTS_SOURCES")
+
+
+set("AC_SCRIPTS_INCLUDES" "")
+
+FOREACH (include ${AC_ADD_SCRIPTS_INCLUDE})
+    set("AC_SCRIPTS_INCLUDES" "#include \"${include}\"\n${AC_SCRIPTS_INCLUDES}")
+ENDFOREACH()
+
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/GenLoader.cpp.cmake ${CMAKE_CURRENT_SOURCE_DIR}/GenLoader.cpp)
 
 add_definitions(-DDT_POLYREF64)
 add_definitions(-D__ASSERT_MACROS_DEFINE_VERSIONS_WITHOUT_UNDERSCORES=0)
@@ -80,7 +102,7 @@ target_link_libraries(${LIBRARY_NAME}
   PRIVATE shared
   PRIVATE g3dlite
   PRIVATE detour
-  PRIVATE ${ZLIB_LIBRARIES}
+  PRIVATE zlib
 )
 
 # include additionals headers
@@ -115,7 +137,6 @@ endif()
 # Define BUILD_AHBOT if need
 if (BUILD_AHBOT)
   add_definitions(-DBUILD_AHBOT)
-  install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/AuctionHouseBot/ahbot.conf.dist.in DESTINATION ${CONF_DIR} RENAME ahbot.conf.dist)
 endif()
 
 # Define BUILD_METRICS if need
@@ -136,5 +157,3 @@ endif()
 if(PCH)
   target_precompile_headers(${LIBRARY_NAME} PRIVATE "${PCH_FILE_HEADER}")
 endif()
-
-install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/PlayerBot/playerbot.conf.dist.in DESTINATION ${CONF_DIR} RENAME playerbot.conf.dist)

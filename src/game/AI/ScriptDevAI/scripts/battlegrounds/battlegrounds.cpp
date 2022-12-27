@@ -191,6 +191,21 @@ struct spell_outdoor_pvp_banner_trigger : public SpellScript
     }
 };
 
+struct OutdoorPvpNotifyAI : public GameObjectAI
+{
+    using GameObjectAI::GameObjectAI;
+
+    void OnUse(Unit* user, SpellEntry const* spellInfo) override
+    {
+        if (!user->IsPlayer())
+            return;
+
+        Player* player = static_cast<Player*>(user);
+        if (OutdoorPvP* outdoorPvP = sOutdoorPvPMgr.GetScript(player->GetCachedZoneId()))
+            outdoorPvP->HandleGameObjectUse(player, m_go);
+    }
+};
+
 void AddSC_battleground()
 {
     Script* pNewScript = new Script;
@@ -199,9 +214,14 @@ void AddSC_battleground()
     pNewScript->pGossipHello = &GossipHello_npc_spirit_guide;
     pNewScript->RegisterSelf();
 
+    pNewScript = new Script;
+    pNewScript->Name = "go_outdoor_pvp_notify";
+    pNewScript->GetGameObjectAI = &GetNewAIInstance<OutdoorPvpNotifyAI>;
+    pNewScript->RegisterSelf();
+
     RegisterSpellScript<OpeningCapping>("spell_opening_capping");
     RegisterSpellScript<InactiveBattleground>("spell_inactive");
-    RegisterAuraScript<ArenaPreparation>("spell_arena_preparation");
+    RegisterSpellScript<ArenaPreparation>("spell_arena_preparation");
     RegisterSpellScript<spell_battleground_banner_trigger>("spell_battleground_banner_trigger");
     RegisterSpellScript<spell_outdoor_pvp_banner_trigger>("spell_outdoor_pvp_banner_trigger");
 }

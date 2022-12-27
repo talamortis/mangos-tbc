@@ -203,6 +203,8 @@ inline bool IsPeriodicRegenerateEffect(SpellEntry const* spellInfo, SpellEffectI
     }
 }
 
+bool IsCastEndProcModifierAura(SpellEntry const* spellInfo, SpellEffectIndex effecIdx, SpellEntry const* procSpell);
+
 inline bool IsSpellHaveAura(SpellEntry const* spellInfo, AuraType aura, uint32 effectMask = (1 << EFFECT_INDEX_0) | (1 << EFFECT_INDEX_1) | (1 << EFFECT_INDEX_2))
 {
     for (int i = 0; i < MAX_EFFECT_INDEX; ++i)
@@ -598,6 +600,7 @@ inline bool IsSpellRemovedOnEvade(SpellEntry const* spellInfo)
         case 11966:         // Fire Shield
         case 11984:         // Immolate
         case 12099:         // Shield Spike
+        case 12187:         // Disease Cloud
         case 12246:         // Infected Spine
         case 12529:         // Chilling Touch
         case 12539:         // Ghoul Rot
@@ -620,6 +623,7 @@ inline bool IsSpellRemovedOnEvade(SpellEntry const* spellInfo)
         case 15506:         // Immolate
         case 15876:         // Ice Blast
         case 16140:         // Exploding Cadaver (Exploding Cadaver)
+        case 16345:         // Disease Cloud
         case 16563:         // Drowning Death
         case 16577:         // Disease Cloud
         case 16592:         // Shadowform
@@ -653,11 +657,15 @@ inline bool IsSpellRemovedOnEvade(SpellEntry const* spellInfo)
         case 22856:         // Ice Lock (Guard Slip'kik ice trap in Dire Maul)
         case 23255:         // Deep Wounds
         case 24313:         // Shade Visual
+        case 25039:         // Green Ghost Visual
         case 25592:         // Hate to Zero (Hate to Zero)
         case 26341:         // Saurfang's Rage
         case 27578:         // Battle Shout
+        case 27793:         // Disease Cloud
         case 27987:         // Unholy Aura
         case 28126:         // Spirit Particles (purple)
+        case 28156:         // Disease Cloud
+        case 28362:         // Disease Cloud
         case 28370:         // Toxic Gas
         case 28902:         // Bloodlust
         case 29406:         // Shadowform
@@ -666,6 +674,8 @@ inline bool IsSpellRemovedOnEvade(SpellEntry const* spellInfo)
         case 30205:         // Shadow Cage - Magtheridon
         case 30982:         // Crippling Poison
         case 31332:         // Dire Wolf Visual
+        case 31387:         // Time Rift Channel
+        case 31607:         // Disease Cloud
         case 31690:         // Putrid Mushroom
         case 31722:         // Immolation
         case 31757:         // Pulverize
@@ -701,6 +711,7 @@ inline bool IsSpellRemovedOnEvade(SpellEntry const* spellInfo)
         case 36784:         // Entropic Aura
         case 36788:         // Diminish Soul
         case 37119:         // Spirit Particles (Spawn)
+        case 37256:         // Disease Cloud
         case 37266:         // Disease Cloud
         case 37411:         // Skettis Corrupted Ghosts
         case 37497:         // Shadowmoon Ghost Invisibility (Ghostrider of Karabor in SMV) 
@@ -718,6 +729,7 @@ inline bool IsSpellRemovedOnEvade(SpellEntry const* spellInfo)
         case 40453:         // Aura of Fear
         case 40816:         // Saber Lash - Mother Shahraz
         case 40899:         // Felfire Proc
+        case 41290:         // Disease Cloud
         case 41634:         // Invisibility and Stealth Detection
         case 42459:         // Dual Wield (Passive)
         case 44118:         // Fists of Arcane Fury
@@ -1010,7 +1022,7 @@ inline bool IsPointEffectTarget(SpellTarget target)
         case TARGET_LOCATION_SCRIPT_NEAR_CASTER:
         case TARGET_LOCATION_CASTER_TARGET_POSITION:
         case TARGET_LOCATION_UNIT_POSITION:
-        case TARGET_LOCATION_DYNOBJ_POSITION:
+        case TARGET_LOCATION_CHANNEL_TARGET_DEST:
         case TARGET_LOCATION_NORTH:
         case TARGET_LOCATION_SOUTH:
         case TARGET_LOCATION_EAST:
@@ -1810,6 +1822,19 @@ inline Mechanics GetEffectMechanic(SpellEntry const* spellInfo, SpellEffectIndex
     return MECHANIC_NONE;
 }
 
+inline bool IsIgnoreRootSpell(SpellEntry const* spellInfo)
+{
+    if (!spellInfo->HasAttribute(SPELL_ATTR_EX_DISPEL_AURAS_ON_IMMUNITY))
+        return false;
+
+    for (uint32 i = 0; i < MAX_EFFECT_INDEX; ++i)
+        if (spellInfo->Effect[i] == SPELL_EFFECT_APPLY_AURA && spellInfo->EffectImplicitTargetA[i] == TARGET_UNIT_CASTER &&
+            spellInfo->EffectApplyAuraName[i] == SPELL_AURA_MECHANIC_IMMUNITY && spellInfo->EffectMiscValue[i] == MECHANIC_ROOT)
+            return true;
+
+    return false;
+}
+
 inline uint32 GetDispellMask(DispelType dispel)
 {
     // If dispell all
@@ -2101,6 +2126,10 @@ inline bool IsStackableAuraEffect(SpellEntry const* entry, SpellEntry const* ent
         // By default base stats cannot stack if they're similar
         case SPELL_AURA_MOD_STAT:
         {
+            if (entry->Id == 5320 || entry2->Id == 5320) // Echeyakee's Grace - stacks with everything
+                return true;
+            if (entry->Id == 15366 || entry2->Id == 15366) // Songflower Serenade - stacks with everything
+                return true;
             if (entry->EffectMiscValue[i] != entry2->EffectMiscValue[similar])
                 break;
             if (positive)
@@ -2133,6 +2162,26 @@ inline bool IsStackableAuraEffect(SpellEntry const* entry, SpellEntry const* ent
         case SPELL_AURA_MOD_TOTAL_STAT_PERCENTAGE:
         case SPELL_AURA_MOD_PERCENT_STAT:
             nonmui = true;
+            break;
+        case SPELL_AURA_MOD_RATING: // Rejuvenation also has this
+        {
+            if (entry->EffectMiscValue[i] != entry2->EffectMiscValue[similar])
+                break;
+            if (entry->Dispel && entry->Dispel == entry2->Dispel)
+            {
+                if (player && related && siblings && entry->HasAttribute(SPELL_ATTR_EX3_STACK_FOR_DIFF_CASTERS))
+                    return true;
+                return false;
+            }
+            nonmui = true;
+            break;
+        }
+        case SPELL_AURA_MOD_INCREASE_HEALTH_PERCENT:
+            nonmui = true;
+            break;
+        case SPELL_AURA_MOD_INCREASE_HEALTH:
+            if (entry->Id == 26522 && entry2->Id == 26522) // Lunar Fortune
+                return false;
             break;
         case SPELL_AURA_MOD_HEALING_DONE:
         case SPELL_AURA_MOD_HEALING_PCT:
@@ -2169,7 +2218,6 @@ inline bool IsStackableAuraEffect(SpellEntry const* entry, SpellEntry const* ent
                 break;
             nonmui = true;
             break;
-        case SPELL_AURA_MOD_RATING: // Whitelisted, Rejuvenation has this
         case SPELL_AURA_SPELL_MAGNET: // Party auras whitelist for Grounding Totem
             return true; // Always stacking auras
             break;
@@ -2337,7 +2385,7 @@ enum ProcFlags : uint32
     PROC_FLAG_TAKE_HARMFUL_PERIODIC         = 0x00080000,   // 19 Taken spell periodic (damage / healing, determined by PROC_EX_PERIODIC_POSITIVE or negative if no procEx)
 
     PROC_FLAG_TAKE_ANY_DAMAGE               = 0x00100000,   // 20 Taken any damage
-    PROC_FLAG_DEAL_HELPFUL_PERIODIC         = 0x00200000,   // 21 On trap activation - TODO: change meaning
+    PROC_FLAG_ON_TRAP_ACTIVATION            = 0x00200000,   // 21 On trap activation - different from enumerated strings - likely reuse
 
     PROC_FLAG_MAIN_HAND_WEAPON_SWING        = 0x00400000,   // 22 Successful main-hand melee attacks
     PROC_FLAG_OFF_HAND_WEAPON_SWING         = 0x00800000,   // 23 Successful off-hand melee attacks
@@ -2382,7 +2430,8 @@ enum ProcFlagsEx
     PROC_EX_EX_TRIGGER_ALWAYS   = 0x0010000,                // If set trigger always ( no matter another flags) used for drop charges
     PROC_EX_EX_ONE_TIME_TRIGGER = 0x0020000,                // If set trigger always but only one time (not used)
     PROC_EX_PERIODIC_POSITIVE   = 0x0040000,                // For periodic heal
-    PROC_EX_MAGNET              = 0x0080000,                // For grounding totem hit
+    PROC_EX_CAST_END            = 0x0080000,                // procs on end of cast
+    PROC_EX_MAGNET              = 0x0100000,                // For grounding totem hit
 
     // Flags for internal use - do not use these in db!
     PROC_EX_INTERNAL_HOT        = 0x2000000
@@ -2649,7 +2698,7 @@ class SpellMgr
             if (!entry)
                 return SPELL_NORMAL;
             // Food / Drinks (mostly)
-            if (entry->AuraInterruptFlags & AURA_INTERRUPT_FLAG_NOT_SEATED)
+            if (entry->AuraInterruptFlags & AURA_INTERRUPT_FLAG_STANDING_CANCELS)
             {
                 if (entry->SpellFamilyName == SPELLFAMILY_GENERIC)
                 {

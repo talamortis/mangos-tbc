@@ -369,6 +369,8 @@ struct PriestPetScaling2 : public AuraScript
             case EFFECT_INDEX_1: // armor
                 break;
             case EFFECT_INDEX_2: // resistance
+                if (Unit* owner = data.caster->GetOwner())
+                    value = (owner->GetResistance(SPELL_SCHOOL_FIRE) * 0.4f);
                 break;
         }
         return value;
@@ -382,10 +384,16 @@ struct PriestPetScaling3 : public AuraScript
         switch (data.effIdx)
         {
             case EFFECT_INDEX_0: // resistance
+                if (Unit* owner = data.caster->GetOwner())
+                    value = (owner->GetResistance(SPELL_SCHOOL_FROST) * 0.4f);
                 break;
             case EFFECT_INDEX_1: // resistance
+                if (Unit* owner = data.caster->GetOwner())
+                    value = (owner->GetResistance(SPELL_SCHOOL_ARCANE) * 0.4f);
                 break;
             case EFFECT_INDEX_2: // resistance
+                if (Unit* owner = data.caster->GetOwner())
+                    value = (owner->GetResistance(SPELL_SCHOOL_NATURE) * 0.4f);
                 break;
         }
         return value;
@@ -399,6 +407,8 @@ struct PriestPetScaling4 : public AuraScript
         switch (data.effIdx)
         {
             case EFFECT_INDEX_0: // resistance
+                if (Unit* owner = data.caster->GetOwner())
+                    value = (owner->GetResistance(SPELL_SCHOOL_SHADOW) * 0.4f);
                 break;
             default: break;
         }
@@ -678,41 +688,41 @@ struct InfernalPetScaling4 : public AuraScript
 
 void LoadScalingScripts()
 {
-    RegisterAuraScript<HunterPetScaling1>("spell_hunter_pet_scaling_1");
-    RegisterAuraScript<HunterPetScaling2>("spell_hunter_pet_scaling_2");
-    RegisterAuraScript<HunterPetScaling3>("spell_hunter_pet_scaling_3");
+    RegisterSpellScript<HunterPetScaling1>("spell_hunter_pet_scaling_1");
+    RegisterSpellScript<HunterPetScaling2>("spell_hunter_pet_scaling_2");
+    RegisterSpellScript<HunterPetScaling3>("spell_hunter_pet_scaling_3");
 
-    RegisterAuraScript<WarlockPetScaling1>("spell_warlock_pet_scaling_1");
-    RegisterAuraScript<WarlockPetScaling2>("spell_warlock_pet_scaling_2");
-    RegisterAuraScript<WarlockPetScaling3>("spell_warlock_pet_scaling_3");
-    RegisterAuraScript<WarlockPetScaling4>("spell_warlock_pet_scaling_4");
+    RegisterSpellScript<WarlockPetScaling1>("spell_warlock_pet_scaling_1");
+    RegisterSpellScript<WarlockPetScaling2>("spell_warlock_pet_scaling_2");
+    RegisterSpellScript<WarlockPetScaling3>("spell_warlock_pet_scaling_3");
+    RegisterSpellScript<WarlockPetScaling4>("spell_warlock_pet_scaling_4");
 
-    RegisterAuraScript<MagePetScaling1>("spell_mage_pet_scaling_1");
-    RegisterAuraScript<MagePetScaling2>("spell_mage_pet_scaling_2");
-    RegisterAuraScript<MagePetScaling3>("spell_mage_pet_scaling_3");
-    RegisterAuraScript<MagePetScaling4>("spell_mage_pet_scaling_4");
+    RegisterSpellScript<MagePetScaling1>("spell_mage_pet_scaling_1");
+    RegisterSpellScript<MagePetScaling2>("spell_mage_pet_scaling_2");
+    RegisterSpellScript<MagePetScaling3>("spell_mage_pet_scaling_3");
+    RegisterSpellScript<MagePetScaling4>("spell_mage_pet_scaling_4");
 
-    RegisterAuraScript<PriestPetScaling1>("spell_priest_pet_scaling_1");
-    RegisterAuraScript<PriestPetScaling2>("spell_priest_pet_scaling_2");
-    RegisterAuraScript<PriestPetScaling3>("spell_priest_pet_scaling_3");
-    RegisterAuraScript<PriestPetScaling4>("spell_priest_pet_scaling_4");
+    RegisterSpellScript<PriestPetScaling1>("spell_priest_pet_scaling_1");
+    RegisterSpellScript<PriestPetScaling2>("spell_priest_pet_scaling_2");
+    RegisterSpellScript<PriestPetScaling3>("spell_priest_pet_scaling_3");
+    RegisterSpellScript<PriestPetScaling4>("spell_priest_pet_scaling_4");
 
-    RegisterAuraScript<ElementalPetScaling1>("spell_elemental_pet_scaling_1");
-    RegisterAuraScript<ElementalPetScaling2>("spell_elemental_pet_scaling_2");
-    RegisterAuraScript<ElementalPetScaling3>("spell_elemental_pet_scaling_3");
-    RegisterAuraScript<ElementalPetScaling4>("spell_elemental_pet_scaling_4");
+    RegisterSpellScript<ElementalPetScaling1>("spell_elemental_pet_scaling_1");
+    RegisterSpellScript<ElementalPetScaling2>("spell_elemental_pet_scaling_2");
+    RegisterSpellScript<ElementalPetScaling3>("spell_elemental_pet_scaling_3");
+    RegisterSpellScript<ElementalPetScaling4>("spell_elemental_pet_scaling_4");
 
-    RegisterAuraScript<DruidPetScaling1>("spell_druid_pet_scaling_1");
-    RegisterAuraScript<DruidPetScaling2>("spell_druid_pet_scaling_2");
-    RegisterAuraScript<DruidPetScaling3>("spell_druid_pet_scaling_3");
-    RegisterAuraScript<DruidPetScaling4>("spell_druid_pet_scaling_4");
+    RegisterSpellScript<DruidPetScaling1>("spell_druid_pet_scaling_1");
+    RegisterSpellScript<DruidPetScaling2>("spell_druid_pet_scaling_2");
+    RegisterSpellScript<DruidPetScaling3>("spell_druid_pet_scaling_3");
+    RegisterSpellScript<DruidPetScaling4>("spell_druid_pet_scaling_4");
 
-    RegisterAuraScript<EnhancementPetScaling1>("spell_enhancement_pet_scaling_1");
-    RegisterAuraScript<EnhancementPetScaling2>("spell_enhancement_pet_scaling_2");
-    RegisterAuraScript<EnhancementPetScaling3>("spell_enhancement_pet_scaling_3");
+    RegisterSpellScript<EnhancementPetScaling1>("spell_enhancement_pet_scaling_1");
+    RegisterSpellScript<EnhancementPetScaling2>("spell_enhancement_pet_scaling_2");
+    RegisterSpellScript<EnhancementPetScaling3>("spell_enhancement_pet_scaling_3");
 
-    RegisterAuraScript<InfernalPetScaling1>("spell_infernal_pet_scaling_1");
-    RegisterAuraScript<InfernalPetScaling2>("spell_infernal_pet_scaling_2");
-    RegisterAuraScript<InfernalPetScaling3>("spell_infernal_pet_scaling_3");
-    RegisterAuraScript<InfernalPetScaling4>("spell_infernal_pet_scaling_4");
+    RegisterSpellScript<InfernalPetScaling1>("spell_infernal_pet_scaling_1");
+    RegisterSpellScript<InfernalPetScaling2>("spell_infernal_pet_scaling_2");
+    RegisterSpellScript<InfernalPetScaling3>("spell_infernal_pet_scaling_3");
+    RegisterSpellScript<InfernalPetScaling4>("spell_infernal_pet_scaling_4");
 }

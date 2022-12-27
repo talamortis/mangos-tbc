@@ -187,6 +187,7 @@ class SpellAuraHolder
 
         bool HasMechanic(uint32 mechanic) const;
         bool HasMechanicMask(uint32 mechanicMask) const;
+        bool IsDispellableByMask(uint32 dispelMask, Unit const* caster, SpellEntry const* spellInfo) const;
 
         void UpdateAuraDuration();
         void SendAuraDurationForTarget(uint32 slot = MAX_AURAS);
@@ -495,6 +496,7 @@ class Aura
         void TriggerSpellWithValue();
 
         // more limited that used in future versions (spell_affect table based only), so need be careful with backporting uses
+        ClassFamilyMask GetAuraSpellClassMask() const;
         bool isAffectedOnSpell(SpellEntry const* spell) const;
         bool CanProcFrom(SpellEntry const* spell, uint32 EventProcEx, uint32 procEx, bool active, bool useClassMask) const;
 
@@ -514,15 +516,20 @@ class Aura
 
         // Scripting system
         AuraScript* GetAuraScript() const { return GetHolder()->GetAuraScript(); }
+        // Variable storage
+        void SetScriptValue(uint64 value) { m_scriptValue = value; }
+        uint64 GetScriptValue() { return m_scriptValue; }
+        void SetScriptStorage(ScriptStorage* storage) { m_storage = storage; } // do not set more than once
+        ScriptStorage* GetScriptStorage() { return m_storage; }
         // hooks
         void OnAuraInit();
         int32 OnAuraValueCalculate(Unit* caster, int32 currentValue);
-        void OnDamageCalculate(int32& advertisedBenefit, float& totalMod);
+        void OnDamageCalculate(Unit* victim, int32& advertisedBenefit, float& totalMod);
         void OnApply(bool apply);
         void OnAfterApply(bool apply);
         bool OnCheckProc(ProcExecutionData& data);
         SpellAuraProcResult OnProc(ProcExecutionData& data);
-        void OnAbsorb(int32& currentAbsorb, uint32& reflectedSpellId, int32& reflectDamage, bool& preventedDeath);
+        void OnAbsorb(int32& currentAbsorb, int32& remainingDamage, uint32& reflectedSpellId, int32& reflectDamage, bool& preventedDeath);
         void OnManaAbsorb(int32& currentAbsorb);
         void OnAuraDeathPrevention(int32& remainingDamage);
         void OnPeriodicTrigger(PeriodicTriggerData& data);
@@ -530,10 +537,10 @@ class Aura
         void OnPeriodicTickEnd();
         void OnPeriodicCalculateAmount(uint32& amount);
         void OnHeartbeat();
+        uint32 GetAuraScriptCustomizationValue();
         // Hook Requirements
         void ForcePeriodicity(uint32 periodicTime);
-        void SetScriptValue(uint64 value) { m_scriptValue = value; }
-        uint64 GetScriptValue() { return m_scriptValue; }
+
     protected:
         Aura(SpellEntry const* spellproto, SpellEffectIndex eff, int32 const* currentDamage, int32 const* currentBasePoints, SpellAuraHolder* holder, Unit* target, Unit* caster = nullptr, Item* castItem = nullptr);
 
@@ -572,6 +579,7 @@ class Aura
 
         // Scripting system
         uint64 m_scriptValue; // persistent value for spell script state
+        ScriptStorage* m_storage;
     private:
         void ReapplyAffectedPassiveAuras(Unit* target, bool owner_mode);
 };

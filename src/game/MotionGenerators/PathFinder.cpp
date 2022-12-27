@@ -539,10 +539,14 @@ void PathFinder::BuildPointPath(const float* startPoint, const float* endPoint)
         G3D::Vector3 diffVec = (endVec - startVec);
         G3D::Vector3 prevVec = startVec;
         float len = diffVec.length();
-        diffVec *= SMOOTH_PATH_STEP_SIZE / len;
-        while (len > SMOOTH_PATH_STEP_SIZE)
+        float stepSize = SMOOTH_PATH_STEP_SIZE;
+        // protection against buffer overflow - if too long straight line, smooth path could exceed cachedPoints array
+        if (ceilf(len / SMOOTH_PATH_STEP_SIZE) > m_pointPathLimit - 2)
+            stepSize = len / (m_pointPathLimit - 2);
+        diffVec *= stepSize / len;
+        while (len > stepSize)
         {
-            len -= SMOOTH_PATH_STEP_SIZE;
+            len -= stepSize;
             prevVec += diffVec;
             pathPoints[VERTEX_SIZE * pointCount + 0] = prevVec.x;
             pathPoints[VERTEX_SIZE * pointCount + 1] = prevVec.y;
@@ -669,8 +673,7 @@ void PathFinder::BuildPointPath(const float* startPoint, const float* endPoint)
     setActualEndPosition(m_pathPoints[pointCount - 1]);
 
     // force the given destination, if needed
-    if (m_forceDestination &&
-            (!(m_type & PATHFIND_NORMAL) || !inRange(getEndPosition(), getActualEndPosition(), 1.0f, 1.0f)))
+    if (m_forceDestination && ((m_type & PATHFIND_NORMAL) == 0 || getEndPosition() != getActualEndPosition()))
     {
         // we may want to keep partial subpath
         if (dist3DSqr(getActualEndPosition(), getEndPosition()) < 0.3f * dist3DSqr(getStartPosition(), getEndPosition()))
@@ -740,7 +743,7 @@ void PathFinder::createFilter()
 
         // creatures don't take environmental damage
         if (creature->CanSwim())
-            includeFlags |= (NAV_WATER | NAV_MAGMA | NAV_SLIME);           // swim
+            includeFlags |= (NAV_WATER | NAV_MAGMA_SLIME);           // swim
     }
     else if (m_sourceUnit->GetTypeId() == TYPEID_PLAYER)
     {
@@ -769,7 +772,7 @@ void PathFinder::updateFilter()
     }
 }
 
-NavTerrain PathFinder::getNavTerrain(float x, float y, float z) const
+NavTerrainFlag PathFinder::getNavTerrain(float x, float y, float z) const
 {
     GridMapLiquidData data;
     if (m_sourceUnit->GetTerrain()->getLiquidStatus(x, y, z, MAP_ALL_LIQUIDS, &data) == LIQUID_MAP_NO_WATER)
@@ -781,9 +784,8 @@ NavTerrain PathFinder::getNavTerrain(float x, float y, float z) const
         case MAP_LIQUID_TYPE_OCEAN:
             return NAV_WATER;
         case MAP_LIQUID_TYPE_MAGMA:
-            return NAV_MAGMA;
         case MAP_LIQUID_TYPE_SLIME:
-            return NAV_SLIME;
+            return NAV_MAGMA_SLIME;
         default:
             return NAV_GROUND;
     }

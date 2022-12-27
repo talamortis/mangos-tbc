@@ -220,7 +220,7 @@ struct CurseOfDoom : public SpellScript, public AuraScript
     {
         if (!apply && aura->GetRemoveMode() == AURA_REMOVE_BY_DEATH && urand(0, 100) > 95)
             if (Unit* caster = aura->GetCaster())
-                caster->CastSpell(nullptr, 18662, TRIGGERED_OLD_TRIGGERED);
+                caster->CastSpell(aura->GetTarget(), 18662, TRIGGERED_OLD_TRIGGERED);
     }
 };
 
@@ -309,20 +309,33 @@ struct SeedOfCorruptionDamage : public SpellScript
     }
 };
 
+// 30293 - Soul Leech
+struct SoulLeech : public AuraScript
+{
+    SpellAuraProcResult OnProc(Aura* aura, ProcExecutionData& procData) const override
+    {
+        int32 damage = int32(procData.damage * aura->GetAmount() / 100);
+        Unit* target = aura->GetTarget();
+        target->CastCustomSpell(nullptr, 30294, &damage, nullptr, nullptr, TRIGGERED_IGNORE_GCD | TRIGGERED_IGNORE_CURRENT_CASTED_SPELL | TRIGGERED_HIDE_CAST_IN_COMBAT_LOG);
+        return SPELL_AURA_PROC_OK;
+    }
+};
+
 void LoadWarlockScripts()
 {
-    RegisterAuraScript<UnstableAffliction>("spell_unstable_affliction");
-    RegisterAuraScript<CurseOfAgony>("spell_curse_of_agony");
+    RegisterSpellScript<UnstableAffliction>("spell_unstable_affliction");
+    RegisterSpellScript<CurseOfAgony>("spell_curse_of_agony");
     RegisterSpellScript<LifeTap>("spell_life_tap");
-    RegisterAuraScript<DemonicKnowledge>("spell_demonic_knowledge");
-    RegisterAuraScript<SoulLink>("spell_soul_link");
-    RegisterAuraScript<SeedOfCorruption>("spell_seed_of_corruption");
-    RegisterAuraScript<Corruption>("spell_corruption");
-    RegisterAuraScript<SiphonLife>("spell_siphon_life");
-    RegisterAuraScript<CurseOfAgony>("spell_curse_of_agony");
+    RegisterSpellScript<DemonicKnowledge>("spell_demonic_knowledge");
+    RegisterSpellScript<SoulLink>("spell_soul_link");
+    RegisterSpellScript<SeedOfCorruption>("spell_seed_of_corruption");
+    RegisterSpellScript<Corruption>("spell_corruption");
+    RegisterSpellScript<SiphonLife>("spell_siphon_life");
+    RegisterSpellScript<CurseOfAgony>("spell_curse_of_agony");
+    RegisterSpellScript<SoulLeech>("spell_soul_leech");
     RegisterSpellScript<EyeOfKilrogg>("spell_eye_of_kilrogg");
     RegisterSpellScript<DevourMagic>("spell_devour_magic");
     RegisterSpellScript<SeedOfCorruptionDamage>("spell_seed_of_corruption_damage");
-    RegisterScript<CurseOfDoom>("spell_curse_of_doom");
+    RegisterSpellScript<CurseOfDoom>("spell_curse_of_doom");
     RegisterSpellScript<CurseOfDoomEffect>("spell_curse_of_doom_effect");
 }

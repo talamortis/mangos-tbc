@@ -35,6 +35,7 @@ at_area_52                      4422, 4466, 4471, 4472
 at_twilight_grove               4017
 at_hive_tower                   3146
 at_wondervolt                   4030,4032,4026,4029,4027,4028,4031
+at_stormwind_recruiter          2746
 EndContentData */
 
 #include "AI/ScriptDevAI/include/sc_common.h"
@@ -333,7 +334,7 @@ bool AreaTrigger_at_huldar_miran(Player* pPlayer, AreaTriggerEntry const* /*pAt*
     }
 
     // Check if any Dark Iron Ambusher are already spawned or dead, if so, do nothing
-    if (!GetClosestCreatureWithEntry(pPlayer, NPC_DARK_IRON_AMBUSHER, 60.0f, false, false))
+    if (m_saean && !GetClosestCreatureWithEntry(pPlayer, NPC_DARK_IRON_AMBUSHER, 60.0f, false, false))
     {
         m_saean->SummonCreature(NPC_DARK_IRON_AMBUSHER, m_miranAmbushSpawns[1].m_fX, m_miranAmbushSpawns[1].m_fY, m_miranAmbushSpawns[1].m_fZ, m_miranAmbushSpawns[1].m_fO, TEMPSPAWN_CORPSE_TIMED_DESPAWN, 25000);
         m_saean->SummonCreature(NPC_DARK_IRON_AMBUSHER, m_miranAmbushSpawns[2].m_fX, m_miranAmbushSpawns[2].m_fY, m_miranAmbushSpawns[2].m_fZ, m_miranAmbushSpawns[2].m_fO, TEMPSPAWN_CORPSE_TIMED_DESPAWN, 25000);
@@ -464,6 +465,28 @@ bool AreaTrigger_at_wondervolt(Player* player, AreaTriggerEntry const* /*at*/)
     return false;
 }
 
+/*######
+## at_stormwind_recruiter
+######*/
+
+enum
+{
+    NPC_JUSTINE_DEMALIER         = 12481,
+    QUEST_THE_FIRST_AND_THE_LAST = 6182
+};
+
+bool AreaTrigger_at_stormwind_recruiter(Player* player, AreaTriggerEntry const* /*at*/)
+{
+    if (player->IsGameMaster() || player->GetTeam() != ALLIANCE || player->GetQuestRewardStatus(QUEST_THE_FIRST_AND_THE_LAST))
+        return false;
+
+    if (Creature* justineDemalier = GetClosestCreatureWithEntry(player, NPC_JUSTINE_DEMALIER, 20.0f))
+        if (!justineDemalier->IsInCombat())
+            justineDemalier->AI()->SendAIEvent(AI_EVENT_CUSTOM_EVENTAI_A, player, justineDemalier);
+
+    return false;
+}
+
 void AddSC_areatrigger_scripts()
 {
     Script* pNewScript = new Script;
@@ -529,5 +552,10 @@ void AddSC_areatrigger_scripts()
     pNewScript = new Script;
     pNewScript->Name = "at_wondervolt";
     pNewScript->pAreaTrigger = &AreaTrigger_at_wondervolt;
+    pNewScript->RegisterSelf();
+
+    pNewScript = new Script;
+    pNewScript->Name = "at_stormwind_recruiter";
+    pNewScript->pAreaTrigger = &AreaTrigger_at_stormwind_recruiter;
     pNewScript->RegisterSelf();
 }

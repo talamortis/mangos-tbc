@@ -261,7 +261,7 @@ struct boss_teron_gorefiendAI : public CombatAI
     }
 };
 
-struct npc_doom_blossomAI : public ScriptedAI, public TimerManager
+struct npc_doom_blossomAI : public ScriptedAI
 {
     npc_doom_blossomAI(Creature* creature) : ScriptedAI(creature)
     {
@@ -271,6 +271,7 @@ struct npc_doom_blossomAI : public ScriptedAI, public TimerManager
                 DoCastSpellIfCan(target, SPELL_SHADOW_BOLT);
             ResetTimer(0, 1200);
         });
+        SetReactState(REACT_PASSIVE);
         SetCombatMovement(false);
     }
 
@@ -297,14 +298,9 @@ struct npc_doom_blossomAI : public ScriptedAI, public TimerManager
 
         ResetTimer(0, 0);
     }
-
-    void UpdateAI(const uint32 diff) override
-    {
-        UpdateTimers(diff);
-    }
 };
 
-struct npc_shadow_constructAI : public ScriptedAI, public TimerManager
+struct npc_shadow_constructAI : public ScriptedAI
 {
     npc_shadow_constructAI(Creature* creature) : ScriptedAI(creature), m_instance(static_cast<instance_black_temple*>(creature->GetMap()->GetInstanceData()))
     {
@@ -346,7 +342,7 @@ struct npc_shadow_constructAI : public ScriptedAI, public TimerManager
 
     void UpdateAI(const uint32 diff) override
     {
-        UpdateTimers(diff);
+        UpdateTimers(diff, m_creature->IsInCombat());
 
         if (!m_creature->SelectHostileTarget() || !m_creature->GetVictim())
             return;
@@ -378,7 +374,7 @@ bool AreaTrigger_at_teron_gorefiend(Player* player, AreaTriggerEntry const* /*at
 
 struct ShadowOfDeath : public AuraScript
 {
-    void OnAbsorb(Aura* /*aura*/, int32& currentAbsorb, uint32& /*reflectedSpellId*/, int32& /*reflectDamage*/, bool& preventedDeath) const override
+    void OnAbsorb(Aura* /*aura*/, int32& currentAbsorb, int32& /*remainingDamage*/, uint32& /*reflectedSpellId*/, int32& /*reflectDamage*/, bool& preventedDeath) const override
     {
         preventedDeath = true;
         currentAbsorb = 0;
@@ -451,7 +447,7 @@ void AddSC_boss_teron_gorefiend()
     pNewScript->pAreaTrigger = &AreaTrigger_at_teron_gorefiend;
     pNewScript->RegisterSelf();
 
-    RegisterAuraScript<ShadowOfDeath>("spell_shadow_of_death");
-    RegisterAuraScript<ShadowOfDeathRemove>("spell_shadow_of_death_remove");
+    RegisterSpellScript<ShadowOfDeath>("spell_shadow_of_death");
+    RegisterSpellScript<ShadowOfDeathRemove>("spell_shadow_of_death_remove");
     RegisterSpellScript<SummonBlossomMoveTarget>("spell_summon_blossom_move_target");
 }

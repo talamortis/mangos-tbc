@@ -112,9 +112,9 @@ enum AlythessActions
     ALYTHESS_DELAY,
 };
 
-struct boss_alythessAI : public RangedCombatAI
+struct boss_alythessAI : public CombatAI
 {
-    boss_alythessAI(Creature* creature) : RangedCombatAI(creature, ALYTHESS_ACTION_MAX), m_instance(static_cast<ScriptedInstance*>(creature->GetInstanceData())),
+    boss_alythessAI(Creature* creature) : CombatAI(creature, ALYTHESS_ACTION_MAX), m_instance(static_cast<ScriptedInstance*>(creature->GetInstanceData())),
         m_introDialogue(aIntroDialogue)
     {
         SetRangedMode(true, 200.f, TYPE_FULL_CASTER);
@@ -135,7 +135,7 @@ struct boss_alythessAI : public RangedCombatAI
 
     void Reset() override
     {
-        RangedCombatAI::Reset();
+        CombatAI::Reset();
 
         SetDeathPrevention(true);
         m_creature->SetNoLoot(false);
@@ -315,7 +315,7 @@ struct boss_sacrolashAI : public CombatAI
         AddOnKillText(SAY_SACROLASH_KILL_1, SAY_SACROLASH_KILL_2);
         m_creature->GetCombatManager().SetLeashingCheck([](Unit*, float x, float y, float) -> bool
         {
-            return x < 1800 && y < 580;
+            return (x < 1800 && y < 580) || (x > 1832 && y > 670);
         });
     }
 
@@ -704,7 +704,7 @@ void AddSC_boss_eredar_twins()
     pNewScript->RegisterSelf();
 
     RegisterSpellScript<BlazeTwins>("spell_blaze_twins");
-    RegisterAuraScript<DarkFlameShadowAura>("spell_dark_flame_shadow_aura");
-    RegisterAuraScript<DarkFlameFireAura>("spell_dark_flame_fire_aura");
+    RegisterSpellScript<DarkFlameShadowAura>("spell_dark_flame_shadow_aura");
+    RegisterSpellScript<DarkFlameFireAura>("spell_dark_flame_fire_aura");
     RegisterSpellScript<FlameSear>("spell_flame_sear");
 }

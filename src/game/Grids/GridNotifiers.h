@@ -687,6 +687,28 @@ namespace MaNGOS
             // prevent clone this object
             AllGameObjectEntriesListInObjectRangeCheck(AllGameObjectEntriesListInObjectRangeCheck const&);
     };
+    
+    // combine with above somehow? fuck
+    class AllGameObjectsMatchingOneEntryInRange
+    {
+        public:
+            AllGameObjectsMatchingOneEntryInRange(WorldObject const* pObject, std::vector<uint32> const& entries, float fMaxRange)
+                : m_pObject(pObject), entries(entries), m_fRange(fMaxRange) {}
+            bool operator() (GameObject* pGo)
+            {
+                for (const auto entry : entries) {
+                    if (pGo->GetEntry() == entry && m_pObject->IsWithinDist(pGo, m_fRange, false)) {
+                        return true;
+                    }
+                }
+                return false;
+            }
+
+        private:
+            WorldObject const* m_pObject;
+            std::vector<uint32> entries;
+            float m_fRange;
+    };
 
     // x y z version of above
     class AllGameObjectEntriesListInPosRangeCheck
@@ -859,18 +881,34 @@ namespace MaNGOS
             bool i_targetSelf;
     };
 
-    class FriendlyCCedInRangeCheck
+    class FriendlyEligibleDispelInRangeCheck
     {
         public:
-            FriendlyCCedInRangeCheck(Unit const* obj, float range) : i_obj(obj), i_range(range) {}
+            FriendlyEligibleDispelInRangeCheck(Unit const* obj, float range, uint32 dispelMask, uint32 mechanicMask, bool self) :
+                i_obj(obj), i_range(range), m_dispelMask(dispelMask), m_mechanicMask(mechanicMask), m_self(self) {}
             Unit const& GetFocusObject() const { return *i_obj; }
             bool operator()(Unit* u)
             {
-                return u->IsAlive() && u->IsInCombat() && i_obj->CanAssist(u) && i_obj->IsWithinDistInMap(u, i_range) && (u->IsImmobilizedState() || u->GetMaxNegativeAuraModifier(SPELL_AURA_MOD_DECREASE_SPEED) || u->isFrozen() || u->IsCrowdControlled());
+                if (!u->IsAlive() || !u->IsInCombat() || !i_obj->CanAssist(u) || !i_obj->IsWithinDistInMap(u, i_range))
+                    return false;
+
+                if (!m_self && i_obj == u)
+                    return false;
+
+                if (!u->IsImmobilizedState() && !u->GetMaxNegativeAuraModifier(SPELL_AURA_MOD_DECREASE_SPEED) && !u->isFrozen() && !u->IsCrowdControlled())
+                    return false;
+
+                if (!m_dispelMask && !m_mechanicMask)
+                    return true;
+
+                return u->HasMechanicMaskOrDispelMaskAura(m_dispelMask, m_mechanicMask, i_obj);
             }
         private:
             Unit const* i_obj;
             float i_range;
+            uint32 m_dispelMask;
+            uint32 m_mechanicMask;
+            bool m_self;
     };
 
     class FriendlyMissingBuffInRangeInCombatCheck
@@ -1261,6 +1299,27 @@ namespace MaNGOS
         private:
             const WorldObject* m_pObject;
             uint32 m_uiEntry;
+            float m_fRange;
+    };
+
+    class AllCreaturesMatchingOneEntryInRange
+    {
+        public:
+            AllCreaturesMatchingOneEntryInRange(WorldObject const* pObject, std::vector<uint32> const& entries, float fMaxRange)
+                : m_pObject(pObject), entries(entries), m_fRange(fMaxRange) {}
+            bool operator() (Unit* pUnit)
+            {
+                for (const auto entry : entries) {
+                    if (pUnit->GetEntry() == entry && m_pObject->IsWithinDist(pUnit, m_fRange, false)) {
+                        return true;
+                    }
+                }
+                return false;
+            }
+
+        private:
+            WorldObject const* m_pObject;
+            std::vector<uint32> entries;
             float m_fRange;
     };
 

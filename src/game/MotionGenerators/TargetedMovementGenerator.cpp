@@ -27,6 +27,7 @@
 #include "Grids/GridNotifiers.h"
 #include "Grids/GridNotifiersImpl.h"
 #include "Entities/Transports.h"
+#include "Maps/SpawnGroup.h"
 
 #define IGNORE_M2 true // simple define for avoiding bugs due to different setting across movechase
 
@@ -194,6 +195,11 @@ std::pair<std::string, std::string> ChaseMovementGenerator::GetPrintout() const
     return {output, commandOutput};
 }
 
+void ChaseMovementGenerator::AddDelay()
+{
+    i_recheckDistance.Reset(1000);
+}
+
 float ChaseMovementGenerator::GetDynamicTargetDistance(Unit& owner, bool forRangeCheck) const
 {
     if (m_moveFurther)
@@ -261,7 +267,7 @@ void ChaseMovementGenerator::HandleTargetedMovement(Unit& owner, const uint32& t
 
             if (owner.GetDistance(x, y, z, DIST_CALC_NONE) > 0.3f)
             {
-                if (DispatchSplineToPosition(owner, x, y, z, EnableWalking(), true, true))
+                if (DispatchSplineToPosition(owner, x, y, z, EnableWalking(), true, true, true))
                 {
                     this->i_targetReached = false;
                     this->i_speedChanged = false;
@@ -272,28 +278,11 @@ void ChaseMovementGenerator::HandleTargetedMovement(Unit& owner, const uint32& t
                     m_closenessAndFanningTimer = 0;
                     return;
                 }
+                if (m_reachable == false)
+                    return;
             }
-            // if we arrived here something failed in PF dispatch and target is not reachable
-            if (this->i_offset == 0.f)
-            {
-                if (!owner.CanReachWithMeleeAttack(this->i_target.getTarget()))
-                {
-                    if (!i_target->IsJumping() && !i_target->IsFalling())
-                        m_reachable = false;
-                }
-                else if (this->i_target->IsFlying() && !owner.CanFly())
-                {
-                    // if npc cant fly and target flies too high up, need to evade
-                    if (owner.GetDistanceZ(this->i_target.getTarget()) > CREATURE_Z_ATTACK_RANGE_MELEE)
-                        m_reachable = false;
-                }
-            }
-            else
-            {
-                if (owner.GetDistance(this->i_target.getTarget(), true, DIST_CALC_COMBAT_REACH) > this->i_offset)
-                    if (!i_target->IsJumping() && !i_target->IsFalling())
-                        m_reachable = false;
-            }
+            if (!IsReachablePositionToTarget(owner, owner.GetPositionX(), owner.GetPositionY(), owner.GetPositionZ(), *this->i_target.getTarget()))
+                m_reachable = false;
             return;
         }
         else if (!targetMoved) // we do not need new position and we are reachable
@@ -480,7 +469,7 @@ void ChaseMovementGenerator::FanOut(Unit& owner)
     }
 }
 
-bool ChaseMovementGenerator::DispatchSplineToPosition(Unit& owner, float x, float y, float z, bool walk, bool cutPath, bool target)
+bool ChaseMovementGenerator::DispatchSplineToPosition(Unit& owner, float x, float y, float z, bool walk, bool cutPath, bool target, bool checkReachable)
 {
     if (owner.IsDebuggingMovement())
     {
@@ -552,6 +541,16 @@ bool ChaseMovementGenerator::DispatchSplineToPosition(Unit& owner, float x, floa
 
     if (cutPath)
         CutPath(owner, path);
+
+    if (checkReachable)
+    {
+        auto& lastPoint = path[path.size() - 1];
+        if (!IsReachablePositionToTarget(owner, lastPoint.x, lastPoint.y, lastPoint.z, *this->i_target.getTarget()))
+        {
+            m_reachable = false;
+            return false;
+        }
+    }
 
     if (owner.IsDebuggingMovement())
     {
@@ -664,6 +663,35 @@ void ChaseMovementGenerator::_setLocation(Unit& owner)
 
     i_targetReached = false;
     i_speedChanged = false;
+}
+
+bool ChaseMovementGenerator::IsReachablePositionToTarget(Unit& owner, float x, float y, float z, Unit& target)
+{
+    // if we arrived here something failed in PF dispatch and target is not reachable
+    if (this->i_offset == 0.f)
+    {
+        float reach = owner.GetCombinedCombatReach(&target, true);
+        float dx = x - target.GetPositionX();
+        float dy = y - target.GetPositionY();
+        if (dx * dx + dy * dy > reach * reach)
+        {
+            if (!i_target->IsJumping() && !target.IsFalling())
+                return false;
+        }
+        else if (this->i_target->IsFlying() && !owner.CanFly())
+        {
+            // if npc cant fly and target flies too high up, need to evade
+            if (std::max(std::fabs(target.GetPositionZ() - z) - owner.GetCombatReach() - target.GetCombatReach(), float(0))  > CREATURE_Z_ATTACK_RANGE_MELEE)
+                return false;
+        }
+    }
+    else
+    {
+        if (target.GetDistance(x, y, z, DIST_CALC_COMBAT_REACH, target.GetTransport()) - owner.GetCombatReach() > this->i_offset)
+            if (!i_target->IsJumping() && !i_target->IsFalling())
+                return false;
+    }
+    return true;
 }
 
 //-----------------------------------------------//
@@ -1104,6 +1132,318 @@ void FollowMovementGenerator::HandleFinalizedMovement(Unit& owner)
 {
     i_targetReached = true;
     _reachTarget(owner);
+}
+
+FormationMovementGenerator::FormationMovementGenerator(FormationSlotDataSPtr& sData, bool main) :
+    FollowMovementGenerator(*sData->GetMaster(), sData->GetDistance(), sData->GetDistance(), main, false, false),
+    m_slot(sData), m_headingToMaster(false), m_lastAngle(0)
+{
+    if (!this->i_path)
+        this->i_path = new PathFinder(sData->GetOwner());
+}
+
+FormationMovementGenerator::~FormationMovementGenerator()
+{
+    //sLog.outError("Removing formation movegen for %s", m_slot->GetOwner()->GetGuidStr().c_str());
+}
+
+bool FormationMovementGenerator::Update(Unit& unit, const uint32& diff)
+{
+    Unit* master = m_slot->GetMaster();
+    if (!i_target.isValid() || !master)
+        return false;
+
+    // handle master change
+    if (i_target.getTarget() != master)
+        SetNewTarget(*master);
+
+    return TargetedMovementGeneratorMedium::Update(unit, diff);
+}
+
+float FormationMovementGenerator::BuildPath(Unit& owner, PointsArray& path)
+{
+    float speed = -1.0f;
+    auto const& masterSpline = i_target->movespline;
+
+    float slotAngle = m_slot->GetAngle();
+    float slotDist = m_slot->GetDistance();
+    float angle = i_target->GetOrientation();
+    bool isOnGround = !owner.IsFlying() && !owner.IsInWater() && !owner.HasHoverAura();
+
+    // set owner position
+    Vector3 ownerPos;
+    if (!owner.movespline->Finalized())
+    {
+        // if on movement owner(follower) position should be computed to increase the precision
+        // up to 1 yard difference from GetPosition()
+        ownerPos = owner.movespline->ComputePosition();
+    }
+    else
+        ownerPos = Vector3(owner.GetPositionX(), owner.GetPositionY(), owner.GetPositionZ());
+
+    // set leader position
+    Vector3 masterPos(i_target->GetPositionX(), i_target->GetPositionY(), i_target->GetPositionZ());
+
+    if (masterSpline->Finalized())
+    {
+        bool done = false;
+        angle += slotAngle;
+        Position bestPos(masterPos.x, masterPos.y, masterPos.z, 0);
+        owner.MovePositionToFirstCollision(bestPos, slotDist, angle);
+        Vector3 nextPos(bestPos.x, bestPos.y, bestPos.z);
+
+        float lenght = (masterPos - nextPos).magnitude();
+        if (lenght > 0.1f)
+        {
+            path.emplace_back(ownerPos);
+            path.push_back(nextPos);
+            speed = owner.GetSpeed(MOVE_WALK);
+        }
+    }
+    else
+    {
+        // guessed values from sniff and ingame check
+        float distAhead = (masterSpline->Speed() / 3.0f) * 10.0f;
+        float distGood = distAhead - (distAhead / 5.0f);
+
+        float slaveTravelDistance = 0;
+        path.emplace_back(ownerPos);
+
+        int32 masterTravelTime = 0;
+        Vector3 masterPrevPoint(masterPos);
+
+        for (int32 pathIdx = masterSpline->GetRawPathIndex() + 1; pathIdx <= masterSpline->_Spline().last(); ++pathIdx)
+        {
+            float pathFactor = 1.0f;
+            Vector3 nextMasterDest = masterSpline->_Spline().getPoint(pathIdx);
+
+            float tDist = (masterPrevPoint - nextMasterDest).length();
+            if (tDist > distAhead)
+            {
+                // path is too long we have to reduce its size a bit
+                float missingDist = distAhead - slaveTravelDistance;
+                pathFactor = 1.0f / (tDist / missingDist);
+                nextMasterDest = masterPrevPoint.lerp(nextMasterDest, pathFactor);
+            }
+
+            // we have to compute new angle between two intermediate points
+            Vector3 direction = nextMasterDest - masterPrevPoint;
+            angle = atan2(direction.y, direction.x) + slotAngle;
+
+            // make direction change more soft for angle under 90deg
+            float diff = angle - m_lastAngle;
+            if (fabs(diff) < M_PI_F / 2.0f && fabs(diff) > M_PI_F / 36.0f) // angle should be under 90deg but over 5deg
+            {
+                if (m_slot->GetFormationData()->GetCurrentShape() != SPAWN_GROUP_FORMATION_TYPE_RANDOM)
+                    angle = m_lastAngle + diff / 5.0f;
+                else
+                    angle = m_lastAngle + diff / 20.0f;
+            }
+            m_lastAngle = angle;
+
+            // get best possible point near the slot position
+            Position bestPos(nextMasterDest.x, nextMasterDest.y, nextMasterDest.z, 0);
+            owner.MovePositionToFirstCollision(bestPos, slotDist, angle);
+
+            Vector3 nextPos(bestPos.x, bestPos.y, bestPos.z);
+            float pathLen = 0;
+            if (m_slot->GetFormationData()->CanUseMMap())
+            {
+                // point is found but an obstacle can exist between this point and previous one
+                i_path->calculate(path.back(), nextPos, true, false);
+            }
+            else
+                i_path->getPath().push_back(nextPos);
+
+
+            for (auto posItr = i_path->getPath().begin() + 1; posItr != i_path->getPath().end(); ++posItr)
+                pathLen += (*(posItr - 1) - (*posItr)).length();
+
+
+            // compute travel time and slave dist
+            if (pathLen > 0.5f)
+            {
+                // compute lenght
+                slaveTravelDistance += pathLen;
+
+                // compute time (adjust with previously computed factor)
+                int32 nextPointTime = masterSpline->ComputeTimeToIndex(pathIdx) - masterTravelTime;
+                masterTravelTime = masterTravelTime + (nextPointTime * pathFactor);
+
+                // time and lenght are added properly we can then push the next position for the follower
+                for (auto posItr = i_path->getPath().begin() + 1; posItr != i_path->getPath().end(); ++posItr)
+                {
+                    path.emplace_back(*posItr);
+                    auto& pos = path.back();
+                    owner.UpdateAllowedPositionZ(pos.x, pos.y, pos.z);
+                }
+            }
+
+            // distance to travel is good enough the last yard will be handled in next update
+            if (slaveTravelDistance > distGood)
+                break;
+
+            masterPrevPoint = nextMasterDest;
+        }
+
+        // compute slave speed
+        if (slaveTravelDistance > 0.1f)
+        {
+            // compute the slave speed using yard/sec formulas
+            speed = (slaveTravelDistance / (masterTravelTime / 1000.0f));
+
+            // clamp the speed to some limit
+            speed = std::max(1.0f, speed);
+            speed = std::min(masterSpline->Speed() * 1.5f, speed);
+        }
+    }
+    return speed;
+}
+
+// return true if follower is far from master and heading to it
+bool FormationMovementGenerator::HandleMasterDistanceCheck(Unit& owner, const uint32& time_diff)
+{
+    Unit* master = m_slot->GetMaster();
+    if (!m_headingToMaster || i_recheckDistance.Passed())
+    {
+        float distToMaster = owner.GetDistance(master);
+        if (distToMaster > 200)
+        {
+            Position const& mPos = master->GetPosition();
+            owner.NearTeleportTo(mPos.x, mPos.y, mPos.z, mPos.o);
+
+            m_slot->GetRecomputePosition() = true;
+            //sLog.outString("BIG TELEPORT TO MASTER!!");
+            return true;
+        }
+        else if (distToMaster > 40)
+        {
+            Position const& mPos = master->GetPosition();
+            _addUnitStateMove(owner);
+
+            Movement::MoveSplineInit init(owner);
+            init.MoveTo(mPos.x, mPos.y, mPos.z, true, true);
+            init.SetFacing(mPos.o);
+
+            init.SetWalk(false);
+            //init.SetVelocity(0);
+
+            i_recheckDistance.Reset(init.Launch() / 2);
+            m_headingToMaster = true;
+            //sLog.outString("MOVE BACK FOLLOWER TO MASTER!!");
+            return true;
+        }
+        else
+        {
+            m_headingToMaster = false;
+        }
+    }
+    else
+    {
+        i_recheckDistance.Update(time_diff);
+        return true;
+    }
+    return false;
+}
+
+void FormationMovementGenerator::HandleTargetedMovement(Unit& owner, const uint32& time_diff)
+{
+    if (!m_slot->CanFollow())
+        return;
+
+    if (HandleMasterDistanceCheck(owner, time_diff))
+        return;
+
+    // Detect target movement and relocation
+    const bool targetMovingLast = m_targetMoving;
+    // If moving in any direction (not count jumping in place)
+    m_targetMoving = i_target->m_movementInfo.HasMovementFlag(MovementFlags(movementFlagsMask & ~(MOVEFLAG_FALLING | MOVEFLAG_FALLINGFAR)));
+    bool targetRelocation = false;
+    bool targetOrientation = false;
+    bool needToRePos = false;
+
+    if (m_targetMoving && (!targetMovingLast || owner.movespline->Finalized()))  // Movement just started or master is moving and not owner: force update
+        targetRelocation = true;
+    else                                            // Periodic dist poll: fast when moving, slow when stationary
+    {
+        i_recheckDistance.Update(time_diff);
+
+        if (i_recheckDistance.Passed())
+        {
+            i_recheckDistance.Reset(1000);
+
+            G3D::Vector3 currentTargetPos;
+
+            i_target->GetPosition(currentTargetPos.x, currentTargetPos.y, currentTargetPos.z);
+
+            targetRelocation = (currentTargetPos != i_lastTargetPos);
+            targetOrientation = (!targetRelocation && !m_targetMoving && !m_targetFaced);
+            i_lastTargetPos = currentTargetPos;
+        }
+    }
+
+    if (m_slot->GetRecomputePosition())
+    {
+        if (i_target->movespline->Finalized() || !targetRelocation)
+            needToRePos = true;
+        
+        m_slot->GetRecomputePosition() = false;
+    }
+
+    // Decide whether it's suitable time to update position or orientation
+    if (targetRelocation || needToRePos)
+    {
+        _setLocation(owner, needToRePos);
+    }
+}
+
+void FormationMovementGenerator::HandleFinalizedMovement(Unit& owner)
+{
+
+    if (!i_target->movespline->Finalized())
+        return;
+
+    // signal that we have finalized the movement
+    //m_slot->OnMovementStop();
+
+    i_targetReached = true;
+}
+
+void FormationMovementGenerator::_setLocation(Unit& owner, bool needRepos)
+{
+    PointsArray newPath;
+    float speed = -1.f;
+    speed = BuildPath(owner, newPath);
+
+    if (speed < 1.0f)
+        return;
+
+    _addUnitStateMove(owner);
+
+    Movement::MoveSplineInit init(owner);
+    init.MovebyPath(newPath);
+    init.SetFacing(i_target->GetOrientation());
+
+    if (needRepos)
+        init.SetWalk(true);
+    else
+    {
+        init.SetWalk(EnableWalking());
+        init.SetVelocity(speed);
+    }
+
+    int32 nextUpdate = init.Launch() - FORMATION_FOLLOWERS_CHECK_OVERRIDE;
+    if (nextUpdate < 0)
+        nextUpdate = 0;
+
+    i_recheckDistance.Reset(nextUpdate);
+
+    // signal that we have started to move
+    //m_slot->OnMovementStart();
+
+    i_targetReached = false;
+    i_speedChanged = false;
+    m_targetFaced = false;
 }
 
 //-----------------------------------------------//

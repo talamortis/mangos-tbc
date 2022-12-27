@@ -39,6 +39,7 @@ class Aura;
 struct SpellTargetEntry;
 struct SpellScript;
 struct AuraScript;
+struct SpellTargetingData;
 
 enum SpellCastFlags
 {
@@ -455,16 +456,17 @@ class Spell
         {
             CreaturePosition() :
                 x(0.0f), y(0.0f), z(0.0f),
-                creature(nullptr)
+                creature(nullptr), processed(false)
             {}
 
             float x, y, z;
             Creature* creature;
+            bool processed;
         };
         typedef std::vector<CreaturePosition> CreatureSummonPositions;
 
         bool DoCreateItem(SpellEffectIndex eff_idx, uint32 itemtype, bool reportError = true);
-        bool DoSummonPet(SpellEffectIndex eff_idx);
+        bool DoSummonPet(CreatureSummonPositions& list, SummonPropertiesEntry const* prop, SpellEffectIndex effIdx);
         bool DoSummonTotem(CreatureSummonPositions& list, SpellEffectIndex eff_idx, uint8 slot_dbc = 0);
         bool DoSummonWild(CreatureSummonPositions& list, SummonPropertiesEntry const* prop, SpellEffectIndex effIdx, uint32 level);
         bool DoSummonGuardian(CreatureSummonPositions& list, SummonPropertiesEntry const* prop, SpellEffectIndex effIdx, uint32 level);
@@ -524,8 +526,12 @@ class Spell
         bool m_ignoreConcurrentCasts;
         bool m_hideInCombatLog;
         bool m_resetLeash;
+        bool m_channelOnly;
         // Not a trigger flag but same type of information
         bool m_clientCast;
+
+        // scriptable conditionals
+        bool m_ignoreRoot; //
 
         int32 GetCastTime() const { return m_casttime; }
         uint32 GetCastedTime() const { return m_timer; }
@@ -550,8 +556,8 @@ class Spell
             return false;
         }
         bool IsChannelActive() const { return m_caster->GetUInt32Value(UNIT_CHANNEL_SPELL) != 0; }
-        bool IsMeleeAttackResetSpell() const { return !m_IsTriggeredSpell && (m_spellInfo->InterruptFlags & SPELL_INTERRUPT_FLAG_INTERRUPT);  }
-        bool IsRangedAttackResetSpell() const { return !m_IsTriggeredSpell && IsRangedSpell() && (m_spellInfo->InterruptFlags & SPELL_INTERRUPT_FLAG_INTERRUPT); }
+        bool IsMeleeAttackResetSpell() const { return !m_IsTriggeredSpell && (m_spellInfo->InterruptFlags & SPELL_INTERRUPT_FLAG_COMBAT);  }
+        bool IsRangedAttackResetSpell() const { return !m_IsTriggeredSpell && IsRangedSpell() && (m_spellInfo->InterruptFlags & SPELL_INTERRUPT_FLAG_COMBAT); }
         bool IsEffectWithImplementedMultiplier(uint32 effectId) const;
 
         bool IsDeletable() const { return !m_referencedFromCurrentSpell && !m_executedCurrently; }
@@ -582,6 +588,7 @@ class Spell
         WorldObject* GetCastingObject() const;
         // channels are generally instant - until more research provided all need to have speed 0
         float GetSpellSpeed() const;
+        bool IsDelayedSpell() const;
 
         void UpdatePointers();                              // must be used at call Spell code after time delay (non triggered spell cast/update spell call/etc)
 
@@ -604,10 +611,10 @@ class Spell
 
         bool CanBeInterrupted() const { return m_spellState <= SPELL_STATE_DELAYED || m_spellState == SPELL_STATE_CHANNELING; }
 
-        uint64 GetScriptValue() const { return m_scriptValue; }
-        void SetScriptValue(uint64 value) { m_scriptValue = value; }
         void RegisterAuraProc(Aura* aura);
         bool IsAuraProcced(Aura* aura);
+        // setting 0 disables the trigger
+        void SetTriggerChance(int32 triggerChance, SpellEffectIndex effIdx) { m_triggerSpellChance[effIdx] = triggerChance; }
 
         // Spell Target Subsystem - public part
         // Targets store structures and data
@@ -628,6 +635,7 @@ class Spell
             bool   magnet : 1;
             bool   procReflect : 1; // Used to tell hit to proc reflect only and return reflect back
             bool   isCrit : 1;
+            bool   executionless : 1;
             uint32 heartbeatResistChance;
             uint32 diminishDuration; // Store duration after diminishing returns are applied
             DiminishingLevels diminishLevel;
@@ -660,8 +668,8 @@ class Spell
         {
             uint32 effectMask;
             uint64 timeDelay;
-            bool processed;
-            DestTargetInfo() : effectMask(0), timeDelay(0), processed(false) {}
+            uint32 effectMaskProcessed;
+            DestTargetInfo() : effectMask(0), timeDelay(0), effectMaskProcessed(0) {}
         };
 
         typedef std::list<TargetInfo>     TargetList;
@@ -687,6 +695,9 @@ class Spell
 
         // Scripting system
         SpellScript* GetSpellScript() const { return m_spellScript; }
+        // Variable storage
+        uint64 GetScriptValue() const { return m_scriptValue; }
+        void SetScriptValue(uint64 value) { m_scriptValue = value; }
         // hooks
         void OnInit();
         void OnSuccessfulStart();
@@ -708,8 +719,10 @@ class Spell
         GameObject* GetGOTarget() { return gameObjTarget; }
         uint32 GetDamage() { return damage; }
         void SetDamage(uint32 newDamage) { damage = newDamage; }
+        SpellSchoolMask GetSchoolMask() { return m_spellSchoolMask; }
         // OnHit use only
         uint32 GetTotalTargetDamage() { return m_damage; }
+        void SetTotalTargetValueModifier(float modifier);
         // script initialization hook only setters - use only if dynamic - else use appropriate helper
         void SetMaxAffectedTargets(uint32 newValue) { m_affectedTargetCount = newValue; }
         void SetJumpRadius(float newValue) { m_jumpRadius = newValue; }
@@ -728,8 +741,9 @@ class Spell
         WorldObject* GetTrueCaster() const { return m_trueCaster; }
         Unit* GetAffectiveCasterOrOwner() const;
 
-        // speed override
+        // overrides
         void SetOverridenSpeed(float newSpeed);
+        void SetIgnoreRoot(bool state) { m_ignoreRoot = state; }
     protected:
         void SendLoot(ObjectGuid guid, LootType loottype, LockType lockType);
         bool IgnoreItemRequirements() const;                // some item use spells have unexpected reagent data
@@ -787,6 +801,7 @@ class Spell
 
         // Damage and healing in effects need just calculate
         int32 m_damage;                                     // Damage in effects count here
+        int32 damagePerEffect[MAX_EFFECT_INDEX];            // Workaround for multiple weapon damage effects
         int32 m_damagePerEffect[MAX_EFFECT_INDEX];
         int32 m_healing;                                    // Healing in effects count here
         int32 m_healingPerEffect[MAX_EFFECT_INDEX];
@@ -805,6 +820,7 @@ class Spell
         //*****************************************
         void FillTargetMap();
         void SetTargetMap(SpellEffectIndex effIndex, uint32 targetMode, bool targetB, TempTargetingData& targetingData);
+        bool FillUnitTargets(TempTargetingData& targetingData, SpellTargetingData& data, uint32 i);
         bool CheckAndAddMagnetTarget(Unit* unitTarget, SpellEffectIndex effIndex, bool targetB, TempTargetingData& data);
         static void CheckSpellScriptTargets(SQLMultiStorage::SQLMSIteratorBounds<SpellTargetEntry>& bounds, UnitList& tempTargetUnitMap, UnitList& targetUnitMap, SpellEffectIndex effIndex);
         void FilterTargetMap(UnitList& filterUnitList, SpellTargetFilterScheme scheme, uint32 chainTargetCount);
@@ -862,6 +878,7 @@ class Spell
         uint64 m_scriptValue; // persistent value for spell script state
         SpellScript* m_spellScript;
         AuraScript* m_auraScript; // needed for some checks for value calculation
+        int32 m_triggerSpellChance[MAX_EFFECT_INDEX]; // used by trigger spell effects to roll
 
         uint32 m_spellState;
         uint32 m_timer;
@@ -1065,7 +1082,9 @@ namespace MaNGOS
                         float maxHeight = i_radius / 2;
                         float distance = std::min(sqrtf(itr->getSource()->GetDistance2d(i_centerX, i_centerY, DIST_CALC_NONE)), i_radius);
                         float ratio = distance / i_radius;
-                        float conalMaxHeight = maxHeight * ratio;
+                        float conalMaxHeight = maxHeight * ratio; // pvp combat uses true cone from roughly model
+                        if (!i_originalCaster->IsControlledByPlayer() && itr->getSource()->IsControlledByPlayer())
+                            conalMaxHeight = maxHeight; // npcs just do a conal max Z aoe
                         if (i_cone >= 0.f)
                         {
                             if (i_castingObject->isInFront(itr->getSource(), i_radius, i_cone) &&

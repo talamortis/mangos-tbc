@@ -80,6 +80,7 @@
 #include <mutex>
 #include <cstdarg>
 #include <memory>
+#include <AI/ScriptDevAI/ScriptDevMgr.h>
 
 INSTANTIATE_SINGLETON_1(World);
 
@@ -726,6 +727,10 @@ void World::LoadConfigSettings(bool reload)
     setConfig(CONFIG_UINT32_MIRRORTIMER_FATIGUE_MAX,       "MirrorTimer.Fatigue.Max", 60);
     setConfig(CONFIG_UINT32_MIRRORTIMER_BREATH_MAX,        "MirrorTimer.Breath.Max", 60);
     setConfig(CONFIG_UINT32_MIRRORTIMER_ENVIRONMENTAL_MAX, "MirrorTimer.Environmental.Max", 1);
+    setConfig(CONFIG_UINT32_ENVIRONMENTAL_DAMAGE_MIN, "EnvironmentalDamage.Min", 605);
+    setConfigMin(CONFIG_UINT32_ENVIRONMENTAL_DAMAGE_MAX, "EnvironmentalDamage.Max", 610, getConfig(CONFIG_UINT32_ENVIRONMENTAL_DAMAGE_MIN));
+
+    setConfig(CONFIG_UINT32_INTERACTION_PAUSE_TIMER, "InteractionPauseTimer", 180000);
 
     setConfig(CONFIG_BOOL_PET_UNSUMMON_AT_MOUNT,      "PetUnsummonAtMount", false);
     setConfig(CONFIG_BOOL_PET_ATTACK_FROM_BEHIND,     "PetAttackFromBehind", true);
@@ -808,14 +813,12 @@ void World::LoadConfigSettings(bool reload)
     setConfig(CONFIG_BOOL_VMAP_INDOOR_CHECK, "vmap.enableIndoorCheck", true);
     bool enableLOS = sConfig.GetBoolDefault("vmap.enableLOS", false);
     bool enableHeight = sConfig.GetBoolDefault("vmap.enableHeight", false);
-    std::string ignoreSpellIds = sConfig.GetStringDefault("vmap.ignoreSpellIds");
 
     if (!enableHeight)
         sLog.outError("VMAP height use disabled! Creatures movements and other things will be in broken state.");
 
     VMAP::VMapFactory::createOrGetVMapManager()->setEnableLineOfSightCalc(enableLOS);
     VMAP::VMapFactory::createOrGetVMapManager()->setEnableHeightCalc(enableHeight);
-    VMAP::VMapFactory::preventSpellsFromBeingTestedForLoS(ignoreSpellIds.c_str());
     sLog.outString("WORLD: VMap support included. LineOfSight:%i, getHeight:%i, indoorCheck:%i",
                    enableLOS, enableHeight, getConfig(CONFIG_BOOL_VMAP_INDOOR_CHECK) ? 1 : 0);
     sLog.outString("WORLD: VMap data directory is: %svmaps", m_dataPath.c_str());
@@ -836,6 +839,9 @@ void World::LoadConfigSettings(bool reload)
 
     setConfig(CONFIG_UINT32_SUNSREACH_COUNTER, "Sunsreach.CounterMax", 10000);
 
+    if (reload)
+        sScriptDevMgr.OnConfigLoad(reload);
+
     sLog.outString();
 }
 
@@ -850,6 +856,9 @@ void World::SetInitialWorldSettings()
 
     ///- Initialize detour memory management
     dtAllocSetCustom(dtCustomAlloc, dtCustomFree);
+
+    ///- Initialize module config settings
+    LoadModuleConfig();
 
     ///- Initialize config settings
     LoadConfigSettings();
@@ -1008,14 +1017,17 @@ void World::SetInitialWorldSettings()
     sLog.outString("Loading Creature templates...");
     sObjectMgr.LoadCreatureTemplates();
 
-    sLog.outString("Loading Creature template spells...");
-    sObjectMgr.LoadCreatureTemplateSpells();
+    sLog.outString("Loading Creature immunities...");
+    sObjectMgr.LoadCreatureImmunities();
+
+    sLog.outString("Loading Creature spell lists...");
+    sObjectMgr.LoadCreatureSpellLists();
 
     sLog.outString("Loading Creature cooldowns...");
     sObjectMgr.LoadCreatureCooldowns();
 
-    sLog.outString("Loading Creature immunities...");
-    sObjectMgr.LoadCreatureImmunities();
+    sLog.outString("Loading Creature template spells...");
+    sObjectMgr.LoadCreatureTemplateSpells();
 
     sLog.outString("Loading Creature Model for race...");   // must be after creature templates
     sObjectMgr.LoadCreatureModelRace();
@@ -1092,8 +1104,14 @@ void World::SetInitialWorldSettings()
     sLog.outString("Loading Dungeon Encounters...");
     sObjectMgr.LoadDungeonEncounters();                     // Load DungeonEncounter.dbc from DB
 
+    sLog.outString("Loading WorldState Names...");          // must be before conditions and dbscripts
+    sObjectMgr.LoadWorldStateNames();
+
     sLog.outString("Loading Conditions...");                // Load Conditions
     sObjectMgr.LoadConditions();
+
+    sLog.outString("Loading Spawn Groups");                 // must be after creature and GO load
+    sObjectMgr.LoadSpawnGroups();
 
     // Not sure if this can be moved up in the sequence (with static data loading) as it uses MapManager
     sLog.outString("Loading Transports...");
@@ -1291,6 +1309,9 @@ void World::SetInitialWorldSettings()
     sLog.outString("Loading CreatureEventAI Scripts...");
     sEventAIMgr.LoadCreatureEventAI_Scripts();
 
+    sLog.outString("Loading Custom Module Tables...");
+    sScriptDevMgr.OnLoadCustomDatabaseTable();
+
     ///- Load and initialize scripting library
     sLog.outString("Initializing Scripting Library...");
     sScriptDevAIMgr.Initialize();
@@ -1299,6 +1320,9 @@ void World::SetInitialWorldSettings()
     // after SD2
     sLog.outString("Loading spell scripts...");
     SpellScriptMgr::LoadScripts();
+
+    // after spellscripts
+    sScriptDevAIMgr.CheckScriptNames();
 
     ///- Initialize game time and timers
     sLog.outString("Initialize game time and timers");
@@ -1632,6 +1656,8 @@ void World::Update(uint32 diff)
     meas.add_field("singletons", std::to_string(singletons));
     meas.add_field("cleanup", std::to_string(cleanup));
 #endif
+
+    sScriptDevMgr.OnWorldUpdate(diff);
 }
 
 namespace MaNGOS
@@ -2028,6 +2054,7 @@ void World::ShutdownMsg(bool show /*= false*/, Player* player /*= nullptr*/)
 
     ///- Display a message every 12 hours, 1 hour, 5 minutes, 1 minute and 15 seconds
     if (show ||
+            (m_ShutdownTimer <= 15) || // every sec down from 15 secs
             (m_ShutdownTimer < 5 * MINUTE && (m_ShutdownTimer % 15) == 0) ||            // < 5 min; every 15 sec
             (m_ShutdownTimer < 15 * MINUTE && (m_ShutdownTimer % MINUTE) == 0) ||       // < 15 min; every 1 min
             (m_ShutdownTimer < 30 * MINUTE && (m_ShutdownTimer % (5 * MINUTE)) == 0) || // < 30 min; every 5 min
@@ -2783,4 +2810,79 @@ void World::LoadWorldSafeLocs() const
 {
     sWorldSafeLocsStore.Load(true);
     sLog.outString(">> Loaded %u world safe locs", sWorldSafeLocsStore.GetRecordCount());
+}
+
+void World::LoadModuleConfig()
+{
+    QueryResult* result = WorldDatabase.PQuery("SELECT `id`, `config`, `value` FROM module_config");
+    uint64 count = 0;
+
+    if (result)
+    {
+        do
+        {
+            Field* field = result->Fetch();
+            ModuleConfig mod;
+
+            uint32 id = field[0].GetUInt32();
+            mod.config = field[1].GetString();
+            mod.value = field[2].GetString();
+
+            _moduleConfig[mod.config] = mod;
+
+            count++;
+        } while (result->NextRow());
+    }
+
+    sLog.outString(">> Loaded %lu module config", count);
+}
+
+//sModuleMgr.GetBool(std::string conf, bool, default)
+bool World::GetModuleBoolConfig(std::string conf, bool value)
+{
+    auto it = _moduleConfig.find(conf.c_str());
+
+    // If we can not find the config at all then use value
+    if (it == _moduleConfig.end())
+        return value;
+    else
+    {
+        ModuleConfig Mod = it->second;
+
+        const char* str = Mod.value.c_str();
+        if (strcmp(str, "true") == 0 || strcmp(str, "TRUE") == 0 ||
+            strcmp(str, "yes") == 0 || strcmp(str, "YES") == 0 ||
+            strcmp(str, "1") == 0)
+            return true;
+        else
+            return false;
+    }
+}
+
+std::string World::GetModuleStringConfig(std::string conf, std::string value)
+{
+    auto it = _moduleConfig.find(conf.c_str());
+
+    if (it == _moduleConfig.end())
+        return value.c_str();
+    else
+    {
+        ModuleConfig Mod = it->second;
+        return Mod.value.c_str();
+    }
+
+}
+
+int32 World::GetModuleIntConfig(std::string conf, uint32 value)
+{
+    auto it = _moduleConfig.find(conf.c_str());
+
+    if (it == _moduleConfig.end())
+        return value;
+    else
+    {
+        ModuleConfig Mod = it->second;
+        return (uint32)atoi(Mod.value.c_str());
+    }
+
 }

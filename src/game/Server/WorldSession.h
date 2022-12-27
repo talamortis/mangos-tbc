@@ -115,7 +115,7 @@ enum PartyResult
     ERR_INVITE_RESTRICTED               = 13,
 };
 
-enum LfgType
+enum LfgType : uint32
 {
     LFG_TYPE_NONE           = 0,
     LFG_TYPE_DUNGEON        = 1,
@@ -339,7 +339,7 @@ class WorldSession
 
         void SendAttackStop(Unit const* enemy) const;
 
-        void SendBattlegGroundList(ObjectGuid guid, BattleGroundTypeId bgTypeId) const;
+        void SendBattleGroundList(ObjectGuid guid, BattleGroundTypeId bgTypeId) const;
 
         void SendTradeStatus(const TradeStatusInfo& status) const;
         void SendUpdateTrade(bool trader_state = true) const;
@@ -409,9 +409,13 @@ class WorldSession
 
         // Looking For Group
         // TRUE values set by client sending CMSG_LFG_SET_AUTOJOIN and CMSG_LFM_CLEAR_AUTOFILL before player login
-        bool LookingForGroup_auto_join;
-        bool LookingForGroup_auto_add;
+        bool LookingForGroup_auto_join = false;
+        bool LookingForGroup_auto_add = false;
+        bool LookingForGroup_queue = false;
+        void SendMeetingStoneInProgress();
+        void SendMeetingStoneComplete();
         void SendLFGListQueryResponse(LfgType type, uint32 entry);
+        void SendLFGUpdate();
         void SendLFGUpdateLFG();
         void SendLFGUpdateLFM();
 

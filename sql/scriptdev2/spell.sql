@@ -25,6 +25,7 @@ INSERT INTO spell_scripts(Id, ScriptName) VALUES
 (4130,'spell_banish_exile'),
 (4131,'spell_banish_exile'),
 (4132,'spell_banish_exile'),
+(5166,'spell_harvest_silithid_egg'),
 (6467,'spell_unarmed_woodcutter'),
 (7054,'spell_forsaken_skill'),
 (8555,'spell_left_for_dead'),
@@ -105,6 +106,7 @@ INSERT INTO spell_scripts(Id, ScriptName) VALUES
 (26686,'spell_aq_whirlwind'),
 (26767,'spell_cthun_tentacles_summon'),
 (26769,'spell_cthun_periodic_eye_trigger'),
+(27360,'spell_instill_lord_valthalaks_spirit'),
 (28006,'spell_arcane_cloaking'),
 (27808,'spell_kel_thuzad_frost_blast'),
 (27934,'spell_viscidus_shrinks'),
@@ -150,7 +152,39 @@ INSERT INTO spell_scripts(Id, ScriptName) VALUES
 (30132,'spell_sapphiron_iceblock'),
 (28091,'spell_despawner_self'),
 (28345,'spell_communique_trigger'),
-(31315,'spell_summon_boss');
+(31315,'spell_summon_boss'),
+(491,'spell_gameobject_call_for_help_on_usage'), -- Khadgar's Unlocking
+(857,'spell_gameobject_call_for_help_on_usage'), -- Khadgar's Unlocking
+(1804,'spell_gameobject_call_for_help_on_usage'), -- Pick Lock
+(2366,'spell_gameobject_call_for_help_on_usage'), -- Herb Gathering
+(2368,'spell_gameobject_call_for_help_on_usage'), -- Herb Gathering
+(2369,'spell_gameobject_call_for_help_on_usage'), -- Herb Gathering
+(2371,'spell_gameobject_call_for_help_on_usage'), -- Herb Gathering
+(2575,'spell_gameobject_call_for_help_on_usage'), -- Mining
+(2576,'spell_gameobject_call_for_help_on_usage'), -- Mining
+(3365,'spell_gameobject_call_for_help_on_usage'), -- Opening (Standard)
+(3564,'spell_gameobject_call_for_help_on_usage'), -- Mining
+(3570,'spell_gameobject_call_for_help_on_usage'), -- Herb Gathering
+(4056,'spell_gameobject_call_for_help_on_usage'), -- Small Seaforium Charge
+(4075,'spell_gameobject_call_for_help_on_usage'), -- Large Seaforium Charge
+(6247,'spell_gameobject_call_for_help_on_usage'), -- Opening
+-- (6461,'spell_gameobject_call_for_help_on_usage'), -- Pick Lock (classic)
+-- (6463,'spell_gameobject_call_for_help_on_usage'), -- Pick Lock (classic)
+(6477,'spell_gameobject_call_for_help_on_usage'), -- Opening
+(6478,'spell_gameobject_call_for_help_on_usage'), -- Opening
+(8917,'spell_gameobject_call_for_help_on_usage'), -- Opening
+(10165,'spell_gameobject_call_for_help_on_usage'), -- Khadgar's Unlocking
+(10166,'spell_gameobject_call_for_help_on_usage'), -- Khadgar's Unlocking
+(10248,'spell_gameobject_call_for_help_on_usage'), -- Mining
+(11993,'spell_gameobject_call_for_help_on_usage'), -- Herb Gathering
+(19646,'spell_gameobject_call_for_help_on_usage'), -- Silver Skeleton Key
+(19649,'spell_gameobject_call_for_help_on_usage'), -- Golden Skeleton Key
+(19651,'spell_gameobject_call_for_help_on_usage'), -- Truesilver Skeleton Key
+(19657,'spell_gameobject_call_for_help_on_usage'), -- Arcanite Skeleton Key
+(20709,'spell_gameobject_call_for_help_on_usage'), -- Arcanite Skeleton Key
+(22810,'spell_gameobject_call_for_help_on_usage'), -- Opening - No Text
+(23008,'spell_gameobject_call_for_help_on_usage'), -- Powerful Seaforium Charge
+(26868,'spell_gameobject_call_for_help_on_usage'); -- Opening
 
 -- TBC
 INSERT INTO spell_scripts(Id, ScriptName) VALUES
@@ -262,10 +296,13 @@ INSERT INTO spell_scripts(Id, ScriptName) VALUES
 (37896,'spell_to_infinity_and_above'),
 (38119,'spell_calling_rider'),
 (38249,'spell_calling_rider'),
+(37751,'spell_submerged'),
+(37752,'spell_stand'),
 (38606,'spell_exorcism_feather'),
 (38640,'spell_koi_koi_death'),
 (38915,'spell_mental_interference'),
 (38544,'spell_coax_marmot'),
+(38708,'spell_demoniac_visitation'),
 (40309,'spell_possess_demon_shartuul'),
 (40222,'spell_smash_shield'),
 (40503,'spell_possession_transfer'),
@@ -505,6 +542,10 @@ INSERT INTO spell_scripts(Id, ScriptName) VALUES
 (46747,'spell_fling_torch'),
 (45671,'spell_juggle_torch_catch_quest'),
 (45693,'spell_torches_caught'),
+(45426,'spell_brazier_of_dancing_flames'),
+(45644,'spell_juggle_torch_catch'),
+(45819,'spell_throw_torch'),
+(46878,'spell_summon_ice_spear_knockback_delayer'),
 (40526,'spell_imp_in_a_bottle_say'),
 (49357,'spell_brewfest_mount_transformation'),
 (52845,'spell_brewfest_mount_transformation_faction_swap'),
@@ -541,10 +582,19 @@ INSERT INTO spell_scripts(Id, ScriptName) VALUES
 (47375,'spell_summon_direbrew_minion'),
 (49858,'spell_make_bunny_summon_mole_machine'),
 (47514,'spell_summon_mole_machine'),
-(42919,'spell_tricky_treat');
+(46649,'spell_maximize_pet_loyalty_and_happiness'),
+(42919,'spell_tricky_treat'),
+(28695,'spell_gameobject_call_for_help_on_usage'), -- Herb Gathering (Master)
+(29354,'spell_gameobject_call_for_help_on_usage'), -- Mining (Master)
+(30434,'spell_gameobject_call_for_help_on_usage'); -- Elemental Seaforium Charge
 
 -- Wotlk
-
+INSERT INTO spell_scripts(Id, ScriptName) VALUES
+(36435,'spell_forget_36435'),
+(36436,'spell_forget_36436'),
+(36438,'spell_forget_36438'),
+(36439,'spell_forget_36439'),
+(36441,'spell_forget_36441');
 
 -- Hunter
 INSERT INTO spell_scripts(Id, ScriptName) VALUES
@@ -636,7 +686,9 @@ INSERT INTO spell_scripts(Id, ScriptName) VALUES
 (19734,'spell_devour_magic'),
 (19736,'spell_devour_magic'),
 (27276,'spell_devour_magic'),
-(27277,'spell_devour_magic');
+(27277,'spell_devour_magic'),
+(1714,'spell_curse_diminishing_duration'),
+(11719,'spell_curse_diminishing_duration');
 
 -- Pet Scaling
 INSERT INTO spell_scripts(Id, ScriptName) VALUES
@@ -702,7 +754,14 @@ INSERT INTO spell_scripts(Id, ScriptName) VALUES
 (12574,'spell_arcane_concentration'),
 (12575,'spell_arcane_concentration'),
 (12576,'spell_arcane_concentration'),
-(12577,'spell_arcane_concentration');
+(12577,'spell_arcane_concentration'),
+(42208,'spell_blizzard'),
+(42209,'spell_blizzard'),
+(42210,'spell_blizzard'),
+(42211,'spell_blizzard'),
+(42212,'spell_blizzard'),
+(42213,'spell_blizzard'),
+(42198,'spell_blizzard');
 
 -- Druid
 INSERT INTO spell_scripts(Id, ScriptName) VALUES
@@ -735,7 +794,12 @@ INSERT INTO spell_scripts(Id, ScriptName) VALUES
 (1856,'spell_vanish'),
 (1857,'spell_vanish'),
 (26889,'spell_vanish'),
+(6770,'spell_sap'),
+(2070,'spell_sap'), -- check ranks before changing
+(11297,'spell_sap'),
 (14185,'spell_preparation'),
+(14082,'spell_dirty_deeds'),
+(14083,'spell_dirty_deeds'),
 (13983,'spell_setup_rogue'),
 (14070,'spell_setup_rogue'),
 (14071,'spell_setup_rogue');
@@ -857,6 +921,13 @@ INSERT INTO spell_scripts(Id, ScriptName) VALUES
 
 -- Battleground and Outdoor PvP
 INSERT INTO spell_scripts(Id, ScriptName) VALUES
+(23333,'spell_flag_aura_bg'),
+(23335,'spell_flag_aura_bg'),
+(29519,'spell_flag_aura_bg'),
+(34976,'spell_flag_aura_bg'),
+-- WSG
+(23383,'spell_flag_click_bg'),
+(23384,'spell_flag_click_bg'),
 -- Arathi basin
 (23936,'spell_battleground_banner_trigger'),
 (23932,'spell_battleground_banner_trigger'),

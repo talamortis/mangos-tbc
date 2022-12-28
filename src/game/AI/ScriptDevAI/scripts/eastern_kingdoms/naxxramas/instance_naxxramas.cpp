@@ -162,6 +162,9 @@ void instance_naxxramas::OnCreatureCreate(Creature* creature)
             m_livingPoisonTimer = 5 * IN_MILLISECONDS;
             break;
         }
+        case NPC_TOXIC_TUNNEL:
+            creature->SetCanEnterCombat(false);
+            break;
         case NPC_ZOMBIE_CHOW:
         {
             m_zombieChowList.push_back(creature->GetObjectGuid());
@@ -1104,7 +1107,7 @@ struct npc_stoneskin_gargoyleAI : public ScriptedAI
         {
             if (DoCastSpellIfCan(m_creature, SPELL_STONEFORM, CAST_TRIGGERED | CAST_AURA_NOT_PRESENT) == CAST_OK)
             {
-                m_creature->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE);
+                m_creature->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_UNINTERACTIBLE);
                 m_creature->SetImmuneToPlayer(true);
             }
         }
@@ -1117,7 +1120,7 @@ struct npc_stoneskin_gargoyleAI : public ScriptedAI
 
     void MoveInLineOfSight(Unit* pWho) override
     {
-        if (m_creature->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE))
+        if (m_creature->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_UNINTERACTIBLE))
         {
             if (pWho->GetTypeId() == TYPEID_PLAYER
                 && !m_creature->IsInCombat()
@@ -1134,9 +1137,9 @@ struct npc_stoneskin_gargoyleAI : public ScriptedAI
 
     void Aggro(Unit*) override
     {
-        if (m_creature->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE | UNIT_FLAG_SPAWNING))
+        if (m_creature->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_UNINTERACTIBLE | UNIT_FLAG_SPAWNING))
         {
-            m_creature->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE);
+            m_creature->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_UNINTERACTIBLE);
             m_creature->SetImmuneToPlayer(false);
         }
 

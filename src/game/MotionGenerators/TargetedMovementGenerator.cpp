@@ -432,7 +432,7 @@ void ChaseMovementGenerator::FanOut(Unit& owner)
     Unit* collider = nullptr;
     MaNGOS::AnyUnitFulfillingConditionInRangeCheck collisionCheck(&owner, [&](Unit* unit)->bool
     {
-        return &owner != unit && unit->GetVictim() && unit->GetVictim() == this->i_target.getTarget() && !unit->IsMoving() && !unit->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE);
+        return &owner != unit && unit->GetVictim() && unit->GetVictim() == this->i_target.getTarget() && !unit->IsMoving() && !unit->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_UNINTERACTIBLE);
     }, fanningRadius * fanningRadius, DIST_CALC_NONE);
     MaNGOS::UnitSearcher<MaNGOS::AnyUnitFulfillingConditionInRangeCheck> checker(collider, collisionCheck);
     Cell::VisitAllObjects(&owner, checker, fanningRadius);
@@ -564,6 +564,8 @@ bool ChaseMovementGenerator::DispatchSplineToPosition(Unit& owner, float x, floa
     Movement::MoveSplineInit init(owner);
     init.MovebyPath(path);
     init.SetWalk(walk);
+    if (owner.IsSlowedInCombat() && !walk)
+        init.SetCombatSlowed();
     if (target)
         init.SetFacing(i_target.getTarget());
     init.Launch();
@@ -809,6 +811,8 @@ void FollowMovementGenerator::Initialize(Unit& owner)
 void FollowMovementGenerator::Finalize(Unit& owner)
 {
     owner.clearUnitState(UNIT_STAT_FOLLOW | UNIT_STAT_FOLLOW_MOVE);
+    if (owner.AI() && i_target.isValid())
+        owner.AI()->RelinquishFollow(i_target->GetObjectGuid());
 }
 
 void FollowMovementGenerator::Interrupt(Unit& owner)
@@ -1136,10 +1140,13 @@ void FollowMovementGenerator::HandleFinalizedMovement(Unit& owner)
 
 FormationMovementGenerator::FormationMovementGenerator(FormationSlotDataSPtr& sData, bool main) :
     FollowMovementGenerator(*sData->GetMaster(), sData->GetDistance(), sData->GetDistance(), main, false, false),
-    m_slot(sData), m_headingToMaster(false), m_lastAngle(0)
+    m_slot(sData), m_lastAngle(0), m_headingToMaster(false)
 {
     if (!this->i_path)
         this->i_path = new PathFinder(sData->GetOwner());
+
+    m_tpDistance = std::max(sData->GetDistance() * 5.0f, 200.0f);
+    m_moveToMasterDistance = std::min(sData->GetDistance() * 3.0f, 100.0f);
 }
 
 FormationMovementGenerator::~FormationMovementGenerator()
@@ -1158,6 +1165,30 @@ bool FormationMovementGenerator::Update(Unit& unit, const uint32& diff)
         SetNewTarget(*master);
 
     return TargetedMovementGeneratorMedium::Update(unit, diff);
+}
+
+void FormationMovementGenerator::Interrupt(Unit& owner)
+{
+    // be sure we are not already interrupted before saving current pos
+    if (owner.hasUnitState(UNIT_STAT_FOLLOW_MOVE))
+    {
+        // save the current position in case of reset
+        m_resetPoint = owner.GetPosition(owner.GetTransport());
+    }
+    FollowMovementGenerator::Interrupt(owner);
+}
+
+bool FormationMovementGenerator::GetResetPosition(Unit&, float& x, float& y, float& z, float& o) const
+{
+    if (m_resetPoint.IsEmpty())
+        return false;
+
+    x = m_resetPoint.x;
+    y = m_resetPoint.y;
+    z = m_resetPoint.z;
+    o = m_resetPoint.o;
+
+    return true;
 }
 
 float FormationMovementGenerator::BuildPath(Unit& owner, PointsArray& path)
@@ -1307,7 +1338,7 @@ bool FormationMovementGenerator::HandleMasterDistanceCheck(Unit& owner, const ui
     if (!m_headingToMaster || i_recheckDistance.Passed())
     {
         float distToMaster = owner.GetDistance(master);
-        if (distToMaster > 200)
+        if (distToMaster > m_tpDistance)
         {
             Position const& mPos = master->GetPosition();
             owner.NearTeleportTo(mPos.x, mPos.y, mPos.z, mPos.o);
@@ -1316,7 +1347,7 @@ bool FormationMovementGenerator::HandleMasterDistanceCheck(Unit& owner, const ui
             //sLog.outString("BIG TELEPORT TO MASTER!!");
             return true;
         }
-        else if (distToMaster > 40)
+        else if (distToMaster > m_moveToMasterDistance)
         {
             Position const& mPos = master->GetPosition();
             _addUnitStateMove(owner);
@@ -1397,7 +1428,7 @@ void FormationMovementGenerator::HandleTargetedMovement(Unit& owner, const uint3
     }
 }
 
-void FormationMovementGenerator::HandleFinalizedMovement(Unit& owner)
+void FormationMovementGenerator::HandleFinalizedMovement(Unit& /*owner*/)
 {
 
     if (!i_target->movespline->Finalized())

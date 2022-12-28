@@ -28,7 +28,7 @@
 #include "Log.h"
 #include "Server/Opcodes.h"
 #include "Server/WorldSession.h"
-#include "WorldPacket.h"
+#include "Server/WorldPacket.h"
 #include "Entities/Player.h"
 #include "Skills/SkillExtraItems.h"
 #include "Skills/SkillDiscovery.h"
@@ -59,7 +59,7 @@
 #include "Maps/MapPersistentStateMgr.h"
 #include "MotionGenerators/WaypointManager.h"
 #include "GMTickets/GMTicketMgr.h"
-#include "Util.h"
+#include "Util/Util.h"
 #include "Tools/CharacterDatabaseCleaner.h"
 #include "Entities/CreatureLinkingMgr.h"
 #include "Weather/Weather.h"
@@ -638,7 +638,7 @@ void World::LoadConfigSettings(bool reload)
 
     setConfig(CONFIG_UINT32_WORLD_BOSS_LEVEL_DIFF, "WorldBossLevelDiff", 3);
 
-    setConfigMinMax(CONFIG_INT32_QUEST_LOW_LEVEL_HIDE_DIFF, "Quests.LowLevelHideDiff", 4, -1, MAX_LEVEL);
+    setConfigMinMax(CONFIG_INT32_QUEST_LOW_LEVEL_HIDE_DIFF, "Quests.LowLevelHideDiff", 5, -1, MAX_LEVEL);
     setConfigMinMax(CONFIG_INT32_QUEST_HIGH_LEVEL_HIDE_DIFF, "Quests.HighLevelHideDiff", 7, -1, MAX_LEVEL);
 
     setConfigMinMax(CONFIG_UINT32_QUEST_DAILY_RESET_HOUR, "Quests.Daily.ResetHour", 6, 0, 23);
@@ -830,8 +830,6 @@ void World::LoadConfigSettings(bool reload)
 
     setConfig(CONFIG_BOOL_PATH_FIND_OPTIMIZE, "PathFinder.OptimizePath", true);
     setConfig(CONFIG_BOOL_PATH_FIND_NORMALIZE_Z, "PathFinder.NormalizeZ", false);
-
-    setConfig(CONFIG_BOOL_ACCOUNT_DATA, "AccountData", false);
 
     setConfig(CONFIG_UINT32_MAX_RECRUIT_A_FRIEND_BONUS_PLAYER_LEVEL, "Raf.BonusLevel", 60);
     setConfig(CONFIG_UINT32_MAX_RECRUIT_A_FRIEND_BONUS_PLAYER_LEVEL_DIFFERENCE, "Raf.LevelDifference", 4);
@@ -1187,7 +1185,8 @@ void World::SetInitialWorldSettings()
     sObjectMgr.LoadMailLevelRewards();
 
     sLog.outString("Loading Loot Tables...");
-    LoadLootTables();
+    LootIdSet ids_set;
+    LoadLootTables(ids_set);
     sLog.outString(">>> Loot Tables loaded");
     sLog.outString();
 
@@ -1377,6 +1376,7 @@ void World::SetInitialWorldSettings()
     sLog.outString("Starting BattleGround System");
     sBattleGroundMgr.CreateInitialBattleGrounds();
     sBattleGroundMgr.InitAutomaticArenaPointDistribution();
+    CheckLootTemplates_Reference(ids_set);
 
     sLog.outString("Deleting expired bans...");
     LoginDatabase.Execute("DELETE FROM ip_banned WHERE expires_at<=UNIX_TIMESTAMP() AND expires_at<>banned_at");

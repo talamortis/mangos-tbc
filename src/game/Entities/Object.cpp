@@ -18,7 +18,7 @@
 
 #include "Entities/Object.h"
 #include "Globals/SharedDefines.h"
-#include "WorldPacket.h"
+#include "Server/WorldPacket.h"
 #include "Server/Opcodes.h"
 #include "Log.h"
 #include "World/World.h"
@@ -30,7 +30,7 @@
 #include "Entities/UpdateData.h"
 #include "Entities/Transports.h"
 #include "UpdateMask.h"
-#include "Util.h"
+#include "Util/Util.h"
 #include "Grids/CellImpl.h"
 #include "Grids/GridNotifiers.h"
 #include "Grids/GridNotifiersImpl.h"
@@ -45,7 +45,7 @@
 #include "Spells/SpellMgr.h"
 #include "MotionGenerators/PathFinder.h"
 
-Object::Object(): m_updateFlag(0), m_itsNewObject(false)
+Object::Object(): m_updateFlag(0), m_itsNewObject(false), m_dbGuid(0)
 {
     m_objectTypeId      = TYPEID_OBJECT;
     m_objectType        = TYPEMASK_OBJECT;
@@ -88,12 +88,14 @@ void Object::_InitValues()
     m_objectUpdated = false;
 }
 
-void Object::_Create(uint32 guidlow, uint32 entry, HighGuid guidhigh)
+void Object::_Create(uint32 dbGuid, uint32 guidlow, uint32 entry, HighGuid guidhigh)
 {
     if (!m_uint32Values)
         _InitValues();
 
     ObjectGuid guid = ObjectGuid(guidhigh, entry, guidlow);
+    m_dbGuid = dbGuid;
+
     SetGuidValue(OBJECT_FIELD_GUID, guid);
     SetUInt32Value(OBJECT_FIELD_TYPE, m_objectType);
     m_PackGUID.Set(guid);
@@ -539,7 +541,7 @@ void Object::BuildValuesUpdate(uint8 updatetype, ByteBuffer* data, UpdateMask* u
                     if (target->IsGameMaster())
                     {
                         // Gamemasters should be always able to select units - remove not selectable flag:
-                        value &= ~UNIT_FLAG_NOT_SELECTABLE;
+                        value &= ~UNIT_FLAG_UNINTERACTIBLE;
                     }
 
                     // Client bug workaround: Fix for missing chat channels when resuming taxi flight on login
@@ -1186,10 +1188,10 @@ void Object::ForceValuesUpdateAtIndex(uint16 index)
 }
 
 WorldObject::WorldObject() :
-    m_transportInfo(nullptr), m_isOnEventNotified(false),
+    m_transport(nullptr), m_transportInfo(nullptr), m_isOnEventNotified(false),
     m_visibilityData(this), m_currMap(nullptr),
     m_mapId(0), m_InstanceId(0), m_phaseMask(1),
-    m_isActiveObject(false), m_debugFlags(0), m_transport(nullptr), m_castCounter(0)
+    m_isActiveObject(false), m_debugFlags(0), m_castCounter(0)
 {
 }
 
@@ -1211,7 +1213,7 @@ void WorldObject::Update(const uint32 diff)
 
 void WorldObject::_Create(uint32 guidlow, HighGuid guidhigh, uint32 phaseMask)
 {
-    Object::_Create(guidlow, 0, guidhigh);
+    Object::_Create(guidlow, guidlow, 0, guidhigh);
     m_phaseMask = phaseMask;
 }
 
@@ -1252,6 +1254,11 @@ uint32 WorldObject::GetZoneId() const
 uint32 WorldObject::GetAreaId() const
 {
     return GetTerrain()->GetAreaId(m_position.x, m_position.y, m_position.z);
+}
+
+char const* WorldObject::GetAreaName(LocaleConstant locale) const
+{
+    return GetTerrain()->GetAreaName(m_position.x, m_position.y, m_position.z, locale);
 }
 
 void WorldObject::GetZoneAndAreaId(uint32& zoneid, uint32& areaid) const
@@ -1684,12 +1691,15 @@ void WorldObject::MovePositionToFirstCollision(Position& pos, float dist, float 
         }
         UpdateAllowedPositionZ(dest.x, dest.y, dest.z);
         path.calculate(src, dest, false, true);
-        if (path.getPathType())
+        if ((path.getPathType() & PATHFIND_NOPATH) == 0)
         {
             G3D::Vector3 result = path.getPath().back();
             destX = result.x;
             destY = result.y;
             destZ = result.z;
+            // no collision detected - reset height
+            if (dest.z == result.z)
+                destZ -= halfHeight;
             if (transport) // transport produces offset, but we need global pos
                 transport->CalculatePassengerPosition(destX, destY, destZ);
         }
@@ -2045,8 +2055,8 @@ Creature* WorldObject::SummonCreature(TempSpawnSettings settings, Map* map)
         float dist = settings.forcedOnTop ? 0.0f : CONTACT_DISTANCE;
         pos = CreatureCreatePos(settings.spawner, settings.spawner->GetOrientation(), dist, settings.ori);
     }
-
-    if (!creature->Create(map->GenerateLocalLowGuid(cinfo->GetHighGuid()), pos, cinfo))
+    uint32 lowGuid = map->GenerateLocalLowGuid(cinfo->GetHighGuid());
+    if (!creature->Create(lowGuid, lowGuid, pos, cinfo))
     {
         delete creature;
         return nullptr;
@@ -3029,7 +3039,7 @@ int32 WorldObject::CalculateSpellEffectValue(Unit const* target, SpellEntry cons
         }
     }
 
-    if (unitCaster && spellProto->HasAttribute(SPELL_ATTR_LEVEL_DAMAGE_CALCULATION) && spellProto->spellLevel)
+    if (unitCaster && spellProto->HasAttribute(SPELL_ATTR_SCALES_WITH_CREATURE_LEVEL) && spellProto->spellLevel)
     {
         // TODO: Drastically beter than before, but still needs some additional aura scaling research
         bool damage = false;

@@ -17,13 +17,15 @@ EndScriptData */
 const float MAX_PLAYER_DISTANCE = 66.0f;
 
 npc_escortAI::npc_escortAI(Creature* creature) : ScriptedAI(creature),
+    m_questForEscort(nullptr),
+    m_playerGuid(),
     m_playerCheckTimer(1000),
     m_escortState(STATE_ESCORT_NONE),
-    m_questForEscort(nullptr),
     m_isRunning(false),
     m_canInstantRespawn(false),
     m_canReturnToStart(false),
-    m_waypointPathID(0)
+    m_waypointPathID(0),
+    m_currentEscortWaypointPath(0)
 {}
 
 void npc_escortAI::GetAIInformation(ChatHandler& reader)
@@ -148,6 +150,8 @@ void npc_escortAI::UpdateAI(const uint32 diff)
                 {
                     if (m_creature->IsPet())
                         static_cast<Pet*>(m_creature)->Unsummon(PET_SAVE_AS_DELETED); // we assume escort AI pet to always be non-saved
+                    else if (auto group = m_creature->GetCreatureGroup())
+                        group->Despawn();
                     else
                         m_creature->ForcedDespawn();
                 }
@@ -232,7 +236,7 @@ void npc_escortAI::SetRun(bool run)
 }
 
 // TODO: get rid of this many variables passed in function.
-void npc_escortAI::Start(bool run, const Player* player, const Quest* quest, bool instantRespawn, bool canLoopPath)
+void npc_escortAI::Start(bool run, const Player* player, const Quest* quest, bool instantRespawn, bool canLoopPath, uint32 waypointPath)
 {
     if (m_creature->GetVictim())
     {
@@ -246,11 +250,22 @@ void npc_escortAI::Start(bool run, const Player* player, const Quest* quest, boo
         return;
     }
 
-    if (!sWaypointMgr.GetPathFromOrigin(m_creature->GetEntry(), m_creature->GetGUIDLow(), m_waypointPathID, PATH_FROM_EXTERNAL))
+    uint32 pathId = m_waypointPathID;
+    WaypointPathOrigin origin = PATH_FROM_EXTERNAL;
+    if (waypointPath)
+    {
+        pathId = waypointPath;
+        origin = PATH_FROM_WAYPOINT_PATH;
+    }
+
+    if (!sWaypointMgr.GetPathFromOrigin(m_creature->GetEntry(), m_creature->GetGUIDLow(), pathId, origin))
     {
         script_error_log("EscortAI attempt to start escorting for %s, but has no waypoints loaded.", m_creature->GetScriptName().data());
         return;
     }
+
+    if (origin == PATH_FROM_WAYPOINT_PATH)
+        m_currentEscortWaypointPath = pathId;
 
     // set variables
     m_isRunning = run;
@@ -276,7 +291,7 @@ void npc_escortAI::Start(bool run, const Player* player, const Quest* quest, boo
 
     // Start moving along the path with 2500ms delay
     m_creature->GetMotionMaster()->Clear(false, true);
-    m_creature->GetMotionMaster()->MoveWaypoint(m_waypointPathID, PATH_FROM_EXTERNAL, 2500);
+    m_creature->GetMotionMaster()->MoveWaypoint(pathId, origin, 2500);
 
     JustStartedEscort();
 }

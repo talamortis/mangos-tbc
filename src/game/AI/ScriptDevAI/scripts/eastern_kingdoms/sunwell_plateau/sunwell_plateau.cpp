@@ -45,14 +45,14 @@ static const DialogueEntry aFelmystOutroDialogue[] =
 };
 
 instance_sunwell_plateau::instance_sunwell_plateau(Map* pMap) : ScriptedInstance(pMap), DialogueHelper(aFelmystOutroDialogue),
+    m_brutallusIntroStarted(false),
     m_firstEnter(true),
+    m_impsStarted(false),
+    m_miniAttackEvent(false),
     m_uiDeceiversKilled(0),
     m_uiSpectralRealmTimer(5000),
     m_uiMuruBerserkTimer(0),
-    m_uiKiljaedenYellTimer(90000),
-    m_impsStarted(false),
-    m_miniAttackEvent(false),
-    m_brutallusIntroStarted(false)
+    m_uiKiljaedenYellTimer(90000)
 {
     Initialize();
 }
@@ -91,7 +91,7 @@ bool instance_sunwell_plateau::IsEncounterInProgress() const
     return false;
 }
 
-void instance_sunwell_plateau::OnPlayerEnter(Player* pPlayer)
+void instance_sunwell_plateau::OnPlayerEnter(Player* /*pPlayer*/)
 {
     if (m_firstEnter)
     {
@@ -487,7 +487,7 @@ void instance_sunwell_plateau::Update(uint32 diff)
             if (!player->IsWithinDist(commander, 142.f))
                 continue;
 
-            if (player->IsAlive() && player->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PLAYER_CONTROLLED) && !player->IsFeigningDeathSuccessfully() && !player->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NON_ATTACKABLE_2) && !player->IsGameMaster())
+            if (player->IsAlive() && player->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PLAYER_CONTROLLED) && !player->IsFeigningDeathSuccessfully() && !player->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_UNTARGETABLE) && !player->IsGameMaster())
             {
                 found = true;
                 break;

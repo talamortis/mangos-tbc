@@ -38,9 +38,10 @@ EndContentData */
 
 #include "AI/ScriptDevAI/include/sc_common.h"
 #include "Spells/Scripts/SpellScript.h"
+#include "Grids/Cell.h"
+#include "Grids/CellImpl.h"
 #include "Grids/GridNotifiers.h"
 #include "Grids/GridNotifiersImpl.h"
-#include "Grids/CellImpl.h"
 
 /* When you make a spell effect:
 - always check spell id and effect index
@@ -773,7 +774,7 @@ struct Drink : public DrinkAnimation
 
 struct spell_effect_summon_no_follow_movement : public SpellScript
 {
-    void OnSummon(Spell* spell, Creature* summon) const override
+    void OnSummon(Spell* /*spell*/, Creature* summon) const override
     {
         summon->AI()->SetFollowMovement(false);
     }
@@ -842,7 +843,7 @@ struct TribalDeath : public SpellScript
         return true;
     }
 
-    void OnEffectExecute(Spell* spell, SpellEffectIndex effIdx) const override
+    void OnEffectExecute(Spell* spell, SpellEffectIndex /*effIdx*/) const override
     {
         uint32 spellId = 0;
         switch (spell->m_spellInfo->Id)
@@ -908,6 +909,14 @@ struct PreventSpellIfSameAuraOnCaster : public SpellScript
     }
 };
 
+struct InstillLordValthalaksSpirit : public SpellScript
+{
+    void OnSummon(Spell* spell, Creature* summon) const override
+    {
+        spell->GetCaster()->AddCreature(spell->m_spellInfo->Id, summon);
+    }
+};
+
 struct Stoned : public AuraScript
 {
     void OnApply(Aura* aura, bool apply) const override
@@ -921,7 +930,7 @@ struct Stoned : public AuraScript
             if (target->GetEntry() == 25507)
                 return;
 
-            target->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_PLAYER | UNIT_FLAG_IMMUNE_TO_NPC | UNIT_FLAG_NOT_SELECTABLE);
+            target->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_PLAYER | UNIT_FLAG_IMMUNE_TO_NPC | UNIT_FLAG_UNINTERACTIBLE);
             target->addUnitState(UNIT_STAT_ROOT);
         }
         else
@@ -978,6 +987,197 @@ struct CallOfTheFalcon : public AuraScript
     }
 };
 
+struct MaximizePetLoyalty : public SpellScript
+{
+    void OnEffectExecute(Spell* spell, SpellEffectIndex /*effIdx*/) const override
+    {
+        Unit* unitTarget = spell->GetUnitTarget();
+        if (!unitTarget)
+            return;
+
+        Pet* pet = dynamic_cast<Pet*>(unitTarget);
+
+        if (!pet)
+            return;
+
+        if (pet->getPetType() != HUNTER_PET)
+            return;
+
+        pet->SetLoyaltyLevel(LoyaltyLevel(6));
+        pet->SetTP(300);
+    }
+};
+
+
+// 36435 - Forget                                                               // Unlearn Armorsmith specialization
+struct ForgetArmorsmith : public SpellScript
+{
+    void OnEffectExecute(Spell* spell, SpellEffectIndex effIdx) const override
+    {
+        if (effIdx != EFFECT_INDEX_0)
+            return;
+
+        Player* player = static_cast<Player*>(spell->GetUnitTarget());
+        player->removeSpell(36122);   // Earthforged Leggings
+        player->removeSpell(36129);   // Heavy Earthforged Breastplate
+        player->removeSpell(36130);   // Stormforged Hauberk
+        player->removeSpell(34533);   // Breastplate of Kings
+        player->removeSpell(34529);   // Nether Chain Shirt
+        player->removeSpell(34534);   // Bulwark of Kings
+        player->removeSpell(36257);   // Bulwark of the Ancient Kings
+        player->removeSpell(36256);   // Embrace of the Twisting Nether
+        player->removeSpell(34530);   // Twisting Nether Chain Shirt
+        player->removeSpell(36124);   // Windforged Leggings
+    }
+};
+
+// 36436 - Forget                                                               // Unlearn Weaponsmith specialization
+struct ForgetWeaponsmith : public SpellScript
+{
+    void OnEffectExecute(Spell* spell, SpellEffectIndex effIdx) const override
+    {
+        if (effIdx != EFFECT_INDEX_0)
+            return;
+
+        Player* player = static_cast<Player*>(spell->GetUnitTarget());
+        player->removeSpell(36125);   // Light Earthforged Blade
+        player->removeSpell(36128);   // Light Emberforged Hammer
+        player->removeSpell(36126);   // Light Skyforged Axe
+        player->removeSpell(36258);   // Blazefury
+        player->removeSpell(34537);   // Blazeguard
+        player->removeSpell(34535);   // Fireguard
+        player->removeSpell(36131);   // Windforged Rapier
+        player->removeSpell(36133);   // Stoneforged Claymore
+        player->removeSpell(34538);   // Lionheart Blade
+        player->removeSpell(34540);   // Lionheart Champion
+        player->removeSpell(36259);   // Lionheart Executioner
+        player->removeSpell(36260);   // Wicked Edge of the Planes
+        player->removeSpell(34562);   // Black Planar Edge
+        player->removeSpell(34541);   // The Planar Edge
+        player->removeSpell(36134);   // Stormforged Axe
+        player->removeSpell(36135);   // Skyforged Great Axe
+        player->removeSpell(36261);   // Bloodmoon
+        player->removeSpell(34543);   // Lunar Crescent
+        player->removeSpell(34544);   // Mooncleaver
+        player->removeSpell(36262);   // Dragonstrike
+        player->removeSpell(34546);   // Dragonmaw
+        player->removeSpell(34545);   // Drakefist Hammer
+        player->removeSpell(36136);   // Lavaforged Warhammer
+        player->removeSpell(34547);   // Thunder
+        player->removeSpell(34567);   // Deep Thunder
+        player->removeSpell(36263);   // Stormherald
+        player->removeSpell(36137);   // Great Earthforged Hammer
+    }
+};
+
+// 36438 - Forget                                                               // Unlearn Swordsmith specialization
+struct ForgetSwordsmith : public SpellScript
+{
+    void OnEffectExecute(Spell* spell, SpellEffectIndex effIdx) const override
+    {
+        if (effIdx != EFFECT_INDEX_0)
+            return;
+
+        Player* player = static_cast<Player*>(spell->GetUnitTarget());
+        player->removeSpell(36258);   // Blazefury
+        player->removeSpell(34537);   // Blazeguard
+        player->removeSpell(34535);   // Fireguard
+        player->removeSpell(36131);   // Windforged Rapier
+        player->removeSpell(36133);   // Stoneforged Claymore
+        player->removeSpell(34538);   // Lionheart Blade
+        player->removeSpell(34540);   // Lionheart Champion
+        player->removeSpell(36259);   // Lionheart Executioner
+    }
+};
+
+// 36439 - Forget                                                               // Unlearn Axesmith specialization
+struct ForgetAxesmith : public SpellScript
+{
+    void OnEffectExecute(Spell* spell, SpellEffectIndex effIdx) const override
+    {
+        if (effIdx != EFFECT_INDEX_0)
+            return;
+
+        Player* player = static_cast<Player*>(spell->GetUnitTarget());
+        player->removeSpell(36260);   // Wicked Edge of the Planes
+        player->removeSpell(34562);   // Black Planar Edge
+        player->removeSpell(34541);   // The Planar Edge
+        player->removeSpell(36134);   // Stormforged Axe
+        player->removeSpell(36135);   // Skyforged Great Axe
+        player->removeSpell(36261);   // Bloodmoon
+        player->removeSpell(34543);   // Lunar Crescent
+        player->removeSpell(34544);   // Mooncleaver
+    }
+};
+
+// 36441 - Forget                                                               // Unlearn Hammersmith specialization
+struct ForgetHammersmith : public SpellScript
+{
+    void OnEffectExecute(Spell* spell, SpellEffectIndex effIdx) const override
+    {
+        if (effIdx != EFFECT_INDEX_0)
+            return;
+
+        Player* player = static_cast<Player*>(spell->GetUnitTarget());
+        player->removeSpell(36262);   // Dragonstrike
+        player->removeSpell(34546);   // Dragonmaw
+        player->removeSpell(34545);   // Drakefist Hammer
+        player->removeSpell(36136);   // Lavaforged Warhammer
+        player->removeSpell(34547);   // Thunder
+        player->removeSpell(34567);   // Deep Thunder
+        player->removeSpell(36263);   // Stormherald
+        player->removeSpell(36137);   // Great Earthforged Hammer
+    }
+};
+
+struct GameobjectCallForHelpOnUsage : public SpellScript
+{
+    void OnSuccessfulStart(Spell* spell) const
+    {
+        UnitList targets;
+        MaNGOS::AnyUnfriendlyUnitInObjectRangeCheck check(spell->GetCaster(), 12.f);
+        MaNGOS::UnitListSearcher<MaNGOS::AnyUnfriendlyUnitInObjectRangeCheck> searcher(targets, check);
+        Cell::VisitAllObjects(spell->GetCaster(), searcher, 12.f);
+        for (Unit* attacker : targets)
+        {
+            if (attacker->IsCreature() && static_cast<Creature*>(attacker)->IsCritter())
+                continue;
+
+            if (!spell->GetCaster()->IsEnemy(attacker))
+                continue;
+
+            if (attacker->AI())
+                attacker->AI()->AttackStart(spell->GetCaster());
+        }
+    }
+};
+
+struct Submerged : public SpellScript
+{
+    void OnEffectExecute(Spell* spell, SpellEffectIndex effIdx) const override
+    {
+        Unit* unitTarget = spell->GetUnitTarget();
+        if (!unitTarget)
+            return;
+
+        unitTarget->SetStandState(UNIT_STAND_STATE_CUSTOM);
+        unitTarget->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_UNINTERACTIBLE);
+    }
+};
+
+struct Stand : public SpellScript
+{
+    void OnEffectExecute(Spell* spell, SpellEffectIndex effIdx) const override
+    {
+        Unit* unitTarget = spell->GetUnitTarget();
+        if (!unitTarget)
+            return;
+
+        unitTarget->SetStandState(UNIT_STAND_STATE_STAND);
+        unitTarget->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_UNINTERACTIBLE);
+    }
+};
+
 void AddSC_spell_scripts()
 {
     Script* pNewScript = new Script;
@@ -1015,6 +1215,7 @@ void AddSC_spell_scripts()
     RegisterSpellScript<spell_scourge_strike>("spell_scourge_strike");
     RegisterSpellScript<TribalDeath>("spell_tribal_death");
     RegisterSpellScript<PreventSpellIfSameAuraOnCaster>("spell_prevent_spell_if_same_aura_on_caster");
+    RegisterSpellScript<InstillLordValthalaksSpirit>("spell_instill_lord_valthalaks_spirit");
     RegisterSpellScript<RetaliationCreature>("spell_retaliation_creature");
     RegisterSpellScript<HateToHalf>("spell_hate_to_half");
     RegisterSpellScript<HateToZero>("spell_hate_to_zero");
@@ -1022,4 +1223,13 @@ void AddSC_spell_scripts()
     RegisterSpellScript<BirthNoVisualInstantSpawn>("spell_birth_no_visual_instant_spawn");
     RegisterSpellScript<SleepVisualFlavor>("spell_sleep_visual_flavor");
     RegisterSpellScript<CallOfTheFalcon>("spell_call_of_the_falcon");
+    RegisterSpellScript<ForgetArmorsmith>("spell_forget_36435");
+    RegisterSpellScript<ForgetWeaponsmith>("spell_forget_36436");
+    RegisterSpellScript<ForgetSwordsmith>("spell_forget_36438");
+    RegisterSpellScript<ForgetAxesmith>("spell_forget_36439");
+    RegisterSpellScript<ForgetHammersmith>("spell_forget_36441");
+    RegisterSpellScript<MaximizePetLoyalty>("spell_maximize_pet_loyalty_and_happiness");
+    RegisterSpellScript<GameobjectCallForHelpOnUsage>("spell_gameobject_call_for_help_on_usage");
+    RegisterSpellScript<Submerged>("spell_submerged");
+    RegisterSpellScript<Stand>("spell_stand");
 }

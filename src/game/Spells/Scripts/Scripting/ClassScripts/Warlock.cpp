@@ -102,8 +102,8 @@ struct LifeTap : public SpellScript
         if (Player* modOwner = caster->GetSpellModOwner())
             modOwner->ApplySpellMod(spell->m_spellInfo->Id, SPELLMOD_COST, cost);
 
-        int32 dmg = caster->SpellDamageBonusDone(caster, spell->m_spellInfo, uint32(cost > 0 ? cost : 0), SPELL_DIRECT_DAMAGE);
-        dmg = caster->SpellDamageBonusTaken(caster, spell->m_spellInfo, dmg, SPELL_DIRECT_DAMAGE);
+        int32 dmg = caster->SpellDamageBonusDone(caster, SpellSchoolMask(spell->m_spellInfo->SchoolMask), spell->m_spellInfo, uint32(cost > 0 ? cost : 0), SPELL_DIRECT_DAMAGE);
+        dmg = caster->SpellDamageBonusTaken(caster, SpellSchoolMask(spell->m_spellInfo->SchoolMask), spell->m_spellInfo, dmg, SPELL_DIRECT_DAMAGE);
         spell->SetScriptValue(dmg);
     }
 
@@ -198,7 +198,7 @@ struct Corruption : public AuraScript
 
 struct EyeOfKilrogg : public SpellScript
 {
-    void OnSummon(Spell* spell, Creature* summon) const override
+    void OnSummon(Spell* /*spell*/, Creature* summon) const override
     {
         summon->CastSpell(nullptr, 2585, TRIGGERED_OLD_TRIGGERED);
         summon->DisableThreatPropagationToOwner();
@@ -226,7 +226,7 @@ struct CurseOfDoom : public SpellScript, public AuraScript
 
 struct CurseOfDoomEffect : public SpellScript
 {
-    void OnSummon(Spell* spell, Creature* summon) const override
+    void OnSummon(Spell* /*spell*/, Creature* summon) const override
     {
         summon->CastSpell(nullptr, 42010, TRIGGERED_OLD_TRIGGERED);
     }
@@ -234,7 +234,7 @@ struct CurseOfDoomEffect : public SpellScript
 
 struct DevourMagic : public SpellScript
 {
-    SpellCastResult OnCheckCast(Spell* spell, bool strict) const override
+    SpellCastResult OnCheckCast(Spell* spell, bool /*strict*/) const override
     {
         Unit* target = spell->m_targets.getUnitTarget();
         Unit* caster = spell->GetCaster();
@@ -244,7 +244,7 @@ struct DevourMagic : public SpellScript
             for (auto itr : auras)
             {
                 SpellEntry const* spell = itr.second->GetSpellProto();
-                if (itr.second->GetTarget()->GetObjectGuid() != caster->GetObjectGuid() && spell->Dispel == DISPEL_MAGIC && IsPositiveSpell(spell) && !IsPassiveSpell(spell))
+                if (itr.second->GetTarget()->GetObjectGuid() != caster->GetObjectGuid() && spell->Dispel == DISPEL_MAGIC && (caster->CanAssist(target) ? !IsPositiveSpell(spell) : IsPositiveSpell(spell)) && !IsPassiveSpell(spell))
                     return SPELL_CAST_OK;
             }
         }
@@ -270,7 +270,7 @@ struct SeedOfCorruption : public AuraScript
         }
         if (aura->GetRemoveMode() == AURA_REMOVE_BY_DEATH)
             if (Unit* caster = aura->GetCaster())
-                caster->CastSpell(aura->GetTarget(), SPELL_SEED_DAMAGE, TRIGGERED_IGNORE_GCD | TRIGGERED_IGNORE_CURRENT_CASTED_SPELL | TRIGGERED_HIDE_CAST_IN_COMBAT_LOG);
+                caster->CastSpell(aura->GetTarget(), SPELL_SEED_DAMAGE, TRIGGERED_IGNORE_GCD | TRIGGERED_IGNORE_CURRENT_CASTED_SPELL | TRIGGERED_IGNORE_CASTER_AURA_STATE | TRIGGERED_HIDE_CAST_IN_COMBAT_LOG);
     }
 
     SpellAuraProcResult OnProc(Aura* aura, ProcExecutionData& procData) const override
@@ -289,7 +289,7 @@ struct SeedOfCorruption : public AuraScript
 
             // Cast finish spell (triggeredByAura already not exist!)
             if (Unit* caster = procData.triggeredByAura->GetCaster())
-                caster->CastSpell(procData.victim, SPELL_SEED_DAMAGE, TRIGGERED_IGNORE_GCD | TRIGGERED_IGNORE_CURRENT_CASTED_SPELL | TRIGGERED_HIDE_CAST_IN_COMBAT_LOG);
+                caster->CastSpell(procData.victim, SPELL_SEED_DAMAGE, TRIGGERED_IGNORE_GCD | TRIGGERED_IGNORE_CURRENT_CASTED_SPELL | TRIGGERED_IGNORE_CASTER_AURA_STATE | TRIGGERED_HIDE_CAST_IN_COMBAT_LOG);
             return SPELL_AURA_PROC_OK;              // no hidden cooldown
         }
 
@@ -304,7 +304,7 @@ struct SeedOfCorruptionDamage : public SpellScript
     bool OnCheckTarget(const Spell* spell, Unit* target, SpellEffectIndex /*eff*/) const override
     {
         if (target->GetObjectGuid() == spell->m_targets.getUnitTargetGuid()) // in TBC skip target of initial aura
-            return false;
+            return true; // in WotLK Seed of Corruption also damages the initial target
         return true;
     }
 };
@@ -318,6 +318,16 @@ struct SoulLeech : public AuraScript
         Unit* target = aura->GetTarget();
         target->CastCustomSpell(nullptr, 30294, &damage, nullptr, nullptr, TRIGGERED_IGNORE_GCD | TRIGGERED_IGNORE_CURRENT_CASTED_SPELL | TRIGGERED_HIDE_CAST_IN_COMBAT_LOG);
         return SPELL_AURA_PROC_OK;
+    }
+};
+
+struct CurseDiminishingDuration : public AuraScript
+{
+    int32 OnDurationCalculate(WorldObject const* caster, Unit const* target, int32 duration) const override
+    {
+        if (caster->IsControlledByPlayer() && target->IsPlayerControlled())
+            return 12000;
+        return duration;
     }
 };
 
@@ -338,4 +348,5 @@ void LoadWarlockScripts()
     RegisterSpellScript<SeedOfCorruptionDamage>("spell_seed_of_corruption_damage");
     RegisterSpellScript<CurseOfDoom>("spell_curse_of_doom");
     RegisterSpellScript<CurseOfDoomEffect>("spell_curse_of_doom_effect");
+    RegisterSpellScript<CurseDiminishingDuration>("spell_curse_diminishing_duration");
 }

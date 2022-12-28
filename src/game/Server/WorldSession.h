@@ -93,6 +93,13 @@ enum ClientOSType
     CLIENT_OS_MAC
 };
 
+enum ClientPlatformType
+{
+    CLIENT_PLATFORM_UNKNOWN,
+    CLIENT_PLATFORM_X86,
+    CLIENT_PLATFORM_PPC
+};
+
 enum PartyOperation
 {
     PARTY_OP_INVITE = 0,
@@ -337,8 +344,6 @@ class WorldSession
         void SendGMTicketResult(uint32 opcode, uint32 result) const;
         void SendGMTicket(const GMTicket& ticket, time_t now = time(nullptr)) const;
 
-        void SendAttackStop(Unit const* enemy) const;
-
         void SendBattleGroundList(ObjectGuid guid, BattleGroundTypeId bgTypeId) const;
 
         void SendTradeStatus(const TradeStatusInfo& status) const;
@@ -356,7 +361,7 @@ class WorldSession
         // Account Data
         AccountData* GetAccountData(AccountDataType type) { return &m_accountData[type]; }
         void SetAccountData(AccountDataType type, time_t time_, const std::string& data);
-        void SendAccountDataTimes(uint32 mask);
+        void SendAccountDataTimes();
         void LoadGlobalAccountData();
         void LoadAccountData(QueryResult* result, uint32 mask);
         void LoadTutorialsData();
@@ -436,6 +441,8 @@ class WorldSession
         uint32 getDialogStatus(const Player* pPlayer, const Object* questgiver, uint32 defstatus) const;
         ClientOSType GetOS() const { return m_clientOS; }
         void SetOS(ClientOSType os) { m_clientOS = os; }
+        ClientPlatformType GetPlatform() const { return m_clientPlatform; }
+        void SetPlatform(ClientPlatformType platform) { m_clientPlatform = platform; }
         uint32 GetGameBuild() const { return m_gameBuild; }
         void SetGameBuild(uint32 version) { m_gameBuild = version; }
         uint32 GetAccountMaxLevel() const { return m_accountMaxLevel; }
@@ -936,6 +943,7 @@ class WorldSession
 
         // anticheat
         ClientOSType m_clientOS;
+        ClientPlatformType m_clientPlatform;
         uint32 m_gameBuild;
         uint32 m_accountMaxLevel;
         uint32 m_orderCounter;
@@ -968,7 +976,7 @@ class WorldSession
         uint32 m_timeSyncNextCounter;
         uint32 m_timeSyncTimer;
 
-        std::set<ObjectGuid> m_offlineNameQueries; // for name queires made when not logged in (character selection screen)
+        std::set<ObjectGuid> m_offlineNameQueries; // for name queries made when not logged in (character selection screen)
         std::deque<CharacterNameQueryResponse> m_offlineNameResponses; // for responses to name queries made when not logged in
 
         bool m_initialZoneUpdated = false;

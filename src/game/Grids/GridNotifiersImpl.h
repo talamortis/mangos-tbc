@@ -20,7 +20,7 @@
 #define MANGOS_GRIDNOTIFIERSIMPL_H
 
 #include "Grids/GridNotifiers.h"
-#include "WorldPacket.h"
+#include "Server/WorldPacket.h"
 #include "Entities/Player.h"
 #include "AI/BaseAI/UnitAI.h"
 #include "Spells/SpellAuras.h"
@@ -259,15 +259,21 @@ inline void MaNGOS::DynamicObjectUpdater::VisitHelper(Unit* target)
         }
     }
 
-    if (spellInfo->HasAttribute(SPELL_ATTR_EX3_TARGET_ONLY_PLAYER) && target->GetTypeId() != TYPEID_PLAYER)
+    if (spellInfo->HasAttribute(SPELL_ATTR_EX3_ONLY_ON_PLAYER) && target->GetTypeId() != TYPEID_PLAYER)
+        return;
+
+    if (spellInfo->HasAttribute(SPELL_ATTR_EX5_NOT_ON_PLAYER) && target->GetTypeId() == TYPEID_PLAYER)
+        return;
+
+    if (spellInfo->HasAttribute(SPELL_ATTR_EX5_NOT_ON_PLAYER_CONTROLLED_NPC) && target->IsPlayerControlled() && target->GetTypeId() != TYPEID_PLAYER)
         return;
 
     // Check target immune to spell or aura
     if (!spellInfo->HasAttribute(SPELL_ATTR_NO_IMMUNITIES)) // confirmed 40657 - Ancient Flames goes through immunity
-        if (target->IsImmuneToSpell(spellInfo, false, (1 << eff_index)) || target->IsImmuneToSpellEffect(spellInfo, eff_index, false))
+        if (target->IsImmuneToSpell(spellInfo, false, (1 << eff_index), caster) || target->IsImmuneToSpellEffect(spellInfo, eff_index, false))
             return;
 
-    if (!spellInfo->HasAttribute(SPELL_ATTR_EX2_IGNORE_LOS) && !i_dynobject.IsWithinLOSInMap(target))
+    if (!spellInfo->HasAttribute(SPELL_ATTR_EX2_IGNORE_LINE_OF_SIGHT) && !i_dynobject.IsWithinLOSInMap(target))
         return;
 
     // Apply PersistentAreaAura on target

@@ -130,6 +130,89 @@ struct InactiveBattleground : public SpellScript
     }
 };
 
+struct FlagAuraBg : public AuraScript, public SpellScript
+{
+    void OnEffectExecute(Spell* spell, SpellEffectIndex effIdx) const override
+    {
+        if (effIdx == EFFECT_INDEX_1)
+        {
+            // for EOS caster is player, for WSG caster is GO
+            if (spell->m_spellInfo->Id == 34976)
+                spell->SetEventTarget(spell->GetUnitTarget());
+            else
+                spell->SetEventTarget(spell->GetAffectiveCasterObject());
+        }
+    }
+
+    SpellAuraProcResult OnProc(Aura* aura, ProcExecutionData& procData) const override
+    {
+        // procs on taken spell - if acquired immune flag, remove it - maybe other conditions too
+        if (procData.victim && procData.victim->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE))
+            aura->GetTarget()->RemoveSpellAuraHolder(aura->GetHolder());
+        return SPELL_AURA_PROC_OK;
+    }
+
+    void OnApply(Aura* aura, bool apply) const
+    {
+        Unit* unitTarget = aura->GetTarget();
+        if (!unitTarget || !unitTarget->IsPlayer())
+            return;
+
+        Player *player = static_cast<Player*>(unitTarget);
+
+        if (apply)
+            player->pvpInfo.isPvPFlagCarrier = true;
+        else
+        {
+            player->pvpInfo.isPvPFlagCarrier = false;
+
+            if (BattleGround* bg = player->GetBattleGround())
+                bg->HandlePlayerDroppedFlag(player);
+            else if (OutdoorPvP* outdoorPvP = sOutdoorPvPMgr.GetScript(player->GetCachedZoneId()))
+                outdoorPvP->HandleDropFlag(player, aura->GetSpellProto()->Id);
+        }
+    }
+};
+
+struct FlagClickBg : public SpellScript
+{
+    SpellCastResult OnCheckCast(Spell* spell, bool /*strict*/) const override
+    {
+        switch (spell->m_spellInfo->Id)
+        {
+            case 23333:                                         // Warsong Flag
+            case 23335:                                         // Silverwing Flag
+                return spell->GetTrueCaster()->GetMapId() == 489 && spell->GetTrueCaster()->GetMap()->IsBattleGround() ? SPELL_CAST_OK : SPELL_FAILED_REQUIRES_AREA;
+            case 34976:                                         // Netherstorm Flag
+                return spell->GetTrueCaster()->GetMapId() == 566 && spell->GetTrueCaster()->GetMap()->IsBattleGround() ? SPELL_CAST_OK : SPELL_FAILED_REQUIRES_AREA;
+        }
+        return SPELL_CAST_OK;
+    }
+
+    void OnEffectExecute(Spell* spell, SpellEffectIndex /*effIdx*/) const override
+    {
+        Unit* target = spell->GetUnitTarget();
+        uint32 spellId = 0;
+        switch (spell->m_spellInfo->Id)
+        {
+            case 23383: spellId = 23335; break; // Alliance Flag Pickup
+            case 23384: spellId = 23333; break; // Horde Flag Pickup
+        }
+
+        // flagstand and flagdrop share spells
+        if (spell->GetTrueCaster()->IsGameObject() && static_cast<GameObject*>(spell->GetTrueCaster())->GetGoType() == GAMEOBJECT_TYPE_FLAGDROP)
+        {
+            if (WorldObject* spawner = static_cast<GameObject*>(spell->GetTrueCaster())->GetSpawner())
+                if (spawner->IsPlayer() && target->IsPlayer())
+                    if (static_cast<Player*>(spawner)->GetTeam() != static_cast<Player*>(target)->GetTeam())
+                        return; // return of own flag already handled
+        }
+
+        // misusing original caster to pass along original flag GO - if in future conflicts, substitute it for something else
+        target->CastSpell(target, spellId, TRIGGERED_IGNORE_GCD | TRIGGERED_HIDE_CAST_IN_COMBAT_LOG | TRIGGERED_IGNORE_CURRENT_CASTED_SPELL, nullptr, nullptr, spell->GetTrueCaster()->GetObjectGuid());
+    }
+};
+
 struct ArenaPreparation : public AuraScript
 {
     void OnApply(Aura* aura, bool apply) const override
@@ -154,7 +237,7 @@ struct ArenaPreparation : public AuraScript
 #####*/
 struct spell_battleground_banner_trigger : public SpellScript
 {
-    void OnEffectExecute(Spell* spell, SpellEffectIndex effIdx) const override
+    void OnEffectExecute(Spell* spell, SpellEffectIndex /*effIdx*/) const override
     {
         // TODO: Fix when go casting is fixed
         WorldObject* obj = spell->GetAffectiveCasterObject();
@@ -176,7 +259,7 @@ struct spell_battleground_banner_trigger : public SpellScript
 #####*/
 struct spell_outdoor_pvp_banner_trigger : public SpellScript
 {
-    void OnEffectExecute(Spell* spell, SpellEffectIndex effIdx) const override
+    void OnEffectExecute(Spell* spell, SpellEffectIndex /*effIdx*/) const override
     {
         // TODO: Fix when go casting is fixed
         WorldObject* obj = spell->GetAffectiveCasterObject();
@@ -195,7 +278,7 @@ struct OutdoorPvpNotifyAI : public GameObjectAI
 {
     using GameObjectAI::GameObjectAI;
 
-    void OnUse(Unit* user, SpellEntry const* spellInfo) override
+    void OnUse(Unit* user, SpellEntry const* /*spellInfo*/) override
     {
         if (!user->IsPlayer())
             return;
@@ -220,6 +303,8 @@ void AddSC_battleground()
     pNewScript->RegisterSelf();
 
     RegisterSpellScript<OpeningCapping>("spell_opening_capping");
+    RegisterSpellScript<FlagAuraBg>("spell_flag_aura_bg");
+    RegisterSpellScript<FlagClickBg>("spell_flag_click_bg");
     RegisterSpellScript<InactiveBattleground>("spell_inactive");
     RegisterSpellScript<ArenaPreparation>("spell_arena_preparation");
     RegisterSpellScript<spell_battleground_banner_trigger>("spell_battleground_banner_trigger");

@@ -28,7 +28,7 @@ CreatureAI::CreatureAI(Creature* creature) : CreatureAI(creature, 0) { }
 CreatureAI::CreatureAI(Creature* creature, uint32 combatActions) :
     UnitAI(creature, combatActions),
     m_creature(creature),
-    m_deathPrevention(false), m_deathPrevented(false)
+    m_deathPrevention(false), m_deathPrevented(false), m_followAngle(0.f), m_followDist(0.f)
 {
     m_dismountOnAggro = !(m_creature->GetCreatureInfo()->CreatureTypeFlags & CREATURE_TYPEFLAGS_MOUNTED_COMBAT);
 
@@ -81,13 +81,12 @@ void CreatureAI::AttackStart(Unit* who)
     }
 }
 
-void CreatureAI::DamageTaken(Unit* dealer, uint32& damage, DamageEffectType /*damageType*/, SpellEntry const* /*spellInfo*/)
+void CreatureAI::DamageTaken(Unit* dealer, uint32& damage, DamageEffectType damageType, SpellEntry const* /*spellInfo*/)
 {
-    if (m_deathPrevention)
+    if (m_deathPrevention && damageType != INSTAKILL)
     {
-        if (m_creature->GetHealth() <= damage)
+        if (m_creature->GetHealth() <= damage) // the damage will be reduced in Unit::DealDamage
         {
-            damage = m_creature->GetHealth() - 1;
             if (!m_deathPrevented)
             {
                 m_deathPrevented = true;
@@ -112,7 +111,7 @@ void CreatureAI::DoFakeDeath(uint32 spellId)
     m_creature->RemoveAllAurasOnDeath();
     m_creature->ModifyAuraState(AURA_STATE_HEALTHLESS_20_PERCENT, false);
     m_creature->ModifyAuraState(AURA_STATE_HEALTHLESS_35_PERCENT, false);
-    m_creature->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE);
+    m_creature->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_UNINTERACTIBLE);
     m_creature->ClearAllReactives();
     m_creature->SetTarget(nullptr);
     m_creature->GetMotionMaster()->Clear();
@@ -175,7 +174,7 @@ void CreatureAI::DoCallForHelp(float radius)
     m_creature->CallForHelp(radius);
 }
 
-void CreatureAI::OnCallForHelp(Unit* caller, Unit* enemy)
+void CreatureAI::OnCallForHelp(Unit* enemy)
 {
     if (FactionTemplateEntry const* factionTemplate = m_creature->GetFactionTemplateEntry())
     {
@@ -225,4 +224,24 @@ void CreatureAI::TimedFleeingEnded()
         EnterEvadeMode();
     }
     SetAIOrder(ORDER_NONE);
+}
+
+void CreatureAI::RequestFollow(Unit* followee)
+{
+    if (followee->IsPlayer())
+    {
+        auto data = static_cast<Player*>(followee)->RequestFollowData(m_creature->GetObjectGuid());
+        m_followAngle = data.first;
+        m_followDist = data.second;
+        m_requestedFollower = followee->GetObjectGuid();
+    }
+    m_creature->GetMotionMaster()->MoveFollow(followee, m_followDist, m_followAngle);
+}
+
+void CreatureAI::RelinquishFollow(ObjectGuid follower)
+{
+    if (m_requestedFollower && (!follower || m_requestedFollower == follower))
+        if (Unit* owner = m_creature->GetMap()->GetUnit(m_requestedFollower))
+            if (owner->IsPlayer())
+                static_cast<Player*>(owner)->RelinquishFollowData(m_creature->GetObjectGuid());
 }

@@ -24,7 +24,7 @@
 #define __WORLD_H
 
 #include "Common.h"
-#include "Timer.h"
+#include "Util/Timer.h"
 #include "Globals/Locales.h"
 #include "Globals/SharedDefines.h"
 #include "Entities/Object.h"
@@ -377,7 +377,6 @@ enum eConfigBoolValues
     CONFIG_BOOL_AUTOLOAD_ACTIVE,
     CONFIG_BOOL_PATH_FIND_OPTIMIZE,
     CONFIG_BOOL_PATH_FIND_NORMALIZE_Z,
-    CONFIG_BOOL_ACCOUNT_DATA,
     CONFIG_BOOL_VALUE_COUNT
 };
 

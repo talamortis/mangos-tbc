@@ -18,7 +18,7 @@
 
 #include "Common.h"
 #include "Server/DBCStores.h"
-#include "WorldPacket.h"
+#include "Server/WorldPacket.h"
 #include "Server/WorldSession.h"
 #include "Globals/ObjectMgr.h"
 #include "AI/ScriptDevAI/ScriptDevAIMgr.h"
@@ -455,7 +455,7 @@ void WorldSession::HandleCancelAuraOpcode(WorldPacket& recvPacket)
     if (!spellInfo)
         return;
 
-    if (spellInfo->HasAttribute(SPELL_ATTR_CANT_CANCEL))
+    if (spellInfo->HasAttribute(SPELL_ATTR_NO_AURA_CANCEL))
         return;
 
     if (IsPassiveSpell(spellInfo))
@@ -516,10 +516,6 @@ void WorldSession::HandlePetCancelAuraOpcode(WorldPacket& recvPacket)
     recvPacket >> guid;
     recvPacket >> spellId;
 
-    // ignore for remote control state
-    if (!_player->IsSelfMover())
-        return;
-
     SpellEntry const* spellInfo = sSpellTemplate.LookupEntry<SpellEntry>(spellId);
     if (!spellInfo)
     {
@@ -548,9 +544,6 @@ void WorldSession::HandlePetCancelAuraOpcode(WorldPacket& recvPacket)
     }
 
     pet->RemoveAurasDueToSpell(spellId);
-
-    // TODO: check if its correctly handled in aura remove
-    //pet->AddCreatureSpellCooldown(spellId);
 }
 
 void WorldSession::HandleCancelGrowthAuraOpcode(WorldPacket& /*recvPacket*/)

@@ -32,7 +32,7 @@
 #include "Server/WorldSession.h"
 #include "Entities/Pet.h"
 #include "Maps/MapReference.h"
-#include "Util.h"                                           // for Tokens typedef
+#include "Util/Util.h"                                           // for Tokens typedef
 #include "Reputation/ReputationMgr.h"
 #include "BattleGround/BattleGround.h"
 #include "Server/DBCStores.h"
@@ -513,7 +513,8 @@ enum PlayerExtraFlags
     PLAYER_EXTRA_AUCTION_ENEMY      = 0x0080,               // overwrite PLAYER_EXTRA_AUCTION_NEUTRAL
 
     // other states
-    PLAYER_EXTRA_PVP_DEATH          = 0x0100                // store PvP death status until corpse creating.
+    PLAYER_EXTRA_PVP_DEATH          = 0x0100,                // store PvP death status until corpse creating.
+    PLAYER_EXTRA_WHISP_RESTRICTION  = 0x0200,
 };
 
 // 2^n values
@@ -1017,6 +1018,9 @@ class Player : public Unit
         void SetPvPDeath(bool on) { if (on) m_ExtraFlags |= PLAYER_EXTRA_PVP_DEATH; else m_ExtraFlags &= ~PLAYER_EXTRA_PVP_DEATH; }
         bool isDebuggingAreaTriggers() { return m_isDebuggingAreaTriggers; }
         void SetDebuggingAreaTriggers(bool on) { m_isDebuggingAreaTriggers = on; }
+        bool isAllowedWhisperFrom(ObjectGuid guid);
+        bool isEnabledWhisperRestriction() const { return m_ExtraFlags & PLAYER_EXTRA_WHISP_RESTRICTION; }
+        void SetWhisperRestriction(bool on) { if (on) m_ExtraFlags |= PLAYER_EXTRA_WHISP_RESTRICTION; else m_ExtraFlags &= ~PLAYER_EXTRA_WHISP_RESTRICTION; }
 
         // 0 = own auction, -1 = enemy auction, 1 = goblin auction
         int GetAuctionAccessMode() const { return m_ExtraFlags & PLAYER_EXTRA_AUCTION_ENEMY ? -1 : (m_ExtraFlags & PLAYER_EXTRA_AUCTION_NEUTRAL ? 1 : 0); }
@@ -1520,7 +1524,6 @@ class Player : public Unit
         void PetSpellInitialize() const;
         void CharmSpellInitialize() const;
         void PossessSpellInitialize();
-        void CharmCooldownInitialize(WorldPacket& data) const;
         void RemovePetActionBar() const;
         std::pair<float, float> RequestFollowData(ObjectGuid guid);
         void RelinquishFollowData(ObjectGuid guid);
@@ -1933,7 +1936,10 @@ class Player : public Unit
         void SendAuraDurationsOnLogin(bool visible); // uses different packets
 
         PlayerMenu* GetPlayerMenu() const { return m_playerMenu.get(); }
-        std::vector<ItemSetEffect*> ItemSetEff;
+
+        ItemSetEffect* GetItemSetEffect(uint32 setId);
+        ItemSetEffect* AddItemSetEffect(uint32 setId);
+        void RemoveItemSetEffect(uint32 setId);
 
         /*********************************************************/
         /***               BATTLEGROUND SYSTEM                 ***/
@@ -2620,6 +2626,10 @@ class Player : public Unit
         uint32 m_createdInstanceClearTimer;
 
         std::map<uint32, ObjectGuid> m_followAngles;
+
+        uint8 m_fishingSteps;
+
+        std::map<uint32, ItemSetEffect> m_itemSetEffects;
 };
 
 void AddItemsSetItem(Player* player, Item* item);

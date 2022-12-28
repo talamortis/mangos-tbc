@@ -75,7 +75,7 @@ struct boss_selin_fireheartAI : public CombatAI
         AddCombatAction(SELIN_ACTION_DRAIN_CRYSTAL, 15000, 25000);
         m_creature->SetWalk(false);
 
-        m_creature->GetCombatManager().SetLeashingCheck([](Unit*, float x, float y, float z)
+        m_creature->GetCombatManager().SetLeashingCheck([](Unit*, float x, float /*y*/, float /*z*/)
         {
             return x < 214.f;
         });
@@ -273,13 +273,13 @@ struct mob_fel_crystalAI : public ScriptedAI
     void SpellHit(Unit* /*caster*/, const SpellEntry* spellInfo) override
     {
         if (spellInfo->Id == SPELL_FEL_CRYSTAL_DUMMY)
-            m_creature->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE);
+            m_creature->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_UNINTERACTIBLE);
     }
 };
 
 struct spell_fel_crystal_dummy : public SpellScript
 {
-    void OnEffectExecute(Spell* spell, SpellEffectIndex effIdx) const override
+    void OnEffectExecute(Spell* spell, SpellEffectIndex /*effIdx*/) const override
     {
         if (Unit* target = spell->GetUnitTarget())
             target->CastSpell(nullptr, SPELL_MANA_RAGE_CHANNEL, TRIGGERED_NONE);

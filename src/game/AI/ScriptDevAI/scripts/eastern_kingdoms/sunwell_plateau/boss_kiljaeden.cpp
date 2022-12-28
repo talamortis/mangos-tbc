@@ -30,8 +30,8 @@ EndScriptData */
 enum
 {
     SAY_EMERGE                  = -1580069,
-    SAY_SLAY_1                  = -1580070,
-    SAY_SLAY_2                  = -1580071,
+    SAY_SLAY_1                  = 25549,
+    SAY_SLAY_2                  = 25550,
     SAY_REFLECTION_1            = -1580072,
     SAY_REFLECTION_2            = -1580073,
     SAY_DARKNESS_1              = -1580074,
@@ -555,7 +555,7 @@ struct boss_kiljaedenAI : public CombatAI, private DialogueHelper
         SetRootSelf(true);
         if (m_instance)
         {
-            m_creature->GetCombatManager().SetLeashingCheck([](Unit* unit, float /*x*/, float /*y*/, float z)
+            m_creature->GetCombatManager().SetLeashingCheck([](Unit* unit, float /*x*/, float /*y*/, float /*z*/)
             {
                 return static_cast<ScriptedInstance*>(unit->GetInstanceData())->GetPlayerInMap(true, false) == nullptr;
             });
@@ -600,7 +600,7 @@ struct boss_kiljaedenAI : public CombatAI, private DialogueHelper
     void HandleAttackDelay()
     {
         SetReactState(REACT_AGGRESSIVE);
-        m_creature->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE);
+        m_creature->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_UNINTERACTIBLE);
         DoScriptText(SAY_EMERGE, m_creature);
         SetMeleeEnabled(true);
         AttackClosestEnemy();
@@ -788,7 +788,7 @@ struct boss_kiljaedenAI : public CombatAI, private DialogueHelper
     }
 
     // Hack for simulating spell list
-    void ReceiveAIEvent(AIEventType eventType, Unit* /*sender*/, Unit* invoker, uint32 /*miscValue*/) override
+    void ReceiveAIEvent(AIEventType eventType, Unit* /*sender*/, Unit* /*invoker*/, uint32 /*miscValue*/) override
     {
         if (eventType == AI_EVENT_CUSTOM_A)
         {
@@ -987,7 +987,7 @@ enum SinisterReflectionSpells
     // generic
     SPELL_DUAL_WEILD_PASSIVE = 42459,
     // hunter
-    SPELL_WING_CLIP = 40652,
+    SPELL_WING_CLIP = 40652, // 47168 root used as prenerf
     // shaman
     SPELL_EARTH_SHOCK = 47071,
     // warrior
@@ -1206,7 +1206,7 @@ struct DarknessOfSouls : public AuraScript
 
 struct SinisterReflection : public SpellScript
 {
-    void OnEffectExecute(Spell* spell, SpellEffectIndex effIdx) const override
+    void OnEffectExecute(Spell* spell, SpellEffectIndex /*effIdx*/) const override
     {
         Unit* unitTarget = spell->GetUnitTarget();
         if (!unitTarget || unitTarget->GetTypeId() != TYPEID_PLAYER)

@@ -18,6 +18,7 @@
 
 #include "Spells/Scripts/SpellScript.h"
 #include "Spells/SpellAuras.h"
+#include "Spells/SpellMgr.h"
 
 struct SpiritOfRedemptionHeal : public SpellScript
 {
@@ -85,7 +86,8 @@ struct ShadowWordDeath : public SpellScript
 {
     void OnHit(Spell* spell, SpellMissInfo /*missInfo*/) const override
     {
-        int32 swdDamage = spell->GetTotalTargetDamage();
+        // ignores absorb - has to respect stuff like mitigation and partial resist
+        int32 swdDamage = spell->GetTotalTargetDamage() + spell->GetTotalTargetAbsorb();
         spell->GetCaster()->CastCustomSpell(nullptr, 32409, &swdDamage, nullptr, nullptr, TRIGGERED_OLD_TRIGGERED);
     }
 };
@@ -94,7 +96,7 @@ struct Blackout : public AuraScript
 {
     bool OnCheckProc(Aura* /*aura*/, ProcExecutionData& data) const override
     {
-        if (!data.damage || data.isHeal)
+        if (data.isHeal || (!data.damage && data.spellInfo && !IsSpellHaveAura(data.spellInfo, SPELL_AURA_PERIODIC_DAMAGE)))
             return false;
         return true;
     }

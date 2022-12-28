@@ -17,11 +17,12 @@
 */
 
 #include "Spells/Scripts/SpellScript.h"
+#include "Spells/SpellAuras.h"
 
 // 14185 - Preparation
 struct Preparation : public SpellScript
 {
-    void OnEffectExecute(Spell* spell, SpellEffectIndex effIdx) const override
+    void OnEffectExecute(Spell* spell, SpellEffectIndex /*effIdx*/) const override
     {
         if (spell->GetCaster()->IsPlayer())
         {
@@ -50,7 +51,6 @@ struct Stealth : public AuraScript
         {
             switch (data.spell->m_spellInfo->Id)
             {
-                case SPELL_DISTRACT:
                 case SPELL_EARTHBIND:
                 case SPELL_MASS_DISPEL:
                 case SPELL_MASS_DISPEL_2:
@@ -88,6 +88,20 @@ struct VanishRogue : public SpellScript
     void OnCast(Spell* spell) const override
     {
         CastHighestStealthRank(spell->GetCaster());
+        // meant to be hooked like override scripts but we dont have that functionality yet
+        if (spell->GetCaster()->HasAura(23582, EFFECT_INDEX_0)) // amount has trigger chance 100
+            spell->GetCaster()->CastSpell(nullptr, 23583, TRIGGERED_OLD_TRIGGERED);
+    }
+};
+
+// 6770 - Sap
+struct SapRogue : public SpellScript
+{
+    // SPELL_ATTR_EX3_SUPPRESS_TARGET_PROCS prevents sap to proc stealth normally
+    void OnHit(Spell* spell, SpellMissInfo missInfo) const override
+    {
+        if (missInfo == SPELL_MISS_NONE && spell->GetUnitTarget())
+            spell->GetUnitTarget()->RemoveSpellsCausingAura(SPELL_AURA_MOD_STEALTH);
     }
 };
 
@@ -100,10 +114,43 @@ struct SetupRogue : public AuraScript
     }
 };
 
+// 14082 - Dirty Deeds
+struct DirtyDeeds : public AuraScript
+{
+    void OnApply(Aura* aura, bool apply) const override
+    {
+        if (aura->GetEffIndex() == EFFECT_INDEX_1)
+            aura->GetTarget()->RegisterScriptedLocationAura(aura, SCRIPT_LOCATION_MELEE_DAMAGE_DONE, apply);
+        else if (aura->GetEffIndex() == EFFECT_INDEX_2)
+            aura->GetTarget()->RegisterScriptedLocationAura(aura, SCRIPT_LOCATION_MELEE_DAMAGE_DONE, apply);
+    }
+
+    void OnDamageCalculate(Aura* aura, Unit* victim, int32& /*advertisedBenefit*/, float& totalMod) const override
+    {
+        if (aura->GetEffIndex() == EFFECT_INDEX_0)
+            return;
+
+        if (victim->HasAuraState(AURA_STATE_HEALTHLESS_35_PERCENT))
+        {
+            Aura* eff0 = aura->GetHolder()->m_auras[EFFECT_INDEX_0];
+            if (!eff0)
+            {
+                sLog.outError("Spell structure of DD (%u) changed.", aura->GetId());
+                return;
+            }
+
+            // effect 0 have expected value but in negative state
+            totalMod *= (-eff0->GetModifier()->m_amount + 100.0f) / 100.0f;
+        }
+    }
+};
+
 void LoadRogueScripts()
 {
     RegisterSpellScript<Preparation>("spell_preparation");
     RegisterSpellScript<Stealth>("spell_stealth");
     RegisterSpellScript<VanishRogue>("spell_vanish");
+    RegisterSpellScript<SapRogue>("spell_sap");
     RegisterSpellScript<SetupRogue>("spell_setup_rogue");
+    RegisterSpellScript<DirtyDeeds>("spell_dirty_deeds");
 }

@@ -152,7 +152,7 @@ Map::Map(uint32 id, time_t expiry, uint32 InstanceId, uint8 SpawnMode)
       m_activeNonPlayersIter(m_activeNonPlayers.end()), m_onEventNotifiedIter(m_onEventNotifiedObjects.end()),
       i_gridExpiry(expiry), m_TerrainData(sTerrainMgr.LoadTerrain(id)),
       i_data(nullptr), i_script_id(0), m_transportsIterator(m_transports.begin()), m_spawnManager(*this),
-      m_variableManager(this)
+      m_variableManager(this), m_defaultLight(GetDefaultMapLight(id))
 {
     m_weatherSystem = new WeatherSystem(this);
 }
@@ -909,16 +909,15 @@ void Map::Remove(T* obj, bool remove)
 
     m_objRemoveList.insert(obj->GetObjectGuid());
 
-    obj->ResetMap();
     if (remove)
-    {
         // if option set then object already saved at this moment
         if (!sWorld.getConfig(CONFIG_BOOL_SAVE_RESPAWN_TIME_IMMEDIATELY))
-            obj->SaveRespawnTime();
+            obj->SaveRespawnTime(); // requires map not being reset
 
-        // Note: In case resurrectable corpse and pet its removed from global lists in own destructor
+    obj->ResetMap();
+        
+    if (remove) // Note: In case resurrectable corpse and pet its removed from global lists in own destructor
         delete obj;
-    }
 }
 
 void Map::PlayerRelocation(Player* player, float x, float y, float z, float orientation)
@@ -2654,6 +2653,18 @@ bool Map::IsMountAllowed() const
     return true;
 }
 
+bool Map::IsDynguidForced() const
+{
+    switch (GetId())
+    {
+        case 533: // Naxxramas
+        case 543: // Hellfire Ramparts
+            return true;
+        default: break;
+    }
+    return false;
+}
+
 void Map::OnEventHappened(uint16 event_id, bool activate, bool resume)
 {
     if (i_data)
@@ -2677,4 +2688,191 @@ void Map::AddToSpawnCount(const ObjectGuid& guid)
 void Map::RemoveFromSpawnCount(const ObjectGuid& guid)
 {
     m_spawnedCount[guid.GetEntry()].erase(guid);
+}
+
+/**
+ * Function to set the zone dynamic info
+ */
+void Map::SendZoneDynamicInfo(Player* player, bool zoneUpdated, bool areaUpdated) const
+{
+    uint32 zoneId, areaId;
+    player->GetZoneAndAreaId(zoneId, areaId);
+    if (!zoneUpdated)
+        zoneId = 0;
+    if (!areaUpdated)
+        areaId = 0;
+
+    auto helper = [&](ZoneDynamicInfo const& info)
+    {
+        if (uint32 music = info.musicId)
+        {
+            WorldPacket data(SMSG_PLAY_MUSIC, 4);
+            data << uint32(music);
+            player->GetSession()->SendPacket(data);
+        }
+
+        if (uint32 weather = info.weatherId)
+        {
+            WorldPacket data(SMSG_WEATHER, 4 + 4 + 1);
+            data << uint32(weather);
+            data << float(info.weatherGrade);
+            data << uint8(0);
+            player->GetSession()->SendPacket(data);
+        }
+
+        if (uint32 overrideLight = info.overrideLightId)
+        {
+            WorldPacket data(SMSG_OVERRIDE_LIGHT, 4 + 4 + 4);
+            data << uint32(m_defaultLight);
+            data << uint32(overrideLight);
+            data << uint32(info.lightFadeInTime);
+            player->GetSession()->SendPacket(data);
+        }
+    };
+
+    auto zoneItr = m_zoneDynamicInfo.find(zoneId);
+    if (zoneItr != m_zoneDynamicInfo.end())
+        helper(zoneItr->second);
+
+    // area supercedes zone
+    auto areaItr = m_areaDynamicInfo.find(areaId);
+    if (areaItr != m_areaDynamicInfo.end())
+        helper(areaItr->second);
+}
+
+/**
+ * Function to set the zone music info
+ *
+ * @param zoneId Id of the Zone
+ * @param musicId for the zone
+ */
+void Map::SetZoneMusic(uint32 zoneId, uint32 areaId, uint32 musicId)
+{
+    if (zoneId)
+    {
+        if (m_zoneDynamicInfo.find(zoneId) == m_zoneDynamicInfo.end())
+            m_zoneDynamicInfo.emplace(zoneId, ZoneDynamicInfo());
+
+        m_zoneDynamicInfo[zoneId].musicId = musicId;
+    }
+
+    if (areaId)
+    {
+        if (m_areaDynamicInfo.find(areaId) == m_areaDynamicInfo.end())
+            m_areaDynamicInfo.emplace(areaId, ZoneDynamicInfo());
+
+        m_areaDynamicInfo[areaId].musicId = musicId;
+    }
+
+    Map::PlayerList const& pList = GetPlayers();
+
+    if (!pList.isEmpty())
+    {
+        WorldPacket data(SMSG_PLAY_MUSIC, 4);
+        data << uint32(musicId);
+
+        for (const auto& itr : pList)
+        {
+            uint32 curZoneId, curAreaId;
+            itr.getSource()->GetZoneAndAreaId(curZoneId, curAreaId);
+            if (curZoneId == zoneId || curAreaId == areaId)
+                itr.getSource()->SendDirectMessage(data);
+        }
+    }
+}
+
+/**
+ * Function to set the zone weather info
+ *
+ * @param zoneId Id of the Zone
+ * @param weatherId for the zone
+ * @param weatherGrade for the given weatherId
+ */
+void Map::SetZoneWeather(uint32 zoneId, uint32 areaId, uint32 weatherId, float weatherGrade)
+{
+    if (zoneId)
+    {
+        if (m_zoneDynamicInfo.find(zoneId) == m_zoneDynamicInfo.end())
+            m_zoneDynamicInfo.emplace(zoneId, ZoneDynamicInfo());
+
+        ZoneDynamicInfo& info = m_zoneDynamicInfo[zoneId];
+        info.weatherId = weatherId;
+        info.weatherGrade = weatherGrade;
+    }
+
+    if (areaId)
+    {
+        if (m_areaDynamicInfo.find(areaId) == m_areaDynamicInfo.end())
+            m_areaDynamicInfo.emplace(areaId, ZoneDynamicInfo());
+
+        ZoneDynamicInfo& info = m_areaDynamicInfo[areaId];
+        info.weatherId = weatherId;
+        info.weatherGrade = weatherGrade;
+    }
+
+    Map::PlayerList const& pList = GetPlayers();
+
+    if (!pList.isEmpty())
+    {
+        WorldPacket data(SMSG_WEATHER, 4 + 4 + 1);
+        data << uint32(weatherId);
+        data << float(weatherGrade);
+        data << uint8(0);
+
+        for (const auto& itr : pList)
+        {
+            uint32 curZoneId, curAreaId;
+            itr.getSource()->GetZoneAndAreaId(curZoneId, curAreaId);
+            if (curZoneId == zoneId || curAreaId == areaId)
+                itr.getSource()->SendDirectMessage(data);
+        }
+    }
+}
+
+/**
+ * Function to set the zone light override info
+ *
+ * @param zoneId Id of the Zone
+ * @param lightId to use as override
+ * @param fadeInTime for the lightId override
+ */
+void Map::SetZoneOverrideLight(uint32 zoneId, uint32 areaId, uint32 lightId, uint32 fadeInTime)
+{
+    if (zoneId)
+    {
+        if (m_zoneDynamicInfo.find(zoneId) == m_zoneDynamicInfo.end())
+            m_zoneDynamicInfo.emplace(zoneId, ZoneDynamicInfo());
+
+        ZoneDynamicInfo& info = m_zoneDynamicInfo[zoneId];
+        info.overrideLightId = lightId;
+        info.lightFadeInTime = fadeInTime;
+    }
+
+    if (areaId)
+    {
+        if (m_areaDynamicInfo.find(areaId) == m_areaDynamicInfo.end())
+            m_areaDynamicInfo.emplace(areaId, ZoneDynamicInfo());
+
+        ZoneDynamicInfo& info = m_areaDynamicInfo[areaId];
+        info.overrideLightId = lightId;
+        info.lightFadeInTime = fadeInTime;
+    }
+
+    Map::PlayerList const& pList = GetPlayers();
+
+    if (!pList.isEmpty())
+    {
+        WorldPacket data(SMSG_OVERRIDE_LIGHT, 4 + 4 + 4);
+        data << uint32(m_defaultLight);
+        data << uint32(lightId);
+        data << uint32(fadeInTime);
+
+        for (const auto& itr : pList)
+        {
+            uint32 curZoneId, curAreaId;
+            itr.getSource()->GetZoneAndAreaId(curZoneId, curAreaId);
+            if (curZoneId == zoneId || curAreaId == areaId)
+                itr.getSource()->SendDirectMessage(data);
+        }
+    }
 }

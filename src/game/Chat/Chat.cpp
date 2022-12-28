@@ -19,7 +19,7 @@
 #include "Chat/Chat.h"
 #include "Tools/Language.h"
 #include "Database/DatabaseEnv.h"
-#include "WorldPacket.h"
+#include "Server/WorldPacket.h"
 #include "Server/WorldSession.h"
 #include "Server/Opcodes.h"
 #include "Log.h"
@@ -1008,6 +1008,7 @@ ChatCommand* ChatHandler::getCommandTable()
         { "maxskill",       SEC_ADMINISTRATOR,  false, &ChatHandler::HandleMaxSkillCommand,            "", nullptr },
         { "setskill",       SEC_ADMINISTRATOR,  false, &ChatHandler::HandleSetSkillCommand,            "", nullptr },
         { "whispers",       SEC_MODERATOR,      false, &ChatHandler::HandleWhispersCommand,            "", nullptr },
+        { "wr",             SEC_PLAYER,         false, &ChatHandler::HandleWhisperRestrictionCommand,  "", nullptr },
         { "pinfo",          SEC_GAMEMASTER,     true,  &ChatHandler::HandlePInfoCommand,               "", nullptr },
         { "respawn",        SEC_ADMINISTRATOR,  false, &ChatHandler::HandleRespawnCommand,             "", nullptr },
         { "send",           SEC_MODERATOR,      true,  nullptr,                                        "", sendCommandTable },
@@ -2034,7 +2035,7 @@ bool ChatHandler::CheckEscapeSequences(const char* message)
                     if (linkedSpell)
                     {
                         // spells with that flag have a prefix of "$PROFESSION: "
-                        if (linkedSpell->HasAttribute(SPELL_ATTR_TRADESPELL))
+                        if (linkedSpell->HasAttribute(SPELL_ATTR_IS_TRADESKILL))
                         {
                             // lookup skillid
                             SkillLineAbilityMapBounds bounds = sSpellMgr.GetSkillLineAbilityMapBoundsBySpellId(linkedSpell->Id);

@@ -343,9 +343,10 @@ struct DungeonEncounterEntry
     uint32 Difficulty;                                      // 2        m_difficulty
     uint32 encounterData;                                   // 3        m_orderIndex
     uint32 encounterIndex;                                  // 4        m_Bit
-    char*  encounterName[16];                               // 5-20     m_name_lang
-    uint32 nameLangFlags;                                   // 21       m_name_lang_flags
-    uint32 spellIconID;                                     // 22       m_spellIconID
+    uint32 CompleteWorldStateID;                            // 5        m_CompleteWorldStateID - from 9.0.5
+    char*  encounterName[16];                               // 6-21     m_name_lang
+    uint32 nameLangFlags;                                   // 22       m_name_lang_flags
+    uint32 spellIconID;                                     // 23       m_spellIconID
 };
 
 struct DurabilityCostsEntry
@@ -665,6 +666,22 @@ struct ItemSetEntry
     uint32    items_to_triggerspell[8];                     // 43-50    m_setThreshold
     uint32    required_skill_id;                            // 51       m_requiredSkill
     uint32    required_skill_value;                         // 52       m_requiredSkillRank
+};
+
+struct LightEntry
+{
+    uint32 id;                                              // 0
+    uint32 mapId;                                           // 1
+    float x;                                                // 2
+    float y;                                                // 3
+    float z;                                                // 4
+    //float falloffStart;                                   // 5
+    //float falloffEnd;                                     // 6
+    //uint32 skyAndFog;                                     // 7
+    //uint32 waterSettings;                                 // 8
+    //uint32 sunsetParams;                                  // 9
+    //uint32 otherParams;                                   // 10
+    //uint32 deathParams;                                   // 11
 };
 
 struct LiquidTypeEntry
@@ -1255,7 +1272,7 @@ struct WMOAreaTableEntry
     // uint32 field8;                                       // 8        m_IntroSound
     uint32 Flags;                                           // 9        m_flags (used for indoor/outdoor determination)
     uint32 areaId;                                          // 10       m_AreaTableID (AreaTable.dbc)
-    // char *Name[16];                                      //          m_AreaName_lang
+    char *Name[16];                                         //          m_AreaName_lang
     // uint32 nameFlags;
 };
 

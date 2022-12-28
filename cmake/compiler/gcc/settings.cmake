@@ -7,12 +7,17 @@ if(CMAKE_SYSTEM_PROCESSOR MATCHES "^arm")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${ARM_FLAGS}")
 endif()
 
-# Additional compaitibility checks and flags for commonly found LTS GCC versions
+# Additional compatibility checks and flags for commonly found LTS GCC versions
 if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS 9.0 AND NOT MINGW)
   # Set minimum C++17 compliant GCC version target to 7.0
   if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS 7.0)
     message(SEND_ERROR "GCC: This project requires GCC version 7.0 or higher")
   endif()
+endif()
+
+# Blacklist buggy GCC versions
+if(CMAKE_CXX_COMPILER_VERSION VERSION_EQUAL 11.2)
+  message(SEND_ERROR "GCC: This compiler version contains known issues, update required")
 endif()
 
 add_definitions(-DHAVE_SSE2)

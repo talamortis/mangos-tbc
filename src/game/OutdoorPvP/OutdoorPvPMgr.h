@@ -20,7 +20,7 @@
 #define WORLD_PVP_MGR_H
 
 #include "Common.h"
-#include "Timer.h"
+#include "Util/Timer.h"
 
 enum
 {
@@ -84,6 +84,7 @@ struct CapturePointSlider
 class Player;
 class GameObject;
 class Creature;
+class Object;
 class OutdoorPvP;
 
 typedef std::map<uint32 /*capture point entry*/, CapturePointSlider /*slider value and lock state*/> CapturePointSliderMap;

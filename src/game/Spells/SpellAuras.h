@@ -201,6 +201,9 @@ class SpellAuraHolder
 
         bool HasAuraType(AuraType type);
 
+        bool IsProcReady(TimePoint const& now) const;
+        void SetProcCooldown(std::chrono::milliseconds cooldown, TimePoint const& now);
+
         bool IsReducedProcChancePast60() { return m_reducedProcChancePast60; }
         void SetReducedProcChancePast60() { m_reducedProcChancePast60 = true; }
 
@@ -249,6 +252,8 @@ class SpellAuraHolder
         bool m_deleted: 1;
         bool m_skipUpdate: 1;
 
+        TimePoint m_procCooldown;
+
         bool m_reducedProcChancePast60;
 
         // Scripting System
@@ -272,7 +277,7 @@ typedef void(Aura::*pAuraHandler)(bool Apply, bool Real);
 class Aura
 {
         friend struct ReapplyAffectedPassiveAurasHelper;
-        friend Aura* CreateAura(SpellEntry const* spellproto, SpellEffectIndex eff, int32 const* currentDamage, int32 const* currentBasePoints, SpellAuraHolder* holder, Unit* target, Unit* caster, Item* castItem);
+        friend Aura* CreateAura(SpellEntry const* spellproto, SpellEffectIndex eff, int32 const* currentDamage, int32 const* currentBasePoints, SpellAuraHolder* holder, Unit* target, Unit* caster, Item* castItem, uint64 scriptValue);
 
     public:
         // aura handlers
@@ -529,7 +534,7 @@ class Aura
         void OnAfterApply(bool apply);
         bool OnCheckProc(ProcExecutionData& data);
         SpellAuraProcResult OnProc(ProcExecutionData& data);
-        void OnAbsorb(int32& currentAbsorb, int32& remainingDamage, uint32& reflectedSpellId, int32& reflectDamage, bool& preventedDeath);
+        void OnAbsorb(int32& currentAbsorb, int32& remainingDamage, uint32& reflectedSpellId, int32& reflectDamage, bool& preventedDeath, bool& dropCharge);
         void OnManaAbsorb(int32& currentAbsorb);
         void OnAuraDeathPrevention(int32& remainingDamage);
         void OnPeriodicTrigger(PeriodicTriggerData& data);
@@ -606,19 +611,6 @@ class PersistentAreaAura : public Aura
         void Update(uint32 diff) override;
 };
 
-class SingleEnemyTargetAura : public Aura
-{
-        friend Aura* CreateAura(SpellEntry const* spellproto, SpellEffectIndex eff, int32 const* currentDamage, int32 const* currentBasePoints, SpellAuraHolder* holder, Unit* target, Unit* caster, Item* castItem);
-
-    public:
-        virtual ~SingleEnemyTargetAura();
-        Unit* GetTriggerTarget() const override;
-
-    protected:
-        SingleEnemyTargetAura(SpellEntry const* spellproto, SpellEffectIndex eff, int32 const* currentDamage, int32 const* currentBasePoints, SpellAuraHolder* holder, Unit* target, Unit* caster  = nullptr, Item* castItem = nullptr);
-        ObjectGuid m_castersTargetGuid;
-};
-
 // Used for GO Area Auras
 class GameObjectAura : public Aura
 {
@@ -630,6 +622,6 @@ class GameObjectAura : public Aura
         void Update(uint32 diff) override;
 };
 
-Aura* CreateAura(SpellEntry const* spellproto, SpellEffectIndex eff, int32 const* currentDamage, int32 const* currentBasePoints, SpellAuraHolder* holder, Unit* target, Unit* caster = nullptr, Item* castItem = nullptr);
+Aura* CreateAura(SpellEntry const* spellproto, SpellEffectIndex eff, int32 const* currentDamage, int32 const* currentBasePoints, SpellAuraHolder* holder, Unit* target, Unit* caster = nullptr, Item* castItem = nullptr, uint64 scriptValue = 0);
 SpellAuraHolder* CreateSpellAuraHolder(SpellEntry const* spellproto, Unit* target, WorldObject* caster, Item* castItem = nullptr, SpellEntry const* triggeredBy = nullptr);
 #endif

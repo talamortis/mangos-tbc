@@ -1391,7 +1391,7 @@ struct npc_vengeful_harbinger : public ScriptedAI
     void Reset() override
     {
         eventResetTimer = EVENT_RESET_TIMER;
-        m_creature->GetCombatManager().SetLeashingCheck([&](Unit*, float x, float y, float z)
+        m_creature->GetCombatManager().SetLeashingCheck([&](Unit*, float /*x*/, float y, float /*z*/)
         {
             return y > 4428.f;
         });
@@ -1508,7 +1508,7 @@ struct go_monstrous_kaliri_egg : public GameObjectAI
 {
     go_monstrous_kaliri_egg(GameObject* go) : GameObjectAI(go) {}
 
-    void OnLootStateChange() override
+    void OnLootStateChange(Unit* /*user*/) override
     {
         if (m_go->GetLootState() == GO_ACTIVATED)
             m_go->SetForcedDespawn();

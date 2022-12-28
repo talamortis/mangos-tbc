@@ -17,7 +17,7 @@
  */
 
 #include "OutdoorPvPNA.h"
-#include "WorldPacket.h"
+#include "Server/WorldPacket.h"
 #include "World/World.h"
 #include "Globals/ObjectMgr.h"
 #include "Entities/Object.h"
@@ -283,8 +283,12 @@ void OutdoorPvPNA::UpdateWyvernsWorldState(uint32 value)
 }
 
 // process the capture events
-bool OutdoorPvPNA::HandleEvent(uint32 eventId, GameObject* go, Unit* /*invoker*/)
+bool OutdoorPvPNA::HandleEvent(uint32 eventId, Object* source, Object* /*target*/)
 {
+    if (!source->IsGameObject())
+        return false;
+
+    GameObject* go = static_cast<GameObject*>(source);
     // If we are not using the Halaa banner return
     if (go->GetEntry() != GO_HALAA_BANNER)
         return false;

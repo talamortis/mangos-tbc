@@ -78,15 +78,14 @@ void MotionMaster::Initialize()
         {
             // check if creature is part of formation and use waypoint path as path origin
             WaypointPathOrigin pathOrigin = WaypointPathOrigin::PATH_NO_PATH;
-            uint32 pathEntry = 0;
             auto creatureGroup = creature->GetCreatureGroup();
             if (creatureGroup && creatureGroup->GetFormationEntry() && creatureGroup->GetGroupEntry().GetFormationSlotId(m_owner->GetDbGuid()) == 0)
             {
-                pathEntry = creatureGroup->GetFormationEntry()->MovementID;
+                m_currentPathId = creatureGroup->GetFormationEntry()->MovementIdOrWander;
                 pathOrigin = WaypointPathOrigin::PATH_FROM_WAYPOINT_PATH;
             }
 
-            (static_cast<WaypointMovementGenerator<Creature>*>(top()))->InitializeWaypointPath(*creature, m_currentPathId, pathOrigin, 0, pathEntry);
+            (static_cast<WaypointMovementGenerator<Creature>*>(top()))->InitializeWaypointPath(*creature, m_currentPathId, pathOrigin, 0);
         }
     }
     else
@@ -567,7 +566,7 @@ void MotionMaster::MoveCharge(Unit& target, float speed, uint32 id/* = EVENT_CHA
     Mutate(new EffectMovementGenerator(init, id, false));
 }
 
-bool MotionMaster::MoveFall()
+bool MotionMaster::MoveFall(ObjectGuid guid/* = ObjectGuid()*/, uint32 relayId/* = 0*/)
 {
     const float x = m_owner->GetPositionX(), y = m_owner->GetPositionY(), z = m_owner->GetPositionZ();
 
@@ -587,7 +586,7 @@ bool MotionMaster::MoveFall()
     Movement::MoveSplineInit init(*m_owner);
     init.MoveTo(x, y, tz);
     init.SetFall();
-    Mutate(new EffectMovementGenerator(init, EVENT_JUMP));
+    Mutate(new FallMovementGenerator(init, EVENT_FALL, false, guid, relayId));
     return true;
 }
 

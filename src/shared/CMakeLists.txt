@@ -19,15 +19,15 @@
 set(LIBRARY_NAME shared)
 
 set(SRC_GRP_AUTH
-    Auth/AuthCrypt.cpp
-    Auth/AuthCrypt.h
     Auth/BigNumber.cpp
     Auth/BigNumber.h
     Auth/HMACSHA1.cpp
     Auth/HMACSHA1.h
-    Auth/md5.h
-    Auth/Sha1.cpp
-    Auth/Sha1.h
+    Auth/SARC4.cpp
+    Auth/SARC4.h
+    Auth/SRP6.cpp
+    Auth/SRP6.h
+    Auth/CryptoHash.h
     Auth/base32.cpp
     Auth/base32.h
 )
@@ -79,6 +79,8 @@ set(SRC_GRP_LOG
 set(SRC_GRP_MT
     Multithreading/Messager.h
     Multithreading/Messager.cpp
+    Multithreading/Threading.cpp
+    Multithreading/Threading.h
 )
 
 if(BUILD_METRICS)
@@ -99,23 +101,43 @@ set(SRC_GRP_NETWORK
     Network/Socket.hpp
 )
 
-set(SRC_GRP_UTIL
-    ByteBuffer.cpp
-    ByteBuffer.h
-    Errors.h
-    ProgressBar.cpp
-    ProgressBar.h
-    Timer.h
-    Util.cpp
-    Util.h
-    WorldPacket.h
-    ProducerConsumerQueue.h
-    CommonDefines.h
+set(SRC_GRP_PLATFORM
+    Platform/Filesystem.h
 )
 
-set(SRC_GRP_SRP
-    SRP6/SRP6.cpp
-    SRP6/SRP6.h
+# OS specific files
+if(WIN32)
+  if(MSVC)
+    set(SRC_GRP_PLATFORM
+      ${SRC_GRP_PLATFORM}
+      Platform/WheatyExceptionReport.cpp
+      Platform/WheatyExceptionReport.h
+     )
+  endif()
+  set(SRC_GRP_PLATFORM
+      ${SRC_GRP_PLATFORM}
+      Platform/ServiceWin32.cpp
+      Platform/ServiceWin32.h
+     )
+elseif(UNIX)
+  set(SRC_GRP_PLATFORM
+      ${SRC_GRP_PLATFORM}
+      Platform/PosixDaemon.cpp
+      Platform/PosixDaemon.h
+     )
+endif()
+
+set(SRC_GRP_UTIL
+    Util/ByteBuffer.cpp
+    Util/ByteBuffer.h
+    Util/Errors.h
+    Util/ProgressBar.cpp
+    Util/ProgressBar.h
+    Util/Timer.h
+    Util/Util.cpp
+    Util/Util.h
+    Util/ProducerConsumerQueue.h
+    Util/CommonDefines.h
 )
 
 set(LIBRARY_SRCS
@@ -125,17 +147,15 @@ set(LIBRARY_SRCS
     ${SRC_GRP_DATABASE_DBC}
     ${SRC_GRP_LOG}
     ${SRC_GRP_METRIC}
-    ${SRC_GRP_UTIL}
-    ${SRC_GRP_SRP}
-    ${SRC_GRP_NETWORK}
     ${SRC_GRP_MT}
+    ${SRC_GRP_NETWORK}
+    ${SRC_GRP_PLATFORM}
+    ${SRC_GRP_UTIL}
     Common.cpp
     Common.h
-    Filesystem.h
     revision_sql.h
     revision.h
-    Threading.cpp
-    Threading.h
+    SystemConfig.h
 )
 
 # define header files
@@ -174,35 +194,20 @@ if(BUILD_METRICS)
     )
 endif()
 
+source_group("Platform"
+  FILES
+    ${SRC_GRP_PLATFORM}
+)
+
 source_group("Util"
   FILES
     ${SRC_GRP_UTIL}
-)
-
-source_group("SRP"
-  FILES
-    ${SRC_GRP_SRP}
 )
 
 source_group("Multithreading"
   FILES
     ${SRC_GRP_MT}
 )
-
-# OS specific files
-if(WIN32)
-  set(LIBRARY_SRCS
-      ${LIBRARY_SRCS}
-      ServiceWin32.cpp
-      ServiceWin32.h
-     )
-else()
-  set(LIBRARY_SRCS
-      ${LIBRARY_SRCS}
-      PosixDaemon.cpp
-      PosixDaemon.h
-     )
-endif()
 
 add_library(${LIBRARY_NAME} STATIC
   ${LIBRARY_SRCS}
@@ -247,7 +252,7 @@ else()
 endif()
 
 # Specific definition for an issue with boost/stacktrace when building on macOS
-if(APPLE)
+if(APPLE OR "${CMAKE_SYSTEM_NAME}" STREQUAL "FreeBSD")
   add_compile_definitions(_GNU_SOURCE)
 endif()
 

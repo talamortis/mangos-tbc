@@ -298,9 +298,9 @@ struct SupremusRandomTarget : public AuraScript
     }
 };
 
-struct HatefulStrikePrimer : public SpellScript
+struct SupremusHatefulStrikePrimer : public SpellScript
 {
-    void OnEffectExecute(Spell* spell, SpellEffectIndex effIdx) const override
+    void OnEffectExecute(Spell* spell, SpellEffectIndex /*effIdx*/) const override
     {
         Unit* target = spell->GetUnitTarget();
         Unit* caster = spell->GetCaster();
@@ -340,5 +340,5 @@ void AddSC_boss_supremus()
     pNewScript->RegisterSelf();
 
     RegisterSpellScript<SupremusRandomTarget>("spell_supremus_random_target");
-    RegisterSpellScript<HatefulStrikePrimer>("spell_hateful_strike_primer");
+    RegisterSpellScript<SupremusHatefulStrikePrimer>("spell_hateful_strike_primer");
 }

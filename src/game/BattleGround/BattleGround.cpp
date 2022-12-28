@@ -29,7 +29,7 @@
 #include "Entities/ObjectGuid.h"
 #include "Globals/ObjectMgr.h"
 #include "Mails/Mail.h"
-#include "WorldPacket.h"
+#include "Server/WorldPacket.h"
 #include "Tools/Formulas.h"
 #include "Grids/GridNotifiersImpl.h"
 #include "Chat/Chat.h"
@@ -103,6 +103,22 @@ namespace MaNGOS
             va_list* i_args;
     };
 
+    class BattleGroundBroadcastBuilder
+    {
+        public:
+            BattleGroundBroadcastBuilder(BroadcastText const* bcd, ChatMsg msgtype, Creature const* source, Unit const* target)
+                : i_msgtype(msgtype), i_source(source), i_bcd(bcd), i_target(target) {}
+            void operator()(WorldPacket& data, int32 loc_idx)
+            {
+                ChatHandler::BuildChatPacket(data, i_msgtype, i_bcd->GetText(loc_idx, i_source ? i_source->getGender() : GENDER_NONE).c_str(), i_bcd->languageId, CHAT_TAG_NONE, i_source ? i_source->GetObjectGuid() : ObjectGuid(), i_source ? i_source->GetName() : "", i_target ? i_target->GetObjectGuid() : ObjectGuid());
+            }
+        private:
+            ChatMsg i_msgtype;
+            Creature const* i_source;
+            BroadcastText const* i_bcd;
+            Unit const* i_target;
+    };
+
 
     class BattleGround2ChatBuilder
     {
@@ -169,10 +185,7 @@ void BattleGround::BroadcastWorker(Do& _do)
             _do(plr);
 }
 
-/**
-  Constructor
-*/
-BattleGround::BattleGround(): m_buffChange(false), m_startDelayTime(0), m_arenaBuffSpawned(false), m_startMaxDist(0)
+BattleGround::BattleGround(): m_buffChange(false), m_startDelayTime(0), m_arenaBuffSpawned(false), m_startMaxDist(0), m_playerSkinReflootId(0)
 {
     m_typeId            = BATTLEGROUND_TYPE_NONE;
     m_status            = STATUS_NONE;
@@ -224,9 +237,6 @@ BattleGround::BattleGround(): m_buffChange(false), m_startDelayTime(0), m_arenaB
 
     m_playersCount[TEAM_INDEX_ALLIANCE]    = 0;
     m_playersCount[TEAM_INDEX_HORDE]       = 0;
-
-    m_teamScores[TEAM_INDEX_ALLIANCE]      = 0;
-    m_teamScores[TEAM_INDEX_HORDE]         = 0;
 
     m_prematureCountDown = false;
     m_prematureCountDownTimer = 0;
@@ -834,6 +844,17 @@ void BattleGround::EndBattleGround(Team winner)
         }
     }
 
+    auto& objectStore = GetBgMap()->GetObjectsStore();
+    for (auto itr = objectStore.begin<Creature>(); itr != objectStore.end<Creature>(); ++itr)
+    {
+        Creature* creature = itr->second;
+        if (creature->IsClientControlled())
+            continue;
+        creature->SetImmuneToNPC(true);
+        creature->SetImmuneToPlayer(true);
+        creature->SetStunned(true);
+    }
+
     for (auto& m_Player : m_players)
     {
         Team team = m_Player.second.playerTeam;
@@ -944,7 +965,8 @@ void BattleGround::EndBattleGround(Team winner)
         loser_arena_team->NotifyStatsChanged();
     }
 
-    if (winmsg_id)
+    // AV message is different - TODO: check if others are also wrong
+    if (winmsg_id && GetTypeId() != BATTLEGROUND_AV)
         SendMessageToAll(winmsg_id, CHAT_MSG_BG_SYSTEM_NEUTRAL);
 }
 
@@ -1918,6 +1940,25 @@ void BattleGround::SendYell2ToAll(int32 entry, uint32 language, Creature const* 
     MaNGOS::BattleGround2YellBuilder bg_builder(Language(language), entry, source, arg1, arg2);
     MaNGOS::LocalizedPacketDo<MaNGOS::BattleGround2YellBuilder> bg_do(bg_builder);
     BroadcastWorker(bg_do);
+}
+
+void BattleGround::SendBcdToAll(int32 bcdEntry, ChatMsg msgtype, Creature const* source)
+{
+    MaNGOS::BattleGroundBroadcastBuilder bg_builder(sObjectMgr.GetBroadcastText(bcdEntry), msgtype, source, nullptr);
+    MaNGOS::LocalizedPacketDo<MaNGOS::BattleGroundBroadcastBuilder> bg_do(bg_builder);
+    BroadcastWorker(bg_do);
+}
+
+void BattleGround::SendBcdToTeam(int32 bcdEntry, ChatMsg msgtype, Creature const* source, Team team)
+{
+    MaNGOS::BattleGroundBroadcastBuilder bg_builder(sObjectMgr.GetBroadcastText(bcdEntry), msgtype, source, nullptr);
+    MaNGOS::LocalizedPacketDo<MaNGOS::BattleGroundBroadcastBuilder> bg_do(bg_builder);
+    auto lambda = [&](Player* player)
+    {
+        if (player->GetTeam() == team)
+            bg_do(player);
+    };
+    BroadcastWorker(lambda);
 }
 
 /**

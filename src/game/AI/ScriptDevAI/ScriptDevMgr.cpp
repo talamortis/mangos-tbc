@@ -4,7 +4,6 @@
 #include "Database/DatabaseEnv.h"
 #include "Server/DBCStores.h"
 #include "Globals/ObjectMgr.h"
-#include "ProgressBar.h"
 #include "system/system.h"
 #include "ScriptDevMgr.h"
 #include "include/sc_creature.h"

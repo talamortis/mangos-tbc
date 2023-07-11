@@ -587,7 +587,6 @@ inline bool IsSpellRemovedOnEvade(SpellEntry const* spellInfo)
         case 8909:          // Unholy Shield
         case 8990:          // Retribution Aura (Rank 1)
         case 9205:          // Hate to Zero (Hate to Zero)
-        case 9347:          // Mortal Strike
         case 9460:          // Corrosive Ooze
         case 9464:          // Barbs
         case 9769:          // Radiation
@@ -2145,12 +2144,14 @@ inline bool IsStackableAuraEffect(SpellEntry const* entry, SpellEntry const* ent
         // By default base stats cannot stack if they're similar
         case SPELL_AURA_MOD_STAT:
         { 
-            if (entry->Id == 8733 && entry2->Id == 8733)    // Blessing of Blackfathom - should'nt stack with itself
+            if (entry->Id == 8733 && entry2->Id == 8733)    // Blessing of Blackfathom - shouldnt stack with itself
                 return false;
             if (entry->Id == 5320 || entry2->Id == 5320) // Echeyakee's Grace - stacks with everything
                 return true;
             if (entry->Id == 15366 || entry2->Id == 15366) // Songflower Serenade - stacks with everything
                 return true;
+            if (entry->Id == 24425 && entry2->Id == 24425) // Spirit of Zandalar - shouldnt stack with itself
+                return false;
             if (entry->EffectMiscValue[i] != entry2->EffectMiscValue[similar])
                 break;
             if (positive)
@@ -2214,6 +2215,8 @@ inline bool IsStackableAuraEffect(SpellEntry const* entry, SpellEntry const* ent
         case SPELL_AURA_MOD_RANGED_HASTE:
         case SPELL_AURA_MOD_DAMAGE_DONE:
         case SPELL_AURA_MOD_DAMAGE_PERCENT_DONE: // Ferocious Inspiration, Shadow Embrace
+            if (entry->Id == 29521 && entry2->Id == 29521) // Dance Vibe
+                return false;
             if (positive)
                 return true;
             nonmui = true;
@@ -2505,11 +2508,12 @@ enum SpellTargetType
     SPELL_TARGET_TYPE_GAMEOBJECT    = 0,
     SPELL_TARGET_TYPE_CREATURE      = 1,
     SPELL_TARGET_TYPE_DEAD          = 2,
-    SPELL_TARGET_TYPE_CREATURE_GUID = 3,
-    SPELL_TARGET_TYPE_GAMEOBJECT_GUID = 4, // works only for global fetch spells
+    SPELL_TARGET_TYPE_CREATURE_GUID = 3, // obsolete - use string id instead
+    SPELL_TARGET_TYPE_GAMEOBJECT_GUID = 4, // obsolete - use string id instead
+    SPELL_TARGET_TYPE_STRING_ID     = 5,
 };
 
-#define MAX_SPELL_TARGET_TYPE 5
+#define MAX_SPELL_TARGET_TYPE 6
 
 // pre-defined targeting for spells
 struct SpellTargetEntry

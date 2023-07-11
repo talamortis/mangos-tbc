@@ -62,6 +62,10 @@
 #endif
 #include "Server/PacketLog.h"
 
+#include "Globals/UnitCondition.h"
+#include "Globals/CombatCondition.h"
+#include "World/WorldStateExpression.h"
+
 #ifdef BUILD_AHBOT
 #include "AuctionHouseBot/AuctionHouseBot.h"
 
@@ -243,13 +247,6 @@ bool ChatHandler::HandleReloadAllQuestCommand(char* /*args*/)
 
 bool ChatHandler::HandleReloadAllScriptsCommand(char* /*args*/)
 {
-    if (sScriptMgr.IsScriptScheduled())
-    {
-        PSendSysMessage("DB scripts used currently, please attempt reload later.");
-        SetSentErrorMessage(true);
-        return false;
-    }
-
     sLog.outString("Re-Loading Scripts...");
     HandleReloadDBScriptsOnCreatureDeathCommand((char*)"a");
     HandleReloadDBScriptsOnGoUseCommand((char*)"a");
@@ -754,6 +751,14 @@ bool ChatHandler::HandleReloadSpellThreatsCommand(char* /*args*/)
     return true;
 }
 
+bool ChatHandler::HandleReloadStringIds(char* /*args*/)
+{
+    sLog.outString("Re-Loading String Id Definitions...");
+    sScriptMgr.LoadStringIds();
+    SendGlobalSysMessage("DB table `string_id` (string id definitions) reloaded.");
+    return true;
+}
+
 bool ChatHandler::HandleReloadTaxiShortcuts(char* /*args*/)
 {
     sLog.outString("Re-Loading taxi flight shortcuts...");
@@ -830,17 +835,10 @@ bool ChatHandler::HandleReloadEventAIScriptsCommand(char* /*args*/)
 
 bool ChatHandler::HandleReloadDBScriptsOnGossipCommand(char* args)
 {
-    if (sScriptMgr.IsScriptScheduled())
-    {
-        SendSysMessage("DB scripts used currently, please attempt reload later.");
-        SetSentErrorMessage(true);
-        return false;
-    }
-
     if (*args != 'a')
         sLog.outString("Re-Loading Scripts from `dbscripts_on_gossip`...");
 
-    sScriptMgr.LoadGossipScripts();
+    sScriptMgr.LoadScriptMap(SCRIPT_TYPE_GOSSIP, true);
 
     if (*args != 'a')
         SendGlobalSysMessage("DB table `dbscripts_on_gossip` reloaded.");
@@ -850,17 +848,10 @@ bool ChatHandler::HandleReloadDBScriptsOnGossipCommand(char* args)
 
 bool ChatHandler::HandleReloadDBScriptsOnSpellCommand(char* args)
 {
-    if (sScriptMgr.IsScriptScheduled())
-    {
-        SendSysMessage("DB scripts used currently, please attempt reload later.");
-        SetSentErrorMessage(true);
-        return false;
-    }
-
     if (*args != 'a')
         sLog.outString("Re-Loading Scripts from `dbscripts_on_spell`...");
 
-    sScriptMgr.LoadSpellScripts();
+    sScriptMgr.LoadScriptMap(SCRIPT_TYPE_SPELL, true);
 
     if (*args != 'a')
         SendGlobalSysMessage("DB table `dbscripts_on_spell` reloaded.");
@@ -870,17 +861,10 @@ bool ChatHandler::HandleReloadDBScriptsOnSpellCommand(char* args)
 
 bool ChatHandler::HandleReloadDBScriptsOnQuestStartCommand(char* args)
 {
-    if (sScriptMgr.IsScriptScheduled())
-    {
-        SendSysMessage("DB scripts used currently, please attempt reload later.");
-        SetSentErrorMessage(true);
-        return false;
-    }
-
     if (*args != 'a')
         sLog.outString("Re-Loading Scripts from `dbscripts_on_quest_start`...");
 
-    sScriptMgr.LoadQuestStartScripts();
+    sScriptMgr.LoadScriptMap(SCRIPT_TYPE_QUEST_START, true);
 
     if (*args != 'a')
         SendGlobalSysMessage("DB table `dbscripts_on_quest_start` reloaded.");
@@ -890,17 +874,10 @@ bool ChatHandler::HandleReloadDBScriptsOnQuestStartCommand(char* args)
 
 bool ChatHandler::HandleReloadDBScriptsOnQuestEndCommand(char* args)
 {
-    if (sScriptMgr.IsScriptScheduled())
-    {
-        SendSysMessage("DB scripts used currently, please attempt reload later.");
-        SetSentErrorMessage(true);
-        return false;
-    }
-
     if (*args != 'a')
         sLog.outString("Re-Loading Scripts from `dbscripts_on_quest_end`...");
 
-    sScriptMgr.LoadQuestEndScripts();
+    sScriptMgr.LoadScriptMap(SCRIPT_TYPE_QUEST_END, true);
 
     if (*args != 'a')
         SendGlobalSysMessage("DB table `dbscripts_on_quest_end` reloaded.");
@@ -910,17 +887,10 @@ bool ChatHandler::HandleReloadDBScriptsOnQuestEndCommand(char* args)
 
 bool ChatHandler::HandleReloadDBScriptsOnEventCommand(char* args)
 {
-    if (sScriptMgr.IsScriptScheduled())
-    {
-        SendSysMessage("DB scripts used currently, please attempt reload later.");
-        SetSentErrorMessage(true);
-        return false;
-    }
-
     if (*args != 'a')
         sLog.outString("Re-Loading Scripts from `dbscripts_on_event`...");
 
-    sScriptMgr.LoadEventScripts();
+    sScriptMgr.LoadScriptMap(SCRIPT_TYPE_EVENT, true);
 
     if (*args != 'a')
         SendGlobalSysMessage("DB table `dbscripts_on_event` reloaded.");
@@ -930,18 +900,11 @@ bool ChatHandler::HandleReloadDBScriptsOnEventCommand(char* args)
 
 bool ChatHandler::HandleReloadDBScriptsOnGoUseCommand(char* args)
 {
-    if (sScriptMgr.IsScriptScheduled())
-    {
-        SendSysMessage("DB scripts used currently, please attempt reload later.");
-        SetSentErrorMessage(true);
-        return false;
-    }
-
     if (*args != 'a')
         sLog.outString("Re-Loading Scripts from `dbscripts_on_go[_template]_use`...");
 
-    sScriptMgr.LoadGameObjectScripts();
-    sScriptMgr.LoadGameObjectTemplateScripts();
+    sScriptMgr.LoadScriptMap(SCRIPT_TYPE_GAMEOBJECT, true);
+    sScriptMgr.LoadScriptMap(SCRIPT_TYPE_GAMEOBJECT_TEMPLATE, true);
 
     if (*args != 'a')
         SendGlobalSysMessage("DB table `dbscripts_on_go[_template]_use` reloaded.");
@@ -951,17 +914,10 @@ bool ChatHandler::HandleReloadDBScriptsOnGoUseCommand(char* args)
 
 bool ChatHandler::HandleReloadDBScriptsOnCreatureDeathCommand(char* args)
 {
-    if (sScriptMgr.IsScriptScheduled())
-    {
-        SendSysMessage("DB scripts used currently, please attempt reload later.");
-        SetSentErrorMessage(true);
-        return false;
-    }
-
     if (*args != 'a')
         sLog.outString("Re-Loading Scripts from `dbscripts_on_creature_death`...");
 
-    sScriptMgr.LoadCreatureDeathScripts();
+    sScriptMgr.LoadScriptMap(SCRIPT_TYPE_CREATURE_DEATH, true);
 
     if (*args != 'a')
         SendGlobalSysMessage("DB table `dbscripts_on_creature_death` reloaded.");
@@ -971,17 +927,10 @@ bool ChatHandler::HandleReloadDBScriptsOnCreatureDeathCommand(char* args)
 
 bool ChatHandler::HandleReloadDBScriptsOnRelayCommand(char* args)
 {
-    if (sScriptMgr.IsScriptScheduled())
-    {
-        SendSysMessage("DB scripts used currently, please attempt reload later.");
-        SetSentErrorMessage(true);
-        return false;
-    }
-
     if (*args != 'a')
         sLog.outString("Re-Loading Scripts from `dbscripts_on_relay`...");
 
-    sScriptMgr.LoadRelayScripts();
+    sScriptMgr.LoadScriptMap(SCRIPT_TYPE_RELAY, true);
 
     if (*args != 'a')
         SendGlobalSysMessage("DB table `dbscripts_on_relay` reloaded.");
@@ -1102,7 +1051,10 @@ bool ChatHandler::HandleReloadCreatureCooldownsCommand(char* /*args*/)
 bool ChatHandler::HandleReloadCreatureSpellLists(char* /*args*/)
 {
     sLog.outString("Reloading creature spell lists...");
+    auto conditionsAndExpressions = sObjectMgr.LoadConditionsAndExpressions();
     auto result = sObjectMgr.LoadCreatureSpellLists();
+    sObjectMgr.LoadCreatureTemplateSpells(result);
+    auto [unitConditions, worldstateExpressions, combatConditions] = conditionsAndExpressions;
     SendGlobalSysMessage("Reloaded creature spell lists.");
     if (result)
     {
@@ -4602,7 +4554,7 @@ bool ChatHandler::HandleResetHonorCommand(char* args)
 
     target->SetHonorPoints(0);
     target->SetUInt32Value(PLAYER_FIELD_KILLS, 0);
-    target->SetUInt32Value(PLAYER_FIELD_LIFETIME_HONORBALE_KILLS, 0);
+    target->SetUInt32Value(PLAYER_FIELD_LIFETIME_HONORABLE_KILLS, 0);
     target->SetUInt32Value(PLAYER_FIELD_TODAY_CONTRIBUTION, 0);
     target->SetUInt32Value(PLAYER_FIELD_YESTERDAY_CONTRIBUTION, 0);
     return true;
@@ -4945,6 +4897,11 @@ bool ChatHandler::HandleQuestAddCommand(char* args)
         if (player->CanCompleteQuest(entry))
             player->CompleteQuest(entry);
     }
+
+    if (!player->SatisfyQuestClass(pQuest, false))
+        SendSysMessage("Warning: Added quest to player who does not fulfill class requirement. Might not work correctly.");
+    if (!player->SatisfyQuestRace(pQuest, false))
+        SendSysMessage("Warning: Added quest to player who does not fulfill race requirement. Might not work correctly.");
 
     return true;
 }

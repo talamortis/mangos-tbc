@@ -142,6 +142,7 @@ class SpellCastTargets
         Position getDestination() const { return m_destPos; }
         void getDestination(WorldLocation& loc) { loc.coord_x = m_destPos.x; loc.coord_y = m_destPos.y; loc.coord_z = m_destPos.z; }
         void getSource(float& x, float& y, float& z) const { x = m_srcPos.x; y = m_srcPos.y; z = m_srcPos.z; }
+        Position getSource() const { return m_srcPos; }
 
         void setGOTarget(GameObject* target);
         ObjectGuid getGOTargetGuid() const { return m_GOTargetGUID; }
@@ -222,6 +223,7 @@ enum SpellTargets
 {
     SPELL_TARGETS_ASSISTABLE,
     SPELL_TARGETS_AOE_ATTACKABLE,
+    SPELL_TARGETS_CHAIN_ATTACKABLE,
     SPELL_TARGETS_ALL
 };
 
@@ -662,6 +664,7 @@ class Spell
 
         static void SelectMountByAreaAndSkill(Unit* target, SpellEntry const* parentSpell, uint32 spellId75, uint32 spellId150, uint32 spellId225, uint32 spellId300, uint32 spellIdSpecial);
 
+        bool IsInterruptible() const;
         bool CanBeInterrupted() const { return m_spellState <= SPELL_STATE_DELAYED || m_spellState == SPELL_STATE_CHANNELING; }
 
         void RegisterAuraProc(Aura* aura);
@@ -1109,8 +1112,17 @@ namespace MaNGOS
                 if (itr->getSource()->IsTaxiFlying())
                     continue;
 
-                if (itr->getSource()->IsAOEImmune())
-                    continue;
+                switch (i_TargetType)
+                {
+                    case SPELL_TARGETS_CHAIN_ATTACKABLE:
+                        if (itr->getSource()->IsChainImmune())
+                            continue;
+                        break;
+                    case SPELL_TARGETS_AOE_ATTACKABLE:
+                        if (itr->getSource()->IsAOEImmune())
+                            continue;
+                        break;
+                }
 
                 switch (i_TargetType)
                 {
@@ -1118,6 +1130,7 @@ namespace MaNGOS
                         if (!i_originalCaster->CanAssistSpell(itr->getSource(), i_spell.m_spellInfo))
                             continue;
                         break;
+                    case SPELL_TARGETS_CHAIN_ATTACKABLE:
                     case SPELL_TARGETS_AOE_ATTACKABLE:
                     {
                         if (!i_originalCaster->CanAttackSpell(itr->getSource(), i_spell.m_spellInfo, !i_spell.m_spellInfo->HasAttribute(SPELL_ATTR_EX5_IGNORE_AREA_EFFECT_PVP_CHECK)))

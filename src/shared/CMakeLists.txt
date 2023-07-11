@@ -93,27 +93,24 @@ if(BUILD_METRICS)
 endif()
 
 set(SRC_GRP_NETWORK
-    Network/PacketBuffer.cpp
-    Network/Socket.cpp
+    Network/Listener.cpp
     Network/Listener.hpp
+    Network/NetworkThread.cpp
     Network/NetworkThread.hpp
+    Network/PacketBuffer.cpp
     Network/PacketBuffer.hpp
+    Network/Socket.cpp
     Network/Socket.hpp
 )
 
 set(SRC_GRP_PLATFORM
+    Platform/CompilerDefs.h
+    Platform/Define.h
     Platform/Filesystem.h
 )
 
 # OS specific files
 if(WIN32)
-  if(MSVC)
-    set(SRC_GRP_PLATFORM
-      ${SRC_GRP_PLATFORM}
-      Platform/WheatyExceptionReport.cpp
-      Platform/WheatyExceptionReport.h
-     )
-  endif()
   set(SRC_GRP_PLATFORM
       ${SRC_GRP_PLATFORM}
       Platform/ServiceWin32.cpp
@@ -130,6 +127,7 @@ endif()
 set(SRC_GRP_UTIL
     Util/ByteBuffer.cpp
     Util/ByteBuffer.h
+    Util/ByteConverter.h
     Util/Errors.h
     Util/ProgressBar.cpp
     Util/ProgressBar.h
@@ -194,6 +192,11 @@ if(BUILD_METRICS)
     )
 endif()
 
+source_group("Network"
+  FILES
+    ${SRC_GRP_NETWORK}
+)
+
 source_group("Platform"
   FILES
     ${SRC_GRP_PLATFORM}
@@ -217,6 +220,7 @@ target_include_directories(${LIBRARY_NAME}
   PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}
   PUBLIC ${Boost_INCLUDE_DIRS}
   PUBLIC ${OPENSSL_INCLUDE_DIR}
+  PUBLIC ${CMAKE_BINARY_DIR}/src/shared # For the generated revision.h.
   PUBLIC "${CMAKE_SOURCE_DIR}/src/game"
 )
 
@@ -262,7 +266,7 @@ if(PCH)
 endif()
 
 # Mark the revision header as being generated.
-set_source_files_properties(${CMAKE_SOURCE_DIR}/src/shared/revision.h
+set_source_files_properties(${CMAKE_BINARY_DIR}/src/shared/revision.h
   PROPERTIES GENERATED TRUE
              HEADER_FILE_ONLY TRUE)
 if(MSVC)

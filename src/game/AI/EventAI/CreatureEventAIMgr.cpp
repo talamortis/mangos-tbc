@@ -549,6 +549,16 @@ void CreatureEventAIMgr::LoadCreatureEventAI_Scripts()
                     break;
                 case EVENT_T_TARGET_NOT_REACHABLE:
                     break;
+                case EVENT_T_SPELL_CAST:
+                {
+                    SpellEntry const* spellInfo = sSpellTemplate.LookupEntry<SpellEntry>(temp.spellCast.spellId);
+                    if (!spellInfo)
+                    {
+                        sLog.outErrorEventAI("Creature %d has nonexistent SpellID(%u) defined in event %u.", keyField, temp.spellCast.spellId, eventId);
+                        continue;
+                    }
+                    break;
+                }
                 default:
                     sLog.outErrorEventAI("Creature %d using not checked at load event (%u) in event %u. Need check code update?", keyField, temp.event_id, eventId);
                     break;
@@ -957,7 +967,8 @@ void CreatureEventAIMgr::LoadCreatureEventAI_Scripts()
                     case ACTION_T_START_RELAY_SCRIPT:
                         if (action.relayScript.relayId > 0)
                         {
-                            if (sRelayScripts.second.find(action.relayScript.relayId) == sRelayScripts.second.end())
+                            auto relayScripts = sScriptMgr.GetScriptMap(SCRIPT_TYPE_RELAY);
+                            if (relayScripts->second.find(action.relayScript.relayId) == relayScripts->second.end())
                             {
                                 sLog.outErrorEventAI("Event %u Action %u references invalid dbscript_on_relay id %u", eventId, j + 1, action.relayScript.relayId);
                             }

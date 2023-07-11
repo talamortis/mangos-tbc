@@ -783,7 +783,12 @@ void WorldSession::HandleAreaTriggerOpcode(WorldPacket& recv_data)
 
     if (at->conditionId && !sObjectMgr.IsConditionSatisfied(at->conditionId, player, player->GetMap(), nullptr, CONDITION_FROM_AREATRIGGER_TELEPORT))
     {
-        /*TODO player->GetSession()->SendAreaTriggerMessage("%s", "YOU SHALL NOT PASS!");*/
+        if (!at->status_failed_text.empty())
+        {
+            std::string message = at->status_failed_text;
+            sObjectMgr.GetAreaTriggerLocales(at->entry, GetSessionDbLocaleIndex(), &message);
+            SendAreaTriggerMessage(message.data());
+        }
         return;
     }
 
@@ -1063,7 +1068,7 @@ void WorldSession::HandleInspectHonorStatsOpcode(WorldPacket& recv_data)
     data << uint32(player->GetUInt32Value(PLAYER_FIELD_KILLS));
     data << uint32(player->GetUInt32Value(PLAYER_FIELD_TODAY_CONTRIBUTION));
     data << uint32(player->GetUInt32Value(PLAYER_FIELD_YESTERDAY_CONTRIBUTION));
-    data << uint32(player->GetUInt32Value(PLAYER_FIELD_LIFETIME_HONORBALE_KILLS));
+    data << uint32(player->GetUInt32Value(PLAYER_FIELD_LIFETIME_HONORABLE_KILLS));
     SendPacket(data);
 }
 

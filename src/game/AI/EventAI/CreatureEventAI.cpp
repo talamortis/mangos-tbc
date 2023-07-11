@@ -109,8 +109,6 @@ CreatureEventAI::CreatureEventAI(Creature* creature) : CreatureAI(creature),
 void CreatureEventAI::InitAI()
 {
     m_CreatureEventAIList.clear();
-    m_distanceSpells.clear();
-    m_mainSpells.clear();
 
     auto processMap = [&](const CreatureEventAI_Event_Vec& creatureEvent)
     {
@@ -381,6 +379,7 @@ bool CreatureEventAI::CheckEvent(CreatureEventAIHolder& holder, Unit* actionInvo
             break;
         case EVENT_T_SPELLHIT:
         case EVENT_T_SPELLHIT_TARGET:
+        case EVENT_T_SPELL_CAST:
             break;
         case EVENT_T_RANGE:
             if (!m_creature->IsInCombat() || !m_creature->GetVictim() || !m_creature->IsInMap(m_creature->GetVictim()))
@@ -949,9 +948,9 @@ bool CreatureEventAI::ProcessAction(CreatureEventAI_Action const& action, uint32
             SetCombatMovement(action.combat_movement.state != 0, true);
 
             if (hasCombatMovement && action.combat_movement.melee && m_creature->IsInCombat() && m_creature->GetVictim())
-                m_creature->SendMeleeAttackStart(m_creature->GetVictim());
+                m_creature->SendMeleeAttackStart(*m_creature->GetVictim());
             else if (action.combat_movement.melee && m_creature->IsInCombat() && m_creature->GetVictim())
-                m_creature->SendMeleeAttackStop(m_creature->GetVictim());
+                m_creature->SendMeleeAttackStop(*m_creature->GetVictim());
             break;
         }
         case ACTION_T_SET_PHASE:
@@ -1279,10 +1278,10 @@ bool CreatureEventAI::ProcessAction(CreatureEventAI_Action const& action, uint32
                 uint32 relayId = sScriptMgr.GetRandomRelayDbscriptFromTemplate(uint32(-action.relayScript.relayId));
                 if (relayId == 0)
                     break;
-                m_creature->GetMap()->ScriptsStart(sRelayScripts, relayId, target, m_creature);
+                m_creature->GetMap()->ScriptsStart(SCRIPT_TYPE_RELAY, relayId, target, m_creature);
             }
             else
-                m_creature->GetMap()->ScriptsStart(sRelayScripts, action.relayScript.relayId, target, m_creature);
+                m_creature->GetMap()->ScriptsStart(SCRIPT_TYPE_RELAY, action.relayScript.relayId, target, m_creature);
             break;
         }
         case ACTION_T_TEXT_NEW:
@@ -1386,7 +1385,7 @@ bool CreatureEventAI::ProcessAction(CreatureEventAI_Action const& action, uint32
         }
         case ACTION_T_SET_IMMOBILIZED_STATE:
         {
-            SetRootSelf(action.immobilizedState.apply, action.immobilizedState.combatOnly);
+            SetAIImmobilizedState(action.immobilizedState.apply, action.immobilizedState.combatOnly);
             break;
         }
         case ACTION_T_SET_DESPAWN_AGGREGATION:
@@ -1467,7 +1466,7 @@ void CreatureEventAI::Reset()
     // reset AI state
     SetAIOrder(ORDER_NONE);
     SetCombatScriptStatus(false);
-    ClearSelfRoot();
+    ClearCombatOnlyRoot();
 
     // Reset all events to enabled
     for (auto& i : m_CreatureEventAIList)
@@ -1613,6 +1612,18 @@ void CreatureEventAI::CorpseRemoved(uint32& respawnDelay)
     // can happen due to forced despawn of allies
     if ((m_despawnAggregationMask & AGGREGATION_EVADE) != 0)
         DespawnGuids(m_despawnGuids);
+}
+
+void CreatureEventAI::OnSpellCast(SpellEntry const* spellInfo, Unit* target)
+{
+    IncreaseDepthIfNecessary();
+    for (auto& i : m_CreatureEventAIList)
+        if (i.event.event_type == EVENT_T_SPELL_CAST)
+            // If spell id matches (or no spell id) & if spell school matches (or no spell school)
+            if (spellInfo->Id == i.event.spellCast.spellId)
+                CheckAndReadyEventForExecution(i, target);
+
+    ProcessEvents(target);
 }
 
 void CreatureEventAI::EnterCombat(Unit* enemy)

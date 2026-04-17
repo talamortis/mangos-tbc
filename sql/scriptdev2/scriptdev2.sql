@@ -864,7 +864,6 @@ UPDATE creature_template SET ScriptName='boss_netherspite' WHERE entry=15689;
 UPDATE creature_template SET ScriptName='boss_malchezaar' WHERE entry=15690;
 UPDATE creature_template SET ScriptName='boss_nightbane' WHERE entry=17225;
 UPDATE creature_template SET ScriptName='boss_bigbadwolf' WHERE entry=17521;
-UPDATE creature_template SET ScriptName='npc_fiendish_portal' WHERE entry=17265;
 UPDATE creature_template SET ScriptName='npc_netherspite_portal' WHERE entry IN (17367,17368,17369);
 UPDATE creature_template SET ScriptName='npc_barnes' WHERE entry=16812;
 UPDATE creature_template SET ScriptName='npc_grandmother' WHERE entry=17603;
@@ -1118,6 +1117,7 @@ UPDATE creature_template SET ScriptName='npc_dirty_larry' WHERE entry=19720;
 UPDATE creature_template SET ScriptName='npc_khadgars_servant' WHERE entry=19685;
 UPDATE creature_template SET ScriptName='npc_salsalabim' WHERE entry=18584;
 UPDATE creature_template SET ScriptName='npc_adal' WHERE entry IN(18481);
+UPDATE creature_template SET ScriptName="npc_paymaster" WHERE entry=26075;
 
 /* SILITHUS */
 UPDATE creature_template SET ScriptName='npc_solenor' WHERE entry IN (14530,14536);
@@ -3364,18 +3364,6 @@ INSERT INTO script_texts (entry,content_default,sound,type,language,emote,broadc
 
 -- -1 532 000 KARAZHAN
 INSERT INTO script_texts (entry,content_default,sound,type,language,emote,broadcast_text_id,comment) VALUES
-('-1532000','Well done, Midnight!','9173','1','0','0','15334','attumen SAY_MIDNIGHT_KILL'),
-('-1532001','Cowards! Wretches!','9167','1','0','0','13459','attumen SAY_APPEAR1'),
-('-1532002','Who dares attack the steed of the Huntsman?','9298','1','0','0','15378','attumen SAY_APPEAR2'),
-('-1532003','Perhaps you would rather test yourselves against a more formidable opponent?!','9299','1','0','0','15379','attumen SAY_APPEAR3'),
-('-1532004','Come Midnight, let''s disperse this petty rabble!','9168','1','0','0','13456','attumen SAY_MOUNT'),
-('-1532005','It was... inevitable.','9169','1','0','0','13460','attumen SAY_KILL1'),
-('-1532006','Another trophy to add to my collection!','9300','1','0','0','15333','attumen SAY_KILL2'),
-('-1532007','Weapons are merely a convenience for a warrior of my skill!','9166','1','0','0','13490','attumen SAY_DISARMED'),
-('-1532008','Always knew... someday I would become... the hunted.','9165','1','0','0','13462','attumen SAY_DEATH'),
-('-1532009','Such easy sport.','9170','1','0','0','0','attumen SAY_RANDOM1'),
-('-1532010','Amateurs! Do not think you can best me! I kill for a living.','9304','1','0','0','0','attumen SAY_RANDOM2'),
-
 ('-1532011','Hm, unannounced visitors. Preparations must be made...','9211','1','0','0','15021','moroes SAY_AGGRO'),
 ('-1532012','Now, where was I? Oh, yes...','9215','1','0','0','15339','moroes SAY_SPECIAL_1'),
 ('-1532013','You rang?','9316','1','0','0','15340','moroes SAY_SPECIAL_2'),
@@ -3428,15 +3416,6 @@ INSERT INTO script_texts (entry,content_default,sound,type,language,emote,broadc
 ('-1532062','Do not touch the displays.','9187','1','0','0','15335','curator SAY_KILL1'),
 ('-1532063','You are not a guest.','9308','1','0','0','15336','curator SAY_KILL2'),
 ('-1532064','Curator is no longer operation-a-l.','9184','1','0','0','15057','curator SAY_DEATH'),
-
-('-1532065','Your blood will anoint my circle!','9264','1','0','0','15145','terestian SAY_SLAY1'),
-('-1532066','The great one will be pleased.','9329','1','0','0','15146','terestian SAY_SLAY2'),
-('-1532067','My life is yours, oh great one...','9262','1','0','0','15137','terestian SAY_DEATH'),
-('-1532068','Ah, you''re just in time. The rituals are about to begin!','9260','1','0','0','15141','terestian SAY_AGGRO'),
-('-1532069','Please accept this humble offering, oh great one...','9263','1','0','0','15147','terestian SAY_SACRIFICE1'),
-('-1532070','Let this sacrifice serve as testament to my fealty.','9330','1','0','0','15148','terestian SAY_SACRIFICE2'),
-('-1532071','Come, you dwellers in the dark! Rally to my call!','9265','1','0','0','15150','terestian SAY_SUMMON1'),
-('-1532072','Gather, my pets... there is plenty for all!','9331','1','0','0','15151','terestian SAY_SUMMON2'),
 
 ('-1532073','Please, no more! My son... he''s gone mad!','9241','1','0','0','13529','aran SAY_AGGRO1'),
 ('-1532074','I''ll not be tortured again!','9323','1','0','0','15353','aran SAY_AGGRO2'),
@@ -3508,7 +3487,6 @@ INSERT INTO script_texts (entry,content_default,sound,type,language,emote,broadc
 ('-1532133','%s flaps down from the ceiling...','0','7','0','0','12322','shadikith_the_glider EMOTE_BAT_SPAWN'),
 ('-1532134','%s howls through the halls...','0','7','0','0','12323','rokad_the_ravager EMOTE_DOG_SPAWN'),
 ('-1532135','%s skitters out from the shadows...','0','7','0','0','12324','hyakiss_the_lurker EMOTE_SPIDER_SPAWN'),
-('-1532136','%s shrieks in pain and points at his master.','0','3','0','0','13582','Kil''Rek EMOTE_DEATH'),
 ('-1532137','%s calls for her master!','0','3','0','0','13439','Midnight EMOTE_CALL'),
 ('-1532138','%s skitters out from the shadows...','0','7','0','0','12324','hyakiss_the_lurker EMOTE_SPIDER_SPAWN2'),
 ('-1532139','%s begins channelling his mana into a powerful arcane spell.','0','3','0','0','13515','aran EMOTE_ARCANE_SPELL');

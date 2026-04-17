@@ -730,30 +730,30 @@ CreatureList UnitAI::DoFindFriendlyEligibleDispel(SpellEntry const* spellInfo, b
         if (spellInfo->Effect[i] == SPELL_EFFECT_DISPEL)
             dispelMask |= GetDispellMask(DispelType(spellInfo->EffectMiscValue[i]));
         else if (spellInfo->Effect[i] == SPELL_EFFECT_DISPEL_MECHANIC)
-            mechanicMask |= (1 << (spellInfo->EffectMiscValue[i] - 1));
+            mechanicMask |= convertEnumToFlag(spellInfo->EffectMiscValue[i]);
     }            
     float maxRange = CalculateSpellRange(spellInfo);
     return DoFindFriendlyEligibleDispel(maxRange, dispelMask, mechanicMask, self);
 }
 
-CreatureList UnitAI::DoFindFriendlyMissingBuff(float /*range*/, uint32 spellId, bool inCombat, bool self) const
+CreatureList UnitAI::DoFindFriendlyMissingBuff(float /*range*/, uint32 spellId, bool inCombat, bool self, uint32 spawnGroupId) const
 {
-    return DoFindFriendlyMissingBuff(sSpellTemplate.LookupEntry<SpellEntry>(spellId), inCombat, self);
+    return DoFindFriendlyMissingBuff(sSpellTemplate.LookupEntry<SpellEntry>(spellId), inCombat, self, spawnGroupId);
 }
 
-CreatureList UnitAI::DoFindFriendlyMissingBuff(SpellEntry const* spellInfo, bool inCombat, bool self) const
+CreatureList UnitAI::DoFindFriendlyMissingBuff(SpellEntry const* spellInfo, bool inCombat, bool self, uint32 spawnGroupId) const
 {
     CreatureList list;
     float maxRange = CalculateSpellRange(spellInfo);
     if (inCombat == false)
     {
-        MaNGOS::FriendlyMissingBuffInRangeNotInCombatCheck u_check(m_unit, maxRange, spellInfo->Id);
+        MaNGOS::FriendlyMissingBuffInRangeNotInCombatCheck u_check(m_unit, maxRange, spellInfo->Id, spawnGroupId);
         MaNGOS::CreatureListSearcher<MaNGOS::FriendlyMissingBuffInRangeNotInCombatCheck> searcher(list, u_check);
         Cell::VisitGridObjects(m_unit, searcher, maxRange);
     }
     else if (inCombat == true)
     {
-        MaNGOS::FriendlyMissingBuffInRangeInCombatCheck u_check(m_unit, maxRange, spellInfo->Id);
+        MaNGOS::FriendlyMissingBuffInRangeInCombatCheck u_check(m_unit, maxRange, spellInfo->Id, spawnGroupId);
         MaNGOS::CreatureListSearcher<MaNGOS::FriendlyMissingBuffInRangeInCombatCheck> searcher(list, u_check);
         Cell::VisitGridObjects(m_unit, searcher, maxRange);
     }

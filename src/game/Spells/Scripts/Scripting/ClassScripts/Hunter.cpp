@@ -143,16 +143,46 @@ struct RandomAggroSnakeTrap : public SpellScript
             return;
 
         Unit* target = spell->GetUnitTarget();
-        Unit* caster = spell->GetCaster();
-        if (caster->CanAttack(target))
+        Unit* snake = spell->GetCaster();
+
+        if (!target || !snake)
+            return;
+
+        if (snake->CanAttack(target) && snake->IsVisibleForOrDetect(target, target, true))
         {
-            if (caster->IsVisibleForOrDetect(target, target, true))
-                caster->AI()->AttackStart(caster);
+            if (snake->AI())
+                snake->AI()->AttackStart(target);
         }
     }
 };
 
 // TODO: some evidence tbc pet growl scales with hunter AP
+
+// 19678 - Tame Adult Plainstrider
+struct TamingPetRodAura : public AuraScript
+{
+    void OnApply(Aura* aura, bool apply) const override
+    {
+        Unit* caster = aura->GetCaster();
+        Unit* target = aura->GetTarget();
+
+        if (!target->IsCreature())
+            return;
+
+        Creature* creature = static_cast<Creature*>(target);
+
+        if (apply)
+        {
+            if (caster && caster->IsPlayer())
+                creature->GetMotionMaster()->MoveFollow(caster, PET_FOLLOW_DIST, PET_FOLLOW_ANGLE);   
+        }
+        else
+        {
+            if (aura->GetRemoveMode() == AURA_REMOVE_BY_EXPIRE)
+                creature->ForcedDespawn();     
+        }
+    }
+};
 
 void LoadHunterScripts()
 {
@@ -161,4 +191,5 @@ void LoadHunterScripts()
     RegisterSpellScript<Misdirection>("spell_misdirection");
     RegisterSpellScript<ExposeWeakness>("spell_expose_weakness");
     RegisterSpellScript<RandomAggroSnakeTrap>("spell_random_aggro_snake_trap");
+    RegisterSpellScript<TamingPetRodAura>("spell_taming_pet_rod");
 }

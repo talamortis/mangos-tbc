@@ -163,6 +163,7 @@ class Pet : public Creature
         bool isControlled() const { return getPetType() == SUMMON_PET || getPetType() == HUNTER_PET; }
         bool isTemporarySummoned() const { return m_duration > 0; }
         bool IsGuardian() const { return getPetType() == GUARDIAN_PET; }
+        bool HasActionsDisabled() const { return GetModeFlags() & PET_MODE_DISABLE_ACTIONS; }
 
         bool Create(uint32 guidlow, CreatureCreatePos& cPos, CreatureInfo const* cinfo, uint32 pet_number);
         bool CreateBaseAtCreature(Creature* creature);
@@ -317,6 +318,7 @@ class Pet : public Creature
         PetModeFlags m_petModeFlags;
         CharmInfo*   m_originalCharminfo;
         bool m_inStatsUpdate;
+        bool m_scaleWithCls;
 
         void SaveToDB(uint32, uint8) override               // overwrited of Creature::SaveToDB     - don't must be called
         {

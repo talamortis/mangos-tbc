@@ -373,20 +373,6 @@ inline bool IsAutocastable(uint32 spellId)
     return IsAutocastable(spellInfo);
 }
 
-// TODO: Unify with creature_template_spells so that we can set both attack and pet bar visibility
-// If true, only gives access to spellbar, and not states and commands
-// Works in connection with AI-CanHandleCharm
-inline bool IsPossessCharmType(uint32 spellId)
-{
-    switch (spellId)
-    {
-        case 30019: // Control Piece - Chess event
-        case 39219: // Death's Door Fel Cannon
-            return true;
-        default: return false;
-    }
-}
-
 inline bool IsSpellNeedSendOnObjectUpdate(uint32 spellId)
 {
     switch (spellId)
@@ -1786,7 +1772,7 @@ inline uint32 GetSpellMechanicMask(SpellEntry const* spellInfo, uint32 effectMas
 {
     uint32 mask = 0;
     if (spellInfo->Mechanic)
-        mask |= 1 << (spellInfo->Mechanic - 1);
+        mask |= convertEnumToFlag(spellInfo->Mechanic);
 
     for (uint32 i = 0; i < MAX_EFFECT_INDEX; ++i)
     {
@@ -1794,7 +1780,7 @@ inline uint32 GetSpellMechanicMask(SpellEntry const* spellInfo, uint32 effectMas
             continue;
 
         if (spellInfo->EffectMechanic[i])
-            mask |= 1 << (spellInfo->EffectMechanic[i] - 1);
+            mask |= convertEnumToFlag(spellInfo->EffectMechanic[i]);
     }
 
     return mask;
@@ -1804,10 +1790,10 @@ inline uint32 GetAllSpellMechanicMask(SpellEntry const* spellInfo)
 {
     uint32 mask = 0;
     if (spellInfo->Mechanic)
-        mask |= 1 << (spellInfo->Mechanic - 1);
+        mask |= convertEnumToFlag(spellInfo->Mechanic);
     for (unsigned int i : spellInfo->EffectMechanic)
         if (i)
-            mask |= 1 << (i - 1);
+            mask |= convertEnumToFlag(i);
     return mask;
 }
 

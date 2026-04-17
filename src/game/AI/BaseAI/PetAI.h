@@ -21,10 +21,11 @@
 
 #include "CreatureAI.h"
 #include "Entities/ObjectGuid.h"
-#include "Util/Timer.h"
+#include "Spells/SpellDefines.h"
 
 class Creature;
 class Spell;
+class CharmInfo;
 
 class PetAI : public CreatureAI
 {
@@ -49,11 +50,16 @@ class PetAI : public CreatureAI
         std::string GetAIName() override { return "PetAI"; }
 
     private:
-        void UpdateAllies();
+        Player* PickGroupMemberForSpell(Player* player, SpellEntry const* spellInfo);
+        std::vector<std::tuple<SpellEntry const*, Unit*, bool>> PickSpellWithTarget(Unit* owner, Unit* victim, CharmInfo* charminfo);
+        bool Cast(std::tuple<SpellEntry const*, Unit*, bool> spellWithTarget);
+        bool ShouldCast(SpellEntry const* spellInfo, Unit* victim);
 
-        bool inCombat;
+        bool CanAutoCast(SpellEntry const* spellInfo, Unit* target) const;
+        SpellCastResult CheckPetCast(SpellEntry const* spellInfo, Unit* target) const;
 
-        GuidSet m_AllySet;
-        uint32 m_updateAlliesTimer;
+        bool m_inCombat;
+
+        Pet* m_pet;
 };
 #endif

@@ -793,7 +793,22 @@ INSERT INTO spell_scripts(Id, ScriptName) VALUES
 (14325,'spell_hunters_mark'),
 (34026,'spell_kill_command'),
 (34477,'spell_misdirection'),
-(34501,'spell_expose_weakness');
+(34501,'spell_expose_weakness'),
+(19597, 'spell_taming_pet_rod'),
+(19676, 'spell_taming_pet_rod'),
+(19677, 'spell_taming_pet_rod'),
+(19678, 'spell_taming_pet_rod'),
+(19679, 'spell_taming_pet_rod'),
+(19680, 'spell_taming_pet_rod'),
+(19681, 'spell_taming_pet_rod'),
+(19682, 'spell_taming_pet_rod'),
+(19683, 'spell_taming_pet_rod'),
+(19684, 'spell_taming_pet_rod'),
+(19685, 'spell_taming_pet_rod'),
+(19686, 'spell_taming_pet_rod'),
+(30100, 'spell_taming_pet_rod'),
+(30103, 'spell_taming_pet_rod'),
+(30104, 'spell_taming_pet_rod');
 
 -- Priest
 INSERT INTO spell_scripts(Id, ScriptName) VALUES
@@ -838,15 +853,17 @@ INSERT INTO spell_scripts(Id, ScriptName) VALUES
 (5373,'spell_judgement_of_light_intermediate'),
 (1826,'spell_judgement_of_wisdom_intermediate'),
 (19752,'spell_divine_intervention'),
-(19977,'spell_blessing_of_light'),
+(19977,'spell_blessing_of_light'), -- Blessing of Light
 (19978,'spell_blessing_of_light'),
 (19979,'spell_blessing_of_light'),
 (27144,'spell_blessing_of_light'),
+(25890,'spell_blessing_of_light'), -- Greater Blessing of Light
+(27145,'spell_blessing_of_light'),
 (20271,'spell_judgement'),
 (40470,'spell_paladin_tier_6_trinket'),
 (31789,'spell_righteous_defense'),
 (31893,'spell_seal_of_blood_self_damage'),
-(31898,'spell_seal_of_blood_self_damage'),
+(31898,'spell_judgement_of_blood_self_damage'),
 (20467,'spell_judgement_of_command'),
 (20963,'spell_judgement_of_command'),
 (20964,'spell_judgement_of_command'),
@@ -1221,6 +1238,30 @@ INSERT INTO spell_scripts(Id, ScriptName) VALUES
 
 -- World Events
 INSERT INTO spell_scripts(Id, ScriptName) VALUES
+-- PTR
+(47327,'spell_summon_pedestal_npc'),
+(47347,'spell_summon_pedestal_npc'),
+(47348,'spell_summon_pedestal_npc'),
+(47349,'spell_summon_pedestal_npc'),
+(47350,'spell_summon_pedestal_npc'),
+(47351,'spell_summon_pedestal_npc'),
+(47352,'spell_summon_pedestal_npc'),
+(47353,'spell_summon_pedestal_npc'),
+(47354,'spell_summon_pedestal_npc'),
+(47355,'spell_summon_pedestal_npc'),
+(47356,'spell_summon_pedestal_npc'),
+(47357,'spell_summon_pedestal_npc'),
+(47358,'spell_summon_pedestal_npc'),
+(47359,'spell_summon_pedestal_npc'),
+(47360,'spell_summon_pedestal_npc'),
+(47361,'spell_summon_pedestal_npc'),
+(47362,'spell_summon_pedestal_npc'),
+(47363,'spell_summon_pedestal_npc'),
+(47364,'spell_summon_pedestal_npc'),
+(47365,'spell_summon_pedestal_npc'),
+(47366,'spell_summon_pedestal_npc'),
+(47367,'spell_summon_pedestal_npc'),
+(47368,'spell_summon_pedestal_npc'),
 -- Lunar Festival
 (26286, 'spell_lunar_festival_firework'),
 (26291, 'spell_lunar_festival_firework'),
